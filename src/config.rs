@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use std::fs::read_to_string;
 use serde::{Deserialize};
 
+
 /// Version pulled from Cargo.toml at compile time
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -65,13 +66,17 @@ pub struct Configuration {
     pub extensions: Vec<String>,
     #[serde(skip)]
     pub client: Client,
-    #[serde(default)]
+    #[serde(default = "fifty")]
     pub threads: usize,
-    #[serde(default)]
+    #[serde(default = "seven")]
     pub timeout: u64,
     #[serde(default)]
     pub verbosity: u8,
 }
+
+fn seven() -> u64 {7}
+fn fifty() -> usize {50}
+
 
 impl Default for Configuration {
     fn default() -> Self {
@@ -120,6 +125,8 @@ impl Configuration {
         // else is specified.
         let mut config = Configuration::default();
 
+
+
         if let Some(settings) = Self::parse_config() {
             config.target_url = settings.target_url;
             config.threads = settings.threads;
@@ -128,7 +135,6 @@ impl Configuration {
         }
 
         let args = Self::parse_args();
-        println!("args: {:?}", args);
 
         // the .is_some appears clunky, but it allows default values to be incrementally
         // overwritten from Struct defaults, to file config, to command line args, ¯\_(ツ)_/¯
@@ -152,7 +158,6 @@ impl Configuration {
         // target_url is required, so no if statement is required
         config.target_url = String::from(args.value_of("url").unwrap());
 
-        println!("{:?}", config);
         config
     }
 
@@ -217,7 +222,7 @@ impl Configuration {
     /// If toml cannot be parsed a `Configuration::default` instance is returned
     fn parse_config() -> Option<Self> {
         if let Ok(content) = read_to_string(DEFAULT_CONFIG_PATH) {
-            let config: Self = toml::from_str(content.as_str()).unwrap_or(Configuration::default());
+            let config: Self = toml::from_str(content.as_str()).unwrap();
             return Some(config);
         }
         None

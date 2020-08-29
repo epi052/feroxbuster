@@ -12,6 +12,7 @@ use tokio::task;
 use std::collections::HashSet;
 use std::env;
 
+
 /// Simple helper to generate a `reqwest::Url`
 ///
 /// the function relies on the application's `config::CONFIGURATION` struct
@@ -45,6 +46,8 @@ async fn bust_dirs(urls: &HashSet<Url>, client: &'static Client, threads: usize)
 
         })
         .buffer_unordered(threads);
+
+        log::debug!("{:#?}", buffered_futures);
 
         while let Some(item) = buffered_futures.next().await {
             match item {
@@ -89,6 +92,8 @@ async fn app() -> FeroxResult<()> {
     })
     .await?.collect();
 
+    log::debug!("{:#?}", urls);
+
     bust_dirs(&urls, &CONFIGURATION.client, CONFIGURATION.threads).await?;
     Ok(())
 }
@@ -105,7 +110,7 @@ fn main() {
 
     init_logger();
 
-    log::debug!("The configuration is {:#?}", *CONFIGURATION);
+    log::debug!("{:#?}", *CONFIGURATION);
 
     let mut rt = tokio::runtime::Runtime::new().unwrap();
 
