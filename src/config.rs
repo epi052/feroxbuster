@@ -2,17 +2,19 @@ use clap::{value_t, App, Arg, ArgMatches};
 use reqwest::{redirect::Policy, Client, StatusCode};
 use std::time::Duration;
 use lazy_static::lazy_static;
+use std::fs::read_to_string;
+use serde::{Deserialize};
 
 
-// todo!("update to use Kali's default install location for seclists");
-/// Default wordlist to use when `-w|--wordlist` isn't specified
+/// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
+/// in a [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file.
 ///
-/// defaults to kali's default install location of
-/// `seclists/Discovery/Web-Content/raft-medium-directories.txt`
+/// defaults to kali's default install location:
+/// - `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
 pub const DEFAULT_WORDLIST: &str =
-    "/wordlists/seclists/Discovery/Web-Content/raft-medium-directories.txt";
+    "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
 
-/// Default list of response codes to report, very similar to Gobuster's defaults
+/// Default list of response codes to report
 ///
 /// * 200 Ok
 /// * 204 No Content
@@ -35,21 +37,33 @@ pub const DEFAULT_RESPONSE_CODES: [StatusCode; 9] = [
     StatusCode::METHOD_NOT_ALLOWED,
 ];
 
+/// Default filename for config file settings
+pub const DEFAULT_CONFIG_PATH: &str = "feroxbuster.toml";
+
 lazy_static! {
-    // Global configuration variable.
+    /// Global configuration variable.
     pub static ref CONFIGURATION: Configuration = Configuration::new();
 }
 
 /// Represents the final, global configuration of the program.
-/// This struct is the combination of
+///
+/// This struct is the combination of the following:
 /// - default configuration values
-/// - command-line options
-#[derive(Debug, Clone)]
+/// - plus overrides read from a configuration file
+/// - plus command-line options
+///
+/// In that order.
+#[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
+    #[serde(default)]
     pub wordlist: String,
+    #[serde(default)]
     pub target_url: String,
+    #[serde(default)]
     pub extensions: Vec<String>,
+    #[serde(skip)]
     pub client: Client,
+    #[serde(default)]
     pub threads: usize,
 }
 
@@ -72,17 +86,49 @@ impl Default for Configuration {
 }
 
 impl Configuration {
+    /// Creates a [Configuration](struct.Configuration.html) object with the following
+    /// built-in default values
+    ///
+    /// - timeout: 5 seconds
+    /// - follow redirects: false
+    /// - wordlist: [DEFAULT_WORDLIST](constant.DEFAULT_WORDLIST.html)
+    /// - threads: 50
+    ///
+    /// After which, any values defined in the settings section of a
+    /// [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file will override the
+    /// built-in defaults.
+    ///
+    /// Finally, any options/arguments given on the commandline will override both built-in and
+    /// config-file specified values.
+    ///
+    /// The resulting [Configuration](struct.Configuration.html) is a singleton with a `static`
+    /// lifetime.
     pub fn new() -> Self {
         // Get the default configuration, this is what will apply if nothing
         // else is specified.
         let mut config = Configuration::default();
 
+        if let Some(settings) = Self::parse_config() {
+            config.target_url = settings.target_url;
+            config.threads = settings.threads;
+            config.wordlist = settings.wordlist;
+            config.extensions = settings.extensions;
+        }
+
         let args = Self::parse_args();
-        let threads = value_t!(args.value_of("threads"), usize).unwrap_or_else(|e| e.exit());
+
+        // the .is_some appears clunky, but it allows default values to be incrementally
+        // overwritten from Struct defaults, to file config, to command line args, ¯\_(ツ)_/¯
+        if args.value_of("threads").is_some() {
+            let threads = value_t!(args.value_of("threads"), usize).unwrap_or_else(|e| e.exit());
+            config.threads = threads;
+        }
+
+        if args.value_of("wordlist").is_some() {
+            config.wordlist = String::from(args.value_of("wordlist").unwrap());
+        }
 
         config.target_url = String::from(args.value_of("url").unwrap());
-        config.wordlist = String::from(args.value_of("wordlist").unwrap());
-        config.threads = threads;
 
         config
     }
@@ -107,7 +153,6 @@ impl Configuration {
                     .value_name("FILE")
                     .help("Path to the wordlist")
                     .takes_value(true)
-                    .default_value(DEFAULT_WORDLIST),
             )
             .arg(
                 Arg::with_name("url")
@@ -121,9 +166,16 @@ impl Configuration {
                     .long("threads")
                     .value_name("THREADS")
                     .takes_value(true)
-                    .default_value("50")
                     .help("Number of concurrent threads (default: 50)"),
             )
             .get_matches()
+    }
+
+    fn parse_config() -> Option<Self> {
+        if let Ok(content) = read_to_string(DEFAULT_CONFIG_PATH) {
+            let config: Self = toml::from_str(content.as_str()).unwrap_or(Configuration::default());
+            return Some(config);
+        }
+        None
     }
 }
