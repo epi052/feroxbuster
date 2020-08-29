@@ -82,6 +82,7 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = 7;
 
+        // todo: remove unwrap
         let client = Client::builder()
             .timeout(Duration::new(timeout, 0))
             .redirect(Policy::none())
@@ -222,6 +223,7 @@ impl Configuration {
     /// If toml cannot be parsed a `Configuration::default` instance is returned
     fn parse_config() -> Option<Self> {
         if let Ok(content) = read_to_string(DEFAULT_CONFIG_PATH) {
+            // todo: remove unwrap
             let config: Self = toml::from_str(content.as_str()).unwrap();
             return Some(config);
         }
