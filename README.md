@@ -7,7 +7,7 @@ Table of Contents
 - [Downloads](#downloads)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Comparison w/ Similar Tools](#comparison_w_similar_tools)
+- [Comparison w/ Similar Tools](#comparison-w-similar-tools)
 
 ## Downloads
 There are pre-built binaries for the following systems:
