@@ -1,12 +1,12 @@
 use clap::{value_t, App, Arg, ArgMatches};
-use reqwest::{redirect::Policy, Client, StatusCode, Proxy};
-use std::time::Duration;
 use lazy_static::lazy_static;
-use std::fs::read_to_string;
+use reqwest::{redirect::Policy, Client, Proxy, StatusCode};
 use serde::Deserialize;
+use std::fs::read_to_string;
+use std::time::Duration;
 
 /// Version pulled from Cargo.toml at compile time
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file.
@@ -73,12 +73,14 @@ pub struct Configuration {
     pub timeout: u64,
     #[serde(default)]
     pub verbosity: u8,
-
 }
 
-fn seven() -> u64 {7}
-fn fifty() -> usize {50}
-
+fn seven() -> u64 {
+    7
+}
+fn fifty() -> usize {
+    50
+}
 
 impl Default for Configuration {
     fn default() -> Self {
@@ -105,7 +107,7 @@ impl Configuration {
     ///
     /// - timeout: 5 seconds
     /// - follow redirects: false
-    /// - wordlist: [DEFAULT_WORDLIST](constant.DEFAULT_WORDLIST.html)
+    /// - wordlist: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
     /// - threads: 50
     /// - timeout: 7
     /// - verbosity: 0 (no logging enabled)
@@ -131,6 +133,7 @@ impl Configuration {
             config.wordlist = settings.wordlist;
             config.extensions = settings.extensions;
             config.proxy = settings.proxy;
+            config.verbosity = settings.verbosity;
         }
 
         let args = Self::parse_args();
@@ -184,7 +187,7 @@ impl Configuration {
                     .long("wordlist")
                     .value_name("FILE")
                     .help("Path to the wordlist")
-                    .takes_value(true)
+                    .takes_value(true),
             )
             .arg(
                 Arg::with_name("url")
@@ -214,14 +217,17 @@ impl Configuration {
                     .long("verbosity")
                     .takes_value(false)
                     .multiple(true)
-                    .help("Increase verbosity level (use -vv or more for greater effect)"))
+                    .help("Increase verbosity level (use -vv or more for greater effect)"),
+            )
             .arg(
                 Arg::with_name("proxy")
                     .short("p")
                     .long("proxy")
                     .takes_value(true)
-                    .help("Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)"))
-
+                    .help(
+                        "Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)",
+                    ),
+            )
             .get_matches()
     }
 
@@ -240,30 +246,32 @@ impl Configuration {
     }
 
     fn create_client(timeout: u64, proxy: Option<&str>) -> Client {
-         let client = Client::builder()
+        let client = Client::builder()
             .timeout(Duration::new(timeout, 0))
             .redirect(Policy::none());
 
         // add optional proxy to config
+
         let client = if proxy.is_some() && !proxy.unwrap().is_empty() {
-            match Proxy::all(proxy.unwrap()) {
-                Ok(proxy_obj) => {
-                    client.proxy(proxy_obj)
-                }
+           match Proxy::all(proxy.unwrap()) {
+                Ok(proxy_obj) => client.proxy(proxy_obj),
                 Err(e) => {
-                    log::error!("Could not add proxy ({:?}) to Client configuration: {}", proxy, e);
+                    eprintln!(
+                        "[!] Could not add proxy ({:?}) to Client configuration: {}",
+                        proxy, e
+                    );
                     client
                 }
             }
         } else {
-            log::debug!("proxy ({:?}) not added to Client configuration", proxy);
+            eprintln!("[!] proxy ({:?}) not added to Client configuration", proxy);
             client
         };
 
         match client.build() {
             Ok(client) => client,
             Err(e) => {
-                eprintln!("Could not create a Client with the given configuration, exiting.");
+                eprintln!("[!] Could not create a Client with the given configuration, exiting.");
                 panic!("Client::build: {}", e);
             }
         }
