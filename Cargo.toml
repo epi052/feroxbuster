@@ -6,10 +6,10 @@ edition = "2018"
 
 [dependencies]
 futures = { version = "0.3"}
-tokio = {version = "0.2", features = ["full"] }
+tokio = { version = "0.2", features = ["full"] }
 log = "0.4"
 env_logger = "0.7"
-reqwest = "0.10"
+reqwest = { version = "0.10", features = ["socks"] }
 clap = "~2.27.0"
 lazy_static = "1.4"
 toml = "0.5"

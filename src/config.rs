@@ -1,10 +1,9 @@
 use clap::{value_t, App, Arg, ArgMatches};
-use reqwest::{redirect::Policy, Client, StatusCode};
+use reqwest::{redirect::Policy, Client, StatusCode, Proxy};
 use std::time::Duration;
 use lazy_static::lazy_static;
 use std::fs::read_to_string;
-use serde::{Deserialize};
-
+use serde::Deserialize;
 
 /// Version pulled from Cargo.toml at compile time
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -61,6 +60,8 @@ pub struct Configuration {
     #[serde(default)]
     pub wordlist: String,
     #[serde(default)]
+    pub proxy: String,
+    #[serde(default)]
     pub target_url: String,
     #[serde(default)]
     pub extensions: Vec<String>,
@@ -72,6 +73,7 @@ pub struct Configuration {
     pub timeout: u64,
     #[serde(default)]
     pub verbosity: u8,
+
 }
 
 fn seven() -> u64 {7}
@@ -82,16 +84,12 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = 7;
 
-        // todo: remove unwrap
-        let client = Client::builder()
-            .timeout(Duration::new(timeout, 0))
-            .redirect(Policy::none())
-            .build()
-            .unwrap();
+        let client = Self::create_client(timeout, None);
 
         Configuration {
             wordlist: String::from(DEFAULT_WORDLIST),
             target_url: String::new(),
+            proxy: String::new(),
             extensions: vec![],
             threads: 50,
             timeout,
@@ -111,6 +109,7 @@ impl Configuration {
     /// - threads: 50
     /// - timeout: 7
     /// - verbosity: 0 (no logging enabled)
+    /// - proxy: None
     ///
     /// After which, any values defined in the settings section of a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file will override the
@@ -126,13 +125,12 @@ impl Configuration {
         // else is specified.
         let mut config = Configuration::default();
 
-
-
         if let Some(settings) = Self::parse_config() {
             config.target_url = settings.target_url;
             config.threads = settings.threads;
             config.wordlist = settings.wordlist;
             config.extensions = settings.extensions;
+            config.proxy = settings.proxy;
         }
 
         let args = Self::parse_args();
@@ -149,6 +147,12 @@ impl Configuration {
             config.timeout = timeout;
         }
 
+        if args.value_of("proxy").is_some() {
+            let tmp_proxy = args.value_of("proxy").unwrap();
+            config.client = Self::create_client(config.timeout, Some(tmp_proxy));
+            config.proxy = String::from(tmp_proxy);
+        }
+
         if args.value_of("wordlist").is_some() {
             config.wordlist = String::from(args.value_of("wordlist").unwrap());
         }
@@ -163,7 +167,6 @@ impl Configuration {
     }
 
     fn parse_args() -> ArgMatches<'static> {
-        // todo!("add proxy option");
         // todo!("add ignore certs option");
         // todo!("add headers option");
         // todo!("add user-agent option");
@@ -212,6 +215,12 @@ impl Configuration {
                     .takes_value(false)
                     .multiple(true)
                     .help("Increase verbosity level (use -vv or more for greater effect)"))
+            .arg(
+                Arg::with_name("proxy")
+                    .short("p")
+                    .long("proxy")
+                    .takes_value(true)
+                    .help("Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)"))
 
             .get_matches()
     }
@@ -229,6 +238,36 @@ impl Configuration {
         }
         None
     }
+
+    fn create_client(timeout: u64, proxy: Option<&str>) -> Client {
+         let client = Client::builder()
+            .timeout(Duration::new(timeout, 0))
+            .redirect(Policy::none());
+
+        // add optional proxy to config
+        let client = if proxy.is_some() && !proxy.unwrap().is_empty() {
+            match Proxy::all(proxy.unwrap()) {
+                Ok(proxy_obj) => {
+                    client.proxy(proxy_obj)
+                }
+                Err(e) => {
+                    log::error!("Could not add proxy ({:?}) to Client configuration: {}", proxy, e);
+                    client
+                }
+            }
+        } else {
+            log::debug!("proxy ({:?}) not added to Client configuration", proxy);
+            client
+        };
+
+        match client.build() {
+            Ok(client) => client,
+            Err(e) => {
+                eprintln!("Could not create a Client with the given configuration, exiting.");
+                panic!("Client::build: {}", e);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -239,11 +278,11 @@ mod tests {
     fn default_configuration() {
         let config = Configuration::default();
         assert_eq!(config.wordlist, DEFAULT_WORDLIST);
-        assert_eq!(config.threads, 50);
-        assert_eq!(config.timeout, 7);
+        assert_eq!(config.proxy, String::new());
         assert_eq!(config.target_url, String::new());
         assert_eq!(config.extensions, Vec::<String>::new());
-        assert_eq!(config.target_url, String::new());
+        assert_eq!(config.threads, 50);
+        assert_eq!(config.timeout, 7);
         assert_eq!(config.verbosity, 0);
     }
 }
