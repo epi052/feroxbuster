@@ -35,7 +35,6 @@ async fn make_request(client: &Client, url: Url) -> Response {
 
 /// Creates a Set of Strings from the given wordlist
 fn get_unique_words_from_wordlist(config: &Configuration) -> FeroxResult<HashSet<String>> {
-    //todo: stupid function name
     let file = match File::open(&config.wordlist) {
         Ok(f) => f,
         Err(e) => {
@@ -104,7 +103,8 @@ async fn bust_dir(
 }
 
 async fn app() -> FeroxResult<()> {
-    let words = task::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION) }).await??;
+    let words =
+        task::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION) }).await??;
 
     bust_dir(
         &CONFIGURATION.target_url,

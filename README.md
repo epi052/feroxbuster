@@ -28,6 +28,7 @@ Configuration begins with with the following built-in default values baked into 
 - wordlist: `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
 - threads: `50`
 - verbosity: `0` (no logging enabled)
+- statuscodes: `200 204 301 302 307 308 401 403 405`
 
 ### feroxbuster.toml
 After setting built-in default values, any values defined in a `feroxbuster.toml` config file will override the
@@ -46,13 +47,24 @@ Notes of interest:
 wordlist = "/wordlists/jhaddix/all.txt"
 ```
 
+Example usage of all available settings in feroxbuster.toml
+```toml
+# feroxbuster.toml
+
+wordlist = "/wordlists/jhaddix/all.txt"
+statuscodes = [200, 403]
+threads = 40
+timeout = 5
+proxy = "http://127.0.0.1:8080"
+```
+
 ### Command Line Parsing
 Finally, any options/arguments given on the commandline will override both built-in and
 config-file specified values.
 
 ```
 USAGE:
-    feroxbuster [FLAGS] [OPTIONS] <URL>
+    feroxbuster [FLAGS] [OPTIONS] --url <URL>
 
 FLAGS:
     -h, --help         Prints help information
@@ -60,12 +72,12 @@ FLAGS:
     -v, --verbosity    Increase verbosity level (use -vv or more for greater effect)
 
 OPTIONS:
-    -t, --threads <THREADS>    Number of concurrent threads (default: 50)
-    -T, --timeout <SECONDS>    Number of seconds before a request times out (default: 7)
-    -w, --wordlist <FILE>      Path to the wordlist
-
-ARGS:
-    <URL>    The target URL
+    -p, --proxy <proxy>                   Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    -s, --statuscodes <STATUS_CODE>...    Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
+    -t, --threads <THREADS>               Number of concurrent threads (default: 50)
+    -T, --timeout <SECONDS>               Number of seconds before a request times out (default: 7)
+    -u, --url <URL>                       The target URL
+    -w, --wordlist <FILE>                 Path to the wordlist
 
 ```
 
