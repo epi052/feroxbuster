@@ -26,9 +26,15 @@ pub fn format_url(word: &str, url: &str) -> FeroxResult<Url> {
     }
 }
 
-async fn make_request(client: &Client, url: Url) -> Response {
+async fn make_request(client: &Client, url: Url) -> FeroxResult<Response> {
     // todo: remove unwrap
-    client.get(url).send().await.unwrap()
+    match client.get(url).send().await {
+        Ok(resp) => Ok(resp),
+        Err(e) => {
+            log::error!("make_request: {}", e);
+            Err(Box::new(e))
+        }
+    }
 }
 
 /// Creates a Set of Strings from the given wordlist
@@ -78,14 +84,15 @@ async fn bust_dir(
     while let Some(item) = buffered_futures.next().await {
         match item {
             Ok(response) => {
-                let response_code = &response.status();
+                let resp = response?;
+                let response_code = &resp.status();
                 for code in DEFAULT_RESPONSE_CODES.iter() {
                     if response_code == code {
                         println!(
                             "[{}] - {} - [{} bytes]",
-                            response.status(),
-                            response.url(),
-                            response.content_length().unwrap_or(0)
+                            resp.status(),
+                            resp.url(),
+                            resp.content_length().unwrap_or(0)
                         );
                         break;
                     }

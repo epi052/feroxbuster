@@ -1,10 +1,11 @@
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::time::Duration;
 
-pub fn initialize(timeout: u64, proxy: Option<&str>) -> Client {
+pub fn initialize(timeout: u64, useragent: &str, proxy: Option<&str>) -> Client {
     // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
+        .user_agent(useragent)
         .redirect(Policy::none());
 
     let client = if proxy.is_some() && !proxy.unwrap().is_empty() {

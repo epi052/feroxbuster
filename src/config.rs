@@ -79,9 +79,12 @@ pub struct Configuration {
     pub quiet: bool,
     #[serde(default)]
     pub output: String,
+    #[serde(default = "useragent")]
+    pub useragent: String,
+
 }
 
-// functions timeout, threads, extensions, and wordlist are used to provide defaults in the
+// functions timeout, threads, extensions, useragent, and wordlist are used to provide defaults in the
 // event that a feroxbuster.toml is found but one or more of the values below aren't listed
 // in the config.  This way, we get the correct defaults upon Deserialization
 fn timeout() -> u64 {
@@ -99,16 +102,20 @@ fn statuscodes() -> Vec<u16> {
 fn wordlist() -> String {
     String::from(DEFAULT_WORDLIST)
 }
+fn useragent() -> String {
+    format!("feroxbuster/{}", VERSION)
+}
 
 impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
-
-        let client = client::initialize(timeout, None);
+        let useragent = useragent();
+        let client = client::initialize(timeout, &useragent, None);
 
         Configuration {
             client,
             timeout,
+            useragent,
             quiet: false,
             verbosity: 0,
             proxy: String::new(),
@@ -135,6 +142,7 @@ impl Configuration {
     /// - statuscodes: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
     /// - output: None (print to stdout)
     /// - quiet: false
+    /// - useragent: "feroxbuster/VERSION"
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file will override the
@@ -164,6 +172,7 @@ impl Configuration {
             config.verbosity = settings.verbosity;
             config.quiet = settings.quiet;
             config.output = settings.output;
+            config.useragent = settings.useragent
         }
 
         let args = parser::initialize().get_matches();
@@ -173,17 +182,6 @@ impl Configuration {
         if args.value_of("threads").is_some() {
             let threads = value_t!(args.value_of("threads"), usize).unwrap_or_else(|e| e.exit());
             config.threads = threads;
-        }
-
-        if args.value_of("timeout").is_some() {
-            let timeout = value_t!(args.value_of("timeout"), u64).unwrap_or_else(|e| e.exit());
-            config.timeout = timeout;
-        }
-
-        if args.value_of("proxy").is_some() {
-            let tmp_proxy = args.value_of("proxy").unwrap();
-            config.client = client::initialize(config.timeout, Some(tmp_proxy));
-            config.proxy = String::from(tmp_proxy);
         }
 
         if args.value_of("wordlist").is_some() {
@@ -226,8 +224,35 @@ impl Configuration {
         // target_url is required, so no if statement is required
         config.target_url = String::from(args.value_of("url").unwrap());
 
-        println!("{:#?}", config); // todo: remove eventually
+        ////
+        // organizational breakpoint; all options below alter the Client configuration
+        ////
+        if args.value_of("proxy").is_some() {
+            config.proxy = String::from(args.value_of("proxy").unwrap());
+        }
 
+        if args.value_of("useragent").is_some() {
+            config.useragent = String::from(args.value_of("useragent").unwrap());
+        }
+
+        if args.value_of("timeout").is_some() {
+            let timeout = value_t!(args.value_of("timeout"), u64).unwrap_or_else(|e| e.exit());
+            config.timeout = timeout;
+        }
+
+        // this if statement determines if we've gotten a Client configuration change from
+        // either the config file or command line arguments; if we have, we need to rebuild
+        // the client and store it in the config struct
+        if !config.proxy.is_empty() || config.timeout != timeout() || config.useragent != useragent() {
+            if config.proxy.is_empty() {
+                config.client = client::initialize(config.timeout, &config.useragent, None)
+            }
+            else {
+                config.client = client::initialize(config.timeout, &config.useragent, Some(&config.proxy))
+            }
+        }
+
+        println!("{:#?}", config); // todo: remove eventually or turn into banner
         config
     }
 

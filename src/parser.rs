@@ -66,8 +66,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .help(
                     "Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)",
                 ),
-        )
-        .arg(
+        )        .arg(
             Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
@@ -79,7 +78,17 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("o")
                 .long("output")
                 .value_name("FILE")
-                .help("Output file to write results to (defaults to stdout)")
+                .help("Output file to write results to (default: stdout)")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("useragent")
+                .short("a")
+                .long("useragent")
+                .takes_value(true)
+                .help(
+                    "Sets the User-Agent (default: feroxbuster/VERSION)"
+                ),
+        )
+
 }
