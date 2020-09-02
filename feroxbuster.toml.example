@@ -13,3 +13,4 @@
 # proxy = "http://127.0.0.1:8080"
 # verbosity = 1
 # quiet = true
+# output = "/targets/ellingson_mineral_company/gibson.txt"

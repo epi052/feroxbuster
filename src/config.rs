@@ -1,14 +1,14 @@
-use clap::{value_t, App, Arg};
+use crate::{client, parser};
+use clap::value_t;
 use lazy_static::lazy_static;
-use reqwest::{redirect::Policy, Client, Proxy, StatusCode};
+use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
-use std::time::Duration;
 
 /// Version pulled from Cargo.toml at compile time
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file.
@@ -77,6 +77,8 @@ pub struct Configuration {
     pub verbosity: u8,
     #[serde(default)]
     pub quiet: bool,
+    #[serde(default)]
+    pub output: String,
 }
 
 // functions timeout, threads, extensions, and wordlist are used to provide defaults in the
@@ -102,18 +104,19 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
 
-        let client = Self::create_client(timeout, None);
+        let client = client::initialize(timeout, None);
 
         Configuration {
-            wordlist: wordlist(),
-            target_url: String::new(),
-            proxy: String::new(),
-            statuscodes: statuscodes(),
-            threads: threads(),
-            timeout,
-            verbosity: 0,
             client,
-            quiet: false
+            timeout,
+            quiet: false,
+            verbosity: 0,
+            proxy: String::new(),
+            output: String::new(),
+            target_url: String::new(),
+            threads: threads(),
+            wordlist: wordlist(),
+            statuscodes: statuscodes(),
         }
     }
 }
@@ -130,6 +133,7 @@ impl Configuration {
     /// - verbosity: 0 (no logging enabled)
     /// - proxy: None
     /// - statuscodes: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - output: None (print to stdout)
     /// - quiet: false
     ///
     /// After which, any values defined in a
@@ -159,9 +163,10 @@ impl Configuration {
             config.timeout = settings.timeout;
             config.verbosity = settings.verbosity;
             config.quiet = settings.quiet;
+            config.output = settings.output;
         }
 
-        let args = Self::arg_parser().get_matches();
+        let args = parser::initialize().get_matches();
 
         // the .is_some appears clunky, but it allows default values to be incrementally
         // overwritten from Struct defaults, to file config, to command line args, soooo ¯\_(ツ)_/¯
@@ -177,12 +182,16 @@ impl Configuration {
 
         if args.value_of("proxy").is_some() {
             let tmp_proxy = args.value_of("proxy").unwrap();
-            config.client = Self::create_client(config.timeout, Some(tmp_proxy));
+            config.client = client::initialize(config.timeout, Some(tmp_proxy));
             config.proxy = String::from(tmp_proxy);
         }
 
         if args.value_of("wordlist").is_some() {
             config.wordlist = String::from(args.value_of("wordlist").unwrap());
+        }
+
+        if args.value_of("output").is_some() {
+            config.output = String::from(args.value_of("output").unwrap());
         }
 
         if args.values_of("statuscodes").is_some() {
@@ -212,7 +221,6 @@ impl Configuration {
             // occurrences_of returns 0 if none are found; this is protected in
             // an if block for the same reason as the quiet option
             config.verbosity = args.occurrences_of("verbosity") as u8;
-
         }
 
         // target_url is required, so no if statement is required
@@ -221,81 +229,6 @@ impl Configuration {
         println!("{:#?}", config); // todo: remove eventually
 
         config
-    }
-
-    fn arg_parser() -> App<'static, 'static> {
-        App::new("feroxbuster")
-            .version(VERSION)
-            .author("epi (@epi052)")
-            .about("A fast, simple, recursive content discovery tool written in Rust")
-            .arg(
-                Arg::with_name("wordlist")
-                    .short("w")
-                    .long("wordlist")
-                    .value_name("FILE")
-                    .help("Path to the wordlist")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::with_name("url")
-                    .short("u")
-                    .long("url")
-                    .required(true)
-                    .value_name("URL")
-                    .help("The target URL"),
-            )
-            .arg(
-                Arg::with_name("threads")
-                    .short("t")
-                    .long("threads")
-                    .value_name("THREADS")
-                    .takes_value(true)
-                    .help("Number of concurrent threads (default: 50)"),
-            )
-            .arg(
-                Arg::with_name("timeout")
-                    .short("T")
-                    .long("timeout")
-                    .value_name("SECONDS")
-                    .takes_value(true)
-                    .help("Number of seconds before a request times out (default: 7)"),
-            )
-            .arg(
-                Arg::with_name("verbosity")
-                    .short("v")
-                    .long("verbosity")
-                    .takes_value(false)
-                    .multiple(true)
-                    .help("Increase verbosity level (use -vv or more for greater effect)"),
-            )
-            .arg(
-                Arg::with_name("proxy")
-                    .short("p")
-                    .long("proxy")
-                    .takes_value(true)
-                    .help(
-                        "Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)",
-                    ),
-            )
-            .arg(
-                Arg::with_name("statuscodes")
-                    .short("s")
-                    .long("statuscodes")
-                    .value_name("STATUS_CODE")
-                    .takes_value(true)
-                    .multiple(true)
-                    .use_delimiter(true)
-                    .help(
-                        "Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)",
-                    ),
-            )
-            .arg(
-                Arg::with_name("quiet")
-                    .short("q")
-                    .long("quiet")
-                    .takes_value(false)
-                    .help("Don't print status codes, running config, etc... Only URLs (useful for piping output)")
-            )
     }
 
     /// If present, read in `DEFAULT_CONFIG_PATH` and deserialize the specified values
@@ -314,38 +247,6 @@ impl Configuration {
         }
         None
     }
-
-    fn create_client(timeout: u64, proxy: Option<&str>) -> Client {
-        // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
-        let client = Client::builder()
-            .timeout(Duration::new(timeout, 0))
-            .redirect(Policy::none());
-
-        let client = if proxy.is_some() && !proxy.unwrap().is_empty() {
-            match Proxy::all(proxy.unwrap()) {
-                Ok(proxy_obj) => client.proxy(proxy_obj),
-                Err(e) => {
-                    eprintln!(
-                        "[!] Could not add proxy ({:?}) to Client configuration: {}",
-                        proxy, e
-                    );
-                    client
-                }
-            }
-        } else {
-            // todo: do i wanna see this at the start of every run??
-            eprintln!("[!] proxy ({:?}) not added to Client configuration", proxy);
-            client
-        };
-
-        match client.build() {
-            Ok(client) => client,
-            Err(e) => {
-                eprintln!("[!] Could not create a Client with the given configuration, exiting.");
-                panic!("Client::build: {}", e);
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -363,6 +264,7 @@ mod tests {
             proxy = "http://127.0.0.1:8080"
             quiet = true
             verbosity = 1
+            output = "/some/otherpath"
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -425,4 +327,9 @@ mod tests {
         assert_eq!(config.verbosity, 1);
     }
 
+    #[test]
+    fn config_reads_output() {
+        let config = setup_config_test();
+        assert_eq!(config.output, "/some/otherpath");
+    }
 }

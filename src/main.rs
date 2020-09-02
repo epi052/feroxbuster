@@ -1,7 +1,5 @@
-use feroxbuster::logger;
-use feroxbuster::FeroxResult;
-mod config;
-use crate::config::{Configuration, CONFIGURATION, DEFAULT_RESPONSE_CODES};
+use feroxbuster::config::{Configuration, CONFIGURATION, DEFAULT_RESPONSE_CODES};
+use feroxbuster::{logger, FeroxResult};
 use futures::stream;
 use futures::StreamExt;
 use reqwest::{Client, Response, Url};

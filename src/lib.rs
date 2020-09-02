@@ -1,5 +1,7 @@
 /// Generic Result type to ease error handling in async contexts
 pub type FeroxResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+pub mod client;
 pub mod config;
 pub mod logger;
+pub mod parser;
