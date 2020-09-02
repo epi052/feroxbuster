@@ -47,7 +47,7 @@ Notes of interest:
 wordlist = "/wordlists/jhaddix/all.txt"
 ```
 
-Example usage of all available settings in feroxbuster.toml
+Example usage of all available settings in feroxbuster.toml (can also be found in `feroxbuster.toml.example`)
 ```toml
 # feroxbuster.toml
 
@@ -56,6 +56,8 @@ statuscodes = [200, 403]
 threads = 40
 timeout = 5
 proxy = "http://127.0.0.1:8080"
+verbosity = 1
+quiet = true
 ```
 
 ### Command Line Parsing

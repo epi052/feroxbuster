@@ -2,11 +2,10 @@ use clap::{value_t, App, Arg};
 use lazy_static::lazy_static;
 use reqwest::{redirect::Policy, Client, Proxy, StatusCode};
 use serde::Deserialize;
-use std::process::exit;
 use std::fs::read_to_string;
-use std::time::Duration;
 use std::path::Path;
-
+use std::process::exit;
+use std::time::Duration;
 
 /// Version pulled from Cargo.toml at compile time
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -76,6 +75,8 @@ pub struct Configuration {
     pub timeout: u64,
     #[serde(default)]
     pub verbosity: u8,
+    #[serde(default)]
+    pub quiet: bool,
 }
 
 // functions timeout, threads, extensions, and wordlist are used to provide defaults in the
@@ -112,6 +113,7 @@ impl Default for Configuration {
             timeout,
             verbosity: 0,
             client,
+            quiet: false
         }
     }
 }
@@ -128,6 +130,7 @@ impl Configuration {
     /// - verbosity: 0 (no logging enabled)
     /// - proxy: None
     /// - statuscodes: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - quiet: false
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file will override the
@@ -155,6 +158,7 @@ impl Configuration {
             config.proxy = settings.proxy;
             config.timeout = settings.timeout;
             config.verbosity = settings.verbosity;
+            config.quiet = settings.quiet;
         }
 
         let args = Self::arg_parser().get_matches();
@@ -184,16 +188,32 @@ impl Configuration {
         if args.values_of("statuscodes").is_some() {
             config.statuscodes = args
                 .values_of("statuscodes")
-                .unwrap()  // already known good
+                .unwrap() // already known good
                 .map(|code| {
-                    StatusCode::from_bytes(code.as_bytes()).unwrap_or_else(|e| {eprintln!("[!] Error encountered: {}", e); exit(1)})
+                    StatusCode::from_bytes(code.as_bytes())
+                        .unwrap_or_else(|e| {
+                            eprintln!("[!] Error encountered: {}", e);
+                            exit(1)
+                        })
                         .as_u16()
                 })
                 .collect();
         }
 
-        // occurrences_of returns 0 if none are found, which is desired behavior
-        config.verbosity = args.occurrences_of("verbosity") as u8;
+        if args.is_present("quiet") {
+            // the reason this is protected by an if statement:
+            // consider a user specifying quiet = true in feroxbuster.toml
+            // if the line below is outside of the if, we'd overwrite true with
+            // false if no -q is used on the command line
+            config.quiet = args.is_present("quiet");
+        }
+
+        if args.occurrences_of("verbosity") > 0 {
+            // occurrences_of returns 0 if none are found; this is protected in
+            // an if block for the same reason as the quiet option
+            config.verbosity = args.occurrences_of("verbosity") as u8;
+
+        }
 
         // target_url is required, so no if statement is required
         config.target_url = String::from(args.value_of("url").unwrap());
@@ -204,12 +224,6 @@ impl Configuration {
     }
 
     fn arg_parser() -> App<'static, 'static> {
-        // todo!("add ignore certs option");
-        // todo!("add headers option");
-        // todo!("add user-agent option");
-        // todo!("add redirect/no-redirect? option");
-        // todo!("add quiet/include status codes in output option");
-
         App::new("feroxbuster")
             .version(VERSION)
             .author("epi (@epi052)")
@@ -274,6 +288,13 @@ impl Configuration {
                     .help(
                         "Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)",
                     ),
+            )
+            .arg(
+                Arg::with_name("quiet")
+                    .short("q")
+                    .long("quiet")
+                    .takes_value(false)
+                    .help("Don't print status codes, running config, etc... Only URLs (useful for piping output)")
             )
     }
 
@@ -340,6 +361,8 @@ mod tests {
             threads = 40
             timeout = 5
             proxy = "http://127.0.0.1:8080"
+            quiet = true
+            verbosity = 1
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -357,6 +380,7 @@ mod tests {
         assert_eq!(config.threads, threads());
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
+        assert_eq!(config.quiet, false);
     }
 
     #[test]
@@ -388,4 +412,17 @@ mod tests {
         let config = setup_config_test();
         assert_eq!(config.proxy, "http://127.0.0.1:8080");
     }
+
+    #[test]
+    fn config_reads_quiet() {
+        let config = setup_config_test();
+        assert_eq!(config.quiet, true);
+    }
+
+    #[test]
+    fn config_reads_verbosity() {
+        let config = setup_config_test();
+        assert_eq!(config.verbosity, 1);
+    }
+
 }
