@@ -1,4 +1,5 @@
 use crate::{client, parser};
+use crate::{DEFAULT_CONFIG_NAME, DEFAULT_RESPONSE_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::value_t;
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
@@ -6,43 +7,6 @@ use serde::Deserialize;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
-
-/// Version pulled from Cargo.toml at compile time
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
-/// in a [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file.
-///
-/// defaults to kali's default install location:
-/// - `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
-pub const DEFAULT_WORDLIST: &str =
-    "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
-
-/// Default list of response codes to report
-///
-/// * 200 Ok
-/// * 204 No Content
-/// * 301 Moved Permanently
-/// * 302 Found
-/// * 307 Temporary Redirect
-/// * 308 Permanent Redirect
-/// * 401 Unauthorized
-/// * 403 Forbidden
-/// * 405 Method Not Allowed
-pub const DEFAULT_RESPONSE_CODES: [StatusCode; 9] = [
-    StatusCode::OK,
-    StatusCode::NO_CONTENT,
-    StatusCode::MOVED_PERMANENTLY,
-    StatusCode::FOUND,
-    StatusCode::TEMPORARY_REDIRECT,
-    StatusCode::PERMANENT_REDIRECT,
-    StatusCode::UNAUTHORIZED,
-    StatusCode::FORBIDDEN,
-    StatusCode::METHOD_NOT_ALLOWED,
-];
-
-/// Default filename for config file settings
-pub const DEFAULT_CONFIG_NAME: &str = "feroxbuster.toml";
 
 lazy_static! {
     /// Global configuration variable.
@@ -81,7 +45,8 @@ pub struct Configuration {
     pub output: String,
     #[serde(default = "useragent")]
     pub useragent: String,
-
+    #[serde(default)]
+    pub follow_redirects: bool,
 }
 
 // functions timeout, threads, extensions, useragent, and wordlist are used to provide defaults in the
@@ -110,7 +75,7 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let useragent = useragent();
-        let client = client::initialize(timeout, &useragent, None);
+        let client = client::initialize(timeout, &useragent, false, None);
 
         Configuration {
             client,
@@ -118,6 +83,7 @@ impl Default for Configuration {
             useragent,
             quiet: false,
             verbosity: 0,
+            follow_redirects: false,
             proxy: String::new(),
             output: String::new(),
             target_url: String::new(),
@@ -133,7 +99,7 @@ impl Configuration {
     /// built-in default values
     ///
     /// - timeout: 5 seconds
-    /// - follow redirects: false
+    /// - follow_redirects: false
     /// - wordlist: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
     /// - threads: 50
     /// - timeout: 7
@@ -145,7 +111,7 @@ impl Configuration {
     /// - useragent: "feroxbuster/VERSION"
     ///
     /// After which, any values defined in a
-    /// [feroxbuster.toml](constant.DEFAULT_CONFIG_PATH.html) config file will override the
+    /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
     /// built-in defaults.
     ///
     /// Finally, any options/arguments given on the commandline will override both built-in and
@@ -172,7 +138,8 @@ impl Configuration {
             config.verbosity = settings.verbosity;
             config.quiet = settings.quiet;
             config.output = settings.output;
-            config.useragent = settings.useragent
+            config.useragent = settings.useragent;
+            config.follow_redirects = settings.follow_redirects;
         }
 
         let args = parser::initialize().get_matches();
@@ -240,15 +207,32 @@ impl Configuration {
             config.timeout = timeout;
         }
 
+        if args.is_present("follow_redirects") {
+            config.follow_redirects = args.is_present("follow_redirects");
+        }
+
         // this if statement determines if we've gotten a Client configuration change from
         // either the config file or command line arguments; if we have, we need to rebuild
         // the client and store it in the config struct
-        if !config.proxy.is_empty() || config.timeout != timeout() || config.useragent != useragent() {
+        if !config.proxy.is_empty()
+            || config.timeout != timeout()
+            || config.useragent != useragent()
+            || config.follow_redirects
+        {
             if config.proxy.is_empty() {
-                config.client = client::initialize(config.timeout, &config.useragent, None)
-            }
-            else {
-                config.client = client::initialize(config.timeout, &config.useragent, Some(&config.proxy))
+                config.client = client::initialize(
+                    config.timeout,
+                    &config.useragent,
+                    config.follow_redirects,
+                    None,
+                )
+            } else {
+                config.client = client::initialize(
+                    config.timeout,
+                    &config.useragent,
+                    config.follow_redirects,
+                    Some(&config.proxy),
+                )
             }
         }
 
@@ -290,6 +274,7 @@ mod tests {
             quiet = true
             verbosity = 1
             output = "/some/otherpath"
+            follow_redirects = true
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -308,6 +293,7 @@ mod tests {
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
+        assert_eq!(config.follow_redirects, false);
     }
 
     #[test]
@@ -357,4 +343,11 @@ mod tests {
         let config = setup_config_test();
         assert_eq!(config.output, "/some/otherpath");
     }
+
+    #[test]
+    fn config_reads_follow_redirects() {
+        let config = setup_config_test();
+        assert_eq!(config.follow_redirects, true);
+    }
+
 }

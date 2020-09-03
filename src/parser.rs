@@ -1,6 +1,7 @@
-use crate::config::VERSION;
+use crate::VERSION;
 use clap::{App, Arg};
 
+/// Create and return an instance of `clap::App`, i.e. the Command Line Interface's configuration
 pub fn initialize() -> App<'static, 'static> {
     App::new("feroxbuster")
         .version(VERSION)
@@ -66,7 +67,8 @@ pub fn initialize() -> App<'static, 'static> {
                 .help(
                     "Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)",
                 ),
-        )        .arg(
+        )
+        .arg(
             Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
@@ -90,5 +92,11 @@ pub fn initialize() -> App<'static, 'static> {
                     "Sets the User-Agent (default: feroxbuster/VERSION)"
                 ),
         )
-
+        .arg(
+            Arg::with_name("follow_redirects")
+                .short("r")
+                .long("follow_redirects")
+                .takes_value(false)
+                .help("Follow redirects")
+        )
 }
