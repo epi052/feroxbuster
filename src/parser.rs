@@ -99,4 +99,12 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(false)
                 .help("Follow redirects")
         )
+        .arg(
+            Arg::with_name("insecure")
+                .short("k")
+                .long("insecure")
+                .takes_value(false)
+                .help("Disables TLS certificate validation")
+        )
+
 }

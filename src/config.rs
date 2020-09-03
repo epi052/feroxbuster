@@ -47,6 +47,9 @@ pub struct Configuration {
     pub useragent: String,
     #[serde(default)]
     pub follow_redirects: bool,
+    #[serde(default)]
+    pub insecure: bool,
+
 }
 
 // functions timeout, threads, extensions, useragent, and wordlist are used to provide defaults in the
@@ -75,7 +78,7 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let useragent = useragent();
-        let client = client::initialize(timeout, &useragent, false, None);
+        let client = client::initialize(timeout, &useragent, false, false, None);
 
         Configuration {
             client,
@@ -83,6 +86,7 @@ impl Default for Configuration {
             useragent,
             quiet: false,
             verbosity: 0,
+            insecure: false,
             follow_redirects: false,
             proxy: String::new(),
             output: String::new(),
@@ -109,6 +113,7 @@ impl Configuration {
     /// - output: None (print to stdout)
     /// - quiet: false
     /// - useragent: "feroxbuster/VERSION"
+    /// - insecure: false (don't be insecure, i.e. don't allow invalid certs)
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -140,6 +145,7 @@ impl Configuration {
             config.output = settings.output;
             config.useragent = settings.useragent;
             config.follow_redirects = settings.follow_redirects;
+            config.insecure = settings.insecure;
         }
 
         let args = parser::initialize().get_matches();
@@ -211,6 +217,10 @@ impl Configuration {
             config.follow_redirects = args.is_present("follow_redirects");
         }
 
+        if args.is_present("insecure") {
+            config.insecure = args.is_present("insecure");
+        }
+
         // this if statement determines if we've gotten a Client configuration change from
         // either the config file or command line arguments; if we have, we need to rebuild
         // the client and store it in the config struct
@@ -218,12 +228,14 @@ impl Configuration {
             || config.timeout != timeout()
             || config.useragent != useragent()
             || config.follow_redirects
+            || config.insecure
         {
             if config.proxy.is_empty() {
                 config.client = client::initialize(
                     config.timeout,
                     &config.useragent,
                     config.follow_redirects,
+                    config.insecure,
                     None,
                 )
             } else {
@@ -231,6 +243,7 @@ impl Configuration {
                     config.timeout,
                     &config.useragent,
                     config.follow_redirects,
+                    config.insecure,
                     Some(&config.proxy),
                 )
             }
@@ -275,6 +288,7 @@ mod tests {
             verbosity = 1
             output = "/some/otherpath"
             follow_redirects = true
+            insecure = true
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -294,6 +308,7 @@ mod tests {
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
         assert_eq!(config.follow_redirects, false);
+        assert_eq!(config.insecure, false);
     }
 
     #[test]
@@ -348,6 +363,12 @@ mod tests {
     fn config_reads_follow_redirects() {
         let config = setup_config_test();
         assert_eq!(config.follow_redirects, true);
+    }
+
+    #[test]
+    fn config_reads_insecure() {
+        let config = setup_config_test();
+        assert_eq!(config.insecure, true);
     }
 
 }

@@ -6,6 +6,7 @@ pub fn initialize(
     timeout: u64,
     useragent: &str,
     follow_redirects: bool,
+    insecure: bool,
     proxy: Option<&str>,
 ) -> Client {
     // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
@@ -19,6 +20,7 @@ pub fn initialize(
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
         .user_agent(useragent)
+        .danger_accept_invalid_certs(insecure)
         .redirect(policy);
 
     let client = if proxy.is_some() && !proxy.unwrap().is_empty() {

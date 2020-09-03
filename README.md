@@ -58,6 +58,11 @@ timeout = 5
 proxy = "http://127.0.0.1:8080"
 verbosity = 1
 quiet = true
+verbosity = 1
+output = "/some/otherpath"
+follow_redirects = true
+insecure = true
+
 ```
 
 ### Command Line Parsing
