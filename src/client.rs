@@ -10,10 +10,9 @@ pub fn initialize(
     proxy: Option<&str>,
 ) -> Client {
     // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
-    let policy= if follow_redirects {
+    let policy = if follow_redirects {
         Policy::limited(10)
-    }
-    else {
+    } else {
         Policy::none()
     };
 

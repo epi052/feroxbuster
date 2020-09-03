@@ -49,10 +49,11 @@ pub struct Configuration {
     pub follow_redirects: bool,
     #[serde(default)]
     pub insecure: bool,
-
+    #[serde(default)]
+    pub extensions: Vec<String>,
 }
 
-// functions timeout, threads, extensions, useragent, and wordlist are used to provide defaults in the
+// functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
 // event that a feroxbuster.toml is found but one or more of the values below aren't listed
 // in the config.  This way, we get the correct defaults upon Deserialization
 fn timeout() -> u64 {
@@ -91,6 +92,7 @@ impl Default for Configuration {
             proxy: String::new(),
             output: String::new(),
             target_url: String::new(),
+            extensions: Vec::new(),
             threads: threads(),
             wordlist: wordlist(),
             statuscodes: statuscodes(),
@@ -114,6 +116,7 @@ impl Configuration {
     /// - quiet: false
     /// - useragent: "feroxbuster/VERSION"
     /// - insecure: false (don't be insecure, i.e. don't allow invalid certs)
+    /// - extensions: None
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -146,6 +149,7 @@ impl Configuration {
             config.useragent = settings.useragent;
             config.follow_redirects = settings.follow_redirects;
             config.insecure = settings.insecure;
+            config.extensions = settings.extensions;
         }
 
         let args = parser::initialize().get_matches();
@@ -177,6 +181,14 @@ impl Configuration {
                         })
                         .as_u16()
                 })
+                .collect();
+        }
+
+        if args.values_of("extensions").is_some() {
+            config.extensions = args
+                .values_of("extensions")
+                .unwrap()
+                .map(|val| String::from(val))
                 .collect();
         }
 
@@ -289,6 +301,7 @@ mod tests {
             output = "/some/otherpath"
             follow_redirects = true
             insecure = true
+            statuscodes = [html, php, js]
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -309,6 +322,7 @@ mod tests {
         assert_eq!(config.quiet, false);
         assert_eq!(config.follow_redirects, false);
         assert_eq!(config.insecure, false);
+        assert_eq!(config.extensions, Vec::new());
     }
 
     #[test]
@@ -369,6 +383,12 @@ mod tests {
     fn config_reads_insecure() {
         let config = setup_config_test();
         assert_eq!(config.insecure, true);
+    }
+
+    #[test]
+    fn config_reads_extensions() {
+        let config = setup_config_test();
+        assert_eq!(config.extensions, vec!["html", "php", "js"]);
     }
 
 }

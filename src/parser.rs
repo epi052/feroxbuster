@@ -97,14 +97,26 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("r")
                 .long("follow_redirects")
                 .takes_value(false)
-                .help("Follow redirects")
+                .help("Follow redirects (default: false)")
         )
         .arg(
             Arg::with_name("insecure")
                 .short("k")
                 .long("insecure")
                 .takes_value(false)
-                .help("Disables TLS certificate validation")
+                .help("Disables TLS certificate validation (default: false)")
+        )
+        .arg(
+            Arg::with_name("extensions")
+                .short("x")
+                .long("extensions")
+                .value_name("FILE_EXTENSION")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "File extension(s) to search for (accepts multi-flag and comma-delimited: -x php -x pdf,js)",
+                ),
         )
 
 }
