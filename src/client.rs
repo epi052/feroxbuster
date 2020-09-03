@@ -1,4 +1,7 @@
+use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::time::Duration;
 
 /// Create and return an instance of `reqwest::Client`
@@ -7,6 +10,7 @@ pub fn initialize(
     useragent: &str,
     follow_redirects: bool,
     insecure: bool,
+    headers: &HashMap<String, String>,
     proxy: Option<&str>,
 ) -> Client {
     // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
@@ -16,10 +20,14 @@ pub fn initialize(
         Policy::none()
     };
 
+    // todo: remove unwrap
+    let header_map: HeaderMap = headers.try_into().unwrap();
+
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
         .user_agent(useragent)
         .danger_accept_invalid_certs(insecure)
+        .default_headers(header_map)
         .redirect(policy);
 
     let client = if proxy.is_some() && !proxy.unwrap().is_empty() {

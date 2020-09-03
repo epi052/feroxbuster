@@ -10,7 +10,7 @@ tokio = { version = "0.2", features = ["full"] }
 log = "0.4"
 env_logger = "0.7"
 reqwest = { version = "0.10", features = ["socks"] }
-clap = "~2.27.0"
+clap = "2"
 lazy_static = "1.4"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive"] }

@@ -18,3 +18,16 @@
 # follow_redirects = true
 # insecure = true
 # extensions = ["php", "html"]
+
+# headers can be specified on multiple lines or as an inline table
+#
+# inline example
+# headers = {"stuff" = "things"}
+#
+# multi-line example
+#   note: if multi-line is used, all key/value pairs under it belong to the headers table until the next table
+#         is found or the end of the file is reached
+#
+# [headers]
+# stuff = "things"
+# mostuff = "mothings"

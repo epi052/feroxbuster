@@ -118,5 +118,16 @@ pub fn initialize() -> App<'static, 'static> {
                     "File extension(s) to search for (accepts multi-flag and comma-delimited: -x php -x pdf,js)",
                 ),
         )
-
+        .arg(
+            Arg::with_name("headers")
+                .short("H")
+                .long("headers")
+                .value_name("HEADER")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Specify HTTP headers, -H 'Header1: val1' -H 'Header2: val2'",
+                ),
+        )
 }

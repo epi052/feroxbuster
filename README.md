@@ -59,10 +59,11 @@ proxy = "http://127.0.0.1:8080"
 verbosity = 1
 quiet = true
 verbosity = 1
-output = "/some/otherpath"
+output = "/some/output/file/path"
 follow_redirects = true
 insecure = true
-
+extensions = ["php", "html"]
+headers = {"Accept" = "application/json"}
 ```
 
 ### Command Line Parsing

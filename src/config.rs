@@ -4,6 +4,7 @@ use clap::value_t;
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
@@ -51,6 +52,8 @@ pub struct Configuration {
     pub insecure: bool,
     #[serde(default)]
     pub extensions: Vec<String>,
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
 }
 
 // functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
@@ -79,7 +82,7 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let useragent = useragent();
-        let client = client::initialize(timeout, &useragent, false, false, None);
+        let client = client::initialize(timeout, &useragent, false, false, &HashMap::new(), None);
 
         Configuration {
             client,
@@ -93,6 +96,7 @@ impl Default for Configuration {
             output: String::new(),
             target_url: String::new(),
             extensions: Vec::new(),
+            headers: HashMap::new(),
             threads: threads(),
             wordlist: wordlist(),
             statuscodes: statuscodes(),
@@ -117,6 +121,7 @@ impl Configuration {
     /// - useragent: "feroxbuster/VERSION"
     /// - insecure: false (don't be insecure, i.e. don't allow invalid certs)
     /// - extensions: None
+    /// - headers: None
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -150,6 +155,7 @@ impl Configuration {
             config.follow_redirects = settings.follow_redirects;
             config.insecure = settings.insecure;
             config.extensions = settings.extensions;
+            config.headers = settings.headers;
         }
 
         let args = parser::initialize().get_matches();
@@ -233,6 +239,15 @@ impl Configuration {
             config.insecure = args.is_present("insecure");
         }
 
+        if args.values_of("headers").is_some() {
+            for val in args.values_of("headers").unwrap() {
+                let mut split_val = val.split(":");
+                let name = split_val.next().unwrap().trim();
+                let value = split_val.next().unwrap().trim();
+                config.headers.insert(name.to_string(), value.to_string());
+            }
+        }
+
         // this if statement determines if we've gotten a Client configuration change from
         // either the config file or command line arguments; if we have, we need to rebuild
         // the client and store it in the config struct
@@ -241,6 +256,7 @@ impl Configuration {
             || config.useragent != useragent()
             || config.follow_redirects
             || config.insecure
+            || config.headers.len() > 0
         {
             if config.proxy.is_empty() {
                 config.client = client::initialize(
@@ -248,6 +264,7 @@ impl Configuration {
                     &config.useragent,
                     config.follow_redirects,
                     config.insecure,
+                    &config.headers,
                     None,
                 )
             } else {
@@ -256,6 +273,7 @@ impl Configuration {
                     &config.useragent,
                     config.follow_redirects,
                     config.insecure,
+                    &config.headers,
                     Some(&config.proxy),
                 )
             }
@@ -265,7 +283,7 @@ impl Configuration {
         config
     }
 
-    /// If present, read in `DEFAULT_CONFIG_PATH` and deserialize the specified values
+    /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
     ///
     /// uses serde to deserialize the toml into a `Configuration` struct
     ///
@@ -301,7 +319,8 @@ mod tests {
             output = "/some/otherpath"
             follow_redirects = true
             insecure = true
-            statuscodes = [html, php, js]
+            extensions = ["html", "php", "js"]
+            headers = {stuff = "things", mostuff = "mothings"}
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -322,7 +341,8 @@ mod tests {
         assert_eq!(config.quiet, false);
         assert_eq!(config.follow_redirects, false);
         assert_eq!(config.insecure, false);
-        assert_eq!(config.extensions, Vec::new());
+        assert_eq!(config.extensions, Vec::<String>::new());
+        assert_eq!(config.headers, HashMap::new());
     }
 
     #[test]
@@ -391,4 +411,12 @@ mod tests {
         assert_eq!(config.extensions, vec!["html", "php", "js"]);
     }
 
+    #[test]
+    fn config_reads_headers() {
+        let config = setup_config_test();
+        let mut headers = HashMap::new();
+        headers.insert("stuff".to_string(), "things".to_string());
+        headers.insert("mostuff".to_string(), "mothings".to_string());
+        assert_eq!(config.headers, headers);
+    }
 }
