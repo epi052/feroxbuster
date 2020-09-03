@@ -64,6 +64,7 @@ follow_redirects = true
 insecure = true
 extensions = ["php", "html"]
 headers = {"Accept" = "application/json"}
+norecursion = true
 ```
 
 ### Command Line Parsing

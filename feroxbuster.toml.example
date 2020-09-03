@@ -18,6 +18,7 @@
 # follow_redirects = true
 # insecure = true
 # extensions = ["php", "html"]
+# norecursion = true
 
 # headers can be specified on multiple lines or as an inline table
 #

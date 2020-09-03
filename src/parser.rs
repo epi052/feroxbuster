@@ -130,4 +130,11 @@ pub fn initialize() -> App<'static, 'static> {
                     "Specify HTTP headers, -H 'Header1: val1' -H 'Header2: val2'",
                 ),
         )
+        .arg(
+            Arg::with_name("norecursion")
+                .short("n")
+                .long("norecursion")
+                .takes_value(false)
+                .help("Do not scan recursively (default: scan recursively)")
+        )
 }

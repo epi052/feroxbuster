@@ -54,6 +54,8 @@ pub struct Configuration {
     pub extensions: Vec<String>,
     #[serde(default)]
     pub headers: HashMap<String, String>,
+    #[serde(default)]
+    pub norecursion: bool,
 }
 
 // functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
@@ -91,6 +93,7 @@ impl Default for Configuration {
             quiet: false,
             verbosity: 0,
             insecure: false,
+            norecursion: false,
             follow_redirects: false,
             proxy: String::new(),
             output: String::new(),
@@ -122,6 +125,7 @@ impl Configuration {
     /// - insecure: false (don't be insecure, i.e. don't allow invalid certs)
     /// - extensions: None
     /// - headers: None
+    /// - norecursion: false (don't recursively bust enumerated sub-directories)
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -156,6 +160,8 @@ impl Configuration {
             config.insecure = settings.insecure;
             config.extensions = settings.extensions;
             config.headers = settings.headers;
+            config.norecursion = settings.norecursion;
+
         }
 
         let args = parser::initialize().get_matches();
@@ -233,6 +239,9 @@ impl Configuration {
 
         if args.is_present("follow_redirects") {
             config.follow_redirects = args.is_present("follow_redirects");
+        }
+        if args.is_present("norecursion") {
+            config.norecursion = args.is_present("norecursion");
         }
 
         if args.is_present("insecure") {
@@ -321,6 +330,7 @@ mod tests {
             insecure = true
             extensions = ["html", "php", "js"]
             headers = {stuff = "things", mostuff = "mothings"}
+            norecursion = true
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -339,6 +349,7 @@ mod tests {
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
+        assert_eq!(config.norecursion, false);
         assert_eq!(config.follow_redirects, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.extensions, Vec::<String>::new());
@@ -403,6 +414,12 @@ mod tests {
     fn config_reads_insecure() {
         let config = setup_config_test();
         assert_eq!(config.insecure, true);
+    }
+
+    #[test]
+    fn config_reads_norecursion() {
+        let config = setup_config_test();
+        assert_eq!(config.norecursion, true);
     }
 
     #[test]
