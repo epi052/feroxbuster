@@ -7,6 +7,8 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use tokio::task;
+use tokio::io;
+use tokio_util::codec::{FramedRead, LinesCodec};
 
 /// Simple helper to generate a `reqwest::Url`
 ///
@@ -27,7 +29,6 @@ pub fn format_url(word: &str, url: &str) -> FeroxResult<Url> {
 }
 
 async fn make_request(client: &Client, url: Url) -> FeroxResult<Response> {
-    // todo: remove unwrap
     match client.get(url).send().await {
         Ok(resp) => Ok(resp),
         Err(e) => {
@@ -111,13 +112,40 @@ async fn app() -> FeroxResult<()> {
     let words =
         task::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION) }).await??;
 
-    bust_dir(
-        &CONFIGURATION.target_url,
-        &words,
-        &CONFIGURATION.client,
-        CONFIGURATION.threads,
-    )
-    .await?;
+    if CONFIGURATION.stdin {
+        let stdin = io::stdin();  // tokio's stdin, not std
+        // let reader = BufReader::new(stdin);
+        let mut reader = FramedRead::new(stdin, LinesCodec::new());
+
+        while let Some(item) = reader.next().await {
+           match item {
+               Ok(line) => {
+                   println!("FOUND: {}", line);
+                   //  bust_dir(
+                   //      &line,
+                   //      &words,
+                   //      &CONFIGURATION.client,
+                   //      CONFIGURATION.threads,
+                   //  )
+                   //  .await?;
+               }
+               Err(e) => {
+                   println!("FOUND: ERROR: {}", e);
+
+               }
+           }
+
+        }
+    }
+    else {
+        bust_dir(
+            &CONFIGURATION.target_url,
+            &words,
+            &CONFIGURATION.client,
+            CONFIGURATION.threads,
+        )
+        .await?;
+    }
 
     Ok(())
 }
