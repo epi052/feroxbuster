@@ -115,7 +115,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "File extension(s) to search for (accepts multi-flag and comma-delimited: -x php -x pdf,js)",
+                    "File extension(s) to search for (accepts multi-flag and space or comma-delimited: -x php -x pdf js)",
                 ),
         )
         .arg(
@@ -136,5 +136,12 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("norecursion")
                 .takes_value(false)
                 .help("Do not scan recursively (default: scan recursively)")
+        )
+        .arg(
+            Arg::with_name("addslash")
+                .short("f")
+                .long("addslash")
+                .takes_value(false)
+                .help("Append / to each request (default: false)")
         )
 }

@@ -56,6 +56,8 @@ pub struct Configuration {
     pub headers: HashMap<String, String>,
     #[serde(default)]
     pub norecursion: bool,
+    #[serde(default)]
+    pub addslash: bool,
 }
 
 // functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
@@ -92,6 +94,7 @@ impl Default for Configuration {
             useragent,
             quiet: false,
             verbosity: 0,
+            addslash: false,
             insecure: false,
             norecursion: false,
             follow_redirects: false,
@@ -126,6 +129,7 @@ impl Configuration {
     /// - extensions: None
     /// - headers: None
     /// - norecursion: false (don't recursively bust enumerated sub-directories)
+    /// - addslash: false
     ///
     /// After which, any values defined in a
     /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -161,6 +165,7 @@ impl Configuration {
             config.extensions = settings.extensions;
             config.headers = settings.headers;
             config.norecursion = settings.norecursion;
+            config.addslash = settings.addslash;
 
         }
 
@@ -218,6 +223,14 @@ impl Configuration {
             config.verbosity = args.occurrences_of("verbosity") as u8;
         }
 
+        if args.is_present("norecursion") {
+            config.norecursion = args.is_present("norecursion");
+        }
+
+        if args.is_present("addslash") {
+            config.addslash = args.is_present("addslash");
+        }
+
         // target_url is required, so no if statement is required
         config.target_url = String::from(args.value_of("url").unwrap());
 
@@ -239,9 +252,6 @@ impl Configuration {
 
         if args.is_present("follow_redirects") {
             config.follow_redirects = args.is_present("follow_redirects");
-        }
-        if args.is_present("norecursion") {
-            config.norecursion = args.is_present("norecursion");
         }
 
         if args.is_present("insecure") {
@@ -331,6 +341,7 @@ mod tests {
             extensions = ["html", "php", "js"]
             headers = {stuff = "things", mostuff = "mothings"}
             norecursion = true
+            addslash = true
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -350,6 +361,7 @@ mod tests {
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
         assert_eq!(config.norecursion, false);
+        assert_eq!(config.addslash, false);
         assert_eq!(config.follow_redirects, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.extensions, Vec::<String>::new());
@@ -420,6 +432,12 @@ mod tests {
     fn config_reads_norecursion() {
         let config = setup_config_test();
         assert_eq!(config.norecursion, true);
+    }
+
+    #[test]
+    fn config_reads_addslash() {
+        let config = setup_config_test();
+        assert_eq!(config.addslash, true);
     }
 
     #[test]

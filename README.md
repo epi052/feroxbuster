@@ -65,6 +65,7 @@ insecure = true
 extensions = ["php", "html"]
 headers = {"Accept" = "application/json"}
 norecursion = true
+addslash = true
 ```
 
 ### Command Line Parsing
