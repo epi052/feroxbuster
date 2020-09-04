@@ -166,7 +166,6 @@ impl Configuration {
             config.headers = settings.headers;
             config.norecursion = settings.norecursion;
             config.addslash = settings.addslash;
-
         }
 
         let args = parser::initialize().get_matches();
@@ -259,10 +258,16 @@ impl Configuration {
         }
 
         if args.values_of("headers").is_some() {
+            // todo: probably need some non-unwrap code in here
             for val in args.values_of("headers").unwrap() {
                 let mut split_val = val.split(":");
+
+                // explicitly take first split value as header's name
                 let name = split_val.next().unwrap().trim();
-                let value = split_val.next().unwrap().trim();
+
+                // all other items in the iterator returned by split, when combined with the
+                // original split deliminator (:), make up the header's final value
+                let value = split_val.collect::<Vec<&str>>().join(":");
                 config.headers.insert(name.to_string(), value.to_string());
             }
         }

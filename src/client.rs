@@ -2,6 +2,7 @@ use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::process::exit;
 use std::time::Duration;
 
 /// Create and return an instance of `reqwest::Client`
@@ -20,8 +21,13 @@ pub fn initialize(
         Policy::none()
     };
 
-    // todo: remove unwrap
-    let header_map: HeaderMap = headers.try_into().unwrap();
+    let header_map: HeaderMap = match headers.try_into() {
+        Ok(map) => map,
+        Err(e) => {
+            eprintln!("Client::initialize: {}", e);
+            exit(1);
+        }
+    };
 
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
@@ -34,24 +40,21 @@ pub fn initialize(
         match Proxy::all(proxy.unwrap()) {
             Ok(proxy_obj) => client.proxy(proxy_obj),
             Err(e) => {
-                eprintln!(
-                    "[!] Could not add proxy ({:?}) to Client configuration: {}",
-                    proxy, e
-                );
-                client
+                eprintln!("Could not add proxy ({:?}) to Client configuration", proxy);
+                eprintln!("Client::initialize: {}", e);
+                exit(1);
             }
         }
     } else {
-        // todo: do i wanna see this at the start of every run??
-        eprintln!("[!] proxy ({:?}) not added to Client configuration", proxy);
         client
     };
 
     match client.build() {
         Ok(client) => client,
         Err(e) => {
-            eprintln!("[!] Could not create a Client with the given configuration, exiting.");
-            panic!("Client::build: {}", e);
+            eprintln!("Could not create a Client with the given configuration, exiting.");
+            eprintln!("Client::build: {}", e);
+            exit(1);
         }
     }
 }

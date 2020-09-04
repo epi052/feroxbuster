@@ -87,6 +87,7 @@ pub fn initialize() -> App<'static, 'static> {
             Arg::with_name("useragent")
                 .short("a")
                 .long("useragent")
+                .value_name("USER_AGENT")
                 .takes_value(true)
                 .help(
                     "Sets the User-Agent (default: feroxbuster/VERSION)"
@@ -127,7 +128,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "Specify HTTP headers, -H 'Header1: val1' -H 'Header2: val2'",
+                    "Specify HTTP headers, -H Header:val 'stuff: things' -H 'MoHeaders: movals'",
                 ),
         )
         .arg(
@@ -144,4 +145,25 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(false)
                 .help("Append / to each request (default: false)")
         )
+        .after_help(r#"NOTE:
+    Options that take multiple values are very flexible.  Consider the following ways of specifying
+    extensions:
+        ./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx
+
+    All of the methods above are valid and interchangeable.  The same goes for headers and status
+    codes.
+
+EXAMPLES:
+    Multiple headers:
+        ./feroxbuster -u http://127.1 -H Accept:application/json "Authorization: Bearer {token}"
+
+    IPv6, non-recursive scan with INFO-level logging enabled:
+        ./feroxbuster -u http://[::1] --norecursion -vv
+
+    Read urls from STDIN; pipe only resulting urls out to another tool
+        cat targets | ./feroxbuster -q -s 200 301 302 --redirects | nuclei -t cves/ -o results.txt
+
+    Ludicrous speed... go!
+        ./feroxbuster -u http://127.1 -t 200
+    "#)
 }

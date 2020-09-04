@@ -1,5 +1,5 @@
 use feroxbuster::config::{Configuration, CONFIGURATION};
-use feroxbuster::{logger, FeroxResult, DEFAULT_RESPONSE_CODES};
+use feroxbuster::{logger, FeroxResult};
 use futures::stream;
 use futures::StreamExt;
 use reqwest::{Client, Response, Url};
