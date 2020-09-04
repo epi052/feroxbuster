@@ -61,6 +61,9 @@ pub struct Configuration {
     pub norecursion: bool,
     #[serde(default)]
     pub addslash: bool,
+    #[serde(default)]
+    pub stdin: bool,
+
 }
 
 // functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
@@ -96,6 +99,7 @@ impl Default for Configuration {
             timeout,
             useragent,
             quiet: false,
+            stdin: false,
             verbosity: 0,
             addslash: false,
             insecure: false,
@@ -133,6 +137,7 @@ impl Configuration {
     /// - headers: None
     /// - norecursion: false (don't recursively bust enumerated sub-directories)
     /// - addslash: false
+    /// - stdin: false
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -172,6 +177,7 @@ impl Configuration {
                         config.headers = settings.headers;
                         config.norecursion = settings.norecursion;
                         config.addslash = settings.addslash;
+                        config.stdin = settings.stdin;
                     }
                 }
                 None => {}
@@ -240,8 +246,12 @@ impl Configuration {
             config.addslash = args.is_present("addslash");
         }
 
-        // target_url is required, so no if statement is required
-        config.target_url = String::from(args.value_of("url").unwrap());
+        if args.is_present("stdin") {
+            config.stdin = args.is_present("stdin");
+        }
+        else {
+            config.target_url = String::from(args.value_of("url").unwrap());
+        }
 
         ////
         // organizational breakpoint; all options below alter the Client configuration
@@ -356,6 +366,7 @@ mod tests {
             headers = {stuff = "things", mostuff = "mothings"}
             norecursion = true
             addslash = true
+            stdin = true
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -375,6 +386,7 @@ mod tests {
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
         assert_eq!(config.norecursion, false);
+        assert_eq!(config.stdin, false);
         assert_eq!(config.addslash, false);
         assert_eq!(config.redirects, false);
         assert_eq!(config.insecure, false);
@@ -446,6 +458,12 @@ mod tests {
     fn config_reads_norecursion() {
         let config = setup_config_test();
         assert_eq!(config.norecursion, true);
+    }
+
+    #[test]
+    fn config_reads_stdin() {
+        let config = setup_config_test();
+        assert_eq!(config.stdin, true);
     }
 
     #[test]

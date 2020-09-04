@@ -19,9 +19,9 @@ pub fn initialize() -> App<'static, 'static> {
             Arg::with_name("url")
                 .short("u")
                 .long("url")
-                .required(true)
+                .required_unless("stdin")
                 .value_name("URL")
-                .help("The target URL (required, unless passing urls on STDIN)"),
+                .help("The target URL (required, unless --stdin used)"),
         )
         .arg(
             Arg::with_name("threads")
@@ -146,6 +146,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(false)
                 .help("Append / to each request")
         )
+        .arg(
+            Arg::with_name("stdin")
+                .long("stdin")
+                .takes_value(false)
+                .help("Read url(s) from STDIN")
+                .conflicts_with("url")
+        )
+
         .after_help(r#"NOTE:
     Options that take multiple values are very flexible.  Consider the following ways of specifying
     extensions:
@@ -162,7 +170,7 @@ EXAMPLES:
         ./feroxbuster -u http://[::1] --norecursion -vv
 
     Read urls from STDIN; pipe only resulting urls out to another tool
-        cat targets | ./feroxbuster -q -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+        cat targets | ./feroxbuster --stdin -q -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 -t 200

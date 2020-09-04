@@ -20,6 +20,7 @@
 # extensions = ["php", "html"]
 # norecursion = true
 # addslash = true
+# stdin = true
 
 
 # headers can be specified on multiple lines or as an inline table

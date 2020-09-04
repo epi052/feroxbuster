@@ -66,6 +66,7 @@ extensions = ["php", "html"]
 headers = {"Accept" = "application/json"}
 norecursion = true
 addslash = true
+stdin = true
 ```
 
 ### Command Line Parsing
