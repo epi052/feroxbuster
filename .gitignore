@@ -14,4 +14,4 @@ Cargo.lock
 .idea/
 
 # personal feroxbuster config for testing
-feroxbuster.toml
+ferox-config.toml

@@ -1,6 +1,6 @@
 # Example configuration for feroxbuster
 #
-# If you wish to provide persistent settings to feroxbuster, rename this file to feroxbuster.toml
+# If you wish to provide persistent settings to feroxbuster, rename this file to ferox-config.toml
 #
 # After that, uncomment any line to override the default value provided by the binary itself.
 #

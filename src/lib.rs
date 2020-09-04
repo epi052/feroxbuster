@@ -11,7 +11,7 @@ pub type FeroxResult<T> = std::result::Result<T, Box<dyn std::error::Error + Sen
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
-/// in a [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
+/// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
 ///
 /// defaults to kali's default install location:
 /// - `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
@@ -42,4 +42,4 @@ pub const DEFAULT_RESPONSE_CODES: [StatusCode; 9] = [
 ];
 
 /// Default filename for config file settings
-pub const DEFAULT_CONFIG_NAME: &str = "feroxbuster.toml";
+pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";

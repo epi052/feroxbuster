@@ -61,7 +61,7 @@ pub struct Configuration {
 }
 
 // functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
-// event that a feroxbuster.toml is found but one or more of the values below aren't listed
+// event that a ferox-config.toml is found but one or more of the values below aren't listed
 // in the config.  This way, we get the correct defaults upon Deserialization
 fn timeout() -> u64 {
     7
@@ -132,7 +132,7 @@ impl Configuration {
     /// - addslash: false
     ///
     /// After which, any values defined in a
-    /// [feroxbuster.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
+    /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
     /// built-in defaults.
     ///
     /// Finally, any options/arguments given on the commandline will override both built-in and
@@ -146,7 +146,7 @@ impl Configuration {
         // else is specified.
         let mut config = Configuration::default();
 
-        // Next, we parse the feroxbuster.toml file, if present and set the values
+        // Next, we parse the ferox-config.toml file, if present and set the values
         // therein to overwrite our default values. Deserialized defaults are specified
         // in the Configuration struct so that we don't change anything that isn't
         // actually specified in the config file
@@ -210,7 +210,7 @@ impl Configuration {
 
         if args.is_present("quiet") {
             // the reason this is protected by an if statement:
-            // consider a user specifying quiet = true in feroxbuster.toml
+            // consider a user specifying quiet = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
             // false if no -q is used on the command line
             config.quiet = args.is_present("quiet");

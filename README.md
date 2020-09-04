@@ -30,26 +30,26 @@ Configuration begins with with the following built-in default values baked into 
 - verbosity: `0` (no logging enabled)
 - statuscodes: `200 204 301 302 307 308 401 403 405`
 
-### feroxbuster.toml
-After setting built-in default values, any values defined in a `feroxbuster.toml` config file will override the
-built-in defaults.  If `feroxbuster.toml` is not found in the current directory, nothing happens at this stage. 
+### ferox-config.toml
+After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
+built-in defaults.  If `ferox-config.toml` is not found in the current directory, nothing happens at this stage. 
 
 For example, say that we prefer to use a different wordlist as our default when scanning; we can
 set the `wordlist` value in the config file to override the baked-in default.
 
 Notes of interest:
 - it's ok to only specify values you want to change without specifying anything else
-- variable names in feroxbuster.toml must match their command-line counterpart
+- variable names in ferox-config.toml must match their command-line counterpart
 
 ```toml
-# feroxbuster.toml
+# ferox-config.toml
 
 wordlist = "/wordlists/jhaddix/all.txt"
 ```
 
-Example usage of all available settings in feroxbuster.toml (can also be found in `feroxbuster.toml.example`)
+Example usage of all available settings in ferox-config.toml (can also be found in `ferox-config.toml.example`)
 ```toml
-# feroxbuster.toml
+# ferox-config.toml
 
 wordlist = "/wordlists/jhaddix/all.txt"
 statuscodes = [200, 403]

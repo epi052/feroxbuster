@@ -161,7 +161,7 @@ EXAMPLES:
         ./feroxbuster -u http://[::1] --norecursion -vv
 
     Read urls from STDIN; pipe only resulting urls out to another tool
-        cat targets | ./feroxbuster -q -s 200 301 302 --redirects | nuclei -t cves/ -o results.txt
+        cat targets | ./feroxbuster -q -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 -t 200
