@@ -8,13 +8,13 @@ use std::time::Duration;
 pub fn initialize(
     timeout: u64,
     useragent: &str,
-    follow_redirects: bool,
+    redirects: bool,
     insecure: bool,
     headers: &HashMap<String, String>,
     proxy: Option<&str>,
 ) -> Client {
     // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
-    let policy = if follow_redirects {
+    let policy = if redirects {
         Policy::limited(10)
     } else {
         Policy::none()

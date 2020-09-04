@@ -47,7 +47,7 @@ pub struct Configuration {
     #[serde(default = "useragent")]
     pub useragent: String,
     #[serde(default)]
-    pub follow_redirects: bool,
+    pub redirects: bool,
     #[serde(default)]
     pub insecure: bool,
     #[serde(default)]
@@ -97,7 +97,7 @@ impl Default for Configuration {
             addslash: false,
             insecure: false,
             norecursion: false,
-            follow_redirects: false,
+            redirects: false,
             proxy: String::new(),
             output: String::new(),
             target_url: String::new(),
@@ -115,7 +115,7 @@ impl Configuration {
     /// built-in default values
     ///
     /// - timeout: 5 seconds
-    /// - follow_redirects: false
+    /// - redirects: false
     /// - wordlist: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
     /// - threads: 50
     /// - timeout: 7
@@ -160,7 +160,7 @@ impl Configuration {
             config.quiet = settings.quiet;
             config.output = settings.output;
             config.useragent = settings.useragent;
-            config.follow_redirects = settings.follow_redirects;
+            config.redirects = settings.redirects;
             config.insecure = settings.insecure;
             config.extensions = settings.extensions;
             config.headers = settings.headers;
@@ -250,8 +250,8 @@ impl Configuration {
             config.timeout = timeout;
         }
 
-        if args.is_present("follow_redirects") {
-            config.follow_redirects = args.is_present("follow_redirects");
+        if args.is_present("redirects") {
+            config.redirects = args.is_present("redirects");
         }
 
         if args.is_present("insecure") {
@@ -273,7 +273,7 @@ impl Configuration {
         if !config.proxy.is_empty()
             || config.timeout != timeout()
             || config.useragent != useragent()
-            || config.follow_redirects
+            || config.redirects
             || config.insecure
             || config.headers.len() > 0
         {
@@ -281,7 +281,7 @@ impl Configuration {
                 config.client = client::initialize(
                     config.timeout,
                     &config.useragent,
-                    config.follow_redirects,
+                    config.redirects,
                     config.insecure,
                     &config.headers,
                     None,
@@ -290,7 +290,7 @@ impl Configuration {
                 config.client = client::initialize(
                     config.timeout,
                     &config.useragent,
-                    config.follow_redirects,
+                    config.redirects,
                     config.insecure,
                     &config.headers,
                     Some(&config.proxy),
@@ -336,7 +336,7 @@ mod tests {
             quiet = true
             verbosity = 1
             output = "/some/otherpath"
-            follow_redirects = true
+            redirects = true
             insecure = true
             extensions = ["html", "php", "js"]
             headers = {stuff = "things", mostuff = "mothings"}
@@ -362,7 +362,7 @@ mod tests {
         assert_eq!(config.quiet, false);
         assert_eq!(config.norecursion, false);
         assert_eq!(config.addslash, false);
-        assert_eq!(config.follow_redirects, false);
+        assert_eq!(config.redirects, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.headers, HashMap::new());
@@ -417,9 +417,9 @@ mod tests {
     }
 
     #[test]
-    fn config_reads_follow_redirects() {
+    fn config_reads_redirects() {
         let config = setup_config_test();
-        assert_eq!(config.follow_redirects, true);
+        assert_eq!(config.redirects, true);
     }
 
     #[test]

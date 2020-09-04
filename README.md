@@ -60,7 +60,7 @@ verbosity = 1
 quiet = true
 verbosity = 1
 output = "/some/output/file/path"
-follow_redirects = true
+redirects = true
 insecure = true
 extensions = ["php", "html"]
 headers = {"Accept" = "application/json"}

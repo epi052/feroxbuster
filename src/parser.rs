@@ -93,9 +93,9 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
-            Arg::with_name("follow_redirects")
+            Arg::with_name("redirects")
                 .short("r")
-                .long("follow_redirects")
+                .long("redirects")
                 .takes_value(false)
                 .help("Follow redirects (default: false)")
         )
