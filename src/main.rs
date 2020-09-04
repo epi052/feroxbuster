@@ -86,7 +86,7 @@ async fn bust_dir(
             Ok(response) => {
                 let resp = response?;
                 let response_code = &resp.status();
-                for code in DEFAULT_RESPONSE_CODES.iter() {
+                for code in CONFIGURATION.statuscodes.iter() {
                     if response_code == code {
                         println!(
                             "[{}] - {} - [{} bytes]",
