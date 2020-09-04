@@ -21,7 +21,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("url")
                 .required(true)
                 .value_name("URL")
-                .help("The target URL"),
+                .help("The target URL (required, unless passing urls on STDIN)"),
         )
         .arg(
             Arg::with_name("threads")
@@ -52,6 +52,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("p")
                 .long("proxy")
                 .takes_value(true)
+                .value_name("PROXY")
                 .help(
                     "Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)",
                 ),
@@ -98,14 +99,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("r")
                 .long("redirects")
                 .takes_value(false)
-                .help("Follow redirects (default: false)")
+                .help("Follow redirects")
         )
         .arg(
             Arg::with_name("insecure")
                 .short("k")
                 .long("insecure")
                 .takes_value(false)
-                .help("Disables TLS certificate validation (default: false)")
+                .help("Disables TLS certificate validation")
         )
         .arg(
             Arg::with_name("extensions")
@@ -116,7 +117,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "File extension(s) to search for (accepts multi-flag and space or comma-delimited: -x php -x pdf js)",
+                    "File extension(s) to search for (ex: -x php -x pdf js)",
                 ),
         )
         .arg(
@@ -128,7 +129,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "Specify HTTP headers, -H Header:val 'stuff: things' -H 'MoHeaders: movals'",
+                    "Specify HTTP headers (ex: -H Header:val 'stuff: things')",
                 ),
         )
         .arg(
@@ -136,14 +137,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("n")
                 .long("norecursion")
                 .takes_value(false)
-                .help("Do not scan recursively (default: scan recursively)")
+                .help("Do not scan recursively")
         )
         .arg(
             Arg::with_name("addslash")
                 .short("f")
                 .long("addslash")
                 .takes_value(false)
-                .help("Append / to each request (default: false)")
+                .help("Append / to each request")
         )
         .after_help(r#"NOTE:
     Options that take multiple values are very flexible.  Consider the following ways of specifying
