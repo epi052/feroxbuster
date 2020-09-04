@@ -1,5 +1,5 @@
 use crate::{client, parser};
-use crate::{DEFAULT_CONFIG_NAME, DEFAULT_RESPONSE_CODES, DEFAULT_WORDLIST, VERSION};
+use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::value_t;
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
+use std::env::current_exe;
 
 lazy_static! {
     /// Global configuration variable.
@@ -22,6 +23,8 @@ lazy_static! {
 /// - plus command-line options
 ///
 /// In that order.
+///
+/// Inspired by and derived from https://github.com/PhilipDaniels/rust-config-example
 #[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
     #[serde(default = "wordlist")]
@@ -70,7 +73,7 @@ fn threads() -> usize {
     50
 }
 fn statuscodes() -> Vec<u16> {
-    DEFAULT_RESPONSE_CODES
+    DEFAULT_STATUS_CODES
         .iter()
         .map(|code| code.as_u16())
         .collect()
@@ -150,23 +153,30 @@ impl Configuration {
         // therein to overwrite our default values. Deserialized defaults are specified
         // in the Configuration struct so that we don't change anything that isn't
         // actually specified in the config file
-        if let Some(settings) = Self::parse_config(Path::new(".")) {
-            config.threads = settings.threads;
-            config.wordlist = settings.wordlist;
-            config.statuscodes = settings.statuscodes;
-            config.proxy = settings.proxy;
-            config.timeout = settings.timeout;
-            config.verbosity = settings.verbosity;
-            config.quiet = settings.quiet;
-            config.output = settings.output;
-            config.useragent = settings.useragent;
-            config.redirects = settings.redirects;
-            config.insecure = settings.insecure;
-            config.extensions = settings.extensions;
-            config.headers = settings.headers;
-            config.norecursion = settings.norecursion;
-            config.addslash = settings.addslash;
-        }
+        if let Ok(exe_path) = current_exe() {
+            match exe_path.parent() {
+                Some(bin_dir) => {
+                    if let Some(settings) = Self::parse_config(bin_dir) {
+                        config.threads = settings.threads;
+                        config.wordlist = settings.wordlist;
+                        config.statuscodes = settings.statuscodes;
+                        config.proxy = settings.proxy;
+                        config.timeout = settings.timeout;
+                        config.verbosity = settings.verbosity;
+                        config.quiet = settings.quiet;
+                        config.output = settings.output;
+                        config.useragent = settings.useragent;
+                        config.redirects = settings.redirects;
+                        config.insecure = settings.insecure;
+                        config.extensions = settings.extensions;
+                        config.headers = settings.headers;
+                        config.norecursion = settings.norecursion;
+                        config.addslash = settings.addslash;
+                    }
+                }
+                None => {}
+            };
+        };
 
         let args = parser::initialize().get_matches();
 
@@ -307,13 +317,12 @@ impl Configuration {
         config
     }
 
-    /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
+    /// If present, read in `/path/to/binary's/parent/DEFAULT_CONFIG_NAME` and deserialize the specified values
     ///
     /// uses serde to deserialize the toml into a `Configuration` struct
     ///
     /// If toml cannot be parsed a `Configuration::default` instance is returned
     fn parse_config(directory: &Path) -> Option<Self> {
-        let directory = Path::new(directory);
         let directory = directory.join(DEFAULT_CONFIG_NAME);
 
         if let Ok(content) = read_to_string(directory) {

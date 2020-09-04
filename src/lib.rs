@@ -18,7 +18,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DEFAULT_WORDLIST: &str =
     "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
 
-/// Default list of response codes to report
+/// Default list of status codes to report
 ///
 /// * 200 Ok
 /// * 204 No Content
@@ -29,7 +29,7 @@ pub const DEFAULT_WORDLIST: &str =
 /// * 401 Unauthorized
 /// * 403 Forbidden
 /// * 405 Method Not Allowed
-pub const DEFAULT_RESPONSE_CODES: [StatusCode; 9] = [
+pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
     StatusCode::OK,
     StatusCode::NO_CONTENT,
     StatusCode::MOVED_PERMANENTLY,
@@ -42,4 +42,6 @@ pub const DEFAULT_RESPONSE_CODES: [StatusCode; 9] = [
 ];
 
 /// Default filename for config file settings
+///
+/// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
