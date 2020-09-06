@@ -1,14 +1,11 @@
 use feroxbuster::config::{Configuration, CONFIGURATION};
 use feroxbuster::{logger, FeroxResult};
-use futures::stream;
-use futures::StreamExt;
+use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use tokio::task;
-use tokio::io;
-use tokio_util::codec::{FramedRead, LinesCodec};
+use tokio::sync::mpsc::{self, Receiver, Sender};
 
 /// Simple helper to generate a `reqwest::Url`
 ///
@@ -38,7 +35,7 @@ async fn make_request(client: &Client, url: Url) -> FeroxResult<Response> {
     }
 }
 
-/// Creates a Set of Strings from the given wordlist
+/// Create a Set of Strings from the given wordlist
 fn get_unique_words_from_wordlist(config: &Configuration) -> FeroxResult<HashSet<String>> {
     let file = match File::open(&config.wordlist) {
         Ok(f) => f,
@@ -66,86 +63,76 @@ fn get_unique_words_from_wordlist(config: &Configuration) -> FeroxResult<HashSet
     Ok(words)
 }
 
-async fn bust_dir(
-    base_url: &'static str,
-    words: &HashSet<String>,
-    client: &'static Client,
-    threads: usize,
-) -> FeroxResult<()> {
-    let mut buffered_futures = stream::iter(words.to_owned())
-        .map(move |directory| {
-            // todo: can i remove the unwrap? map_err or something?
-            let url = format_url(&directory, &base_url).unwrap();
-            task::spawn(async move { make_request(&client, url).await })
-        })
-        .buffer_unordered(threads);
-
-    log::debug!("{:?}", buffered_futures);
-
-    while let Some(item) = buffered_futures.next().await {
-        match item {
-            Ok(response) => {
-                let resp = response?;
-                let response_code = &resp.status();
-                for code in CONFIGURATION.statuscodes.iter() {
-                    if response_code == code {
-                        println!(
-                            "[{}] - {} - [{} bytes]",
-                            resp.status(),
-                            resp.url(),
-                            resp.content_length().unwrap_or(0)
-                        );
-                        break;
-                    }
+/// Spawn a single consumer task (sc side of mpsc)
+///
+/// The consumer simply receives responses and prints them if they meet the given
+/// reporting criteria
+fn spawn_reporter(mut report_channel: Receiver<Response>) {
+    tokio::spawn(async move {
+        while let Some(resp) = report_channel.recv().await {
+            let response_code = &resp.status();
+            for code in CONFIGURATION.statuscodes.iter() {
+                if response_code == code {
+                    println!(
+                        "[{}] - {} - [{} bytes]",
+                        resp.status(),
+                        resp.url(),
+                        resp.content_length().unwrap_or(0)
+                    );
+                    break;
                 }
             }
-            Err(e) => {
-                println!("Err: {}", e);
-            }
         }
-    }
-
-    Ok(())
+    });
 }
 
 async fn app() -> FeroxResult<()> {
     let words =
-        task::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION) }).await??;
+        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION) }).await??;
 
-    if CONFIGURATION.stdin {
-        let stdin = io::stdin();  // tokio's stdin, not std
-        // let reader = BufReader::new(stdin);
-        let mut reader = FramedRead::new(stdin, LinesCodec::new());
+    // mpsc for request making/response reporting
+    let (tx_report, rx_report): (Sender<Response>, Receiver<Response>) =
+        mpsc::channel(CONFIGURATION.threads);
 
-        while let Some(item) = reader.next().await {
-           match item {
-               Ok(line) => {
-                   println!("FOUND: {}", line);
-                   //  bust_dir(
-                   //      &line,
-                   //      &words,
-                   //      &CONFIGURATION.client,
-                   //      CONFIGURATION.threads,
-                   //  )
-                   //  .await?;
-               }
-               Err(e) => {
-                   println!("FOUND: ERROR: {}", e);
+    // mpsc for kicking off a scan of a new directory
+    let (tx_new_directory, rx_new_directory): (Sender<Response>, Receiver<Response>) =
+        mpsc::channel(CONFIGURATION.threads);
 
-               }
-           }
+    spawn_reporter(rx_report);
 
-        }
-    }
-    else {
-        bust_dir(
-            &CONFIGURATION.target_url,
-            &words,
-            &CONFIGURATION.client,
-            CONFIGURATION.threads,
-        )
-        .await?;
-    }
+    // producer tasks (mp of mpsc); responsible for making requests
+    let producers = stream::iter(words)
+        .map(|word| {
+            // closure to pass the word through to for_each_concurrent along with a
+            // cloned Sender for message passing
+            let report_sender = tx_report.clone();
+            let directory_sender = tx_new_directory.clone();
+            (word, report_sender, directory_sender)
+        })
+        .for_each_concurrent(
+            // where the magic happens
+            CONFIGURATION.threads, // concurrency limit (i.e. # of buffered requests)
+            |(word, mut sender)| async move {
+                // closure to make the request and send it over the channel to be
+                // reported (or not) to the user
+                match format_url(&word, &CONFIGURATION.target_url) {
+                    Ok(url) => {
+                        // url is good to go
+                        match make_request(&CONFIGURATION.client, url).await {
+                            // response came back without error
+                            Ok(response) => {
+                                sender.send(response).await.unwrap();
+                                // is directory? send over the dir channel
+                            }
+                            Err(_) => {} // already logged in make_request; no add'l action req'd
+                        }
+                    }
+                    Err(_) => {} // already logged in format_url
+                }
+            },
+        );
+
+    producers.await;
 
     Ok(())
 }

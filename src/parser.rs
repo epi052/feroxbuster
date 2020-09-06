@@ -172,6 +172,9 @@ EXAMPLES:
     Read urls from STDIN; pipe only resulting urls out to another tool
         cat targets | ./feroxbuster --stdin -q -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
+    Proxy traffic through Burp
+        ./feroxbuster -u http://127.1 --insecure -p http://127.0.0.1:8080
+
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 -t 200
     "#)

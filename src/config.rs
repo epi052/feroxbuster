@@ -5,10 +5,10 @@ use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::env::current_exe;
 use std::fs::read_to_string;
 use std::path::Path;
 use std::process::exit;
-use std::env::current_exe;
 
 lazy_static! {
     /// Global configuration variable.
@@ -63,7 +63,6 @@ pub struct Configuration {
     pub addslash: bool,
     #[serde(default)]
     pub stdin: bool,
-
 }
 
 // functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
@@ -248,8 +247,7 @@ impl Configuration {
 
         if args.is_present("stdin") {
             config.stdin = args.is_present("stdin");
-        }
-        else {
+        } else {
             config.target_url = String::from(args.value_of("url").unwrap());
         }
 
