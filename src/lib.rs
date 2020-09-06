@@ -5,7 +5,8 @@ pub mod parser;
 use reqwest::StatusCode;
 
 /// Generic Result type to ease error handling in async contexts
-pub type FeroxResult<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+pub type FeroxResult<T> =
+    std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
 
 /// Version pulled from Cargo.toml at compile time
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
