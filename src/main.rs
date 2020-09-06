@@ -1,14 +1,13 @@
 use feroxbuster::config::{Configuration, CONFIGURATION};
+use feroxbuster::scanner::FeroxScan;
 use feroxbuster::{logger, FeroxResult};
+use futures::StreamExt;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::sync::Arc;
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
-use std::collections::HashSet;
-use futures::StreamExt;
-use feroxbuster::scanner::FeroxScan;
-use std::sync::Arc;
-
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
@@ -38,18 +37,18 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     Ok(Arc::new(words))
 }
 
-
 async fn scan() -> FeroxResult<()> {
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
     let words =
-        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) }).await??;
+        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) })
+            .await??;
 
     if CONFIGURATION.stdin {
         // got targets from stdin, i.e. cat sites | ./feroxbuster ...
         // just need to read the targets from stdin and spawn a future for each target found
-        let stdin = io::stdin();  // tokio's stdin, not std
+        let stdin = io::stdin(); // tokio's stdin, not std
         let mut reader = FramedRead::new(stdin, LinesCodec::new());
         let mut tasks = vec![];
 
@@ -90,5 +89,3 @@ fn main() {
         Err(e) => log::error!("An error occurred: {}", e),
     };
 }
-
-

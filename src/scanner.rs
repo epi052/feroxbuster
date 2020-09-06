@@ -1,14 +1,19 @@
-use crate::config::{CONFIGURATION};
-use tokio::sync::mpsc::{self, Receiver, Sender};
-use std::collections::HashSet;
+use crate::config::CONFIGURATION;
+use crate::FeroxResult;
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
-use crate::FeroxResult;
+use std::collections::HashSet;
+use std::fs::File;
+use std::process::exit;
+use std::fs::OpenOptions;
+use tokio::task::JoinHandle;
+use tokio::sync::mpsc::{self, Receiver, Sender};
+use std::io::{BufReader, BufWriter, stdout, Write};
 
 pub struct FeroxScan<'scan> {
     wordlist: &'scan HashSet<String>,
     report_channel: Sender<Response>,
-    directory_channel: Sender<Response>
+    directory_channel: Sender<Response>,
 }
 
 impl<'scan> FeroxScan<'scan> {
@@ -27,9 +32,8 @@ impl<'scan> FeroxScan<'scan> {
         FeroxScan {
             wordlist,
             report_channel: tx_report,
-            directory_channel: tx_new_directory
+            directory_channel: tx_new_directory,
         }
-
     }
 
     /// Simple helper to generate a `Url`
@@ -66,17 +70,39 @@ impl<'scan> FeroxScan<'scan> {
     /// The consumer simply receives responses and prints them if they meet the given
     /// reporting criteria
     fn spawn_reporter(mut report_channel: Receiver<Response>) {
+        let mut outfile: Box<dyn Write + Send> = match OpenOptions::new().create(true).append(true).open(&CONFIGURATION.output) {
+            Ok(f) => {
+                Box::new(BufWriter::new(f))
+            }
+            Err(e) => {
+                log::debug!("Could not open output file: {}", e);
+                Box::new(BufWriter::new(stdout()))
+            }
+        };
+
+        //
+        // let mut outfile = match OpenOptions::new().create(true).append(true).open(&CONFIGURATION.output) {
+        //     // user specified output file, need to open it etc
+        //     Ok(f) => BufWriter::new(f),
+        //     Err(e) => {
+        //     }
+        // };
+
         tokio::spawn(async move {
+            if !CONFIGURATION.output.is_empty() {
+                println!("Writing results to {}", CONFIGURATION.output);
+            }
             while let Some(resp) = report_channel.recv().await {
                 let response_code = &resp.status();
                 for code in CONFIGURATION.statuscodes.iter() {
                     if response_code == code {
-                        println!(
+                        let report = format!(
                             "[{}] - {} - [{} bytes]",
                             resp.status(),
                             resp.url(),
                             resp.content_length().unwrap_or(0)
                         );
+                        write!(outfile, "{}\n", report);
                         break;
                     }
                 }
@@ -106,7 +132,12 @@ impl<'scan> FeroxScan<'scan> {
                             match FeroxScan::make_request(&CONFIGURATION.client, url).await {
                                 // response came back without error
                                 Ok(response) => {
-                                    report_chan.send(response).await.unwrap();
+                                    match report_chan.send(response).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            log::error!("wtf: {}", e);
+                                        }
+                                    }
                                     // is directory? send over the dir channel
                                 }
                                 Err(_) => {} // already logged in make_request; no add'l action req'd
@@ -118,9 +149,7 @@ impl<'scan> FeroxScan<'scan> {
             );
         producers.await;
     }
-
 }
-
 
 #[cfg(test)]
 mod tests {
