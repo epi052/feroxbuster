@@ -7,11 +7,12 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 use std::collections::HashSet;
 use futures::StreamExt;
 use feroxbuster::scanner::FeroxScan;
+use std::sync::Arc;
 
 
-/// Create a Set of Strings from the given wordlist
-fn get_unique_words_from_wordlist(config: &Configuration) -> FeroxResult<HashSet<String>> {
-    let file = match File::open(&config.wordlist) {
+/// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
+fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
+    let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => {
             log::error!("Could not open wordlist: {}", e);
@@ -34,27 +35,31 @@ fn get_unique_words_from_wordlist(config: &Configuration) -> FeroxResult<HashSet
         }
     }
 
-    Ok(words)
+    Ok(Arc::new(words))
 }
 
 
-async fn app() -> FeroxResult<()> {
+async fn scan() -> FeroxResult<()> {
+    // cloning an Arc is cheap (it's basically a pointer into the heap)
+    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
+    // as well as additional directories found as part of recursion
     let words =
-        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION) }).await??;
+        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) }).await??;
 
     if CONFIGURATION.stdin {
+        // got targets from stdin, i.e. cat sites | ./feroxbuster ...
+        // just need to read the targets from stdin and spawn a future for each target found
         let stdin = io::stdin();  // tokio's stdin, not std
         let mut reader = FramedRead::new(stdin, LinesCodec::new());
         let mut tasks = vec![];
 
-
-        while let Some(item) = reader.next().await {
-            match item {
-                Ok(line) => {
-                    let cloned = words.as_ref.clone();
+        while let Some(line) = reader.next().await {
+            match line {
+                Ok(target) => {
+                    let cloned = words.clone();
                     let task = tokio::spawn(async move {
                         let scanner = FeroxScan::new(&cloned);
-                        scanner.scan_directory(&line).await;
+                        scanner.scan_directory(&target).await;
                     });
                     tasks.push(task);
                 }
@@ -63,6 +68,7 @@ async fn app() -> FeroxResult<()> {
                 }
             }
         }
+        // drive execution of all accumulated futures
         futures::future::join_all(tasks).await;
     } else {
         let scanner = FeroxScan::new(&words);
@@ -79,7 +85,7 @@ fn main() {
 
     let mut rt = tokio::runtime::Runtime::new().unwrap();
 
-    match rt.block_on(app()) {
+    match rt.block_on(scan()) {
         Ok(_) => log::info!("Done"),
         Err(e) => log::error!("An error occurred: {}", e),
     };
