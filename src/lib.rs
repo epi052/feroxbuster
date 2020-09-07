@@ -2,6 +2,7 @@ pub mod client;
 pub mod config;
 pub mod logger;
 pub mod parser;
+pub mod scanner;
 use reqwest::StatusCode;
 
 /// Generic Result type to ease error handling in async contexts

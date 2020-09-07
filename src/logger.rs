@@ -7,11 +7,17 @@ use std::time::Instant;
 pub fn initialize(verbosity: u8) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
-    match verbosity {
-        0 => (),
-        1 => env::set_var("RUST_LOG", "warn"),
-        2 => env::set_var("RUST_LOG", "info"),
-        _ => env::set_var("RUST_LOG", "debug"),
+    match env::var("RUST_LOG") {
+        Ok(_) => {} // RUST_LOG found, don't override
+        Err(_) => {
+            // only set log level based on verbosity when RUST_LOG variable doesn't exist
+            match verbosity {
+                0 => (),
+                1 => env::set_var("RUST_LOG", "warn"),
+                2 => env::set_var("RUST_LOG", "info"),
+                _ => env::set_var("RUST_LOG", "debug,hyper=info,reqwest=info"),
+            }
+        }
     }
 
     let start = Instant::now();
