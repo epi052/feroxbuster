@@ -1,4 +1,4 @@
-use feroxbuster::config::{Configuration, CONFIGURATION};
+use feroxbuster::config::CONFIGURATION;
 use feroxbuster::scanner::FeroxScan;
 use feroxbuster::{logger, FeroxResult};
 use futures::StreamExt;

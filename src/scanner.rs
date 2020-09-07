@@ -3,12 +3,9 @@ use crate::FeroxResult;
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
 use std::collections::HashSet;
-use std::fs::File;
-use std::process::exit;
 use std::fs::OpenOptions;
-use tokio::task::JoinHandle;
 use tokio::sync::mpsc::{self, Receiver, Sender};
-use std::io::{BufReader, BufWriter, stdout, Write};
+use std::io::{BufWriter, stdout, Write};
 
 pub struct FeroxScan<'scan> {
     wordlist: &'scan HashSet<String>,
@@ -101,7 +98,7 @@ impl<'scan> FeroxScan<'scan> {
                             resp.url(),
                             resp.content_length().unwrap_or(0)
                         );
-                        write!(outfile, "{}\n", report);
+                        write!(outfile, "{}\n", report).unwrap();
                         break;
                     }
                 }
@@ -109,6 +106,35 @@ impl<'scan> FeroxScan<'scan> {
         });
     }
 
+    /// Creates a vector of formatted Urls
+    ///
+    /// At least one value will be returned (base_url + word)
+    ///
+    /// If any extensions were passed to the program, each extension will add a
+    /// (base_url + word + ext) Url to the vector
+    fn create_urls(&self, target_url: &str, word: &str, extensions: &Vec<String>) -> Vec<Url> {
+        let mut urls = vec![];
+
+        match FeroxScan::format_url(&word, &target_url, None) {
+            Ok(url) => {
+                urls.push(url);  // default request, i.e. no extension
+            }
+            Err(_) => {} // already logged in format_url
+        }
+
+        for ext in extensions.iter() {
+            match FeroxScan::format_url(&word, &target_url, Some(ext)) {
+                Ok(url) => {
+                    urls.push(url);  // any extensions passed in
+                }
+                Err(_) => {} // already logged in format_url
+            }
+        }
+
+        urls
+    }
+
+    /// TODO: documentation
     pub async fn scan_directory(&self, target_url: &str) {
         // producer tasks (mp of mpsc); responsible for making requests
         let producers = stream::iter(self.wordlist)
@@ -126,28 +152,7 @@ impl<'scan> FeroxScan<'scan> {
                     // closure to make the request and send it over the channel to be
                     // reported (or not) to the user
 
-                    // first up, need to build a vector of at least the None value, and then
-                    // any additional extensions passed to the program. None will request the
-                    // base url + word; any add'l extensions will then be requested if present
-                    let mut urls = vec![];
-
-                    match FeroxScan::format_url(&word, &target_url, None) {
-                        Ok(url) => {
-                            urls.push(url);  // default request, i.e. no extension
-                        }
-                        Err(_) => {} // already logged in format_url
-                    }
-
-                    for ext in CONFIGURATION.extensions.iter() {
-                        match FeroxScan::format_url(&word, &target_url, Some(ext)) {
-                            Ok(url) => {
-                                urls.push(url);  // any extensions passed in
-                            }
-                            Err(_) => {} // already logged in format_url
-                        }
-                    }
-
-                    for url in urls {
+                    for url in self.create_urls(&target_url, &word, &CONFIGURATION.extensions) {
                         match FeroxScan::make_request(&CONFIGURATION.client, url).await {
                             // response came back without error
                             Ok(response) => {
