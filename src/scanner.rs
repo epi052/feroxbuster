@@ -39,10 +39,17 @@ impl<'scan> FeroxScan<'scan> {
     /// Simple helper to generate a `Url`
     ///
     /// Errors during parsing `url` or joining `word` are propagated up the call stack
-    fn format_url(word: &str, url: &str) -> FeroxResult<Url> {
+    fn format_url(word: &str, url: &str, extension: Option<&str>) -> FeroxResult<Url> {
+
         let base_url = reqwest::Url::parse(&url)?;
 
-        match base_url.join(word) {
+        let word= if extension.is_some() {
+             format!("{}.{}", word, extension.unwrap())
+        } else {
+            String::from(word)
+        };
+
+        match base_url.join(word.as_str()) {
             Ok(request) => {
                 log::debug!("Requested URL: {}", request);
                 Ok(request)
@@ -79,14 +86,6 @@ impl<'scan> FeroxScan<'scan> {
                 Box::new(BufWriter::new(stdout()))
             }
         };
-
-        //
-        // let mut outfile = match OpenOptions::new().create(true).append(true).open(&CONFIGURATION.output) {
-        //     // user specified output file, need to open it etc
-        //     Ok(f) => BufWriter::new(f),
-        //     Err(e) => {
-        //     }
-        // };
 
         tokio::spawn(async move {
             if !CONFIGURATION.output.is_empty() {
@@ -126,26 +125,44 @@ impl<'scan> FeroxScan<'scan> {
                 |(word, mut report_chan, mut directory_chan)| async move {
                     // closure to make the request and send it over the channel to be
                     // reported (or not) to the user
-                    match FeroxScan::format_url(&word, &target_url) {
+
+                    // first up, need to build a vector of at least the None value, and then
+                    // any additional extensions passed to the program. None will request the
+                    // base url + word; any add'l extensions will then be requested if present
+                    let mut urls = vec![];
+
+                    match FeroxScan::format_url(&word, &target_url, None) {
                         Ok(url) => {
-                            // url is good to go
-                            match FeroxScan::make_request(&CONFIGURATION.client, url).await {
-                                // response came back without error
-                                Ok(response) => {
-                                    match report_chan.send(response).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            log::error!("wtf: {}", e);
-                                        }
-                                    }
-                                    // is directory? send over the dir channel
-                                }
-                                Err(_) => {} // already logged in make_request; no add'l action req'd
-                            }
+                            urls.push(url);  // default request, i.e. no extension
                         }
                         Err(_) => {} // already logged in format_url
                     }
-                },
+
+                    for ext in CONFIGURATION.extensions.iter() {
+                        match FeroxScan::format_url(&word, &target_url, Some(ext)) {
+                            Ok(url) => {
+                                urls.push(url);  // any extensions passed in
+                            }
+                            Err(_) => {} // already logged in format_url
+                        }
+                    }
+
+                    for url in urls {
+                        match FeroxScan::make_request(&CONFIGURATION.client, url).await {
+                            // response came back without error
+                            Ok(response) => {
+                                match report_chan.send(response).await {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        log::error!("wtf: {}", e);
+                                    }
+                                }
+                                // is directory? send over the dir channel
+                            }
+                            Err(_) => {} // already logged in make_request; no add'l action req'd
+                        }
+                    }
+                }
             );
         producers.await;
     }
