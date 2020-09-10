@@ -321,7 +321,7 @@ impl Configuration {
             }
         }
 
-        println!("{:#?}", config); // todo: remove eventually or turn into banner
+        // println!("{:#?}", config); // todo: remove eventually or turn into banner
         config
     }
 

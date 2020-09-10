@@ -15,7 +15,8 @@ pub fn initialize(verbosity: u8) {
                 0 => (),
                 1 => env::set_var("RUST_LOG", "warn"),
                 2 => env::set_var("RUST_LOG", "info"),
-                _ => env::set_var("RUST_LOG", "debug,hyper=info,reqwest=info"),
+                3 => env::set_var("RUST_LOG", "debug,hyper=info,reqwest=info"),
+                _ => env::set_var("RUST_LOG", "trace,hyper=info,reqwest=info"),
             }
         }
     }

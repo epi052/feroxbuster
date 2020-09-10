@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
+
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
     let file = match File::open(&path) {
@@ -51,14 +52,14 @@ async fn scan() -> FeroxResult<()> {
         let stdin = io::stdin(); // tokio's stdin, not std
         let mut reader = FramedRead::new(stdin, LinesCodec::new());
         let mut tasks = vec![];
+        let scanner = FeroxScan::new(words.clone());
 
         while let Some(line) = reader.next().await {
             match line {
                 Ok(target) => {
-                    let cloned = words.clone();
+                    let scanner_ptr = scanner.clone();
                     let task = tokio::spawn(async move {
-                        let scanner = FeroxScan::new(&cloned);
-                        scanner.scan_directory(&target).await;
+                        scanner_ptr.scan_directory(&target).await;
                     });
                     tasks.push(task);
                 }
@@ -70,7 +71,7 @@ async fn scan() -> FeroxResult<()> {
         // drive execution of all accumulated futures
         futures::future::join_all(tasks).await;
     } else {
-        let scanner = FeroxScan::new(&words);
+        let scanner = FeroxScan::new(words.clone());
         scanner.scan_directory(&CONFIGURATION.target_url).await;
     }
 
