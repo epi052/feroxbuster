@@ -1,13 +1,15 @@
 use crate::config::CONFIGURATION;
 use crate::FeroxResult;
 use futures::{stream, StreamExt};
-use futures::future::{BoxFuture, FutureExt};
+use futures::future::{FutureExt, BoxFuture};
 use reqwest::{Client, Response, Url};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::task::JoinHandle;
 use std::sync::Arc;
+
 
 
 pub struct FeroxScan {
@@ -120,6 +122,22 @@ impl FeroxScan {
         }
     }
 
+    /// Spawn a single consumer task (sc side of mpsc)
+    ///
+    /// The consumer simply receives Urls and scans them
+    fn spawn_recursion_handler(mut recursion_channel: Receiver<String>, wordlist: Arc<HashSet<String>>) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
+        async move {
+            let mut scans = vec![];
+            while let Some(resp) = recursion_channel.recv().await {
+                log::info!("received {} on recursion channel", resp);
+                let scanner = FeroxScan::new(wordlist.clone());
+                scans.push(tokio::spawn(async move {scanner.scan_directory(&resp).await}));
+            }
+            scans
+        }.boxed()
+    }
+
+
     /// Creates a vector of formatted Urls
     ///
     /// At least one value will be returned (base_url + word)
@@ -190,19 +208,19 @@ impl FeroxScan {
         false
     }
 
-    fn try_recursion<'a>(self: Arc<Self>, response: &'a Response) -> Option<BoxFuture<'a, ()>> {
+    async fn try_recursion(self: Arc<Self>, response: &Response, mut transmitter: Sender<String>) {
         let arc_self = self.clone();
-
+        log::info!("called try_recursion");
         if self.response_is_directory(&response) {
-            return if CONFIGURATION.redirects {
+            if CONFIGURATION.redirects {
                 // response is 2xx can simply send it because we're
                 // following redirects
                 log::info!("Added new directory to recursive scan: {}", response.url());
                 log::debug!("New directory sent across directory channel");
-
-                Some(async move {
-                    arc_self.scan_directory(&response.url().as_str()).await;
-                }.boxed())
+                // tokio::spawn(async move {
+                //     arc_self.scan_directory(&response.url().as_str()).await;
+                // });
+                transmitter.send(String::from(response.url().as_str())).await.unwrap();
             } else {
                 // response is 3xx, need to add a /
                 let new_url = format!("{}/", response.url());
@@ -210,12 +228,12 @@ impl FeroxScan {
                 log::debug!("{:#?}", response);
                 log::debug!("Added / to {}, making {}", response.url(), new_url);
                 log::info!("Added new directory to recursive scan: {}", new_url);
-                Some(async move {
-                    arc_self.scan_directory(&new_url).await;
-                }.boxed())
+                transmitter.send(new_url).await.unwrap();
+                // tokio::spawn(async move {
+                //     arc_self.scan_directory(&new_url).await;
+                // });
             }
         }
-        None
     }
 
     /// TODO: documentation
@@ -224,7 +242,11 @@ impl FeroxScan {
         let (tx_rpt, rx_rpt): (Sender<Response>, Receiver<Response>) =
             mpsc::channel(CONFIGURATION.threads);
 
+        let (tx_dir, rx_dir): (Sender<String>, Receiver<String>) =
+            mpsc::channel(CONFIGURATION.threads);
+
         let self_ptr = self.clone();
+        let self_task_ptr = self_ptr.clone();
 
         let reporter = if !CONFIGURATION.output.is_empty() {
             // output file defined
@@ -233,6 +255,8 @@ impl FeroxScan {
             tokio::spawn(async move {FeroxScan::spawn_terminal_reporter(rx_rpt).await})
         };
 
+        let recurser = tokio::spawn(async move {FeroxScan::spawn_recursion_handler(rx_dir, self_task_ptr.wordlist.clone()).await});
+
         // producer tasks (mp of mpsc); responsible for making requests
         let producers = stream::iter(self.wordlist.iter())
             .map(|word| {
@@ -240,12 +264,12 @@ impl FeroxScan {
                 // cloned Sender for message passing
                 let report_sender = tx_rpt.clone();
                 let atomic_ref_self = self_ptr.clone();
-                (word, report_sender, atomic_ref_self)
+                (word, report_sender, atomic_ref_self, tx_dir.clone())
             })
             .for_each_concurrent(
                 // where the magic happens
                 CONFIGURATION.threads, // concurrency limit (i.e. # of buffered requests)
-                |(word, mut report_chan, arc_self)| async move {
+                |(word, mut report_chan, arc_self, dir_chan)| async move {
                     // closure to make the request and send it over the channel to be
                     // reported (or not) to the user
 
@@ -256,8 +280,12 @@ impl FeroxScan {
                             // response came back without error
                             Ok(response) => {
                                 // do recursion if appropriate
-                                // if !CONFIGURATION.norecursion {
-                                //     // if self.response_is_directory(&response) {
+                                if !CONFIGURATION.norecursion {
+                                    if arc_self.clone().response_is_directory(&response) {
+                                        arc_self.clone().try_recursion(&response, dir_chan.clone()).await;
+                                    }
+                                }
+
                                 //     //     if CONFIGURATION.redirects {
                                 //     //         async move {
                                 //     //             arc_self.scan_directory(&response.url().as_str()).await;
@@ -298,10 +326,14 @@ impl FeroxScan {
         // await tx tasks
         producers.await;
 
-        // manually drop tx in order for the rx task's while loop to eval to false
-        drop(tx_rpt);
+        // manually drop tx in order for the rx task's while loops to eval to false
 
         // await rx tasks
+
+
+        drop(tx_dir);
+        futures::future::join_all(recurser.await.unwrap()).await;
+        drop(tx_rpt);
         reporter.await;
 
     }
