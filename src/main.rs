@@ -1,5 +1,5 @@
 use feroxbuster::config::CONFIGURATION;
-use feroxbuster::scanner::FeroxScan;
+use feroxbuster::scanner::scan_url;
 use feroxbuster::{logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
@@ -9,13 +9,16 @@ use std::sync::Arc;
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
+    log::trace!("enter: get_unique_words_from_wordlist({})", path);
+
     let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => {
             log::error!("Could not open wordlist: {}", e);
+            log::trace!("exit: get_unique_words_from_wordlist -> {}", e);
+
             return Err(Box::new(e));
         }
     };
@@ -35,10 +38,13 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
         }
     }
 
+    log::trace!("exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>", words.len());
     Ok(Arc::new(words))
 }
 
+/// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan() -> FeroxResult<()> {
+    log::trace!("enter: scan");
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
@@ -52,34 +58,35 @@ async fn scan() -> FeroxResult<()> {
         let stdin = io::stdin(); // tokio's stdin, not std
         let mut reader = FramedRead::new(stdin, LinesCodec::new());
         let mut tasks = vec![];
-        let scanner = FeroxScan::new(words.clone());
 
         while let Some(line) = reader.next().await {
             match line {
                 Ok(target) => {
-                    let scanner_ptr = scanner.clone();
+                    let wordclone = words.clone();
                     let task = tokio::spawn(async move {
-                        scanner_ptr.scan_directory(&target).await;
+                        scan_url(&target, wordclone).await;
                     });
                     tasks.push(task);
                 }
                 Err(e) => {
-                    println!("FOUND: ERROR: {}", e);
+                    println!("[ERROR] - {}", e);
                 }
             }
         }
-        // drive execution of all accumulated futures
-        futures::future::join_all(tasks).await;
+
+    // drive execution of all accumulated futures
+    futures::future::join_all(tasks).await;
     } else {
-        let scanner = FeroxScan::new(words.clone());
-        scanner.scan_directory(&CONFIGURATION.target_url).await;
+        scan_url(&CONFIGURATION.target_url, words).await;
     }
 
+    log::trace!("exit: scan");
     Ok(())
 }
 
 fn main() {
     logger::initialize(CONFIGURATION.verbosity);
+    log::trace!("enter: main");
 
     log::debug!("{:#?}", *CONFIGURATION);
 
@@ -89,4 +96,5 @@ fn main() {
         Ok(_) => log::info!("Done"),
         Err(e) => log::error!("An error occurred: {}", e),
     };
+    log::trace!("exit: main");
 }
