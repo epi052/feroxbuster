@@ -81,14 +81,16 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
                 let response_code = &resp.status();
                 for code in CONFIGURATION.statuscodes.iter() {
                     if response_code == code {
-                        let report = format!(
+                        let report = if CONFIGURATION.quiet {
+                            format!("{}\n", resp.url())
+                        } else {
+                            format!(
                             "[{}] - {} - [{} bytes]\n",
                             resp.status(),
                             resp.url(),
-                            resp.content_length().unwrap_or(0)
-                        );
+                            resp.content_length().unwrap_or(0))
+                        };
 
-                        println!("{:?}", report.as_bytes());
                         match write!(writer, "{}", report) {
                             Ok(_) => (),
                             Err(e) => {
@@ -123,12 +125,16 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
         let response_code = &resp.status();
         for code in CONFIGURATION.statuscodes.iter() {
             if response_code == code {
-                println!(
-                    "[{}] - {} - [{} bytes]",
-                    resp.status(),
-                    resp.url(),
-                    resp.content_length().unwrap_or(0)
-                );
+                if CONFIGURATION.quiet {
+                    println!("{}", resp.url());
+                } else {
+                    println!(
+                        "[{}] - {} - [{} bytes]",
+                        resp.status(),
+                        resp.url(),
+                        resp.content_length().unwrap_or(0)
+                    );
+                }
                 break;
             }
         }
@@ -379,31 +385,31 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>) {
         });
 
     // await tx tasks
-    log::debug!("awaiting scan producers");
+    log::trace!("awaiting scan producers");
     producers.await;
-    log::debug!("done awaiting scan producers");
+    log::trace!("done awaiting scan producers");
 
     // manually drop tx in order for the rx task's while loops to eval to false
-    log::debug!("dropped recursion handler's transmitter");
+    log::trace!("dropped recursion handler's transmitter");
     drop(tx_dir);
 
     // await rx tasks
-    log::debug!("awaiting recursive scan receiver/scans");
+    log::trace!("awaiting recursive scan receiver/scans");
     futures::future::join_all(recurser.await.unwrap()).await;
-    log::debug!("done awaiting recursive scan receiver/scans");
+    log::trace!("done awaiting recursive scan receiver/scans");
 
     // same thing here, drop report tx so the rx can finish up
-    log::debug!("dropped report handler's transmitter");
+    log::trace!("dropped report handler's transmitter");
     drop(tx_rpt);
 
-    log::debug!("awaiting report receiver");
+    log::trace!("awaiting report receiver");
     match reporter.await {
         Ok(_) => {}
         Err(e) => {
             log::error!("error awaiting report receiver: {}", e);
         }
     }
-    log::debug!("done awaiting report receiver");
+    log::trace!("done awaiting report receiver");
 
     log::trace!("exit: scan_url");
 }
