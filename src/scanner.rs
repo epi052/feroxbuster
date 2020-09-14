@@ -174,7 +174,7 @@ fn spawn_recursion_handler(
 ///
 /// If any extensions were passed to the program, each extension will add a
 /// (base_url + word + ext) Url to the vector
-fn create_urls(target_url: &str, word: &str, extensions: &Vec<String>) -> Vec<Url> {
+fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> {
     log::trace!(
         "enter: create_urls({}, {}, {:?})",
         target_url,
@@ -184,19 +184,13 @@ fn create_urls(target_url: &str, word: &str, extensions: &Vec<String>) -> Vec<Ur
 
     let mut urls = vec![];
 
-    match format_url(&target_url, &word, None) {
-        Ok(url) => {
-            urls.push(url); // default request, i.e. no extension
-        }
-        Err(_) => {} // already logged in format_url
+    if let Ok(url) = format_url(&target_url, &word, None) {
+        urls.push(url); // default request, i.e. no extension
     }
 
     for ext in extensions.iter() {
-        match format_url(&target_url, &word, Some(ext)) {
-            Ok(url) => {
-                urls.push(url); // any extensions passed in
-            }
-            Err(_) => {} // already logged in format_url
+        if let Ok(url) = format_url(&target_url, &word, Some(ext)) {
+            urls.push(url); // any extensions passed in
         }
     }
 
@@ -245,7 +239,7 @@ fn response_is_directory(response: &Response) -> bool {
         }
     } else if response.status().is_success() {
         // status code is 2xx, need to check if it ends in /
-        if response.url().as_str().ends_with("/") {
+        if response.url().as_str().ends_with('/') {
             log::debug!("{} is directory suitable for recursion", response.url());
             log::trace!("exit: is_directory -> true");
             return true;
@@ -316,25 +310,21 @@ async fn make_requests(
     let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
 
     for url in urls {
-        match make_request(&CONFIGURATION.client, url).await {
+        if let Ok(response) = make_request(&CONFIGURATION.client, url).await {
             // response came back without error
-            Ok(response) => {
-                // do recursion if appropriate
-                if !CONFIGURATION.norecursion {
-                    if response_is_directory(&response) {
-                        try_recursion(&response, dir_chan.clone()).await;
-                    }
+
+            // do recursion if appropriate
+            if !CONFIGURATION.norecursion && response_is_directory(&response) {
+                try_recursion(&response, dir_chan.clone()).await;
+            }
+            match report_chan.send(response) {
+                Ok(_) => {
+                    log::debug!("sent {}/{} over reporting channel", &target_url, &word);
                 }
-                match report_chan.send(response) {
-                    Ok(_) => {
-                        log::debug!("sent {}/{} over reporting channel", &target_url, &word);
-                    }
-                    Err(e) => {
-                        log::error!("wtf: {}", e);
-                    }
+                Err(e) => {
+                    log::error!("wtf: {}", e);
                 }
             }
-            Err(_) => {} // already logged in make_request; no add'l action req'd
         }
     }
 }
@@ -376,12 +366,12 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>) {
         .map(|word| {
             let txd = tx_dir.clone();
             let txr = tx_rpt.clone();
-            let tgt = target_url.to_string();  // done to satisfy 'static lifetime below
+            let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             tokio::spawn(async move { make_requests(&tgt, &word, txd, txr).await })
         })
         .for_each_concurrent(CONFIGURATION.threads, |resp| async move {
             match resp.await {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => {
                     log::error!("error awaiting a response: {}", e);
                 }
@@ -408,7 +398,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>) {
 
     log::debug!("awaiting report receiver");
     match reporter.await {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             log::error!("error awaiting report receiver: {}", e);
         }

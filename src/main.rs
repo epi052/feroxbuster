@@ -38,7 +38,10 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
         }
     }
 
-    log::trace!("exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>", words.len());
+    log::trace!(
+        "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
+        words.len()
+    );
     Ok(Arc::new(words))
 }
 
@@ -74,8 +77,8 @@ async fn scan() -> FeroxResult<()> {
             }
         }
 
-    // drive execution of all accumulated futures
-    futures::future::join_all(tasks).await;
+        // drive execution of all accumulated futures
+        futures::future::join_all(tasks).await;
     } else {
         scan_url(&CONFIGURATION.target_url, words).await;
     }

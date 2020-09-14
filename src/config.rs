@@ -158,28 +158,25 @@ impl Configuration {
         // in the Configuration struct so that we don't change anything that isn't
         // actually specified in the config file
         if let Ok(exe_path) = current_exe() {
-            match exe_path.parent() {
-                Some(bin_dir) => {
-                    if let Some(settings) = Self::parse_config(bin_dir) {
-                        config.threads = settings.threads;
-                        config.wordlist = settings.wordlist;
-                        config.statuscodes = settings.statuscodes;
-                        config.proxy = settings.proxy;
-                        config.timeout = settings.timeout;
-                        config.verbosity = settings.verbosity;
-                        config.quiet = settings.quiet;
-                        config.output = settings.output;
-                        config.useragent = settings.useragent;
-                        config.redirects = settings.redirects;
-                        config.insecure = settings.insecure;
-                        config.extensions = settings.extensions;
-                        config.headers = settings.headers;
-                        config.norecursion = settings.norecursion;
-                        config.addslash = settings.addslash;
-                        config.stdin = settings.stdin;
-                    }
+            if let Some(bin_dir) = exe_path.parent() {
+                if let Some(settings) = Self::parse_config(bin_dir) {
+                    config.threads = settings.threads;
+                    config.wordlist = settings.wordlist;
+                    config.statuscodes = settings.statuscodes;
+                    config.proxy = settings.proxy;
+                    config.timeout = settings.timeout;
+                    config.verbosity = settings.verbosity;
+                    config.quiet = settings.quiet;
+                    config.output = settings.output;
+                    config.useragent = settings.useragent;
+                    config.redirects = settings.redirects;
+                    config.insecure = settings.insecure;
+                    config.extensions = settings.extensions;
+                    config.headers = settings.headers;
+                    config.norecursion = settings.norecursion;
+                    config.addslash = settings.addslash;
+                    config.stdin = settings.stdin;
                 }
-                None => {}
             };
         };
 
@@ -219,7 +216,7 @@ impl Configuration {
             config.extensions = args
                 .values_of("extensions")
                 .unwrap()
-                .map(|val| String::from(val))
+                .map(|val| val.to_string())
                 .collect();
         }
 
@@ -278,7 +275,7 @@ impl Configuration {
         if args.values_of("headers").is_some() {
             // todo: probably need some non-unwrap code in here
             for val in args.values_of("headers").unwrap() {
-                let mut split_val = val.split(":");
+                let mut split_val = val.split(':');
 
                 // explicitly take first split value as header's name
                 let name = split_val.next().unwrap().trim();
@@ -298,7 +295,7 @@ impl Configuration {
             || config.useragent != useragent()
             || config.redirects
             || config.insecure
-            || config.headers.len() > 0
+            || !config.headers.is_empty()
         {
             if config.proxy.is_empty() {
                 config.client = client::initialize(
