@@ -63,11 +63,13 @@ pub struct Configuration {
     pub addslash: bool,
     #[serde(default)]
     pub stdin: bool,
+    #[serde(default = "depth")]
+    pub depth: usize,
 }
 
-// functions timeout, threads, statuscodes, useragent, and wordlist are used to provide defaults in the
-// event that a ferox-config.toml is found but one or more of the values below aren't listed
-// in the config.  This way, we get the correct defaults upon Deserialization
+// functions timeout, threads, statuscodes, useragent, wordlist, and depth are used to provide
+// defaults in the event that a ferox-config.toml is found but one or more of the values below
+// aren't listed in the config.  This way, we get the correct defaults upon Deserialization
 fn timeout() -> u64 {
     7
 }
@@ -85,6 +87,9 @@ fn wordlist() -> String {
 }
 fn useragent() -> String {
     format!("feroxbuster/{}", VERSION)
+}
+fn depth() -> usize {
+    4
 }
 
 impl Default for Configuration {
@@ -110,6 +115,7 @@ impl Default for Configuration {
             extensions: Vec::new(),
             headers: HashMap::new(),
             threads: threads(),
+            depth: depth(),
             wordlist: wordlist(),
             statuscodes: statuscodes(),
         }
@@ -120,23 +126,24 @@ impl Configuration {
     /// Creates a [Configuration](struct.Configuration.html) object with the following
     /// built-in default values
     ///
-    /// - timeout: 5 seconds
-    /// - redirects: false
-    /// - wordlist: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
-    /// - threads: 50
-    /// - timeout: 7
-    /// - verbosity: 0 (no logging enabled)
-    /// - proxy: None
-    /// - statuscodes: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
-    /// - output: None (print to stdout)
-    /// - quiet: false
-    /// - useragent: "feroxbuster/VERSION"
-    /// - insecure: false (don't be insecure, i.e. don't allow invalid certs)
-    /// - extensions: None
-    /// - headers: None
-    /// - norecursion: false (don't recursively bust enumerated sub-directories)
-    /// - addslash: false
-    /// - stdin: false
+    /// - **timeout**: `5` seconds
+    /// - **redirects**: `false`
+    /// - **wordlist**: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
+    /// - **threads**: `50`
+    /// - **timeout**: `7` seconds
+    /// - **verbosity**: `0` (no logging enabled)
+    /// - **proxy**: `None`
+    /// - **statuscodes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - **output**: `None` (print to stdout)
+    /// - **quiet**: `false`
+    /// - **useragent**: `feroxer/VERSION`
+    /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
+    /// - **extensions**: `None`
+    /// - **headers**: `None`
+    /// - **norecursion**: `false` (recursively scan enumerated sub-directories)
+    /// - **addslash**: `false`
+    /// - **stdin**: `false`
+    /// - **depth**: `4` (maximum recursion depth)
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -176,6 +183,7 @@ impl Configuration {
                     config.norecursion = settings.norecursion;
                     config.addslash = settings.addslash;
                     config.stdin = settings.stdin;
+                    config.depth = settings.depth;
                 }
             };
         };
@@ -187,6 +195,11 @@ impl Configuration {
         if args.value_of("threads").is_some() {
             let threads = value_t!(args.value_of("threads"), usize).unwrap_or_else(|e| e.exit());
             config.threads = threads;
+        }
+
+        if args.value_of("depth").is_some() {
+            let depth = value_t!(args.value_of("depth"), usize).unwrap_or_else(|e| e.exit());
+            config.depth = depth;
         }
 
         if args.value_of("wordlist").is_some() {
@@ -318,7 +331,6 @@ impl Configuration {
             }
         }
 
-        // println!("{:#?}", config); // todo: remove eventually or turn into banner
         config
     }
 
@@ -362,6 +374,7 @@ mod tests {
             norecursion = true
             addslash = true
             stdin = true
+            depth = 1
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -377,6 +390,7 @@ mod tests {
         assert_eq!(config.target_url, String::new());
         assert_eq!(config.statuscodes, statuscodes());
         assert_eq!(config.threads, threads());
+        assert_eq!(config.depth, depth());
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
@@ -405,6 +419,12 @@ mod tests {
     fn config_reads_threads() {
         let config = setup_config_test();
         assert_eq!(config.threads, 40);
+    }
+
+    #[test]
+    fn config_reads_depth() {
+        let config = setup_config_test();
+        assert_eq!(config.depth, 1);
     }
 
     #[test]

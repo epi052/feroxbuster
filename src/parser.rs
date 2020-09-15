@@ -1,7 +1,7 @@
 use crate::VERSION;
 use clap::{App, Arg};
 
-/// Create and return an instance of `clap::App`, i.e. the Command Line Interface's configuration
+/// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
 pub fn initialize() -> App<'static, 'static> {
     App::new("feroxbuster")
         .version(VERSION)
@@ -30,6 +30,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .value_name("THREADS")
                 .takes_value(true)
                 .help("Number of concurrent threads (default: 50)"),
+        )
+        .arg(
+            Arg::with_name("depth")
+                .short("d")
+                .long("depth")
+                .value_name("RECURSION_DEPTH")
+                .takes_value(true)
+                .help("Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)"),
         )
         .arg(
             Arg::with_name("timeout")
@@ -148,6 +156,7 @@ pub fn initialize() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("stdin")
+                .short("S")
                 .long("stdin")
                 .takes_value(false)
                 .help("Read url(s) from STDIN")
@@ -159,8 +168,10 @@ pub fn initialize() -> App<'static, 'static> {
     extensions:
         ./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx
 
-    All of the methods above are valid and interchangeable.  The same goes for headers and status
-    codes.
+    The command above adds .pdf, .js, .html, .php, .txt, .json, and .docx to each url
+
+    All of the methods above (multiple flags, space separated, comma separated, etc...) are valid
+    and interchangeable.  The same goes for headers and status codes.
 
 EXAMPLES:
     Multiple headers:
@@ -170,7 +181,7 @@ EXAMPLES:
         ./feroxbuster -u http://[::1] --norecursion -vv
 
     Read urls from STDIN; pipe only resulting urls out to another tool
-        cat targets | ./feroxbuster --stdin -q -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+        cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Proxy traffic through Burp
         ./feroxbuster -u http://127.1 --insecure -p http://127.0.0.1:8080

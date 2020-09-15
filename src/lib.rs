@@ -3,6 +3,8 @@ pub mod config;
 pub mod logger;
 pub mod parser;
 pub mod scanner;
+pub mod utils;
+
 use reqwest::StatusCode;
 
 /// Generic Result type to ease error handling in async contexts

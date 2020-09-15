@@ -5,7 +5,7 @@ use std::convert::TryInto;
 use std::process::exit;
 use std::time::Duration;
 
-/// Create and return an instance of `reqwest::Client`
+/// Create and return an instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
 pub fn initialize(
     timeout: u64,
     useragent: &str,

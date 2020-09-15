@@ -1,5 +1,6 @@
 use crate::config::CONFIGURATION;
 use crate::FeroxResult;
+use crate::utils::get_current_depth;
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
@@ -85,10 +86,11 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
                             format!("{}\n", resp.url())
                         } else {
                             format!(
-                            "[{}] - {} - [{} bytes]\n",
-                            resp.status(),
-                            resp.url(),
-                            resp.content_length().unwrap_or(0))
+                                "[{}] - {} - [{} bytes]\n",
+                                resp.status(),
+                                resp.url(),
+                                resp.content_length().unwrap_or(0)
+                            )
                         };
 
                         match write!(writer, "{}", report) {
@@ -149,6 +151,7 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
 fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
+    base_depth: usize
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...])",
@@ -163,7 +166,7 @@ fn spawn_recursion_handler(
             let clonedresp = resp.clone();
             let clonedlist = wordlist.clone();
             scans.push(tokio::spawn(async move {
-                scan_url(clonedresp.to_owned().as_str(), clonedlist).await
+                scan_url(clonedresp.to_owned().as_str(), clonedlist, base_depth).await
             }));
         }
         scans
@@ -256,13 +259,37 @@ fn response_is_directory(response: &Response) -> bool {
     false
 }
 
+/// Helper function that determines if the configured maximum recursion depth has been reached
+///
+/// Essentially looks at the Url path and determines how many directories are present in the
+/// given Url
+fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
+    log::trace!("enter: reached_max_depth({})", url);
+
+    if CONFIGURATION.depth == 0 {
+        // early return, as 0 means recurse forever; no additional processing needed
+        log::trace!("exit: reached_max_depth -> false");
+        return false;
+    }
+
+    let depth = get_current_depth(url.as_str());
+
+    if depth - base_depth >= CONFIGURATION.depth {
+
+        return true;
+    }
+
+    log::trace!("exit: reached_max_depth -> false");
+    false
+}
+
 /// Helper function that wraps logic to check for recursion opportunities
 ///
 /// When a recursion opportunity is found, the new url is sent across the recursion channel
-async fn try_recursion(response: &Response, transmitter: UnboundedSender<String>) {
+async fn try_recursion(response: &Response, base_depth: usize, transmitter: UnboundedSender<String>) {
     log::trace!("enter: try_recursion({:?}, {:?})", response, transmitter);
 
-    if response_is_directory(&response) {
+    if !reached_max_depth(response.url(), base_depth) && response_is_directory(&response) {
         if CONFIGURATION.redirects {
             // response is 2xx can simply send it because we're following redirects
             log::info!("Added new directory to recursive scan: {}", response.url());
@@ -310,6 +337,7 @@ async fn try_recursion(response: &Response, transmitter: UnboundedSender<String>
 async fn make_requests(
     target_url: &str,
     word: &str,
+    base_depth: usize,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<Response>,
 ) {
@@ -321,7 +349,7 @@ async fn make_requests(
 
             // do recursion if appropriate
             if !CONFIGURATION.norecursion && response_is_directory(&response) {
-                try_recursion(&response, dir_chan.clone()).await;
+                try_recursion(&response, base_depth, dir_chan.clone()).await;
             }
             match report_chan.send(response) {
                 Ok(_) => {
@@ -338,7 +366,7 @@ async fn make_requests(
 /// Scan a given url using a given wordlist
 ///
 /// This is the primary entrypoint for the scanner
-pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>) {
+pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_depth: usize) {
     log::trace!(
         "enter: scan_url({:?}, wordlist[{} words...])",
         target_url,
@@ -365,7 +393,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>) {
     let recurser_words = wordlist.clone();
 
     let recurser =
-        tokio::spawn(async move { spawn_recursion_handler(rx_dir, recurser_words).await });
+        tokio::spawn(async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await });
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
@@ -373,7 +401,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>) {
             let txd = tx_dir.clone();
             let txr = tx_rpt.clone();
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
-            tokio::spawn(async move { make_requests(&tgt, &word, txd, txr).await })
+            tokio::spawn(async move { make_requests(&tgt, &word, base_depth,txd, txr).await })
         })
         .for_each_concurrent(CONFIGURATION.threads, |resp| async move {
             match resp.await {

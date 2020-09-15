@@ -8,6 +8,7 @@ use std::io::{BufRead, BufReader};
 use std::sync::Arc;
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
+use feroxbuster::utils::get_current_depth;
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
@@ -67,7 +68,8 @@ async fn scan() -> FeroxResult<()> {
                 Ok(target) => {
                     let wordclone = words.clone();
                     let task = tokio::spawn(async move {
-                        scan_url(&target, wordclone).await;
+                        let base_depth = get_current_depth(&target);
+                        scan_url(&target, wordclone, base_depth).await;
                     });
                     tasks.push(task);
                 }
@@ -80,7 +82,8 @@ async fn scan() -> FeroxResult<()> {
         // drive execution of all accumulated futures
         futures::future::join_all(tasks).await;
     } else {
-        scan_url(&CONFIGURATION.target_url, words).await;
+        let base_depth = get_current_depth(&CONFIGURATION.target_url);
+        scan_url(&CONFIGURATION.target_url, words, base_depth).await;
     }
 
     log::trace!("exit: scan");
