@@ -22,13 +22,13 @@ pub fn get_current_depth(target: &str) -> usize {
         String::from(target)
     };
 
-    return match Url::parse(&target) {
+    match Url::parse(&target) {
         Ok(url) => {
-            if let Some(mut parts) = url.path_segments() {
+            if let Some(parts) = url.path_segments() {
                 // at least an empty string returned by the Split, meaning top-level urls
                 let mut depth = 0;
 
-                while let Some(_) = parts.next() {
+                for _ in parts {
                     depth += 1;
                 }
 

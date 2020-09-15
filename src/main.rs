@@ -92,6 +92,7 @@ async fn scan() -> FeroxResult<()> {
 
 fn main() {
     logger::initialize(CONFIGURATION.verbosity);
+
     log::trace!("enter: main");
 
     log::debug!("{:#?}", *CONFIGURATION);

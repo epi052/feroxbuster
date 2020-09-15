@@ -108,7 +108,6 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
         }
         Err(e) => {
             log::error!("error opening file: {}", e);
-            log::trace!("exit: spawn_file_reporter -> {}", e);
         }
     }
     log::trace!("exit: spawn_file_reporter");
@@ -294,10 +293,11 @@ async fn try_recursion(response: &Response, base_depth: usize, transmitter: Unbo
         if CONFIGURATION.redirects {
             // response is 2xx can simply send it because we're following redirects
             log::info!("Added new directory to recursive scan: {}", response.url());
-            log::debug!("sent {} across channel to begin a new scan", response.url());
 
             match transmitter.send(String::from(response.url().as_str())) {
-                Ok(_) => {}
+                Ok(_) => {
+                    log::debug!("sent {} across channel to begin a new scan", response.url());
+                }
                 Err(e) => {
                     log::error!(
                         "could not send {} across {:?}: {}",
@@ -311,7 +311,6 @@ async fn try_recursion(response: &Response, base_depth: usize, transmitter: Unbo
             // response is 3xx, need to add a /
             let new_url = format!("{}/", response.url());
 
-            log::debug!("Added / to {}, making {}", response.url(), new_url);
             log::info!("Added new directory to recursive scan: {}", new_url);
 
             match transmitter.send(new_url) {
@@ -342,6 +341,8 @@ async fn make_requests(
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<Response>,
 ) {
+    log::trace!("enter: make_requests({}, {}, {}, {:?}, {:?})", target_url, word, base_depth, dir_chan, report_chan);
+
     let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
 
     for url in urls {
@@ -362,6 +363,7 @@ async fn make_requests(
             }
         }
     }
+    log::trace!("exit: make_requests");
 }
 
 /// Scan a given url using a given wordlist
