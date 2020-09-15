@@ -154,9 +154,10 @@ fn spawn_recursion_handler(
     base_depth: usize
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...])",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {})",
         recursion_channel,
-        wordlist.len()
+        wordlist.len(),
+        base_depth
     );
 
     let boxed_future = async move {
@@ -264,7 +265,7 @@ fn response_is_directory(response: &Response) -> bool {
 /// Essentially looks at the Url path and determines how many directories are present in the
 /// given Url
 fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
-    log::trace!("enter: reached_max_depth({})", url);
+    log::trace!("enter: reached_max_depth({}, {})", url, base_depth);
 
     if CONFIGURATION.depth == 0 {
         // early return, as 0 means recurse forever; no additional processing needed
@@ -287,7 +288,7 @@ fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
 ///
 /// When a recursion opportunity is found, the new url is sent across the recursion channel
 async fn try_recursion(response: &Response, base_depth: usize, transmitter: UnboundedSender<String>) {
-    log::trace!("enter: try_recursion({:?}, {:?})", response, transmitter);
+    log::trace!("enter: try_recursion({:?}, {}, {:?})", response, base_depth, transmitter);
 
     if !reached_max_depth(response.url(), base_depth) && response_is_directory(&response) {
         if CONFIGURATION.redirects {
@@ -368,9 +369,10 @@ async fn make_requests(
 /// This is the primary entrypoint for the scanner
 pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_depth: usize) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...])",
+        "enter: scan_url({:?}, wordlist[{} words...], {})",
         target_url,
-        wordlist.len()
+        wordlist.len(),
+        base_depth
     );
 
     log::info!("Starting scan against: {}", target_url);
