@@ -99,7 +99,11 @@ by Ben "epi" Risher {}                  ver: {}"#, '\u{1F913}', VERSION);
     }
 
     if !CONFIGURATION.norecursion {
-        println!("{}", format_banner_entry!("\u{1f503}", "Recursion Depth", CONFIGURATION.depth));  // 🔃
+        if CONFIGURATION.depth == 0 {
+            println!("{}", format_banner_entry!("\u{1f503}", "Recursion Depth", "INFINITE"));  // 🔃
+        } else {
+            println!("{}", format_banner_entry!("\u{1f503}", "Recursion Depth", CONFIGURATION.depth));  // 🔃
+        }
     } else {
         println!("{}", format_banner_entry!("\u{1f6ab}", "Do Not Recurse", CONFIGURATION.norecursion));  // 🚫
     }
