@@ -4,6 +4,7 @@ pub mod logger;
 pub mod parser;
 pub mod scanner;
 pub mod utils;
+pub mod banner;
 
 use reqwest::StatusCode;
 

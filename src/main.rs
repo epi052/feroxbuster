@@ -1,6 +1,6 @@
 use feroxbuster::config::CONFIGURATION;
 use feroxbuster::scanner::scan_url;
-use feroxbuster::{logger, FeroxResult};
+use feroxbuster::{logger, FeroxResult, banner};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
@@ -47,7 +47,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan() -> FeroxResult<()> {
+async fn scan(targets: Vec<String>) -> FeroxResult<()> {
     log::trace!("enter: scan");
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
@@ -56,52 +56,71 @@ async fn scan() -> FeroxResult<()> {
         tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) })
             .await??;
 
+    let mut tasks = vec![];
+
+    for target in targets {
+        let wordclone = words.clone();
+
+        let task = tokio::spawn(async move {
+            let base_depth = get_current_depth(&target);
+            scan_url(&target, wordclone, base_depth).await;
+        });
+
+        tasks.push(task);
+    }
+
+    // drive execution of all accumulated futures
+    futures::future::join_all(tasks).await;
+
+    log::trace!("exit: scan");
+    Ok(())
+}
+
+async fn get_targets() -> Vec<String> {
+    // todo trace
+    let mut targets = vec![];
+
     if CONFIGURATION.stdin {
         // got targets from stdin, i.e. cat sites | ./feroxbuster ...
         // just need to read the targets from stdin and spawn a future for each target found
         let stdin = io::stdin(); // tokio's stdin, not std
         let mut reader = FramedRead::new(stdin, LinesCodec::new());
-        let mut tasks = vec![];
 
         while let Some(line) = reader.next().await {
             match line {
                 Ok(target) => {
-                    let wordclone = words.clone();
-                    let task = tokio::spawn(async move {
-                        let base_depth = get_current_depth(&target);
-                        scan_url(&target, wordclone, base_depth).await;
-                    });
-                    tasks.push(task);
+                    targets.push(target);
                 }
                 Err(e) => {
                     println!("[ERROR] - {}", e);
                 }
             }
         }
-
-        // drive execution of all accumulated futures
-        futures::future::join_all(tasks).await;
     } else {
-        let base_depth = get_current_depth(&CONFIGURATION.target_url);
-        scan_url(&CONFIGURATION.target_url, words, base_depth).await;
+        targets.push(CONFIGURATION.target_url.clone());
     }
-
-    log::trace!("exit: scan");
-    Ok(())
+    // todo trace
+    targets
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     logger::initialize(CONFIGURATION.verbosity);
 
     log::trace!("enter: main");
 
     log::debug!("{:#?}", *CONFIGURATION);
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let targets = get_targets().await;
 
-    match rt.block_on(scan()) {
+    if !CONFIGURATION.quiet {
+        banner::initialize(&targets);
+    }
+
+    match scan(targets).await {
         Ok(_) => log::info!("Done"),
         Err(e) => log::error!("An error occurred: {}", e),
     };
+
     log::trace!("exit: main");
 }
