@@ -96,10 +96,8 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
             while let Some(resp) = report_channel.recv().await {
                 log::debug!("received {} on reporting channel", resp.url());
 
-                let response_code = &resp.status();
-                for code in CONFIGURATION.statuscodes.iter() {
-                    if response_code == code {
-                        let report = if CONFIGURATION.quiet {
+                if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
+                    let report = if CONFIGURATION.quiet {
                             format!("{}\n", resp.url())
                         } else {
                             format!(
@@ -108,18 +106,16 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
                                 resp.url(),
                                 resp.content_length().unwrap_or(0)
                             )
-                        };
+                    };
 
-                        match write!(writer, "{}", report) {
+                    match write!(writer, "{}", report) {
                             Ok(_) => (),
                             Err(e) => {
                                 log::error!("could not write report to disk: {}", e);
                             }
-                        }
-
-                        break; // found the response code, no need to continue
                     }
                 }
+
                 log::debug!("report complete: {}", resp.url());
             }
         }
@@ -140,20 +136,16 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
     while let Some(resp) = report_channel.recv().await {
         log::debug!("received {} on reporting channel", resp.url());
 
-        let response_code = &resp.status();
-        for code in CONFIGURATION.statuscodes.iter() {
-            if response_code == code {
-                if CONFIGURATION.quiet {
-                    println!("{}", resp.url());
-                } else {
-                    println!(
-                        "[{}] - {} - [{} bytes]",
-                        resp.status(),
-                        resp.url(),
-                        resp.content_length().unwrap_or(0)
-                    );
-                }
-                break;
+        if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
+            if CONFIGURATION.quiet {
+                println!("{}", resp.url());
+            } else {
+                println!(
+                    "[{}] - {} - [{} bytes]",
+                    resp.status(),
+                    resp.url(),
+                    resp.content_length().unwrap_or(0)
+                );
             }
         }
         log::debug!("report complete: {}", resp.url());

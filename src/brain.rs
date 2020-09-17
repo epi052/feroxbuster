@@ -24,6 +24,5 @@ fn unique_string() -> String {
 pub async fn smart_scan(target_urls: &[String]) {
     println!("{:?}", target_urls);
 
-
 }
 
