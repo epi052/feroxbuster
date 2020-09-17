@@ -311,7 +311,7 @@ async fn try_recursion(response: &Response, base_depth: usize, transmitter: Unbo
             }
         } else {
             // response is 3xx, may need to add a /
-            let new_url = if !response.url().as_str().ends_with("/") {
+            let new_url = if !response.url().as_str().ends_with('/') {
                 format!("{}/", response.url())
             } else {
                 String::from(response.url().as_str())
