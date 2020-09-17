@@ -22,6 +22,8 @@ fn format_url(url: &str, word: &str, extension: Option<&str>) -> FeroxResult<Url
 
     let word = if extension.is_some() {
         format!("{}.{}", word, extension.unwrap())
+    } else if CONFIGURATION.addslash && !word.ends_with('/') {
+        format!("{}/", word)
     } else {
         String::from(word)
     };
@@ -308,8 +310,12 @@ async fn try_recursion(response: &Response, base_depth: usize, transmitter: Unbo
                 }
             }
         } else {
-            // response is 3xx, need to add a /
-            let new_url = format!("{}/", response.url());
+            // response is 3xx, may need to add a /
+            let new_url = if !response.url().as_str().ends_with("/") {
+                format!("{}/", response.url())
+            } else {
+                String::from(response.url().as_str())
+            };
 
             log::info!("Added new directory to recursive scan: {}", new_url);
 
