@@ -1,6 +1,6 @@
 use feroxbuster::config::CONFIGURATION;
 use feroxbuster::scanner::scan_url;
-use feroxbuster::{logger, FeroxResult, banner};
+use feroxbuster::{logger, FeroxResult, banner, brain};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
@@ -116,6 +116,8 @@ async fn main() {
     if !CONFIGURATION.quiet {
         banner::initialize(&targets);
     }
+
+    brain::initialize(&targets).await;
 
     match scan(targets).await {
         Ok(_) => log::info!("Done"),

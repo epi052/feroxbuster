@@ -15,14 +15,29 @@ use tokio::task::JoinHandle;
 /// Simple helper to generate a `Url`
 ///
 /// Errors during parsing `url` or joining `word` are propagated up the call stack
-fn format_url(url: &str, word: &str, extension: Option<&str>) -> FeroxResult<Url> {
+pub fn format_url(url: &str, word: &str, extension: Option<&str>) -> FeroxResult<Url> {
     log::trace!("enter: format_url({}, {}, {:?})", url, word, extension);
+
+    // from reqwest::Url::join
+    //   Note: a trailing slash is significant. Without it, the last path component
+    //   is considered to be a “file” name to be removed to get at the “directory”
+    //   that is used as the base
+    //
+    // the transforms that occur here will need to keep this in mind, i.e. add a slash to preserve
+    // the current directory sent as part of the url
+    let url = if !url.ends_with('/') {
+        format!("{}/", url)
+    } else {
+        url.to_string()
+    };
 
     let base_url = reqwest::Url::parse(&url)?;
 
+    // extensions and slashes are mutually exclusive cases
     let word = if extension.is_some() {
         format!("{}.{}", word, extension.unwrap())
     } else if CONFIGURATION.addslash && !word.ends_with('/') {
+        // -f used, and word doesn't already end with a /
         format!("{}/", word)
     } else {
         String::from(word)
@@ -42,7 +57,7 @@ fn format_url(url: &str, word: &str, extension: Option<&str>) -> FeroxResult<Url
 }
 
 /// Initiate request to the given `Url` using the pre-configured `Client`
-async fn make_request(client: &Client, url: Url) -> FeroxResult<Response> {
+pub async fn make_request(client: &Client, url: Url) -> FeroxResult<Response> {
     log::trace!("enter: make_request(CONFIGURATION.Client, {})", url);
 
     match client.get(url).send().await {
@@ -310,12 +325,7 @@ async fn try_recursion(response: &Response, base_depth: usize, transmitter: Unbo
                 }
             }
         } else {
-            // response is 3xx, may need to add a /
-            let new_url = if !response.url().as_str().ends_with('/') {
-                format!("{}/", response.url())
-            } else {
-                String::from(response.url().as_str())
-            };
+            let new_url = String::from(response.url().as_str());
 
             log::info!("Added new directory to recursive scan: {}", new_url);
 
