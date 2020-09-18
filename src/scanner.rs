@@ -361,12 +361,16 @@ async fn make_requests(
             if !CONFIGURATION.norecursion && response_is_directory(&response) {
                 try_recursion(&response, base_depth, dir_chan.clone()).await;
             }
-            match report_chan.send(response) {
-                Ok(_) => {
-                    log::debug!("sent {}/{} over reporting channel", &target_url, &word);
-                }
-                Err(e) => {
-                    log::error!("wtf: {}", e);
+
+            if !CONFIGURATION.sizefilters.contains(&response.content_length().unwrap_or(0)) {
+                // not a filtered value, can send it to be reported
+                match report_chan.send(response) {
+                    Ok(_) => {
+                        log::debug!("sent {}/{} over reporting channel", &target_url, &word);
+                    }
+                    Err(e) => {
+                        log::error!("wtf: {}", e);
+                    }
                 }
             }
         }

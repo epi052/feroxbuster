@@ -66,7 +66,7 @@ pub struct Configuration {
     #[serde(default = "depth")]
     pub depth: usize,
     #[serde(default)]
-    pub sizefilters: Vec<String>,
+    pub sizefilters: Vec<u64>,
 
 }
 
@@ -242,8 +242,14 @@ impl Configuration {
         if args.values_of("sizefilters").is_some() {
             config.sizefilters = args
                 .values_of("sizefilters")
-                .unwrap()
-                .map(|val| val.to_string())
+                .unwrap() // already known good
+                .map(|size| {
+                    size.parse::<u64>()
+                        .unwrap_or_else(|e| {
+                            eprintln!("[!] Error encountered: {}", e);
+                            exit(1)
+                        })
+                })
                 .collect();
         }
 
