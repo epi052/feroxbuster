@@ -154,6 +154,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("f")
                 .long("addslash")
                 .takes_value(false)
+                .conflicts_with("extensions")
                 .help("Append / to each request")
         )
         .arg(
