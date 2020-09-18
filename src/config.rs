@@ -65,6 +65,9 @@ pub struct Configuration {
     pub stdin: bool,
     #[serde(default = "depth")]
     pub depth: usize,
+    #[serde(default)]
+    pub sizefilters: Vec<String>,
+
 }
 
 // functions timeout, threads, statuscodes, useragent, wordlist, and depth are used to provide
@@ -113,6 +116,7 @@ impl Default for Configuration {
             output: String::new(),
             target_url: String::new(),
             extensions: Vec::new(),
+            sizefilters: Vec::new(),
             headers: HashMap::new(),
             threads: threads(),
             depth: depth(),
@@ -139,6 +143,7 @@ impl Configuration {
     /// - **useragent**: `feroxer/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
+    /// - **sizefilters**: `None`
     /// - **headers**: `None`
     /// - **norecursion**: `false` (recursively scan enumerated sub-directories)
     /// - **addslash**: `false`
@@ -184,6 +189,7 @@ impl Configuration {
                     config.addslash = settings.addslash;
                     config.stdin = settings.stdin;
                     config.depth = settings.depth;
+                    config.sizefilters = settings.sizefilters;
                 }
             };
         };
@@ -228,6 +234,14 @@ impl Configuration {
         if args.values_of("extensions").is_some() {
             config.extensions = args
                 .values_of("extensions")
+                .unwrap()
+                .map(|val| val.to_string())
+                .collect();
+        }
+
+        if args.values_of("sizefilters").is_some() {
+            config.sizefilters = args
+                .values_of("sizefilters")
                 .unwrap()
                 .map(|val| val.to_string())
                 .collect();
@@ -375,6 +389,7 @@ mod tests {
             addslash = true
             stdin = true
             depth = 1
+            sizefilters = [4120]
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -400,6 +415,7 @@ mod tests {
         assert_eq!(config.redirects, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.extensions, Vec::<String>::new());
+        assert_eq!(config.sizefilters, Vec::<String>::new());
         assert_eq!(config.headers, HashMap::new());
     }
 
@@ -491,6 +507,12 @@ mod tests {
     fn config_reads_extensions() {
         let config = setup_config_test();
         assert_eq!(config.extensions, vec!["html", "php", "js"]);
+    }
+
+    #[test]
+    fn config_reads_sizefilters() {
+        let config = setup_config_test();
+        assert_eq!(config.sizefilters, vec!["4120"]);
     }
 
     #[test]

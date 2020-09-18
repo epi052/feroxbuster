@@ -21,7 +21,9 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("url")
                 .required_unless("stdin")
                 .value_name("URL")
-                .help("The target URL (required, unless --stdin used)"),
+                .multiple(true)
+                .use_delimiter(true)
+                .help("The target URL(s) (required, unless --stdin used)"),
         )
         .arg(
             Arg::with_name("threads")
@@ -156,11 +158,22 @@ pub fn initialize() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("stdin")
-                .short("S")
                 .long("stdin")
                 .takes_value(false)
                 .help("Read url(s) from STDIN")
                 .conflicts_with("url")
+        )
+        .arg(
+            Arg::with_name("sizefilters")
+                .short("S")
+                .long("sizefilter")
+                .value_name("SIZE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)",
+                ),
         )
 
         .after_help(r#"NOTE:
@@ -171,7 +184,7 @@ pub fn initialize() -> App<'static, 'static> {
     The command above adds .pdf, .js, .html, .php, .txt, .json, and .docx to each url
 
     All of the methods above (multiple flags, space separated, comma separated, etc...) are valid
-    and interchangeable.  The same goes for headers and status codes.
+    and interchangeable.  The same goes for urls, headers, status codes, and size filters.
 
 EXAMPLES:
     Multiple headers:

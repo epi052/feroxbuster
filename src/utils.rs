@@ -1,4 +1,5 @@
 use reqwest::Url;
+use ansi_term::Color::{Cyan, Red, Green, Blue, Yellow};
 
 /// Helper function that determines the current depth of a given url
 ///
@@ -48,6 +49,19 @@ pub fn get_current_depth(target: &str) -> usize {
             log::trace!("exit: get_current_depth -> 0");
             0
         }
+    }
+}
+
+/// todo: docs
+pub fn status_colorizer(status: &str) -> String {
+    match status.chars().next() {
+        Some('1') => Blue.paint(status).to_string(),  // informational
+        Some('2') => Green.paint(status).to_string(),  // success
+        Some('3') => Yellow.paint(status).to_string(),  // redirects
+        Some('4') => Red.paint(status).to_string(),  // client error
+        Some('5') => Red.paint(status).to_string(),  // server error
+        Some('W') => Cyan.paint(status).to_string(),  // wildcard
+        _ => status.to_string()  // ¯\_(ツ)_/¯
     }
 }
 

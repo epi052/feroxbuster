@@ -1,5 +1,4 @@
-use crate::{VERSION, config::CONFIGURATION};
-// use ansi_term::Colour::{Blue, Yellow};
+use crate::{VERSION, config::CONFIGURATION, utils::status_colorizer};
 
 macro_rules! format_banner_entry_helper {
     // \u{0020} -> unicode space
@@ -44,9 +43,15 @@ by Ben "epi" Risher {}                  ver: {}"#, '\u{1F913}', VERSION);
         println!("{}", format_banner_entry!("\u{1F3af}", "Target Url", target));  // 🎯
     }
 
+    let mut codes = vec![];
+
+    for code in &CONFIGURATION.statuscodes {
+        codes.push(status_colorizer(&code.to_string()))
+    }
+
     println!("{}", format_banner_entry!("\u{1F680}", "Threads", CONFIGURATION.threads));  // 🚀
     println!("{}", format_banner_entry!("\u{1f4d6}", "Wordlist", CONFIGURATION.wordlist));  // 📖
-    println!("{}", format_banner_entry!("\u{1F197}", "Status Codes", format!("{:?}", CONFIGURATION.statuscodes)));  // 🆗
+    println!("{}", format_banner_entry!("\u{1F197}", "Status Codes", format!("[{}]", codes.join(", "))));  // 🆗
     println!("{}", format_banner_entry!("\u{1f4a5}", "Timeout (secs)", CONFIGURATION.timeout));  // 💥
     println!("{}", format_banner_entry!("\u{1F9a1}", "User-Agent", CONFIGURATION.useragent));  // 🦡
 
@@ -61,12 +66,16 @@ by Ben "epi" Risher {}                  ver: {}"#, '\u{1F913}', VERSION);
         }
     }
 
+    if !CONFIGURATION.sizefilters.is_empty() {
+        println!("{}", format_banner_entry!("\u{1f4a2}", "Size Filters", format!("[{}]", CONFIGURATION.sizefilters.join(", "))));  // 💢
+    }
+
     if !CONFIGURATION.output.is_empty() {
         println!("{}", format_banner_entry!("\u{1f4be}", "Output File", CONFIGURATION.output));  // 💾
     }
 
     if !CONFIGURATION.extensions.is_empty() {
-        println!("{}", format_banner_entry!("\u{1f4b2}", "Extensions", format!("{:?}", CONFIGURATION.extensions)));  // 💲
+        println!("{}", format_banner_entry!("\u{1f4b2}", "Extensions", format!("[{}]", CONFIGURATION.extensions.join(", "))));  // 💲
     }
 
     if CONFIGURATION.insecure {
