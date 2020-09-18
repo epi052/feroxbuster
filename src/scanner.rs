@@ -1,6 +1,6 @@
 use crate::config::CONFIGURATION;
 use crate::FeroxResult;
-use crate::utils::get_current_depth;
+use crate::utils::{get_current_depth, status_colorizer};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
@@ -140,9 +140,10 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
             if CONFIGURATION.quiet {
                 println!("{}", resp.url());
             } else {
+                let status = status_colorizer(&resp.status().to_string());
                 println!(
                     "[{}] - {} - [{} bytes]",
-                    resp.status(),
+                    status,
                     resp.url(),
                     resp.content_length().unwrap_or(0)
                 );

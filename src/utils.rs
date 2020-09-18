@@ -56,7 +56,7 @@ pub fn get_current_depth(target: &str) -> usize {
 pub fn status_colorizer(status: &str) -> String {
     match status.chars().next() {
         Some('1') => Blue.paint(status).to_string(),  // informational
-        Some('2') => Green.paint(status).to_string(),  // success
+        Some('2') => Green.bold().paint(status).to_string(),  // success
         Some('3') => Yellow.paint(status).to_string(),  // redirects
         Some('4') => Red.paint(status).to_string(),  // client error
         Some('5') => Red.paint(status).to_string(),  // server error
