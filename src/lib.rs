@@ -1,11 +1,11 @@
+pub mod banner;
+pub mod brain;
 pub mod client;
 pub mod config;
 pub mod logger;
 pub mod parser;
 pub mod scanner;
 pub mod utils;
-pub mod banner;
-pub mod brain;
 
 use reqwest::StatusCode;
 

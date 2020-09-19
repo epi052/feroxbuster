@@ -1,6 +1,7 @@
 use feroxbuster::config::CONFIGURATION;
 use feroxbuster::scanner::scan_url;
-use feroxbuster::{logger, FeroxResult, banner, brain};
+use feroxbuster::utils::get_current_depth;
+use feroxbuster::{banner, brain, logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
@@ -8,7 +9,6 @@ use std::io::{BufRead, BufReader};
 use std::sync::Arc;
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
-use feroxbuster::utils::get_current_depth;
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {

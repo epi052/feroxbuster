@@ -1,6 +1,6 @@
 use crate::config::CONFIGURATION;
-use crate::FeroxResult;
 use crate::utils::{get_current_depth, status_colorizer};
+use crate::FeroxResult;
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
@@ -15,8 +15,19 @@ use tokio::task::JoinHandle;
 /// Simple helper to generate a `Url`
 ///
 /// Errors during parsing `url` or joining `word` are propagated up the call stack
-pub fn format_url(url: &str, word: &str, addslash: bool, extension: Option<&str>) -> FeroxResult<Url> {
-    log::trace!("enter: format_url({}, {}, {}, {:?})", url, word, addslash, extension);
+pub fn format_url(
+    url: &str,
+    word: &str,
+    addslash: bool,
+    extension: Option<&str>,
+) -> FeroxResult<Url> {
+    log::trace!(
+        "enter: format_url({}, {}, {}, {:?})",
+        url,
+        word,
+        addslash,
+        extension
+    );
 
     // from reqwest::Url::join
     //   Note: a trailing slash is significant. Without it, the last path component
@@ -98,21 +109,21 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 
                 if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
                     let report = if CONFIGURATION.quiet {
-                            format!("{}\n", resp.url())
-                        } else {
-                            format!(
-                                "[{}] - {} - [{} bytes]\n",
-                                resp.status(),
-                                resp.url(),
-                                resp.content_length().unwrap_or(0)
-                            )
+                        format!("{}\n", resp.url())
+                    } else {
+                        format!(
+                            "[{}] - {} - [{} bytes]\n",
+                            resp.status(),
+                            resp.url(),
+                            resp.content_length().unwrap_or(0)
+                        )
                     };
 
                     match write!(writer, "{}", report) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                log::error!("could not write report to disk: {}", e);
-                            }
+                        Ok(_) => (),
+                        Err(e) => {
+                            log::error!("could not write report to disk: {}", e);
+                        }
                     }
                 }
 
@@ -160,7 +171,7 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
 fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
-    base_depth: usize
+    base_depth: usize,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {})",
@@ -285,7 +296,6 @@ fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
     let depth = get_current_depth(url.as_str());
 
     if depth - base_depth >= CONFIGURATION.depth {
-
         return true;
     }
 
@@ -296,8 +306,17 @@ fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
 /// Helper function that wraps logic to check for recursion opportunities
 ///
 /// When a recursion opportunity is found, the new url is sent across the recursion channel
-async fn try_recursion(response: &Response, base_depth: usize, transmitter: UnboundedSender<String>) {
-    log::trace!("enter: try_recursion({:?}, {}, {:?})", response, base_depth, transmitter);
+async fn try_recursion(
+    response: &Response,
+    base_depth: usize,
+    transmitter: UnboundedSender<String>,
+) {
+    log::trace!(
+        "enter: try_recursion({:?}, {}, {:?})",
+        response,
+        base_depth,
+        transmitter
+    );
 
     if !reached_max_depth(response.url(), base_depth) && response_is_directory(&response) {
         if CONFIGURATION.redirects {
@@ -350,7 +369,14 @@ async fn make_requests(
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<Response>,
 ) {
-    log::trace!("enter: make_requests({}, {}, {}, {:?}, {:?})", target_url, word, base_depth, dir_chan, report_chan);
+    log::trace!(
+        "enter: make_requests({}, {}, {}, {:?}, {:?})",
+        target_url,
+        word,
+        base_depth,
+        dir_chan,
+        report_chan
+    );
 
     let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
 
@@ -363,7 +389,10 @@ async fn make_requests(
                 try_recursion(&response, base_depth, dir_chan.clone()).await;
             }
 
-            if !CONFIGURATION.sizefilters.contains(&response.content_length().unwrap_or(0)) {
+            if !CONFIGURATION
+                .sizefilters
+                .contains(&response.content_length().unwrap_or(0))
+            {
                 // not a filtered value, can send it to be reported
                 match report_chan.send(response) {
                     Ok(_) => {
@@ -410,7 +439,9 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let recurser_words = wordlist.clone();
 
     let recurser =
-        tokio::spawn(async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await });
+        tokio::spawn(
+            async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
+        );
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
@@ -418,7 +449,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
             let txd = tx_dir.clone();
             let txr = tx_rpt.clone();
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
-            tokio::spawn(async move { make_requests(&tgt, &word, base_depth,txd, txr).await })
+            tokio::spawn(async move { make_requests(&tgt, &word, base_depth, txd, txr).await })
         })
         .for_each_concurrent(CONFIGURATION.threads, |resp| async move {
             match resp.await {

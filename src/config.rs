@@ -67,7 +67,6 @@ pub struct Configuration {
     pub depth: usize,
     #[serde(default)]
     pub sizefilters: Vec<u64>,
-
 }
 
 // functions timeout, threads, statuscodes, useragent, wordlist, and depth are used to provide
@@ -244,11 +243,10 @@ impl Configuration {
                 .values_of("sizefilters")
                 .unwrap() // already known good
                 .map(|size| {
-                    size.parse::<u64>()
-                        .unwrap_or_else(|e| {
-                            eprintln!("[!] Error encountered: {}", e);
-                            exit(1)
-                        })
+                    size.parse::<u64>().unwrap_or_else(|e| {
+                        eprintln!("[!] Error encountered: {}", e);
+                        exit(1)
+                    })
                 })
                 .collect();
         }
