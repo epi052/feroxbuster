@@ -1,11 +1,10 @@
 mod utils;
-use utils::{teardown_tmp_directory, setup_tmp_directory};
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::{Mock, MockServer};
 use predicates::prelude::*;
 use std::process::Command;
-
+use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
 fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,7 +29,7 @@ fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200 OK"))
-            .and(predicate::str::contains("[14 bytes]"))
+            .and(predicate::str::contains("[14 bytes]")),
     );
 
     assert_eq!(mock.times_called(), 1);
