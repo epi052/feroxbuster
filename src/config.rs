@@ -421,7 +421,7 @@ mod tests {
         assert_eq!(config.redirects, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.extensions, Vec::<String>::new());
-        assert_eq!(config.sizefilters, Vec::<String>::new());
+        assert_eq!(config.sizefilters, Vec::<u64>::new());
         assert_eq!(config.headers, HashMap::new());
     }
 
@@ -518,7 +518,7 @@ mod tests {
     #[test]
     fn config_reads_sizefilters() {
         let config = setup_config_test();
-        assert_eq!(config.sizefilters, vec!["4120"]);
+        assert_eq!(config.sizefilters, vec![4120]);
     }
 
     #[test]

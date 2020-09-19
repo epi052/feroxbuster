@@ -68,7 +68,7 @@ by Ben "epi" Risher {}                  ver: {}"#, '\u{1F913}', VERSION);
 
     if !CONFIGURATION.sizefilters.is_empty() {
         for filter in &CONFIGURATION.sizefilters {
-            println!("{}", format_banner_entry!("\u{1f4a2}", "Size Filters", filter));  // 💢
+            println!("{}", format_banner_entry!("\u{1f4a2}", "Size Filter", filter));  // 💢
         }
     }
 

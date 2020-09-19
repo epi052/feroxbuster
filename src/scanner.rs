@@ -15,8 +15,8 @@ use tokio::task::JoinHandle;
 /// Simple helper to generate a `Url`
 ///
 /// Errors during parsing `url` or joining `word` are propagated up the call stack
-pub fn format_url(url: &str, word: &str, extension: Option<&str>) -> FeroxResult<Url> {
-    log::trace!("enter: format_url({}, {}, {:?})", url, word, extension);
+pub fn format_url(url: &str, word: &str, addslash: bool, extension: Option<&str>) -> FeroxResult<Url> {
+    log::trace!("enter: format_url({}, {}, {}, {:?})", url, word, addslash, extension);
 
     // from reqwest::Url::join
     //   Note: a trailing slash is significant. Without it, the last path component
@@ -36,7 +36,7 @@ pub fn format_url(url: &str, word: &str, extension: Option<&str>) -> FeroxResult
     // extensions and slashes are mutually exclusive cases
     let word = if extension.is_some() {
         format!("{}.{}", word, extension.unwrap())
-    } else if CONFIGURATION.addslash && !word.ends_with('/') {
+    } else if addslash && !word.ends_with('/') {
         // -f used, and word doesn't already end with a /
         format!("{}/", word)
     } else {
@@ -203,12 +203,12 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
 
     let mut urls = vec![];
 
-    if let Ok(url) = format_url(&target_url, &word, None) {
+    if let Ok(url) = format_url(&target_url, &word, CONFIGURATION.addslash, None) {
         urls.push(url); // default request, i.e. no extension
     }
 
     for ext in extensions.iter() {
-        if let Ok(url) = format_url(&target_url, &word, Some(ext)) {
+        if let Ok(url) = format_url(&target_url, &word, CONFIGURATION.addslash, Some(ext)) {
             urls.push(url); // any extensions passed in
         }
     }
@@ -462,11 +462,11 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    //
     #[test]
     fn test_format_url_normal() {
         assert_eq!(
-            format_url("http://localhost", "stuff", None).unwrap(),
+            format_url("http://localhost", "stuff", false, None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
         );
     }
@@ -474,7 +474,7 @@ mod tests {
     #[test]
     fn test_format_url_no_word() {
         assert_eq!(
-            format_url("http://localhost", "", None).unwrap(),
+            format_url("http://localhost", "", false, None).unwrap(),
             reqwest::Url::parse("http://localhost").unwrap()
         );
     }
@@ -482,13 +482,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_format_url_no_url() {
-        format_url("", "stuff", None).unwrap();
+        format_url("", "stuff", false, None).unwrap();
     }
 
     #[test]
     fn test_format_url_word_with_preslash() {
         assert_eq!(
-            format_url("http://localhost", "/stuff", None).unwrap(),
+            format_url("http://localhost", "/stuff", false, None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
         );
     }
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn test_format_url_word_with_postslash() {
         assert_eq!(
-            format_url("http://localhost", "stuff/", None).unwrap(),
+            format_url("http://localhost", "stuff/", false, None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
         );
     }

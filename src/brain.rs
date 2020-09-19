@@ -72,7 +72,7 @@ async fn wildcard_request(target_url: &str, length: usize) -> Option<Response> {
     // todo trace
     let unique_str = unique_string(length);
 
-    let nonexistent = match format_url(target_url, &unique_str, None) {
+    let nonexistent = match format_url(target_url, &unique_str, CONFIGURATION.addslash, None) {
         Ok(url) => url,
         Err(e) => {
             log::error!("{}", e);
@@ -116,7 +116,7 @@ async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
     let mut good_urls = vec![];
 
     for target_url in target_urls {
-        let request = match format_url(target_url, "", None) {
+        let request = match format_url(target_url, "", CONFIGURATION.addslash, None) {
             Ok(url) => url,
             Err(e) => {
                 log::error!("{}", e);
