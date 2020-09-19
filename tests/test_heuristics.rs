@@ -62,11 +62,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 
     let not_real =
         String::from("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk");
-    let urls = vec![
-        not_real,
-        srv.url("/"),
-        String::from("LICENSE"),
-    ];
+    let urls = vec![not_real, srv.url("/"), String::from("LICENSE")];
     let (tmp_dir, file) = setup_tmp_directory(&urls)?;
 
     let mock = Mock::new()
@@ -121,7 +117,7 @@ fn test_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
         predicate::str::contains("WILDCARD")
             .and(predicate::str::contains("Received"))
             .and(predicate::str::contains("200 OK"))
-            .and(predicate::str::contains("(14 bytes)"))
+            .and(predicate::str::contains("(14 bytes)")),
     );
 
     assert_eq!(mock.times_called(), 1);
