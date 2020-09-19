@@ -20,6 +20,9 @@ ansi_term = "0.12"
 
 [dev-dependencies]
 tempfile = "3.1"
+httpmock = "0.4.5"
+assert_cmd = "1.0.1"
+predicates = "1.0.5"
 
 [profile.release]
 opt-level = 'z'  # optimize for size
