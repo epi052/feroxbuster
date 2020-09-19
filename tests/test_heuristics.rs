@@ -64,7 +64,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
         String::from("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk");
     let urls = vec![
         not_real,
-        String::from(srv.url("/")),
+        srv.url("/"),
         String::from("LICENSE"),
     ];
     let (tmp_dir, file) = setup_tmp_directory(&urls)?;
