@@ -21,6 +21,8 @@
 # norecursion = true
 # addslash = true
 # stdin = true
+# depth = 1
+# sizefilters = [5174]
 
 
 # headers can be specified on multiple lines or as an inline table
