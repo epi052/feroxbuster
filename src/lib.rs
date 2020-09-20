@@ -1,5 +1,5 @@
 pub mod banner;
-pub mod brain;
+pub mod heuristics;
 pub mod client;
 pub mod config;
 pub mod logger;

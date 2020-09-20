@@ -1,7 +1,7 @@
 use feroxbuster::config::CONFIGURATION;
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::get_current_depth;
-use feroxbuster::{banner, brain, logger, FeroxResult};
+use feroxbuster::{banner, heuristics, logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
@@ -108,18 +108,19 @@ async fn main() {
     logger::initialize(CONFIGURATION.verbosity);
 
     log::trace!("enter: main");
-
     log::debug!("{:#?}", *CONFIGURATION);
 
+    // get targets from command line or stdin
     let targets = get_targets().await;
 
     if !CONFIGURATION.quiet {
+        // only print banner if -q isn't used
         banner::initialize(&targets);
     }
 
-    brain::initialize(&targets).await;
+    let live_targets = heuristics::connectivity_test(&targets).await;
 
-    match scan(targets).await {
+    match scan(live_targets).await {
         Ok(_) => log::info!("Done"),
         Err(e) => log::error!("An error occurred: {}", e),
     };

@@ -38,6 +38,7 @@ macro_rules! format_banner_entry {
     };
 }
 
+/// todo document
 pub fn initialize(targets: &[String]) {
     let artwork = format!(
         r#"

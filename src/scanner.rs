@@ -1,6 +1,6 @@
 use crate::config::CONFIGURATION;
 use crate::utils::{get_current_depth, status_colorizer};
-use crate::FeroxResult;
+use crate::{FeroxResult, heuristics};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
@@ -11,6 +11,8 @@ use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
+use crate::heuristics::WildcardFilter;
+use std::convert::TryInto;
 
 /// Simple helper to generate a `Url`
 ///
@@ -68,10 +70,10 @@ pub fn format_url(
 }
 
 /// Initiate request to the given `Url` using the pre-configured `Client`
-pub async fn make_request(client: &Client, url: Url) -> FeroxResult<Response> {
+pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
     log::trace!("enter: make_request(CONFIGURATION.Client, {})", url);
 
-    match client.get(url).send().await {
+    match client.get(url.to_owned()).send().await {
         Ok(resp) => {
             log::debug!("requested Url: {}", resp.url());
             log::trace!("exit: make_request -> {:?}", resp);
@@ -141,7 +143,7 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 ///
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
-async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
+async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response> ) {
     log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
 
     while let Some(resp) = report_channel.recv().await {
@@ -366,6 +368,7 @@ async fn make_requests(
     target_url: &str,
     word: &str,
     base_depth: usize,
+    filter: Arc<WildcardFilter>,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<Response>,
 ) {
@@ -381,7 +384,7 @@ async fn make_requests(
     let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
 
     for url in urls {
-        if let Ok(response) = make_request(&CONFIGURATION.client, url).await {
+        if let Ok(response) = make_request(&CONFIGURATION.client, &url).await {
             // response came back without error
 
             // do recursion if appropriate
@@ -389,18 +392,45 @@ async fn make_requests(
                 try_recursion(&response, base_depth, dir_chan.clone()).await;
             }
 
-            if !CONFIGURATION
+            // purposefully doing recursion before filtering. the thought process is that
+            // even though this particular url is filtered, subsequent urls may not
+
+            let content_len = &response.content_length().unwrap_or(0);
+
+            if CONFIGURATION
                 .sizefilters
-                .contains(&response.content_length().unwrap_or(0))
-            {
-                // not a filtered value, can send it to be reported
-                match report_chan.send(response) {
-                    Ok(_) => {
-                        log::debug!("sent {}/{} over reporting channel", &target_url, &word);
+                .contains(content_len) {
+                // filtered value from --sizefilters, move on to the next url
+                continue;
+            }
+
+            if filter.size > 0 && filter.size == *content_len && true {  // todo replace with --dumb logic
+                // static wildcard size found during testing
+                // size isn't default, size equals response length, and it's not a 'dumb' scan
+                continue;
+            }
+
+            if filter.dynamic > 0 && true {  // todo replace with --dumb logic
+                // dynamic wildcard offset found during testing
+                if let Some(segments) = url.path_segments() {
+                    if let Some(last) = segments.last() {
+                        let url_len: u64 = last.len().try_into().expect("Failed usize -> u64 conversion"); {
+                            // failure on conversion should be very unlikely
+                            if url_len + filter.dynamic == *content_len {
+                                continue;
+                            }
+                        }
                     }
-                    Err(e) => {
-                        log::error!("wtf: {}", e);
-                    }
+                }
+            }
+
+            // everything else should be reported
+            match report_chan.send(response) {
+                Ok(_) => {
+                    log::debug!("sent {}/{} over reporting channel", &target_url, &word);
+                }
+                Err(e) => {
+                    log::error!("wtf: {}", e);
                 }
             }
         }
@@ -421,11 +451,12 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
 
     log::info!("Starting scan against: {}", target_url);
 
+
     let (tx_rpt, rx_rpt): (UnboundedSender<Response>, UnboundedReceiver<Response>) =
-        mpsc::unbounded_channel();
+    mpsc::unbounded_channel();
 
     let (tx_dir, rx_dir): (UnboundedSender<String>, UnboundedReceiver<String>) =
-        mpsc::unbounded_channel();
+    mpsc::unbounded_channel();
 
     let reporter = if !CONFIGURATION.output.is_empty() {
         // output file defined
@@ -439,17 +470,24 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let recurser_words = wordlist.clone();
 
     let recurser =
-        tokio::spawn(
-            async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
-        );
+    tokio::spawn(
+    async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
+    );
+
+    let filter = if let Some(f) = heuristics::wildcard_test(&target_url).await {
+        Arc::new(f)
+    } else {
+        Arc::new(WildcardFilter::default())
+    };
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
         .map(|word| {
+            let wc_filter = filter.clone();
             let txd = tx_dir.clone();
             let txr = tx_rpt.clone();
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
-            tokio::spawn(async move { make_requests(&tgt, &word, base_depth, txd, txr).await })
+            tokio::spawn(async move { make_requests(&tgt, &word, base_depth, wc_filter,txd, txr).await })
         })
         .for_each_concurrent(CONFIGURATION.threads, |resp| async move {
             match resp.await {
