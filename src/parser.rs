@@ -5,7 +5,7 @@ use clap::{App, Arg};
 pub fn initialize() -> App<'static, 'static> {
     App::new("feroxbuster")
         .version(VERSION)
-        .author("epi (@epi052)")
+        .author("Ben 'epi' Risher (@epi052)")
         .about("A fast, simple, recursive content discovery tool written in Rust")
         .arg(
             Arg::with_name("wordlist")
