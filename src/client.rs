@@ -1,5 +1,6 @@
 use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
+use crate::utils::status_colorizer;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::process::exit;
@@ -14,7 +15,6 @@ pub fn initialize(
     headers: &HashMap<String, String>,
     proxy: Option<&str>,
 ) -> Client {
-    // todo: integration test for this as well, specifically redirect, timeout, proxy, etc
     let policy = if redirects {
         Policy::limited(10)
     } else {
@@ -24,7 +24,7 @@ pub fn initialize(
     let header_map: HeaderMap = match headers.try_into() {
         Ok(map) => map,
         Err(e) => {
-            eprintln!("Client::initialize: {}", e);
+            eprintln!("[{}] - Client::initialize: {}", status_colorizer("ERROR"), e);
             exit(1);
         }
     };
@@ -40,8 +40,8 @@ pub fn initialize(
         match Proxy::all(proxy.unwrap()) {
             Ok(proxy_obj) => client.proxy(proxy_obj),
             Err(e) => {
-                eprintln!("Could not add proxy ({:?}) to Client configuration", proxy);
-                eprintln!("Client::initialize: {}", e);
+                eprintln!("[{}] - Could not add proxy ({:?}) to Client configuration", status_colorizer("ERROR"), proxy);
+                eprintln!("[{}] - Client::initialize: {}", status_colorizer("ERROR"), e);
                 exit(1);
             }
         }
@@ -52,8 +52,8 @@ pub fn initialize(
     match client.build() {
         Ok(client) => client,
         Err(e) => {
-            eprintln!("Could not create a Client with the given configuration, exiting.");
-            eprintln!("Client::build: {}", e);
+            eprintln!("[{}] - Could not create a Client with the given configuration, exiting.", status_colorizer("ERROR"));
+            eprintln!("[{}] - Client::build: {}", status_colorizer("ERROR"), e);
             exit(1);
         }
     }

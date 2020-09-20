@@ -1,5 +1,6 @@
 use crate::{client, parser};
 use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
+use crate::utils::status_colorizer;
 use clap::value_t;
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
@@ -159,7 +160,6 @@ impl Configuration {
     /// The resulting [Configuration](struct.Configuration.html) is a singleton with a `static`
     /// lifetime.
     pub fn new() -> Self {
-        // todo: write integration test to handle this function; maybe with assert_cli
         // Get the default configuration, this is what will apply if nothing
         // else is specified.
         let mut config = Configuration::default();
@@ -304,7 +304,6 @@ impl Configuration {
         }
 
         if args.values_of("headers").is_some() {
-            // todo: probably need some non-unwrap code in here
             for val in args.values_of("headers").unwrap() {
                 let mut split_val = val.split(':');
 
@@ -361,9 +360,14 @@ impl Configuration {
         let directory = directory.join(DEFAULT_CONFIG_NAME);
 
         if let Ok(content) = read_to_string(directory) {
-            // todo: remove unwrap
-            let config: Self = toml::from_str(content.as_str()).unwrap();
-            return Some(config);
+            match toml::from_str(content.as_str()) {
+                Ok(config) => {
+                    return Some(config);
+                }
+                Err(e) => {
+                    println!("[{}] - config::parse_config {}", status_colorizer("ERROR"), e);
+                }
+            }
         }
         None
     }

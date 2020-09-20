@@ -398,6 +398,7 @@ async fn make_requests(
 
             if CONFIGURATION.sizefilters.contains(content_len) {
                 // filtered value from --sizefilters, move on to the next url
+                log::debug!("size filter: filtered out {}", response.url());
                 continue;
             }
 
@@ -405,6 +406,7 @@ async fn make_requests(
                 // todo replace with --dumb logic
                 // static wildcard size found during testing
                 // size isn't default, size equals response length, and it's not a 'dumb' scan
+                log::debug!("static wildcard: filtered out {}", response.url());
                 continue;
             }
 
@@ -420,6 +422,7 @@ async fn make_requests(
                 let url_len = get_url_path_length(&response.url());
 
                 if url_len + filter.dynamic == *content_len {
+                    log::debug!("dynamic wildcard: filtered out {}", response.url());
                     continue;
                 }
             }

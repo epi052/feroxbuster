@@ -73,11 +73,13 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
     futures::future::join_all(tasks).await;
 
     log::trace!("exit: scan");
+
     Ok(())
 }
 
 async fn get_targets() -> Vec<String> {
-    // todo trace
+    log::trace!("enter: get_targets");
+
     let mut targets = vec![];
 
     if CONFIGURATION.stdin {
@@ -99,7 +101,9 @@ async fn get_targets() -> Vec<String> {
     } else {
         targets.push(CONFIGURATION.target_url.clone());
     }
-    // todo trace
+
+    log::trace!("exit: get_targets -> {:?}", targets);
+
     targets
 }
 
@@ -118,6 +122,7 @@ async fn main() {
         banner::initialize(&targets);
     }
 
+    // discard non-responsive targets
     let live_targets = heuristics::connectivity_test(&targets).await;
 
     match scan(live_targets).await {

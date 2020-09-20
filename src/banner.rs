@@ -38,7 +38,9 @@ macro_rules! format_banner_entry {
     };
 }
 
-/// todo document
+/// Prints the banner to stdout.
+///
+/// Only prints those settings which are either always present, or passed in by the user.
 pub fn initialize(targets: &[String]) {
     let artwork = format!(
         r#"

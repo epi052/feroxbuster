@@ -56,7 +56,7 @@ pub fn get_current_depth(target: &str) -> usize {
     }
 }
 
-/// todo: docs
+/// Takes in a string and examines the first character to return a color version of the same string
 pub fn status_colorizer(status: &str) -> String {
     match status.chars().next() {
         Some('1') => Blue.paint(status).to_string(), // informational
@@ -65,11 +65,14 @@ pub fn status_colorizer(status: &str) -> String {
         Some('4') => Red.paint(status).to_string(),  // client error
         Some('5') => Red.paint(status).to_string(),  // server error
         Some('W') => Cyan.paint(status).to_string(), // wildcard
+        Some('E') => Red.paint(status).to_string(), // wildcard
         _ => status.to_string(),                     // ¯\_(ツ)_/¯
     }
 }
 
-/// todo docs
+/// Gets the length of a url's path
+///
+/// example: http://localhost/stuff -> 5
 pub fn get_url_path_length(url: &Url) -> u64 {
     log::trace!("enter: get_url_path_length({})", url);
 
