@@ -1,6 +1,7 @@
 use crate::config::CONFIGURATION;
-use crate::utils::{get_current_depth, status_colorizer};
-use crate::{FeroxResult, heuristics};
+use crate::heuristics::WildcardFilter;
+use crate::utils::{get_current_depth, get_url_path_length, status_colorizer};
+use crate::{heuristics, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
@@ -11,8 +12,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-use crate::heuristics::WildcardFilter;
-use std::convert::TryInto;
 
 /// Simple helper to generate a `Url`
 ///
@@ -143,7 +142,7 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 ///
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
-async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response> ) {
+async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
     log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
 
     while let Some(resp) = report_channel.recv().await {
@@ -397,30 +396,31 @@ async fn make_requests(
 
             let content_len = &response.content_length().unwrap_or(0);
 
-            if CONFIGURATION
-                .sizefilters
-                .contains(content_len) {
+            if CONFIGURATION.sizefilters.contains(content_len) {
                 // filtered value from --sizefilters, move on to the next url
                 continue;
             }
 
-            if filter.size > 0 && filter.size == *content_len && true {  // todo replace with --dumb logic
+            if filter.size > 0 && filter.size == *content_len && true {
+                // todo replace with --dumb logic
                 // static wildcard size found during testing
                 // size isn't default, size equals response length, and it's not a 'dumb' scan
                 continue;
             }
 
-            if filter.dynamic > 0 && true {  // todo replace with --dumb logic
+            if filter.dynamic > 0 && true {
+                // todo replace with --dumb logic
                 // dynamic wildcard offset found during testing
-                if let Some(segments) = url.path_segments() {
-                    if let Some(last) = segments.last() {
-                        let url_len: u64 = last.len().try_into().expect("Failed usize -> u64 conversion"); {
-                            // failure on conversion should be very unlikely
-                            if url_len + filter.dynamic == *content_len {
-                                continue;
-                            }
-                        }
-                    }
+
+                // I'm about to manually split this url path instead of using reqwest::Url's
+                // builtin parsing. The reason is that they call .split() on the url path
+                // except that I don't want an empty string taking up the last index in the
+                // event that the url ends with a forward slash.  It's ugly enough to be split
+                // into its own function for readability.
+                let url_len = get_url_path_length(&response.url());
+
+                if url_len + filter.dynamic == *content_len {
+                    continue;
                 }
             }
 
@@ -451,12 +451,11 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
 
     log::info!("Starting scan against: {}", target_url);
 
-
     let (tx_rpt, rx_rpt): (UnboundedSender<Response>, UnboundedReceiver<Response>) =
-    mpsc::unbounded_channel();
+        mpsc::unbounded_channel();
 
     let (tx_dir, rx_dir): (UnboundedSender<String>, UnboundedReceiver<String>) =
-    mpsc::unbounded_channel();
+        mpsc::unbounded_channel();
 
     let reporter = if !CONFIGURATION.output.is_empty() {
         // output file defined
@@ -470,9 +469,9 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let recurser_words = wordlist.clone();
 
     let recurser =
-    tokio::spawn(
-    async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
-    );
+        tokio::spawn(
+            async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
+        );
 
     let filter = if let Some(f) = heuristics::wildcard_test(&target_url).await {
         Arc::new(f)
@@ -487,7 +486,9 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
             let txd = tx_dir.clone();
             let txr = tx_rpt.clone();
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
-            tokio::spawn(async move { make_requests(&tgt, &word, base_depth, wc_filter,txd, txr).await })
+            tokio::spawn(async move {
+                make_requests(&tgt, &word, base_depth, wc_filter, txd, txr).await
+            })
         })
         .for_each_concurrent(CONFIGURATION.threads, |resp| async move {
             match resp.await {

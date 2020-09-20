@@ -1,5 +1,6 @@
 use ansi_term::Color::{Blue, Cyan, Green, Red, Yellow};
 use reqwest::Url;
+use std::convert::TryInto;
 
 /// Helper function that determines the current depth of a given url
 ///
@@ -66,6 +67,39 @@ pub fn status_colorizer(status: &str) -> String {
         Some('W') => Cyan.paint(status).to_string(), // wildcard
         _ => status.to_string(),                     // ¯\_(ツ)_/¯
     }
+}
+
+/// todo docs
+pub fn get_url_path_length(url: &Url) -> u64 {
+    log::trace!("enter: get_url_path_length({})", url);
+
+    let path = url.path();
+
+    let segments = if path.starts_with('/') {
+        path[1..].split_terminator('/')
+    } else {
+        log::trace!("exit: get_url_path_length -> 0");
+        return 0;
+    };
+
+    if let Some(last) = segments.last() {
+        // failure on conversion should be very unlikely. While a usize can absolutely overflow a
+        // u64, the generally accepted maximum for the length of a url is ~2000.  so the value we're
+        // putting into the u64 should never realistically be anywhere close to producing an
+        // overflow.
+        // usize max: 18,446,744,073,709,551,615
+        // u64 max:   9,223,372,036,854,775,807
+        let url_len: u64 = last
+            .len()
+            .try_into()
+            .expect("Failed usize -> u64 conversion");
+
+        log::trace!("exit: get_url_path_length -> {}", url_len);
+        return url_len;
+    }
+
+    log::trace!("exit: get_url_path_length -> 0");
+    0
 }
 
 #[cfg(test)]

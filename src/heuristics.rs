@@ -1,6 +1,6 @@
 use crate::config::CONFIGURATION;
 use crate::scanner::{format_url, make_request};
-use crate::utils::status_colorizer;
+use crate::utils::{get_url_path_length, status_colorizer};
 use reqwest::Response;
 use std::process;
 use uuid::Uuid;
@@ -18,7 +18,7 @@ const UUID_LENGTH: u64 = 32;
 #[derive(Default, Debug)]
 pub struct WildcardFilter {
     pub dynamic: u64,
-    pub size: u64
+    pub size: u64,
 }
 
 /// Simple helper to return a uuid, formatted as lowercase without hyphens
@@ -59,27 +59,28 @@ pub async fn wildcard_test(target_url: &str) -> Option<WildcardFilter> {
         }
 
         // content length of wildcard is non-zero, perform additional tests:
-        //   make a second request, with a known-sized (32) longer request
+        //   make a second request, with a known-sized (64) longer request
         if let Some(resp_two) = make_wildcard_request(&target_url, 3).await {
             let wc2_length = resp_two.content_length().unwrap_or(0);
 
             if wc2_length == wc_length + (UUID_LENGTH * 2) {
                 // second length is what we'd expect to see if the requested url is
                 // reflected in the response along with some static content; aka custom 404
+                let url_len = get_url_path_length(&resp_one.url());
+
                 println!(
-                    "[{}] - Url is being reflected in wildcard response",
+                    "[{}] - Url is being reflected in wildcard response, i.e. a dynamic wildcard",
                     status_colorizer("WILDCARD")
                 );
                 println!(
-                    "[{}] - Any content length returned that has a size different than {} + the length of the given url may indicate something interesting",
-                    wc_length,
-                    status_colorizer("WILDCARD")
+                    "[{}] - Auto-filtering out responses that are [({} + url length) bytes] long; this behavior can be turned off by using --dumb",
+                    status_colorizer("WILDCARD"),
+                    wc_length - url_len,
                 );
 
-                wildcard.dynamic = wc_length;
-
+                wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
-                println!("[{}] - Wildcard response is a static size; consider filtering by adding -S {} to your command", status_colorizer("WILDCARD"), wc_length);
+                println!("[{}] - Wildcard response is a static size; auto-filtering out responses of size [{} bytes]; this behavior can be turned off by using --dumb", status_colorizer("WILDCARD"), wc_length);
 
                 wildcard.size = wc_length;
             }
@@ -122,12 +123,15 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                 .contains(&response.status().as_u16())
             {
                 // found a wildcard response
+                let url_len = get_url_path_length(&response.url());
+
                 println!(
-                    "[{}] - Received [{}] for {} ({} bytes)",
+                    "[{}] - Received [{}] for {} (content: {} bytes, url length: {})",
                     wildcard,
                     status_colorizer(&response.status().to_string()),
                     response.url(),
-                    response.content_length().unwrap_or(0)
+                    response.content_length().unwrap_or(0),
+                    url_len
                 );
 
                 if response.status().is_redirection() {
@@ -204,4 +208,3 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
 
     good_urls
 }
-

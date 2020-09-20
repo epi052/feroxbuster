@@ -93,7 +93,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 }
 
 #[test]
-fn test_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
+fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
 
@@ -113,14 +113,66 @@ fn test_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
         .arg("--addslash")
         .unwrap();
 
+    teardown_tmp_directory(tmp_dir);
+
     cmd.assert().success().stdout(
         predicate::str::contains("WILDCARD")
             .and(predicate::str::contains("Received"))
             .and(predicate::str::contains("200 OK"))
-            .and(predicate::str::contains("(14 bytes)")),
+            .and(predicate::str::contains(
+                "(content: 14 bytes, url length: 32)",
+            )),
     );
 
     assert_eq!(mock.times_called(), 1);
+    Ok(())
+}
+
+#[test]
+fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .unwrap();
+
     teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("WILDCARD")
+            .and(predicate::str::contains("Received"))
+            .and(predicate::str::contains("200 OK"))
+            .and(predicate::str::contains("(content: 46 bytes, url length: 32)"))
+            .and(predicate::str::contains("(content: 110 bytes, url length: 96)"))
+            .and(predicate::str::contains(
+                "Url is being reflected in wildcard response, i.e. a dynamic wildcard",
+            ))
+            .and(predicate::str::contains(
+                "Auto-filtering out responses that are [(14 + url length) bytes] long; this behavior can be turned off by using --dumb",
+            )),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
     Ok(())
 }

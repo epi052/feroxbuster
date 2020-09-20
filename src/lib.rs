@@ -1,7 +1,7 @@
 pub mod banner;
-pub mod heuristics;
 pub mod client;
 pub mod config;
+pub mod heuristics;
 pub mod logger;
 pub mod parser;
 pub mod scanner;
