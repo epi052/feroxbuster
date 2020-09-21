@@ -20,13 +20,15 @@ pub fn format_url(
     url: &str,
     word: &str,
     addslash: bool,
+    queries: &[(String, String)],
     extension: Option<&str>,
 ) -> FeroxResult<Url> {
     log::trace!(
-        "enter: format_url({}, {}, {}, {:?})",
+        "enter: format_url({}, {}, {}, {:?} {:?})",
         url,
         word,
         addslash,
+        queries,
         extension
     );
 
@@ -43,7 +45,7 @@ pub fn format_url(
         url.to_string()
     };
 
-    let base_url =  reqwest::Url::parse(&url)?;
+    let base_url = reqwest::Url::parse(&url)?;
 
     // extensions and slashes are mutually exclusive cases
     let word = if extension.is_some() {
@@ -57,20 +59,25 @@ pub fn format_url(
 
     match base_url.join(&word) {
         Ok(request) => {
-            if CONFIGURATION.queries.is_empty() {
+            if queries.is_empty() {
                 // no query params to process
                 log::trace!("exit: format_url -> {}", request);
                 Ok(request)
             } else {
-                match reqwest::Url::parse_with_params(request.as_str(), &CONFIGURATION.queries) {
+                match reqwest::Url::parse_with_params(request.as_str(), queries) {
                     Ok(req_w_params) => {
                         log::trace!("exit: format_url -> {}", req_w_params);
-                        Ok(req_w_params)  // request with params attached
+                        Ok(req_w_params) // request with params attached
                     }
                     Err(e) => {
-                        log::error!("Could not add query params {:?} to {}: {}", CONFIGURATION.queries, request, e);
+                        log::error!(
+                            "Could not add query params {:?} to {}: {}",
+                            queries,
+                            request,
+                            e
+                        );
                         log::trace!("exit: format_url -> {}", request);
-                        Ok(request)  // couldn't process params, return initially ok url
+                        Ok(request) // couldn't process params, return initially ok url
                     }
                 }
             }
@@ -230,12 +237,24 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
 
     let mut urls = vec![];
 
-    if let Ok(url) = format_url(&target_url, &word, CONFIGURATION.addslash, None) {
+    if let Ok(url) = format_url(
+        &target_url,
+        &word,
+        CONFIGURATION.addslash,
+        &CONFIGURATION.queries,
+        None,
+    ) {
         urls.push(url); // default request, i.e. no extension
     }
 
     for ext in extensions.iter() {
-        if let Ok(url) = format_url(&target_url, &word, CONFIGURATION.addslash, Some(ext)) {
+        if let Ok(url) = format_url(
+            &target_url,
+            &word,
+            CONFIGURATION.addslash,
+            &CONFIGURATION.queries,
+            Some(ext),
+        ) {
             urls.push(url); // any extensions passed in
         }
     }
@@ -558,7 +577,7 @@ mod tests {
     #[test]
     fn test_format_url_normal() {
         assert_eq!(
-            format_url("http://localhost", "stuff", false, None).unwrap(),
+            format_url("http://localhost", "stuff", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
         );
     }
@@ -566,7 +585,7 @@ mod tests {
     #[test]
     fn test_format_url_no_word() {
         assert_eq!(
-            format_url("http://localhost", "", false, None).unwrap(),
+            format_url("http://localhost", "", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost").unwrap()
         );
     }
@@ -574,13 +593,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_format_url_no_url() {
-        format_url("", "stuff", false, None).unwrap();
+        format_url("", "stuff", false, &Vec::new(), None).unwrap();
     }
 
     #[test]
     fn test_format_url_word_with_preslash() {
         assert_eq!(
-            format_url("http://localhost", "/stuff", false, None).unwrap(),
+            format_url("http://localhost", "/stuff", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
         );
     }
@@ -588,7 +607,7 @@ mod tests {
     #[test]
     fn test_format_url_word_with_postslash() {
         assert_eq!(
-            format_url("http://localhost", "stuff/", false, None).unwrap(),
+            format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
         );
     }

@@ -36,8 +36,3 @@ fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
-
-// #[test]
-// fn test_si() -> Result<(), Box<dyn std::error::Error>> {
-//
-// }

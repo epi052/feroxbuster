@@ -424,7 +424,7 @@ mod tests {
             insecure = true
             extensions = ["html", "php", "js"]
             headers = {stuff = "things", mostuff = "mothings"}
-            queries = {name = "value", rick = "astley"}
+            queries = [["name","value"], ["rick", "astley"]]
             norecursion = true
             addslash = true
             stdin = true
@@ -456,10 +456,10 @@ mod tests {
         assert_eq!(config.addslash, false);
         assert_eq!(config.redirects, false);
         assert_eq!(config.insecure, false);
+        assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.sizefilters, Vec::<u64>::new());
         assert_eq!(config.headers, HashMap::new());
-        assert_eq!(config.queries, HashMap::new());
     }
 
     #[test]
@@ -576,9 +576,9 @@ mod tests {
     #[test]
     fn config_reads_queries() {
         let config = setup_config_test();
-        let mut queries = HashMap::new();
-        queries.insert("name".to_string(), "value".to_string());
-        queries.insert("rick".to_string(), "astley".to_string());
+        let mut queries = vec![];
+        queries.push(("name".to_string(), "value".to_string()));
+        queries.push(("rick".to_string(), "astley".to_string()));
         assert_eq!(config.queries, queries);
     }
 }

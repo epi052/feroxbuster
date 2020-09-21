@@ -111,7 +111,13 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
 
     let unique_str = unique_string(length);
 
-    let nonexistent = match format_url(target_url, &unique_str, CONFIGURATION.addslash, None) {
+    let nonexistent = match format_url(
+        target_url,
+        &unique_str,
+        CONFIGURATION.addslash,
+        &CONFIGURATION.queries,
+        None,
+    ) {
         Ok(url) => url,
         Err(e) => {
             log::error!("{}", e);
@@ -185,7 +191,13 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
     let mut good_urls = vec![];
 
     for target_url in target_urls {
-        let request = match format_url(target_url, "", CONFIGURATION.addslash, None) {
+        let request = match format_url(
+            target_url,
+            "",
+            CONFIGURATION.addslash,
+            &CONFIGURATION.queries,
+            None,
+        ) {
             Ok(url) => url,
             Err(e) => {
                 log::error!("{}", e);

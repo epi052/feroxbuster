@@ -126,7 +126,11 @@ by Ben "epi" Risher {}                  ver: {}"#,
         for query in &CONFIGURATION.queries {
             println!(
                 "{}",
-                format_banner_entry!("\u{1f914}", "Query Parameter", format!("{}={}", query.0, query.1))
+                format_banner_entry!(
+                    "\u{1f914}",
+                    "Query Parameter",
+                    format!("{}={}", query.0, query.1)
+                )
             ); // 🤔
         }
     }

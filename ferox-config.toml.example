@@ -24,9 +24,9 @@
 # dontfilter = true
 # depth = 1
 # sizefilters = [5174]
+# queries = [["name","value"], ["rick", "astley"]]
 
-
-# headers and queries can be specified on multiple lines or as an inline table
+# headers can be specified on multiple lines or as an inline table
 #
 # inline example
 # headers = {"stuff" = "things"}
@@ -39,7 +39,3 @@
 # [headers]
 # stuff = "things"
 # more = "headers"
-#
-# [queries]
-# mostuff = "mothings"
-# more = "queries"
