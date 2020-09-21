@@ -122,6 +122,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
+    if !CONFIGURATION.queries.is_empty() {
+        for query in &CONFIGURATION.queries {
+            println!(
+                "{}",
+                format_banner_entry!("\u{1f914}", "Query Parameter", format!("{}={}", query.0, query.1))
+            ); // 🤔
+        }
+    }
+
     if !CONFIGURATION.output.is_empty() {
         println!(
             "{}",
@@ -152,6 +161,13 @@ by Ben "epi" Risher {}                  ver: {}"#,
             "{}",
             format_banner_entry!("\u{1f4cd}", "Follow Redirects", CONFIGURATION.redirects)
         ); // 📍
+    }
+
+    if CONFIGURATION.dontfilter {
+        println!(
+            "{}",
+            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !CONFIGURATION.dontfilter)
+        ); // 🤪
     }
 
     match CONFIGURATION.verbosity {

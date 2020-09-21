@@ -65,7 +65,7 @@ pub fn status_colorizer(status: &str) -> String {
         Some('4') => Red.paint(status).to_string(),  // client error
         Some('5') => Red.paint(status).to_string(),  // server error
         Some('W') => Cyan.paint(status).to_string(), // wildcard
-        Some('E') => Red.paint(status).to_string(), // wildcard
+        Some('E') => Red.paint(status).to_string(),  // wildcard
         _ => status.to_string(),                     // ¯\_(ツ)_/¯
     }
 }

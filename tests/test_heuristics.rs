@@ -168,7 +168,7 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
                 "Url is being reflected in wildcard response, i.e. a dynamic wildcard",
             ))
             .and(predicate::str::contains(
-                "Auto-filtering out responses that are [(14 + url length) bytes] long; this behavior can be turned off by using --dumb",
+                "Auto-filtering out responses that are [(14 + url length) bytes] long; this behavior can be turned off by using --dontfilter",
             )),
     );
 

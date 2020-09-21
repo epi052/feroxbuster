@@ -1,6 +1,6 @@
+use crate::utils::status_colorizer;
 use crate::{client, parser};
 use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
-use crate::utils::status_colorizer;
 use clap::value_t;
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
@@ -59,6 +59,8 @@ pub struct Configuration {
     #[serde(default)]
     pub headers: HashMap<String, String>,
     #[serde(default)]
+    pub queries: Vec<(String, String)>,
+    #[serde(default)]
     pub norecursion: bool,
     #[serde(default)]
     pub addslash: bool,
@@ -68,6 +70,8 @@ pub struct Configuration {
     pub depth: usize,
     #[serde(default)]
     pub sizefilters: Vec<u64>,
+    #[serde(default)]
+    pub dontfilter: bool,
 }
 
 // functions timeout, threads, statuscodes, useragent, wordlist, and depth are used to provide
@@ -105,6 +109,7 @@ impl Default for Configuration {
             client,
             timeout,
             useragent,
+            dontfilter: false,
             quiet: false,
             stdin: false,
             verbosity: 0,
@@ -115,6 +120,7 @@ impl Default for Configuration {
             proxy: String::new(),
             output: String::new(),
             target_url: String::new(),
+            queries: Vec::new(),
             extensions: Vec::new(),
             sizefilters: Vec::new(),
             headers: HashMap::new(),
@@ -145,9 +151,11 @@ impl Configuration {
     /// - **extensions**: `None`
     /// - **sizefilters**: `None`
     /// - **headers**: `None`
+    /// - **queries**: `None`
     /// - **norecursion**: `false` (recursively scan enumerated sub-directories)
     /// - **addslash**: `false`
     /// - **stdin**: `false`
+    /// - **dontfilter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     ///
     /// After which, any values defined in a
@@ -184,11 +192,13 @@ impl Configuration {
                     config.insecure = settings.insecure;
                     config.extensions = settings.extensions;
                     config.headers = settings.headers;
+                    config.queries = settings.queries;
                     config.norecursion = settings.norecursion;
                     config.addslash = settings.addslash;
                     config.stdin = settings.stdin;
                     config.depth = settings.depth;
                     config.sizefilters = settings.sizefilters;
+                    config.dontfilter = settings.dontfilter;
                 }
             };
         };
@@ -259,6 +269,10 @@ impl Configuration {
             config.quiet = args.is_present("quiet");
         }
 
+        if args.is_present("dontfilter") {
+            config.dontfilter = args.is_present("dontfilter");
+        }
+
         if args.occurrences_of("verbosity") > 0 {
             // occurrences_of returns 0 if none are found; this is protected in
             // an if block for the same reason as the quiet option
@@ -317,6 +331,19 @@ impl Configuration {
             }
         }
 
+        if args.values_of("queries").is_some() {
+            for val in args.values_of("queries").unwrap() {
+                // same basic logic used as reading in the headers HashMap above
+                let mut split_val = val.split('=');
+
+                let name = split_val.next().unwrap().trim();
+
+                let value = split_val.collect::<Vec<&str>>().join("=");
+
+                config.queries.push((name.to_string(), value.to_string()));
+            }
+        }
+
         // this if statement determines if we've gotten a Client configuration change from
         // either the config file or command line arguments; if we have, we need to rebuild
         // the client and store it in the config struct
@@ -365,7 +392,11 @@ impl Configuration {
                     return Some(config);
                 }
                 Err(e) => {
-                    println!("[{}] - config::parse_config {}", status_colorizer("ERROR"), e);
+                    println!(
+                        "[{}] - config::parse_config {}",
+                        status_colorizer("ERROR"),
+                        e
+                    );
                 }
             }
         }
@@ -393,9 +424,11 @@ mod tests {
             insecure = true
             extensions = ["html", "php", "js"]
             headers = {stuff = "things", mostuff = "mothings"}
+            queries = {name = "value", rick = "astley"}
             norecursion = true
             addslash = true
             stdin = true
+            dontfilter = true
             depth = 1
             sizefilters = [4120]
         "#;
@@ -417,6 +450,7 @@ mod tests {
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.quiet, false);
+        assert_eq!(config.dontfilter, false);
         assert_eq!(config.norecursion, false);
         assert_eq!(config.stdin, false);
         assert_eq!(config.addslash, false);
@@ -425,6 +459,7 @@ mod tests {
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.sizefilters, Vec::<u64>::new());
         assert_eq!(config.headers, HashMap::new());
+        assert_eq!(config.queries, HashMap::new());
     }
 
     #[test]
@@ -506,6 +541,12 @@ mod tests {
     }
 
     #[test]
+    fn config_reads_dontfilter() {
+        let config = setup_config_test();
+        assert_eq!(config.dontfilter, true);
+    }
+
+    #[test]
     fn config_reads_addslash() {
         let config = setup_config_test();
         assert_eq!(config.addslash, true);
@@ -530,5 +571,14 @@ mod tests {
         headers.insert("stuff".to_string(), "things".to_string());
         headers.insert("mostuff".to_string(), "mothings".to_string());
         assert_eq!(config.headers, headers);
+    }
+
+    #[test]
+    fn config_reads_queries() {
+        let config = setup_config_test();
+        let mut queries = HashMap::new();
+        queries.insert("name".to_string(), "value".to_string());
+        queries.insert("rick".to_string(), "astley".to_string());
+        assert_eq!(config.queries, queries);
     }
 }

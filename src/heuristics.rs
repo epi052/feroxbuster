@@ -47,6 +47,12 @@ fn unique_string(length: usize) -> String {
 pub async fn wildcard_test(target_url: &str) -> Option<WildcardFilter> {
     log::trace!("enter: wildcard_test({:?})", target_url);
 
+    if CONFIGURATION.dontfilter {
+        // early return, dontfilter scans don't need tested
+        log::trace!("exit: wildcard_test -> None");
+        return None;
+    }
+
     if let Some(resp_one) = make_wildcard_request(&target_url, 1).await {
         // found a wildcard response
         let mut wildcard = WildcardFilter::default();
@@ -73,14 +79,14 @@ pub async fn wildcard_test(target_url: &str) -> Option<WildcardFilter> {
                     status_colorizer("WILDCARD")
                 );
                 println!(
-                    "[{}] - Auto-filtering out responses that are [({} + url length) bytes] long; this behavior can be turned off by using --dumb",
+                    "[{}] - Auto-filtering out responses that are [({} + url length) bytes] long; this behavior can be turned off by using --dontfilter",
                     status_colorizer("WILDCARD"),
                     wc_length - url_len,
                 );
 
                 wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
-                println!("[{}] - Wildcard response is a static size; auto-filtering out responses of size [{} bytes]; this behavior can be turned off by using --dumb", status_colorizer("WILDCARD"), wc_length);
+                println!("[{}] - Wildcard response is a static size; auto-filtering out responses of size [{} bytes]; this behavior can be turned off by using --dontfilter", status_colorizer("WILDCARD"), wc_length);
 
                 wildcard.size = wc_length;
             }
@@ -207,4 +213,16 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
     log::trace!("exit: connectivity_test -> {:?}", good_urls);
 
     good_urls
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unique_string_returns_correct_length() {
+        for i in 0..10 {
+            assert_eq!(unique_string(i).len(), i * 32);
+        }
+    }
 }

@@ -43,7 +43,7 @@ pub fn format_url(
         url.to_string()
     };
 
-    let base_url = reqwest::Url::parse(&url)?;
+    let base_url =  reqwest::Url::parse(&url)?;
 
     // extensions and slashes are mutually exclusive cases
     let word = if extension.is_some() {
@@ -57,8 +57,23 @@ pub fn format_url(
 
     match base_url.join(&word) {
         Ok(request) => {
-            log::trace!("exit: format_url -> {}", request);
-            Ok(request)
+            if CONFIGURATION.queries.is_empty() {
+                // no query params to process
+                log::trace!("exit: format_url -> {}", request);
+                Ok(request)
+            } else {
+                match reqwest::Url::parse_with_params(request.as_str(), &CONFIGURATION.queries) {
+                    Ok(req_w_params) => {
+                        log::trace!("exit: format_url -> {}", req_w_params);
+                        Ok(req_w_params)  // request with params attached
+                    }
+                    Err(e) => {
+                        log::error!("Could not add query params {:?} to {}: {}", CONFIGURATION.queries, request, e);
+                        log::trace!("exit: format_url -> {}", request);
+                        Ok(request)  // couldn't process params, return initially ok url
+                    }
+                }
+            }
         }
         Err(e) => {
             log::trace!("exit: format_url -> {}", e);
@@ -402,16 +417,14 @@ async fn make_requests(
                 continue;
             }
 
-            if filter.size > 0 && filter.size == *content_len && true {
-                // todo replace with --dumb logic
+            if filter.size > 0 && filter.size == *content_len && !CONFIGURATION.dontfilter {
                 // static wildcard size found during testing
-                // size isn't default, size equals response length, and it's not a 'dumb' scan
+                // size isn't default, size equals response length, and auto-filter is on
                 log::debug!("static wildcard: filtered out {}", response.url());
                 continue;
             }
 
-            if filter.dynamic > 0 && true {
-                // todo replace with --dumb logic
+            if filter.dynamic > 0 && !CONFIGURATION.dontfilter {
                 // dynamic wildcard offset found during testing
 
                 // I'm about to manually split this url path instead of using reqwest::Url's
@@ -476,10 +489,16 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
             async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
         );
 
-    let filter = if let Some(f) = heuristics::wildcard_test(&target_url).await {
-        Arc::new(f)
-    } else {
-        Arc::new(WildcardFilter::default())
+    let filter = match heuristics::wildcard_test(&target_url).await {
+        Some(f) => {
+            if CONFIGURATION.dontfilter {
+                // don't auto filter, i.e. use the defaults
+                Arc::new(WildcardFilter::default())
+            } else {
+                Arc::new(f)
+            }
+        }
+        None => Arc::new(WildcardFilter::default()),
     };
 
     // producer tasks (mp of mpsc); responsible for making requests

@@ -21,14 +21,16 @@
 # norecursion = true
 # addslash = true
 # stdin = true
+# dontfilter = true
 # depth = 1
 # sizefilters = [5174]
 
 
-# headers can be specified on multiple lines or as an inline table
+# headers and queries can be specified on multiple lines or as an inline table
 #
 # inline example
 # headers = {"stuff" = "things"}
+# queries = {"mostuff" = "mothings"}
 #
 # multi-line example
 #   note: if multi-line is used, all key/value pairs under it belong to the headers table until the next table
@@ -36,4 +38,8 @@
 #
 # [headers]
 # stuff = "things"
+# more = "headers"
+#
+# [queries]
 # mostuff = "mothings"
+# more = "queries"

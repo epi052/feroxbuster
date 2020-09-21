@@ -87,6 +87,13 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Only print URLs; Don't print status codes, response size, running config, etc...")
         )
         .arg(
+            Arg::with_name("dontfilter")
+                .short("D")
+                .long("dontfilter")
+                .takes_value(false)
+                .help("Don't auto-filter wildcard responses")
+        )
+        .arg(
             Arg::with_name("output")
                 .short("o")
                 .long("output")
@@ -143,6 +150,18 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("queries")
+                .short("Q")
+                .long("query")
+                .value_name("QUERY")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Specify URL query parameters (ex: -Q token=stuff -Q secret=key)",
+                ),
+        )
+        .arg(
             Arg::with_name("norecursion")
                 .short("n")
                 .long("norecursion")
@@ -185,7 +204,7 @@ pub fn initialize() -> App<'static, 'static> {
     The command above adds .pdf, .js, .html, .php, .txt, .json, and .docx to each url
 
     All of the methods above (multiple flags, space separated, comma separated, etc...) are valid
-    and interchangeable.  The same goes for urls, headers, status codes, and size filters.
+    and interchangeable.  The same goes for urls, headers, status codes, queries, and size filters.
 
 EXAMPLES:
     Multiple headers:
@@ -198,7 +217,13 @@ EXAMPLES:
         cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Proxy traffic through Burp
-        ./feroxbuster -u http://127.1 --insecure -p http://127.0.0.1:8080
+        ./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080
+
+    Proxy traffic through a SOCKS proxy
+        ./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
+
+    Pass auth token via query parameter
+        ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 -t 200
