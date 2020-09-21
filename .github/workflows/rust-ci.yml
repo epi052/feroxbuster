@@ -73,28 +73,28 @@ jobs:
           - type: ubuntu-x64
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
-            name: x86_64-linux-rustdsplit
-            path: target/x86_64-unknown-linux-musl/release/rustdsplit
+            name: x86_64-linux-feroxbuster
+            path: target/x86_64-unknown-linux-musl/release/feroxbuster
           - type: ubuntu-x86
             os: ubuntu-latest
             target: i686-unknown-linux-musl
-            name: x86-linux-rustdsplit
-            path: target/i686-unknown-linux-musl/release/rustdsplit
+            name: x86-linux-feroxbuster
+            path: target/i686-unknown-linux-musl/release/feroxbuster
           - type: macos
             os: macos-latest
             target: x86_64-apple-darwin
-            name: x86_64-macos-rustdsplit
-            path: target/x86_64-apple-darwin/release/rustdsplit
+            name: x86_64-macos-feroxbuster
+            path: target/x86_64-apple-darwin/release/feroxbuster
           - type: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            name: x86_64-windows-rustdsplit.exe
-            path: target\x86_64-pc-windows-msvc\release\rustdsplit.exe
+            name: x86_64-windows-feroxbuster.exe
+            path: target\x86_64-pc-windows-msvc\release\feroxbuster.exe
           - type: windows-x86
             os: windows-latest
             target: i686-pc-windows-msvc
-            name: x86-windows-rustdsplit.exe
-            path: target\i686-pc-windows-msvc\release\rustdsplit.exe
+            name: x86-windows-feroxbuster.exe
+            path: target\i686-pc-windows-msvc\release\feroxbuster.exe
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
