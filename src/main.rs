@@ -71,7 +71,6 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
 
     // drive execution of all accumulated futures
     futures::future::join_all(tasks).await;
-
     log::trace!("exit: scan");
 
     Ok(())
@@ -120,13 +119,16 @@ async fn main() {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         banner::initialize(&targets);
+        // progress::initialize();
     }
 
     // discard non-responsive targets
     let live_targets = heuristics::connectivity_test(&targets).await;
 
     match scan(live_targets).await {
-        Ok(_) => log::info!("Done"),
+        Ok(_) => {
+            log::info!("Done");
+        }
         Err(e) => log::error!("An error occurred: {}", e),
     };
 

@@ -2,6 +2,7 @@ use crate::utils::status_colorizer;
 use crate::{client, parser};
 use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::value_t;
+use indicatif::MultiProgress;
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
@@ -14,6 +15,7 @@ use std::process::exit;
 lazy_static! {
     /// Global configuration variable.
     pub static ref CONFIGURATION: Configuration = Configuration::new();
+    pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::new();
 }
 
 /// Represents the final, global configuration of the program.

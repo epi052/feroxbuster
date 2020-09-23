@@ -4,6 +4,7 @@ pub mod config;
 pub mod heuristics;
 pub mod logger;
 pub mod parser;
+pub mod progress;
 pub mod scanner;
 pub mod utils;
 

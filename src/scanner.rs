@@ -1,9 +1,10 @@
-use crate::config::CONFIGURATION;
+use crate::config::{CONFIGURATION, PROGRESS_BAR};
 use crate::heuristics::WildcardFilter;
 use crate::utils::{get_current_depth, get_url_path_length, status_colorizer};
-use crate::{heuristics, FeroxResult};
+use crate::{heuristics, progress, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
+use indicatif::ProgressBar;
 use reqwest::{Client, Response, Url};
 use std::collections::HashSet;
 use std::fs::OpenOptions;
@@ -12,6 +13,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
+use std::convert::TryInto;
 
 /// Simple helper to generate a `Url`
 ///
@@ -164,23 +166,27 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 ///
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
-async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
+async fn spawn_terminal_reporter(
+    mut report_channel: UnboundedReceiver<Response>,
+    bar: ProgressBar,
+) {
     log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
+    //todo trace
 
     while let Some(resp) = report_channel.recv().await {
         log::debug!("received {} on reporting channel", resp.url());
 
         if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
             if CONFIGURATION.quiet {
-                println!("{}", resp.url());
+                bar.println(format!("{}", resp.url()));
             } else {
                 let status = status_colorizer(&resp.status().to_string());
-                println!(
+                bar.println(format!(
                     "[{}] - {} - [{} bytes]",
                     status,
                     resp.url(),
                     resp.content_length().unwrap_or(0)
-                );
+                ));
             }
         }
         log::debug!("report complete: {}", resp.url());
@@ -492,11 +498,26 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let (tx_dir, rx_dir): (UnboundedSender<String>, UnboundedReceiver<String>) =
         mpsc::unbounded_channel();
 
+    let num_reqs_expected: u64 = if CONFIGURATION.extensions.is_empty() {
+        wordlist.len().try_into().unwrap()
+    } else {
+        let total = wordlist.len() * (CONFIGURATION.extensions.len() + 1);
+        total.try_into().unwrap()
+    };
+
+    let progress_bar = progress::add_bar(&target_url, num_reqs_expected, false);
+    progress_bar.reset_elapsed();
+
+    let bar_future = tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
+
+    let reporter_bar = progress_bar.clone();
+    let wildcard_bar = progress_bar.clone();
+
     let reporter = if !CONFIGURATION.output.is_empty() {
         // output file defined
         tokio::spawn(async move { spawn_file_reporter(rx_rpt).await })
     } else {
-        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt).await })
+        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt, reporter_bar).await })
     };
 
     // lifetime satisfiers, as it's an Arc, clones are cheap anyway
@@ -508,7 +529,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
             async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
         );
 
-    let filter = match heuristics::wildcard_test(&target_url).await {
+    let filter = match heuristics::wildcard_test(&target_url, wildcard_bar).await {
         Some(f) => {
             if CONFIGURATION.dontfilter {
                 // don't auto filter, i.e. use the defaults
@@ -526,14 +547,20 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
             let wc_filter = filter.clone();
             let txd = tx_dir.clone();
             let txr = tx_rpt.clone();
+            let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
-            tokio::spawn(async move {
-                make_requests(&tgt, &word, base_depth, wc_filter, txd, txr).await
-            })
+            (
+                tokio::spawn(async move {
+                    make_requests(&tgt, &word, base_depth, wc_filter, txd, txr).await
+                }),
+                pb,
+            )
         })
-        .for_each_concurrent(CONFIGURATION.threads, |resp| async move {
+        .for_each_concurrent(CONFIGURATION.threads, |(resp, bar)| async move {
             match resp.await {
-                Ok(_) => {}
+                Ok(_) => {
+                    bar.inc(1);
+                }
                 Err(e) => {
                     log::error!("error awaiting a response: {}", e);
                 }
@@ -544,6 +571,8 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     log::trace!("awaiting scan producers");
     producers.await;
     log::trace!("done awaiting scan producers");
+
+    progress_bar.finish();
 
     // manually drop tx in order for the rx task's while loops to eval to false
     log::trace!("dropped recursion handler's transmitter");
@@ -566,6 +595,8 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         }
     }
     log::trace!("done awaiting report receiver");
+
+    bar_future.await.unwrap();
 
     log::trace!("exit: scan_url");
 }
