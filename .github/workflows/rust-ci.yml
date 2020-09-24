@@ -63,12 +63,12 @@ jobs:
           command: clippy
           args: --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap
 
-  build-all:
+  build-nix:
     runs-on: ${{ matrix.os }}
     if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [ubuntu-x64, ubuntu-x86, macos, windows-x64, windows-x86]
+        type: [ubuntu-x64, ubuntu-x86, macos]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
@@ -85,6 +85,30 @@ jobs:
             target: x86_64-apple-darwin
             name: x86_64-macos-feroxbuster
             path: target/x86_64-apple-darwin/release/feroxbuster
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - uses: juankaram/rust-musl-action@master
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+        with:
+          args: ./build-default.sh
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.path }}
+
+  build-windows:
+    runs-on: ${{ matrix.os }}
+    if: github.ref == 'refs/heads/master'
+    strategy:
+      matrix:
+        type: [windows-x64, windows-x86]
+        include:
           - type: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
