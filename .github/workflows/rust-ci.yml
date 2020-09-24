@@ -65,7 +65,7 @@ jobs:
 
   build-nix:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86]
@@ -87,7 +87,7 @@ jobs:
           toolchain: stable
           target: ${{ matrix.target }}
           override: true
-      - uses: juankaram/rust-musl-action@master
+      - uses: emk/rust-musl-builder@master
         env:
           BUILD_TARGET: ${{ matrix.target }}
         with:
@@ -99,7 +99,7 @@ jobs:
 
   build-rest:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
     strategy:
       matrix:
         type: [windows-x64, windows-x86, macos]
