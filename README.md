@@ -123,6 +123,41 @@ EXAMPLES:
 ```
 
 ## Comparison w/ Similar Tools
-### How does `feroxbuster` compare to [gobuster](https://github.com/OJ/gobuster)
-### How does `feroxbuster` compare to [ffuf](https://github.com/ffuf/ffuf)
-### How does `feroxbuster` compare to [rustbuster](https://github.com/phra/rustbuster)
+
+There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
+However, in my opinion, there are two that set the standard: [gobuster](https://github.com/OJ/gobuster) and 
+[ffuf](https://github.com/ffuf/ffuf).  Both are mature, feature-rich, and all-around incredible tools to use.
+
+So, why would you ever want to use feroxbuster over ffuf/gobuster?  In most cases, you probably won't.  ffuf in particular
+can do the vast majority of things that feroxbuster can, while still offering boatloads more functionality.  Here are
+a few of the use-cases in which feroxbuster may be a better fit:
+
+- You want a **simple** tool usage experience
+- You want to be able to run your content discovery as part of some crazy 12 command unix **pipeline extravaganza**
+- You want to scan through a **SOCKS** proxy
+- You want **auto-filtering** of Wildcard responses by default
+- You want **recursion** along with some other thing mentioned above (ffuf also does recursion)
+- You want a **configuration file** option for overriding built-in default values for your scans
+
+|                                                     | feroxbuster        | gobuster           | ffuf               |
+|-----------------------------------------------------|--------------------|--------------------|--------------------|
+| fast                                                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| easy to use                                         | :heavy_check_mark: | :heavy_check_mark: |                    |
+| blacklist status codes (in addition to whitelist)   |                    | :heavy_check_mark: | :heavy_check_mark: |
+| allows recursion                                    | :heavy_check_mark: |                    | :heavy_check_mark: |
+| can specify query parameters                        | :heavy_check_mark: |                    | :heavy_check_mark: |
+| SOCKS proxy support                                 | :heavy_check_mark: |                    |                    |
+| multiple target scan (via stdin or multiple -u)     | :heavy_check_mark: |                    |                    |
+| configuration file for default value override       | :heavy_check_mark: |                    |                    |
+| can accept urls via STDIN as part of a pipeline     | :heavy_check_mark: |                    |                    |
+| can accept wordlists via STDIN                      |                    | :heavy_check_mark: |                    |
+| filter by response size                             | :heavy_check_mark: |                    | :heavy_check_mark: |
+| auto-filter wildcard responses                      | :heavy_check_mark: |                    | :heavy_check_mark: |
+| performs other scans (vhost, dns, etc)              |                    | :heavy_check_mark: | :heavy_check_mark: |
+| **huge** number of other options                    |                    |                    | :heavy_check_mark: |
+
+Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
+came across rustbuster when I was naming my tool (:cry:). I don't have any experience using it, but it appears to 
+be able to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost
+dns, directory, etc...).  In short, it definitely looks interesting and may be what you're looking for as it has some 
+capability I haven't seen in other tools.  
