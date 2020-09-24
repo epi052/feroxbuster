@@ -68,7 +68,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [ubuntu-x64, ubuntu-x86, macos]
+        type: [ubuntu-x64, ubuntu-x86]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
@@ -80,11 +80,6 @@ jobs:
             target: i686-unknown-linux-musl
             name: x86-linux-feroxbuster
             path: target/i686-unknown-linux-musl/release/feroxbuster
-          - type: macos
-            os: macos-latest
-            target: x86_64-apple-darwin
-            name: x86_64-macos-feroxbuster
-            path: target/x86_64-apple-darwin/release/feroxbuster
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -102,13 +97,18 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
 
-  build-windows:
+  build-rest:
     runs-on: ${{ matrix.os }}
     if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [windows-x64, windows-x86]
+        type: [windows-x64, windows-x86, macos]
         include:
+          - type: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+            name: x86_64-macos-feroxbuster
+            path: target/x86_64-apple-darwin/release/feroxbuster
           - type: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
