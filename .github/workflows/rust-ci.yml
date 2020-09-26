@@ -65,7 +65,7 @@ jobs:
 
   build-nix:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
+    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86]
@@ -75,11 +75,11 @@ jobs:
             target: x86_64-unknown-linux-musl
             name: x86_64-linux-feroxbuster
             path: target/x86_64-unknown-linux-musl/release/feroxbuster
-          - type: ubuntu-x86
-            os: ubuntu-latest
-            target: i686-unknown-linux-musl
-            name: x86-linux-feroxbuster
-            path: target/i686-unknown-linux-musl/release/feroxbuster
+#          - type: ubuntu-x86
+#            os: ubuntu-latest
+#            target: i686-unknown-linux-musl
+#            name: x86-linux-feroxbuster
+#            path: target/i686-unknown-linux-musl/release/feroxbuster
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
