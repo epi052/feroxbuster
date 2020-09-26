@@ -63,28 +63,32 @@ jobs:
 #          command: clippy
 #          args: --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap
 
+#          - type: ubuntu-x86
+#            os: ubuntu-latest
+#            target: i686-unknown-linux-musl
+#            name: x86-linux-rustdsplit
+#            path: target/i686-unknown-linux-musl/release/rustdsplit
+
   build-nix:
     runs-on: ${{ matrix.os }}
     if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [ubuntu-x64, ubuntu-x86]
+        type: [ubuntu-x64] #, ubuntu-x86]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             name: x86_64-linux-rustdsplit
             path: target/x86_64-unknown-linux-musl/release/rustdsplit
-          - type: ubuntu-x86
-            os: ubuntu-latest
-            target: i686-unknown-linux-musl
-            name: x86-linux-rustdsplit
-            path: target/i686-unknown-linux-musl/release/rustdsplit
     steps:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
         run: |
-            sudo apt-get update && sudo apt-get install -y --no-install-recommends libssl-dev pkg-config && sudo apt-get clean -y
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config
+          sudo apt-get clean -y
+          find /usr/lib/ -iname "*ssl*"
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
