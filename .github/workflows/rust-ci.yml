@@ -108,41 +108,41 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
 
-#  build-rest:
-#    runs-on: ${{ matrix.os }}
-#    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
-#    strategy:
-#      matrix:
-#        type: [windows-x64, windows-x86, macos]
-#        include:
-#          - type: macos
-#            os: macos-latest
-#            target: x86_64-apple-darwin
-#            name: x86_64-macos-feroxbuster
-#            path: target/x86_64-apple-darwin/release/feroxbuster
-#          - type: windows-x64
-#            os: windows-latest
-#            target: x86_64-pc-windows-msvc
-#            name: x86_64-windows-feroxbuster.exe
-#            path: target\x86_64-pc-windows-msvc\release\feroxbuster.exe
-#          - type: windows-x86
-#            os: windows-latest
-#            target: i686-pc-windows-msvc
-#            name: x86-windows-feroxbuster.exe
-#            path: target\i686-pc-windows-msvc\release\feroxbuster.exe
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          toolchain: stable
-#          target: ${{ matrix.target }}
-#          override: true
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          use-cross: true
-#          command: build
-#          args: --release --target=${{ matrix.target }}
-#      - uses: actions/upload-artifact@v2
-#        with:
-#          name: ${{ matrix.name }}
-#          path: ${{ matrix.path }}
+  build-rest:
+    runs-on: ${{ matrix.os }}
+    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
+    strategy:
+      matrix:
+        type: [windows-x64, windows-x86, macos]
+        include:
+          - type: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
+            name: x86_64-macos-feroxbuster
+            path: target/x86_64-apple-darwin/release/feroxbuster
+          - type: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: x86_64-windows-feroxbuster.exe
+            path: target\x86_64-pc-windows-msvc\release\feroxbuster.exe
+          - type: windows-x86
+            os: windows-latest
+            target: i686-pc-windows-msvc
+            name: x86-windows-feroxbuster.exe
+            path: target\i686-pc-windows-msvc\release\feroxbuster.exe
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target=${{ matrix.target }}
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.path }}
