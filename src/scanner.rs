@@ -508,7 +508,11 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let progress_bar = progress::add_bar(&target_url, num_reqs_expected, false);
     progress_bar.reset_elapsed();
 
-    let bar_future = tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
+    let bar_future = if get_current_depth(&target_url) == 1 {
+        tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap())
+    } else {
+        tokio::task::spawn_blocking(move || {})
+    };
 
     let reporter_bar = progress_bar.clone();
     let wildcard_bar = progress_bar.clone();

@@ -3,79 +3,73 @@ name: CI Pipeline
 on: [push]
 
 jobs:
-#  check:
-#    name: Check
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
-#          toolchain: stable
-#          override: true
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: check
-#
-#  test:
-#    name: Test Suite
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
-#          toolchain: stable
-#          override: true
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#
-#  fmt:
-#    name: Rust fmt
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
-#          toolchain: stable
-#          override: true
-#      - run: rustup component add rustfmt
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: fmt
-#          args: --all -- --check
-#
-#  clippy:
-#    name: Clippy
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#      - uses: actions-rs/toolchain@v1
-#        with:
-#          profile: minimal
-#          toolchain: stable
-#          override: true
-#      - run: rustup component add clippy
-#      - uses: actions-rs/cargo@v1
-#        with:
-#          command: clippy
-#          args: --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
 
-#          - type: ubuntu-x86
-#            os: ubuntu-latest
-#            target: i686-unknown-linux-musl
-#            name: x86-linux-feroxbuster
-#            path: target/i686-unknown-linux-musl/release/feroxbuster
-#            pkg_config_path: /usr/lib/i686-linux-gnu/pkgconfig
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+  fmt:
+    name: Rust fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap
+
 
   build-nix:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
     strategy:
       matrix:
-        type: [ubuntu-x64] #, ubuntu-x86]
+        type: [ubuntu-x64, ubuntu-x86]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
@@ -83,17 +77,19 @@ jobs:
             name: x86_64-linux-feroxbuster
             path: target/x86_64-unknown-linux-musl/release/feroxbuster
             pkg_config_path: /usr/lib/x86_64-linux-gnu/pkgconfig
+          - type: ubuntu-x86
+            os: ubuntu-latest
+            target: i686-unknown-linux-musl
+            name: x86-linux-feroxbuster
+            path: target/i686-unknown-linux-musl/release/feroxbuster
+            pkg_config_path: /usr/lib/i686-linux-gnu/pkgconfig
     steps:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
-        env:
-          PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libssl-dev pkg-config
           sudo apt-get clean -y
-          find /usr/lib/ -iname "*ssl*"
-          echo "farfignewton: $PKG_CONFIG_PATH"
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
