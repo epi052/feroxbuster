@@ -74,7 +74,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [ubuntu-x64] #, ubuntu-x86]
+        type: [ubuntu-x64, ubuntu-x86]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
