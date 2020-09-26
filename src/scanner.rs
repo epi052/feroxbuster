@@ -1,19 +1,18 @@
-use crate::config::{CONFIGURATION, PROGRESS_BAR};
+use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
 use crate::heuristics::WildcardFilter;
 use crate::utils::{get_current_depth, get_url_path_length, status_colorizer};
 use crate::{heuristics, progress, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
-use indicatif::ProgressBar;
 use reqwest::{Client, Response, Url};
 use std::collections::HashSet;
+use std::convert::TryInto;
 use std::fs::OpenOptions;
 use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-use std::convert::TryInto;
 
 /// Simple helper to generate a `Url`
 ///
@@ -166,10 +165,7 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 ///
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
-async fn spawn_terminal_reporter(
-    mut report_channel: UnboundedReceiver<Response>,
-    bar: ProgressBar,
-) {
+async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
     log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
     //todo trace
 
@@ -178,10 +174,10 @@ async fn spawn_terminal_reporter(
 
         if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
             if CONFIGURATION.quiet {
-                bar.println(format!("{}", resp.url()));
+                PROGRESS_PRINTER.println(format!("{}", resp.url()));
             } else {
                 let status = status_colorizer(&resp.status().to_string());
-                bar.println(format!(
+                PROGRESS_PRINTER.println(format!(
                     "[{}] - {} - [{} bytes]",
                     status,
                     resp.url(),
@@ -514,14 +510,13 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         tokio::task::spawn_blocking(move || {})
     };
 
-    let reporter_bar = progress_bar.clone();
     let wildcard_bar = progress_bar.clone();
 
     let reporter = if !CONFIGURATION.output.is_empty() {
         // output file defined
         tokio::spawn(async move { spawn_file_reporter(rx_rpt).await })
     } else {
-        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt, reporter_bar).await })
+        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt).await })
     };
 
     // lifetime satisfiers, as it's an Arc, clones are cheap anyway

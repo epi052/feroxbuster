@@ -1,8 +1,8 @@
 use crate::utils::status_colorizer;
-use crate::{client, parser};
+use crate::{client, parser, progress};
 use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::value_t;
-use indicatif::MultiProgress;
+use indicatif::{MultiProgress, ProgressBar};
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
@@ -16,6 +16,7 @@ lazy_static! {
     /// Global configuration variable.
     pub static ref CONFIGURATION: Configuration = Configuration::new();
     pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::new();
+    pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true);
 }
 
 /// Represents the final, global configuration of the program.

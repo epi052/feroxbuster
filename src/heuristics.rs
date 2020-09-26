@@ -1,11 +1,10 @@
-use crate::config::CONFIGURATION;
-use crate::progress;
+use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::scanner::{format_url, make_request};
 use crate::utils::{get_url_path_length, status_colorizer};
+use indicatif::ProgressBar;
 use reqwest::Response;
 use std::process;
 use uuid::Uuid;
-use indicatif::ProgressBar;
 
 const UUID_LENGTH: u64 = 32;
 
@@ -55,7 +54,7 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
         return None;
     }
 
-    if let Some(resp_one) = make_wildcard_request(&target_url, 1, bar.clone()).await {
+    if let Some(resp_one) = make_wildcard_request(&target_url, 1).await {
         bar.inc(1);
 
         // found a wildcard response
@@ -70,7 +69,7 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
 
         // content length of wildcard is non-zero, perform additional tests:
         //   make a second request, with a known-sized (64) longer request
-        if let Some(resp_two) = make_wildcard_request(&target_url, 3, bar.clone()).await {
+        if let Some(resp_two) = make_wildcard_request(&target_url, 3).await {
             bar.inc(1);
 
             let wc2_length = resp_two.content_length().unwrap_or(0);
@@ -80,11 +79,11 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                 // reflected in the response along with some static content; aka custom 404
                 let url_len = get_url_path_length(&resp_one.url());
 
-                bar.println(format!(
+                PROGRESS_PRINTER.println(format!(
                     "[{}] - Url is being reflected in wildcard response, i.e. a dynamic wildcard",
                     status_colorizer("WILDCARD")
                 ));
-                bar.println(
+                PROGRESS_PRINTER.println(
                     format!(
                         "[{}] - Auto-filtering out responses that are [({} + url length) bytes] long; this behavior can be turned off by using --dontfilter",
                         status_colorizer("WILDCARD"),
@@ -94,7 +93,7 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
 
                 wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
-                bar.println(format!(
+                PROGRESS_PRINTER.println(format!(
                     "[{}] - Wildcard response is a static size; auto-filtering out responses of size [{} bytes]; this behavior can be turned off by using --dontfilter",
                     status_colorizer("WILDCARD"),
                     wc_length
@@ -120,7 +119,7 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
 /// Once the unique url is created, the request is sent to the server. If the server responds
 /// back with a valid status code, the response is considered to be a wildcard response. If that
 /// wildcard response has a 3xx status code, that redirection location is displayed to the user.
-async fn make_wildcard_request(target_url: &str, length: usize, bar: ProgressBar) -> Option<Response> {
+async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Response> {
     log::trace!("enter: make_wildcard_request({}, {})", target_url, length);
 
     let unique_str = unique_string(length);
@@ -151,38 +150,32 @@ async fn make_wildcard_request(target_url: &str, length: usize, bar: ProgressBar
                 // found a wildcard response
                 let url_len = get_url_path_length(&response.url());
 
-                bar.println(
-                    format!(
-                        "[{}] - Received [{}] for {} (content: {} bytes, url length: {})",
-                        wildcard,
-                        status_colorizer(&response.status().to_string()),
-                        response.url(),
-                        response.content_length().unwrap_or(0),
-                        url_len
-                    )
-                );
+                PROGRESS_PRINTER.println(format!(
+                    "[{}] - Received [{}] for {} (content: {} bytes, url length: {})",
+                    wildcard,
+                    status_colorizer(&response.status().to_string()),
+                    response.url(),
+                    response.content_length().unwrap_or(0),
+                    url_len
+                ));
 
                 if response.status().is_redirection() {
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
-                            bar.println(
-                                format!(
-                                    "[{}] {} redirects to => {}",
-                                    wildcard,
-                                    response.url(),
-                                    next_loc_str
-                                )
-                            );
+                            PROGRESS_PRINTER.println(format!(
+                                "[{}] {} redirects to => {}",
+                                wildcard,
+                                response.url(),
+                                next_loc_str
+                            ));
                         } else {
-                            bar.println(
-                                format!(
-                                    "[{}] {} redirects to => {:?}",
-                                    wildcard,
-                                    response.url(),
-                                    next_loc
-                                )
-                            );
+                            PROGRESS_PRINTER.println(format!(
+                                "[{}] {} redirects to => {:?}",
+                                wildcard,
+                                response.url(),
+                                next_loc
+                            ));
                         }
                     }
                 }
@@ -210,9 +203,6 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
 
     let mut good_urls = vec![];
 
-    // hidden bar just to get ProgressBar::println functionality
-    let bar = progress::add_bar("", 1, true);
-
     for target_url in target_urls {
         let request = match format_url(
             target_url,
@@ -224,7 +214,6 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
             Ok(url) => url,
             Err(e) => {
                 log::error!("{}", e);
-                bar.inc(1);
                 continue;
             }
         };
@@ -234,13 +223,12 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
                 good_urls.push(target_url.to_owned());
             }
             Err(e) => {
-                bar.println(format!("Could not connect to {}, skipping...", target_url));
+                PROGRESS_PRINTER
+                    .println(format!("Could not connect to {}, skipping...", target_url));
                 log::error!("{}", e);
             }
         }
     }
-
-    bar.finish();
 
     if good_urls.is_empty() {
         log::error!("Could not connect to any target provided, exiting.");
