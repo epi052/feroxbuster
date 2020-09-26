@@ -1,3 +1,15 @@
+# HOLUP / Hacktoberfest / Pre-release Version
+
+I'm making this project public earlier than I normally would for Hacktoberfest.  It is not done. I make no guarantees 
+about master even being in a state where the tool works. I'll remove this message once things stabilize, which should
+be relatively soon.
+
+If you want to submit a PR as part of hacktoberfest, I'm mostly working off of the items in the 
+[Pre-release project](https://github.com/epi052/feroxbuster/projects/1).  It's very fluid as I've been working on it 
+myself up to this point.  I'll look at formalizing what's there into issues soon.
+
+Happy Hacktoberfest!   
+
 # feroxbuster
 
 `feroxbuster` is a fast, simple, recursive content discovery tool written in Rust.
@@ -7,6 +19,10 @@ Table of Contents
 - [Downloads](#downloads)
 - [Installation](#installation)
 - [Configuration](#configuration)
+    - [Default Values](#default-values)
+    - [ferox-config.toml](#ferox-configtoml)
+    - [Command Line Parsing](#command-line-parsing)
+- [Example Usage](#example-usage)
 - [Comparison w/ Similar Tools](#comparison-w-similar-tools)
 
 ## Downloads
@@ -20,7 +36,7 @@ There are pre-built binaries for the following systems:
 
 ## Installation
 ## Configuration
-### Defaults
+### Default Values
 Configuration begins with with the following built-in default values baked into the binary:
 
 - timeout: `7` seconds
@@ -29,6 +45,10 @@ Configuration begins with with the following built-in default values baked into 
 - threads: `50`
 - verbosity: `0` (no logging enabled)
 - statuscodes: `200 204 301 302 307 308 401 403 405`
+- useragent: `feroxbuster/VERSION`
+- recursion depth: `4`
+- auto-filter wildcards - `true`
+- output: `stdout`
 
 ### ferox-config.toml
 After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
@@ -47,80 +67,88 @@ Notes of interest:
 wordlist = "/wordlists/jhaddix/all.txt"
 ```
 
-Example usage of all available settings in ferox-config.toml (can also be found in `ferox-config.toml.example`)
+A pre-made configuration file with examples of all available settings can be found in `ferox-config.toml.example`.
 ```toml
 # ferox-config.toml
+# Example configuration for feroxbuster
+#
+# If you wish to provide persistent settings to feroxbuster, rename this file to ferox-config.toml and make sure
+# it resides in the same directory as the feroxbuster binary.
+#
+# After that, uncomment any line to override the default value provided by the binary itself.
+#
+# Any setting used here can be overridden by the corresponding command line option/argument
+#
+# wordlist = "/wordlists/jhaddix/all.txt"
+# statuscodes = [200, 500]
+# threads = 1
+# timeout = 5
+# proxy = "http://127.0.0.1:8080"
+# verbosity = 1
+# quiet = true
+# output = "/targets/ellingson_mineral_company/gibson.txt"
+# useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+# redirects = true
+# insecure = true
+# extensions = ["php", "html"]
+# norecursion = true
+# addslash = true
+# stdin = true
+# dontfilter = true
+# depth = 1
+# sizefilters = [5174]
+# queries = [["name","value"], ["rick", "astley"]]
 
-wordlist = "/wordlists/jhaddix/all.txt"
-statuscodes = [200, 403]
-threads = 40
-timeout = 5
-proxy = "http://127.0.0.1:8080"
-verbosity = 1
-quiet = true
-verbosity = 1
-output = "/some/output/file/path"
-redirects = true
-insecure = true
-extensions = ["php", "html"]
-headers = {"Accept" = "application/json"}
-norecursion = true
-addslash = true
-stdin = true
+# headers can be specified on multiple lines or as an inline table
+#
+# inline example
+# headers = {"stuff" = "things"}
+#
+# multi-line example
+#   note: if multi-line is used, all key/value pairs under it belong to the headers table until the next table
+#         is found or the end of the file is reached
+#
+# [headers]
+# stuff = "things"
+# more = "headers"
 ```
 
 ### Command Line Parsing
-Finally, any options/arguments given on the commandline will override both built-in and
-config-file specified values.
+Finally, after parsing the available config file, any options/arguments given on the commandline will override any values that were set as a built-in or config-file value.
 
 ```
 USAGE:
-    feroxbuster [FLAGS] [OPTIONS] --url <URL>
+    feroxbuster [FLAGS] [OPTIONS] --url <URL>...
 
 FLAGS:
-    -f, --addslash       Append / to each request (default: false)
+    -f, --addslash       Append / to each request
+    -D, --dontfilter     Don't auto-filter wildcard responses
     -h, --help           Prints help information
-    -k, --insecure       Disables TLS certificate validation (default: false)
-    -n, --norecursion    Do not scan recursively (default: scan recursively)
+    -k, --insecure       Disables TLS certificate validation
+    -n, --norecursion    Do not scan recursively
     -q, --quiet          Only print URLs; Don't print status codes, response size, running config, etc...
-    -r, --redirects      Follow redirects (default: false)
+    -r, --redirects      Follow redirects
+        --stdin          Read url(s) from STDIN
     -V, --version        Prints version information
     -v, --verbosity      Increase verbosity level (use -vv or more for greater effect)
 
 OPTIONS:
-    -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (accepts multi-flag and space or comma
-                                            -delimited: -x php -x pdf js)
-    -H, --headers <HEADER>...               Specify HTTP headers, -H Header:val 'stuff: things' -H 'MoHeaders: movals'
+    -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
+    -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
+    -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                     Output file to write results to (default: stdout)
-    -p, --proxy <proxy>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
+    -S, --sizefilter <SIZE>...              Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
     -s, --statuscodes <STATUS_CODE>...      Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
     -t, --threads <THREADS>                 Number of concurrent threads (default: 50)
     -T, --timeout <SECONDS>                 Number of seconds before a request times out (default: 7)
-    -u, --url <URL>                         The target URL
+    -u, --url <URL>...                      The target URL(s) (required, unless --stdin used)
     -a, --useragent <USER_AGENT>            Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                   Path to the wordlist
-
-NOTE:
-    Options that take multiple values are very flexible.  Consider the following ways of specifying
-    extensions:
-        ./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx
-
-    All of the methods above are valid and interchangeable.  The same goes for headers and status
-    codes.
-
-EXAMPLES:
-    Multiple headers:
-        ./feroxbuster -u http://127.1 -H Accept:application/json "Authorization: Bearer {token}"
-
-    IPv6, non-recursive scan with INFO-level logging enabled:
-        ./feroxbuster -u http://[::1] --norecursion -vv
-
-    Read urls from STDIN; pipe only resulting urls out to another tool
-        cat targets | ./feroxbuster -q -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
-
-    Ludicrous speed... go!
-        ./feroxbuster -u http://127.1 -t 200
 ```
+
+## Example Usage
 
 ## Comparison w/ Similar Tools
 
@@ -160,4 +188,4 @@ Of note, there's another written-in-rust content discovery tool, [rustbuster](ht
 came across rustbuster when I was naming my tool (:cry:). I don't have any experience using it, but it appears to 
 be able to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost
 dns, directory, etc...).  In short, it definitely looks interesting and may be what you're looking for as it has some 
-capability I haven't seen in other tools.  
+capability I haven't seen in similar tools.  

@@ -1,6 +1,7 @@
 # Example configuration for feroxbuster
 #
-# If you wish to provide persistent settings to feroxbuster, rename this file to ferox-config.toml
+# If you wish to provide persistent settings to feroxbuster, rename this file to ferox-config.toml and make sure
+# it resides in the same directory as the feroxbuster binary.
 #
 # After that, uncomment any line to override the default value provided by the binary itself.
 #
@@ -30,7 +31,6 @@
 #
 # inline example
 # headers = {"stuff" = "things"}
-# queries = {"mostuff" = "mothings"}
 #
 # multi-line example
 #   note: if multi-line is used, all key/value pairs under it belong to the headers table until the next table
