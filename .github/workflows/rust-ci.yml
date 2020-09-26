@@ -102,6 +102,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         env:
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
+          OPENSSL_DIR: /usr/lib/ssl
         with:
           use-cross: true
           command: build
