@@ -137,7 +137,7 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
                     } else {
                         format!(
                             "[{}] - {} - [{} bytes]\n",
-                            resp.status(),
+                            resp.status().as_str(),
                             resp.url(),
                             resp.content_length().unwrap_or(0)
                         )
@@ -176,12 +176,12 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
             if CONFIGURATION.quiet {
                 PROGRESS_PRINTER.println(format!("{}", resp.url()));
             } else {
-                let status = status_colorizer(&resp.status().to_string());
+                let status = status_colorizer(&resp.status().as_str());
                 PROGRESS_PRINTER.println(format!(
-                    "[{}] - {} - [{} bytes]",
+                    "{} {:>10} {}",
                     status,
-                    resp.url(),
-                    resp.content_length().unwrap_or(0)
+                    resp.content_length().unwrap_or(0),
+                    resp.url()
                 ));
             }
         }

@@ -5,6 +5,7 @@ use indicatif::ProgressBar;
 use reqwest::Response;
 use std::process;
 use uuid::Uuid;
+use ansi_term::Color::{Cyan, Yellow};
 
 const UUID_LENGTH: u64 = 32;
 
@@ -79,24 +80,26 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                 // reflected in the response along with some static content; aka custom 404
                 let url_len = get_url_path_length(&resp_one.url());
 
-                PROGRESS_PRINTER.println(format!(
-                    "[{}] - Url is being reflected in wildcard response, i.e. a dynamic wildcard",
-                    status_colorizer("WILDCARD")
-                ));
                 PROGRESS_PRINTER.println(
                     format!(
-                        "[{}] - Auto-filtering out responses that are [({} + url length) bytes] long; this behavior can be turned off by using --dontfilter",
-                        status_colorizer("WILDCARD"),
+                        "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}",
+                        status_colorizer("WLD"),
                         wc_length - url_len,
+                        Yellow.paint("auto-filtering"),
+                        Cyan.paint(format!("{}", wc_length - url_len)),
+                        Yellow.paint("--dontfilter")
                     )
                 );
 
                 wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
                 PROGRESS_PRINTER.println(format!(
-                    "[{}] - Wildcard response is a static size; auto-filtering out responses of size [{} bytes]; this behavior can be turned off by using --dontfilter",
-                    status_colorizer("WILDCARD"),
-                    wc_length
+                    "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}",
+                    status_colorizer("WLD"),
+                    wc_length,
+                    Yellow.paint("auto-filtering"),
+                    Cyan.paint(format!("{}", wc_length)),
+                    Yellow.paint("--dontfilter")
                 ));
 
                 wildcard.size = wc_length;
@@ -139,7 +142,7 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
         }
     };
 
-    let wildcard = status_colorizer("WILDCARD");
+    let wildcard = status_colorizer("WLD");
 
     match make_request(&CONFIGURATION.client, &nonexistent.to_owned()).await {
         Ok(response) => {
@@ -149,13 +152,14 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
             {
                 // found a wildcard response
                 let url_len = get_url_path_length(&response.url());
+                let content_len = response.content_length().unwrap_or(0);
 
                 PROGRESS_PRINTER.println(format!(
-                    "[{}] - Received [{}] for {} (content: {} bytes, url length: {})",
+                    "{} {:>10} Got {} for {} (url length: {})",
                     wildcard,
-                    status_colorizer(&response.status().to_string()),
+                    content_len,
+                    status_colorizer(&response.status().as_str()),
                     response.url(),
-                    response.content_length().unwrap_or(0),
                     url_len
                 ));
 
@@ -164,15 +168,17 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
                             PROGRESS_PRINTER.println(format!(
-                                "[{}] {} redirects to => {}",
+                                "{} {:>10} {} redirects to => {}",
                                 wildcard,
+                                content_len,
                                 response.url(),
                                 next_loc_str
                             ));
                         } else {
                             PROGRESS_PRINTER.println(format!(
-                                "[{}] {} redirects to => {:?}",
+                                "{} {:>10} {} redirects to => {:?}",
                                 wildcard,
+                                content_len,
                                 response.url(),
                                 next_loc
                             ));
