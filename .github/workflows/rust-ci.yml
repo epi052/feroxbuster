@@ -91,11 +91,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
+        env:
+          PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libssl-dev pkg-config
           sudo apt-get clean -y
           find /usr/lib/ -iname "*ssl*"
+          echo "farfignewton: $PKG_CONFIG_PATH"
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -104,8 +107,6 @@ jobs:
       - uses: actions-rs/cargo@v1
         env:
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
-        run: |
-          echo "farfignewton: $PKG_CONFIG_PATH"
         with:
           use-cross: true
           command: build
