@@ -84,7 +84,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
         run: |
-          sudo apt-get update && apt-get install -y --no-install-recommends libssl-dev apt-get clean -y
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libssl-dev && sudo apt-get clean -y
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
