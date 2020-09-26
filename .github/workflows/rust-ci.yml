@@ -83,8 +83,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
+        env:
+          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
         run: |
-            sudo find / -iname "*ssl*"
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends libssl-dev pkg-config && sudo apt-get clean -y
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
