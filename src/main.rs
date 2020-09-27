@@ -93,7 +93,7 @@ async fn get_targets() -> Vec<String> {
                     targets.push(target);
                 }
                 Err(e) => {
-                    println!("[ERROR] - {}", e);
+                    log::error!("{}", e);
                 }
             }
         }

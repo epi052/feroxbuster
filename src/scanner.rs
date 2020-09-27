@@ -7,10 +7,10 @@ use futures::{stream, StreamExt};
 use reqwest::{Client, Response, Url};
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fs::OpenOptions;
-use std::io::{BufWriter, Write};
 use std::ops::Deref;
 use std::sync::Arc;
+use tokio::fs;
+use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
@@ -118,15 +118,16 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 
     log::info!("Writing scan results to {}", CONFIGURATION.output);
 
-    match OpenOptions::new()
+    match fs::OpenOptions::new() // tokio fs
         .create(true)
         .append(true)
         .open(&CONFIGURATION.output)
+        .await
     {
         Ok(outfile) => {
             log::debug!("{:?} opened in append mode", outfile);
 
-            let mut writer = BufWriter::new(outfile);
+            let mut writer = io::BufWriter::new(outfile);  // tokio BufWriter
 
             while let Some(resp) = report_channel.recv().await {
                 log::debug!("received {} on reporting channel", resp.url());
@@ -135,19 +136,32 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
                     let report = if CONFIGURATION.quiet {
                         format!("{}\n", resp.url())
                     } else {
+                        // example output
+                        // 200       3280 https://localhost.com/FAQ
                         format!(
-                            "[{}] - {} - [{} bytes]\n",
+                            "{} {:>10} {}\n",
                             resp.status().as_str(),
-                            resp.url(),
-                            resp.content_length().unwrap_or(0)
+                            resp.content_length().unwrap_or(0),
+                            resp.url()
                         )
                     };
 
-                    match write!(writer, "{}", report) {
-                        Ok(_) => (),
+                    match writer.write(report.as_bytes()).await {
+                        Ok(written) => {
+                            log::trace!("wrote {} bytes to {}", written, CONFIGURATION.output);
+                        }
                         Err(e) => {
                             log::error!("could not write report to disk: {}", e);
                         }
+                    }
+                }
+
+                match writer.flush().await {
+                    // i'm flushing inside the while loop so in the event of a ctrl+c or w/e
+                    // results seen so far are saved instead of left lying around in the buffer
+                    Ok(_) => {}
+                    Err(e) => {
+                        log::error!("error writing to file: {}", e);
                     }
                 }
 
@@ -158,6 +172,7 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
             log::error!("error opening file: {}", e);
         }
     }
+
     log::trace!("exit: spawn_file_reporter");
 }
 
@@ -178,6 +193,8 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
             } else {
                 let status = status_colorizer(&resp.status().as_str());
                 PROGRESS_PRINTER.println(format!(
+                    // example output
+                    // 200       3280 https://localhost.com/FAQ
                     "{} {:>10} {}",
                     status,
                     resp.content_length().unwrap_or(0),
