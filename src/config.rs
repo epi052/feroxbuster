@@ -13,9 +13,13 @@ use std::path::Path;
 use std::process::exit;
 
 lazy_static! {
-    /// Global configuration variable.
+    /// Global configuration state
     pub static ref CONFIGURATION: Configuration = Configuration::new();
+
+    /// Global progress bar that houses other progress bars
     pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::new();
+
+    /// Global progress bar that is only used for printing messages that don't jack up other bars
     pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true);
 }
 
