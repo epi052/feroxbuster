@@ -594,9 +594,6 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         }
     }
     log::trace!("done awaiting report receiver");
-
-    bar_future.await.unwrap();
-
     log::trace!("exit: scan_url");
 }
 

@@ -1,4 +1,4 @@
-use feroxbuster::config::CONFIGURATION;
+use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::get_current_depth;
 use feroxbuster::{banner, heuristics, logger, FeroxResult};
@@ -119,7 +119,6 @@ async fn main() {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         banner::initialize(&targets);
-        // progress::initialize();
     }
 
     // discard non-responsive targets
@@ -131,6 +130,8 @@ async fn main() {
         }
         Err(e) => log::error!("An error occurred: {}", e),
     };
+
+    PROGRESS_PRINTER.finish();
 
     log::trace!("exit: main");
 }
