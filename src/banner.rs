@@ -54,12 +54,12 @@ by Ben "epi" Risher {}                  ver: {}"#,
     let top = "───────────────────────────┬──────────────────────";
     let bottom = "───────────────────────────┴──────────────────────";
 
-    println!("{}", artwork);
-    println!("{}", top);
+    eprintln!("{}", artwork);
+    eprintln!("{}", top);
 
     // begin with always printed items
     for target in targets {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1F3af}", "Target Url", target)
         ); // 🎯
@@ -71,15 +71,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
         codes.push(status_colorizer(&code.to_string()))
     }
 
-    println!(
+    eprintln!(
         "{}",
         format_banner_entry!("\u{1F680}", "Threads", CONFIGURATION.threads)
     ); // 🚀
-    println!(
+    eprintln!(
         "{}",
         format_banner_entry!("\u{1f4d6}", "Wordlist", CONFIGURATION.wordlist)
     ); // 📖
-    println!(
+    eprintln!(
         "{}",
         format_banner_entry!(
             "\u{1F197}",
@@ -87,18 +87,18 @@ by Ben "epi" Risher {}                  ver: {}"#,
             format!("[{}]", codes.join(", "))
         )
     ); // 🆗
-    println!(
+    eprintln!(
         "{}",
         format_banner_entry!("\u{1f4a5}", "Timeout (secs)", CONFIGURATION.timeout)
     ); // 💥
-    println!(
+    eprintln!(
         "{}",
         format_banner_entry!("\u{1F9a1}", "User-Agent", CONFIGURATION.useragent)
     ); // 🦡
 
     // followed by the maybe printed or variably displayed values
     if !CONFIGURATION.proxy.is_empty() {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1f48e}", "Proxy", CONFIGURATION.proxy)
         ); // 💎
@@ -106,7 +106,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     if !CONFIGURATION.headers.is_empty() {
         for (name, value) in &CONFIGURATION.headers {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f92f}", "Header", name, value)
             ); // 🤯
@@ -115,7 +115,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     if !CONFIGURATION.sizefilters.is_empty() {
         for filter in &CONFIGURATION.sizefilters {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f4a2}", "Size Filter", filter)
             ); // 💢
@@ -124,7 +124,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     if !CONFIGURATION.queries.is_empty() {
         for query in &CONFIGURATION.queries {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!(
                     "\u{1f914}",
@@ -136,14 +136,14 @@ by Ben "epi" Risher {}                  ver: {}"#,
     }
 
     if !CONFIGURATION.output.is_empty() {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1f4be}", "Output File", CONFIGURATION.output)
         ); // 💾
     }
 
     if !CONFIGURATION.extensions.is_empty() {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!(
                 "\u{1f4b2}",
@@ -154,21 +154,21 @@ by Ben "epi" Risher {}                  ver: {}"#,
     }
 
     if CONFIGURATION.insecure {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1f513}", "Insecure", CONFIGURATION.insecure)
         ); // 🔓
     }
 
     if CONFIGURATION.redirects {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1f4cd}", "Follow Redirects", CONFIGURATION.redirects)
         ); // 📍
     }
 
     if CONFIGURATION.dontfilter {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1f92a}", "Filter Wildcards", !CONFIGURATION.dontfilter)
         ); // 🤪
@@ -177,25 +177,25 @@ by Ben "epi" Risher {}                  ver: {}"#,
     match CONFIGURATION.verbosity {
         //speaker medium volume (increasing with verbosity to loudspeaker)
         1 => {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f508}", "Verbosity", CONFIGURATION.verbosity)
             ); // 🔈
         }
         2 => {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f509}", "Verbosity", CONFIGURATION.verbosity)
             ); // 🔉
         }
         3 => {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f50a}", "Verbosity", CONFIGURATION.verbosity)
             ); // 🔊
         }
         4 => {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f4e2}", "Verbosity", CONFIGURATION.verbosity)
             ); // 📢
@@ -204,7 +204,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     }
 
     if CONFIGURATION.addslash {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1fa93}", "Add Slash", CONFIGURATION.addslash)
         ); // 🪓
@@ -212,22 +212,22 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     if !CONFIGURATION.norecursion {
         if CONFIGURATION.depth == 0 {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f503}", "Recursion Depth", "INFINITE")
             ); // 🔃
         } else {
-            println!(
+            eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f503}", "Recursion Depth", CONFIGURATION.depth)
             ); // 🔃
         }
     } else {
-        println!(
+        eprintln!(
             "{}",
             format_banner_entry!("\u{1f6ab}", "Do Not Recurse", CONFIGURATION.norecursion)
         ); // 🚫
     }
 
-    println!("{}", bottom);
+    eprintln!("{}", bottom);
 }
