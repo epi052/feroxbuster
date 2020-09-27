@@ -115,12 +115,12 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 
     teardown_tmp_directory(tmp_dir);
 
-    cmd.assert().success().stdout(
-        predicate::str::contains("WILDCARD")
-            .and(predicate::str::contains("Received"))
-            .and(predicate::str::contains("200 OK"))
+    cmd.assert().success().stderr(
+        predicate::str::contains("WLD")
+            .and(predicate::str::contains("Got"))
+            .and(predicate::str::contains("200"))
             .and(predicate::str::contains(
-                "(content: 14 bytes, url length: 32)",
+                "(url length: 32)",
             )),
     );
 
@@ -159,16 +159,19 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
     teardown_tmp_directory(tmp_dir);
 
     cmd.assert().success().stdout(
-        predicate::str::contains("WILDCARD")
-            .and(predicate::str::contains("Received"))
-            .and(predicate::str::contains("200 OK"))
-            .and(predicate::str::contains("(content: 46 bytes, url length: 32)"))
-            .and(predicate::str::contains("(content: 110 bytes, url length: 96)"))
+    predicate::str::contains("WLD")
+            .and(predicate::str::contains("Got"))
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("(url length: 96)"))
             .and(predicate::str::contains(
-                "Url is being reflected in wildcard response, i.e. a dynamic wildcard",
+                "Wildcard response is dynamic;",
             ))
             .and(predicate::str::contains(
-                "Auto-filtering out responses that are [(14 + url length) bytes] long; this behavior can be turned off by using --dontfilter",
+                "auto-filtering",
+            ))
+            .and(predicate::str::contains(
+                "(14 + url length) responses; toggle this behavior by using",
             )),
     );
 
