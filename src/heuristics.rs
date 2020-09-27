@@ -80,28 +80,31 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                 // reflected in the response along with some static content; aka custom 404
                 let url_len = get_url_path_length(&resp_one.url());
 
-                PROGRESS_PRINTER.println(
+                if !CONFIGURATION.quiet {
+                    PROGRESS_PRINTER.println(
                     format!(
-                        "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}",
-                        status_colorizer("WLD"),
-                        wc_length - url_len,
-                        Yellow.paint("auto-filtering"),
-                        Cyan.paint(format!("{}", wc_length - url_len)),
-                        Yellow.paint("--dontfilter")
-                    )
-                );
+                            "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}",
+                            status_colorizer("WLD"),
+                            wc_length - url_len,
+                            Yellow.paint("auto-filtering"),
+                            Cyan.paint(format!("{}", wc_length - url_len)),
+                            Yellow.paint("--dontfilter")
+                        )
+                    );
+                }
 
                 wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
-                PROGRESS_PRINTER.println(format!(
-                    "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}",
-                    status_colorizer("WLD"),
-                    wc_length,
-                    Yellow.paint("auto-filtering"),
-                    Cyan.paint(format!("{}", wc_length)),
-                    Yellow.paint("--dontfilter")
-                ));
-
+                if !CONFIGURATION.quiet {
+                    PROGRESS_PRINTER.println(format!(
+                        "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}",
+                        status_colorizer("WLD"),
+                        wc_length,
+                        Yellow.paint("auto-filtering"),
+                        Cyan.paint(format!("{}", wc_length)),
+                        Yellow.paint("--dontfilter")
+                    ));
+                }
                 wildcard.size = wc_length;
             }
         } else {
@@ -154,34 +157,39 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                 let url_len = get_url_path_length(&response.url());
                 let content_len = response.content_length().unwrap_or(0);
 
-                PROGRESS_PRINTER.println(format!(
-                    "{} {:>10} Got {} for {} (url length: {})",
-                    wildcard,
-                    content_len,
-                    status_colorizer(&response.status().as_str()),
-                    response.url(),
-                    url_len
-                ));
-
+                if !CONFIGURATION.quiet {
+                    PROGRESS_PRINTER.println(format!(
+                        "{} {:>10} Got {} for {} (url length: {})",
+                        wildcard,
+                        content_len,
+                        status_colorizer(&response.status().as_str()),
+                        response.url(),
+                        url_len
+                    ));
+                }
                 if response.status().is_redirection() {
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
-                            PROGRESS_PRINTER.println(format!(
-                                "{} {:>10} {} redirects to => {}",
-                                wildcard,
-                                content_len,
-                                response.url(),
-                                next_loc_str
-                            ));
+                            if !CONFIGURATION.quiet {
+                                PROGRESS_PRINTER.println(format!(
+                                    "{} {:>10} {} redirects to => {}",
+                                    wildcard,
+                                    content_len,
+                                    response.url(),
+                                    next_loc_str
+                                ));
+                            }
                         } else {
-                            PROGRESS_PRINTER.println(format!(
-                                "{} {:>10} {} redirects to => {:?}",
-                                wildcard,
-                                content_len,
-                                response.url(),
-                                next_loc
-                            ));
+                            if !CONFIGURATION.quiet {
+                                PROGRESS_PRINTER.println(format!(
+                                    "{} {:>10} {} redirects to => {:?}",
+                                    wildcard,
+                                    content_len,
+                                    response.url(),
+                                    next_loc
+                                ));
+                            }
                         }
                     }
                 }
@@ -229,8 +237,10 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
                 good_urls.push(target_url.to_owned());
             }
             Err(e) => {
-                PROGRESS_PRINTER
-                    .println(format!("Could not connect to {}, skipping...", target_url));
+                if !CONFIGURATION.quiet {
+                    PROGRESS_PRINTER
+                        .println(format!("Could not connect to {}, skipping...", target_url));
+                }
                 log::error!("{}", e);
             }
         }
