@@ -504,11 +504,11 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let progress_bar = progress::add_bar(&target_url, num_reqs_expected, false);
     progress_bar.reset_elapsed();
 
-    let bar_future = if get_current_depth(&target_url) == 1 {
-        tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap())
-    } else {
-        tokio::task::spawn_blocking(move || {})
-    };
+    if get_current_depth(&target_url) - base_depth == 0 {
+        // join can only be called once, otherwise it causes the thread to panic
+        // when current depth - base depth equals zero, we're in the first call to scan_url
+        tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
+    }
 
     let wildcard_bar = progress_bar.clone();
 

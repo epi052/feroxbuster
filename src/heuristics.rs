@@ -1,11 +1,11 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::scanner::{format_url, make_request};
 use crate::utils::{get_url_path_length, status_colorizer};
+use ansi_term::Color::{Cyan, Yellow};
 use indicatif::ProgressBar;
 use reqwest::Response;
 use std::process;
 use uuid::Uuid;
-use ansi_term::Color::{Cyan, Yellow};
 
 const UUID_LENGTH: u64 = 32;
 
