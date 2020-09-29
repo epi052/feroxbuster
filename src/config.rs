@@ -2,7 +2,7 @@ use crate::utils::status_colorizer;
 use crate::{client, parser, progress};
 use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::value_t;
-use indicatif::{MultiProgress, ProgressBar};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::Deserialize;
@@ -17,7 +17,7 @@ lazy_static! {
     pub static ref CONFIGURATION: Configuration = Configuration::new();
 
     /// Global progress bar that houses other progress bars
-    pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::new();
+    pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
 
     /// Global progress bar that is only used for printing messages that don't jack up other bars
     pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true);

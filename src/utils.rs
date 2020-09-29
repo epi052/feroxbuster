@@ -1,6 +1,8 @@
 use ansi_term::Color::{Blue, Cyan, Green, Red, Yellow};
 use reqwest::Url;
 use std::convert::TryInto;
+use console::{user_attended, strip_ansi_codes};
+use indicatif::ProgressBar;
 
 /// Helper function that determines the current depth of a given url
 ///
@@ -103,6 +105,25 @@ pub fn get_url_path_length(url: &Url) -> u64 {
 
     log::trace!("exit: get_url_path_length -> 0");
     0
+}
+
+/// Simple helper to abstract away the check for an attached terminal.
+///
+/// If a terminal is attached, progress bars are visible and the progress bar is used to print
+/// to stderr. The progress bar must be used when bars are visible in order to not jack up any
+/// progress bar output (the bar knows how to print above itself)
+///
+/// If a terminal is not attached, `msg` is printed to stdout, with its ansi
+/// color codes stripped.
+///
+/// additionally, provides a location for future printing options (no color, etc) to be handled
+pub fn ferox_print(msg: &str, bar: &ProgressBar) {
+    if user_attended() {
+        bar.println(msg);
+    } else {
+        let stripped = strip_ansi_codes(msg);
+        println!("{}", stripped);
+    }
 }
 
 #[cfg(test)]

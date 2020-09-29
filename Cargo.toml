@@ -18,6 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "0.8", features = ["v4"] }
 ansi_term = "0.12"
 indicatif = "0.15"
+console = "0.12"
 
 [dev-dependencies]
 tempfile = "3.1"

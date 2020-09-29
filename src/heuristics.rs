@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::scanner::{format_url, make_request};
-use crate::utils::{get_url_path_length, status_colorizer};
+use crate::utils::{get_url_path_length, status_colorizer, ferox_print};
 use ansi_term::Color::{Cyan, Yellow};
 use indicatif::ProgressBar;
 use reqwest::Response;
@@ -81,29 +81,29 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                 let url_len = get_url_path_length(&resp_one.url());
 
                 if !CONFIGURATION.quiet {
-                    PROGRESS_PRINTER.println(
-                    format!(
+                    ferox_print(
+                    &format!(
                             "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}",
                             status_colorizer("WLD"),
                             wc_length - url_len,
                             Yellow.paint("auto-filtering"),
                             Cyan.paint(format!("{}", wc_length - url_len)),
                             Yellow.paint("--dontfilter")
-                        )
+                        ), &PROGRESS_PRINTER
                     );
                 }
 
                 wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
                 if !CONFIGURATION.quiet {
-                    PROGRESS_PRINTER.println(format!(
+                    ferox_print(&format!(
                         "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}",
                         status_colorizer("WLD"),
                         wc_length,
                         Yellow.paint("auto-filtering"),
                         Cyan.paint(format!("{}", wc_length)),
                         Yellow.paint("--dontfilter")
-                    ));
+                    ), &PROGRESS_PRINTER);
                 }
                 wildcard.size = wc_length;
             }
@@ -158,37 +158,37 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                 let content_len = response.content_length().unwrap_or(0);
 
                 if !CONFIGURATION.quiet {
-                    PROGRESS_PRINTER.println(format!(
+                    ferox_print(&format!(
                         "{} {:>10} Got {} for {} (url length: {})",
                         wildcard,
                         content_len,
                         status_colorizer(&response.status().as_str()),
                         response.url(),
                         url_len
-                    ));
+                    ), &PROGRESS_PRINTER);
                 }
                 if response.status().is_redirection() {
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
                             if !CONFIGURATION.quiet {
-                                PROGRESS_PRINTER.println(format!(
+                                ferox_print(&format!(
                                     "{} {:>10} {} redirects to => {}",
                                     wildcard,
                                     content_len,
                                     response.url(),
                                     next_loc_str
-                                ));
+                                ), &PROGRESS_PRINTER);
                             }
                         } else {
                             if !CONFIGURATION.quiet {
-                                PROGRESS_PRINTER.println(format!(
+                                ferox_print(&format!(
                                     "{} {:>10} {} redirects to => {:?}",
                                     wildcard,
                                     content_len,
                                     response.url(),
                                     next_loc
-                                ));
+                                ), &PROGRESS_PRINTER);
                             }
                         }
                     }
@@ -238,8 +238,7 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
             }
             Err(e) => {
                 if !CONFIGURATION.quiet {
-                    PROGRESS_PRINTER
-                        .println(format!("Could not connect to {}, skipping...", target_url));
+                    ferox_print(&format!("Could not connect to {}, skipping...", target_url), &PROGRESS_PRINTER);
                 }
                 log::error!("{}", e);
             }
