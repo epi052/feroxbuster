@@ -176,12 +176,13 @@ a few of the use-cases in which feroxbuster may be a better fit:
 | can specify query parameters                        | :heavy_check_mark: |                    | :heavy_check_mark: |
 | SOCKS proxy support                                 | :heavy_check_mark: |                    |                    |
 | multiple target scan (via stdin or multiple -u)     | :heavy_check_mark: |                    |                    |
-| configuration file for default value override       | :heavy_check_mark: |                    |                    |
+| configuration file for default value override       | :heavy_check_mark: |                    | :heavy_check_mark: |
 | can accept urls via STDIN as part of a pipeline     | :heavy_check_mark: |                    |                    |
 | can accept wordlists via STDIN                      |                    | :heavy_check_mark: |                    |
 | filter by response size                             | :heavy_check_mark: |                    | :heavy_check_mark: |
 | auto-filter wildcard responses                      | :heavy_check_mark: |                    | :heavy_check_mark: |
 | performs other scans (vhost, dns, etc)              |                    | :heavy_check_mark: | :heavy_check_mark: |
+| time delay / rate limiting                          |                    | :heavy_check_mark: | :heavy_check_mark: |
 | **huge** number of other options                    |                    |                    | :heavy_check_mark: |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
