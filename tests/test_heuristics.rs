@@ -119,9 +119,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
         predicate::str::contains("WLD")
             .and(predicate::str::contains("Got"))
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains(
-                "(url length: 32)",
-            )),
+            .and(predicate::str::contains("(url length: 32)")),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -159,17 +157,13 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
     teardown_tmp_directory(tmp_dir);
 
     cmd.assert().success().stdout(
-    predicate::str::contains("WLD")
+        predicate::str::contains("WLD")
             .and(predicate::str::contains("Got"))
             .and(predicate::str::contains("200"))
             .and(predicate::str::contains("(url length: 32)"))
             .and(predicate::str::contains("(url length: 96)"))
-            .and(predicate::str::contains(
-                "Wildcard response is dynamic;",
-            ))
-            .and(predicate::str::contains(
-                "auto-filtering",
-            ))
+            .and(predicate::str::contains("Wildcard response is dynamic;"))
+            .and(predicate::str::contains("auto-filtering"))
             .and(predicate::str::contains(
                 "(14 + url length) responses; toggle this behavior by using",
             )),

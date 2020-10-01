@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::scanner::{format_url, make_request};
-use crate::utils::{get_url_path_length, status_colorizer, ferox_print};
+use crate::utils::{ferox_print, get_url_path_length, status_colorizer};
 use ansi_term::Color::{Cyan, Yellow};
 use indicatif::ProgressBar;
 use reqwest::Response;
@@ -158,37 +158,46 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                 let content_len = response.content_length().unwrap_or(0);
 
                 if !CONFIGURATION.quiet {
-                    ferox_print(&format!(
-                        "{} {:>10} Got {} for {} (url length: {})",
-                        wildcard,
-                        content_len,
-                        status_colorizer(&response.status().as_str()),
-                        response.url(),
-                        url_len
-                    ), &PROGRESS_PRINTER);
+                    ferox_print(
+                        &format!(
+                            "{} {:>10} Got {} for {} (url length: {})",
+                            wildcard,
+                            content_len,
+                            status_colorizer(&response.status().as_str()),
+                            response.url(),
+                            url_len
+                        ),
+                        &PROGRESS_PRINTER,
+                    );
                 }
                 if response.status().is_redirection() {
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
                             if !CONFIGURATION.quiet {
-                                ferox_print(&format!(
-                                    "{} {:>10} {} redirects to => {}",
-                                    wildcard,
-                                    content_len,
-                                    response.url(),
-                                    next_loc_str
-                                ), &PROGRESS_PRINTER);
+                                ferox_print(
+                                    &format!(
+                                        "{} {:>10} {} redirects to => {}",
+                                        wildcard,
+                                        content_len,
+                                        response.url(),
+                                        next_loc_str
+                                    ),
+                                    &PROGRESS_PRINTER,
+                                );
                             }
                         } else {
                             if !CONFIGURATION.quiet {
-                                ferox_print(&format!(
-                                    "{} {:>10} {} redirects to => {:?}",
-                                    wildcard,
-                                    content_len,
-                                    response.url(),
-                                    next_loc
-                                ), &PROGRESS_PRINTER);
+                                ferox_print(
+                                    &format!(
+                                        "{} {:>10} {} redirects to => {:?}",
+                                        wildcard,
+                                        content_len,
+                                        response.url(),
+                                        next_loc
+                                    ),
+                                    &PROGRESS_PRINTER,
+                                );
                             }
                         }
                     }
@@ -238,7 +247,11 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
             }
             Err(e) => {
                 if !CONFIGURATION.quiet {
-                    ferox_print(&format!("Could not connect to {}, skipping...", target_url), &PROGRESS_PRINTER);
+                    // todo unwrap
+                    ferox_print(
+                        &format!("Could not connect to {}, skipping...", target_url),
+                        &PROGRESS_PRINTER,
+                    );
                 }
                 log::error!("{}", e);
             }

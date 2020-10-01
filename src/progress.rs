@@ -1,5 +1,5 @@
-use crate::config::{PROGRESS_BAR, CONFIGURATION};
-use indicatif::{ProgressBar, ProgressStyle, ProgressDrawTarget};
+use crate::config::{CONFIGURATION, PROGRESS_BAR};
+use indicatif::{ProgressBar, ProgressStyle};
 
 pub fn add_bar(prefix: &str, length: u64, hidden: bool) -> ProgressBar {
     let style = if hidden || CONFIGURATION.quiet {

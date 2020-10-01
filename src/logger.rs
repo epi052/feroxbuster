@@ -1,9 +1,10 @@
+use crate::config::PROGRESS_PRINTER;
+use console::{style, Color};
 use env_logger::Builder;
 use std::env;
-use std::io::Write;
 use std::time::Instant;
 
-/// Create an instance of an `env_logger` with an added time offset
+/// Create an instance of an [Logger](struct.Logger.html) and set the log level based on `verbosity`
 pub fn initialize(verbosity: u8) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
@@ -25,9 +26,27 @@ pub fn initialize(verbosity: u8) {
     let mut builder = Builder::from_default_env();
 
     builder
-        .format(move |buf, rec| {
+        .format(move |_, record| {
             let t = start.elapsed().as_secs_f32();
-            writeln!(buf, "{:.03} [{}] - {}", t, rec.level(), rec.args())
+            let level = record.level();
+
+            let (level_name, level_color) = match level {
+                log::Level::Error => ("ERR", Color::Red),
+                log::Level::Warn => ("WRN", Color::Red),
+                log::Level::Info => ("INF", Color::Cyan),
+                log::Level::Debug => ("DBG", Color::Yellow),
+                log::Level::Trace => ("TRC", Color::Magenta),
+            };
+
+            let msg = format!(
+                "{} {:10.03} {}",
+                style(format!("{}", level_name)).bg(level_color).black(),
+                style(t).dim(),
+                style(record.args()).dim(),
+            );
+
+            PROGRESS_PRINTER.println(msg);
+            Ok(())
         })
         .init();
 }

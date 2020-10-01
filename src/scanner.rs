@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
 use crate::heuristics::WildcardFilter;
-use crate::utils::{get_current_depth, get_url_path_length, status_colorizer, ferox_print};
+use crate::utils::{ferox_print, get_current_depth, get_url_path_length, status_colorizer};
 use crate::{heuristics, progress, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
@@ -127,7 +127,7 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
         Ok(outfile) => {
             log::debug!("{:?} opened in append mode", outfile);
 
-            let mut writer = io::BufWriter::new(outfile);  // tokio BufWriter
+            let mut writer = io::BufWriter::new(outfile); // tokio BufWriter
 
             while let Some(resp) = report_channel.recv().await {
                 log::debug!("received {} on reporting channel", resp.url());
@@ -192,14 +192,17 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
                 ferox_print(&format!("{}", resp.url()), &PROGRESS_PRINTER);
             } else {
                 let status = status_colorizer(&resp.status().as_str());
-                ferox_print(&format!(
-                    // example output
-                    // 200       3280 https://localhost.com/FAQ
-                    "{} {:>10} {}",
-                    status,
-                    resp.content_length().unwrap_or(0),
-                    resp.url()
-                ), &PROGRESS_PRINTER);
+                ferox_print(
+                    &format!(
+                        // example output
+                        // 200       3280 https://localhost.com/FAQ
+                        "{} {:>10} {}",
+                        status,
+                        resp.content_length().unwrap_or(0),
+                        resp.url()
+                    ),
+                    &PROGRESS_PRINTER,
+                );
             }
         }
         log::debug!("report complete: {}", resp.url());
