@@ -1,8 +1,8 @@
 use ansi_term::Color::{Blue, Cyan, Green, Red, Yellow};
+use console::{strip_ansi_codes, user_attended};
+use indicatif::ProgressBar;
 use reqwest::Url;
 use std::convert::TryInto;
-use console::{user_attended, strip_ansi_codes};
-use indicatif::ProgressBar;
 
 /// Helper function that determines the current depth of a given url
 ///
