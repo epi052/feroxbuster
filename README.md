@@ -14,11 +14,11 @@ Happy Hacktoberfest!
 
 `feroxbuster` is a fast, simple, recursive content discovery tool written in Rust.
 
-## What the heck is a ferox?
+## :confused: What the heck is a ferox anyway?
 
 Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  ¯\_(ツ)_/¯
 
-Table of Contents
+:open_book: Table of Contents
 -----------------
 - [Downloads](#downloads)
 - [Installation](#installation)
@@ -42,7 +42,7 @@ There are pre-built binaries for the following systems:
 
 For now, please see the [Downloads](#downloads) section. Eventually, feroxbuster will have additional install options to include `cargo install` and `apt install`.
 
-## Configuration
+## :gear: Configuration
 ### Default Values
 Configuration begins with with the following built-in default values baked into the binary:
 
