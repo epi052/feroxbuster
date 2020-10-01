@@ -66,6 +66,7 @@ jobs:
 
   build-nix:
     runs-on: ${{ matrix.os }}
+    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86]
@@ -108,7 +109,7 @@ jobs:
 
   build-rest:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master-not-a-thing-revert-this-later-before-release'
+    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         type: [windows-x64, windows-x86, macos]
