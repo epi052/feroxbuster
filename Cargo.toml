@@ -19,6 +19,7 @@ uuid = { version = "0.8", features = ["v4"] }
 ansi_term = "0.12"
 indicatif = "0.15"
 console = "0.12"
+openssl = { version = "0.10", features = ["vendored"] }
 
 [dev-dependencies]
 tempfile = "3.1"
