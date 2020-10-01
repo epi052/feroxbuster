@@ -4,7 +4,9 @@ use env_logger::Builder;
 use std::env;
 use std::time::Instant;
 
-/// Create an instance of an [Logger](struct.Logger.html) and set the log level based on `verbosity`
+/// Create a customized instance of
+/// [env_logger::Logger](https://docs.rs/env_logger/latest/env_logger/struct.Logger.html)
+/// with timer offset/color and set the log level based on `verbosity`
 pub fn initialize(verbosity: u8) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable

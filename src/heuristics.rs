@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::scanner::{format_url, make_request};
-use crate::utils::{ferox_print, get_url_path_length, status_colorizer};
+use crate::scanner::{make_request};
+use crate::utils::{ferox_print, get_url_path_length, status_colorizer, format_url};
 use ansi_term::Color::{Cyan, Yellow};
 use indicatif::ProgressBar;
 use reqwest::Response;

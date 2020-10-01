@@ -1,6 +1,8 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR};
 use indicatif::{ProgressBar, ProgressStyle};
 
+/// Add an [indicatif::ProgressBar](https://docs.rs/indicatif/latest/indicatif/struct.ProgressBar.html)
+/// to the global [PROGRESS_BAR](../config/struct.PROGRESS_BAR.html)
 pub fn add_bar(prefix: &str, length: u64, hidden: bool) -> ProgressBar {
     let style = if hidden || CONFIGURATION.quiet {
         ProgressStyle::default_bar().template("")

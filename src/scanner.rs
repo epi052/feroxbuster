@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
 use crate::heuristics::WildcardFilter;
-use crate::utils::{ferox_print, get_current_depth, get_url_path_length, status_colorizer};
+use crate::utils::{ferox_print, get_current_depth, get_url_path_length, status_colorizer, format_url};
 use crate::{heuristics, progress, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
@@ -14,82 +14,7 @@ use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
-/// Simple helper to generate a `Url`
-///
-/// Errors during parsing `url` or joining `word` are propagated up the call stack
-pub fn format_url(
-    url: &str,
-    word: &str,
-    addslash: bool,
-    queries: &[(String, String)],
-    extension: Option<&str>,
-) -> FeroxResult<Url> {
-    log::trace!(
-        "enter: format_url({}, {}, {}, {:?} {:?})",
-        url,
-        word,
-        addslash,
-        queries,
-        extension
-    );
 
-    // from reqwest::Url::join
-    //   Note: a trailing slash is significant. Without it, the last path component
-    //   is considered to be a “file” name to be removed to get at the “directory”
-    //   that is used as the base
-    //
-    // the transforms that occur here will need to keep this in mind, i.e. add a slash to preserve
-    // the current directory sent as part of the url
-    let url = if !url.ends_with('/') {
-        format!("{}/", url)
-    } else {
-        url.to_string()
-    };
-
-    let base_url = reqwest::Url::parse(&url)?;
-
-    // extensions and slashes are mutually exclusive cases
-    let word = if extension.is_some() {
-        format!("{}.{}", word, extension.unwrap())
-    } else if addslash && !word.ends_with('/') {
-        // -f used, and word doesn't already end with a /
-        format!("{}/", word)
-    } else {
-        String::from(word)
-    };
-
-    match base_url.join(&word) {
-        Ok(request) => {
-            if queries.is_empty() {
-                // no query params to process
-                log::trace!("exit: format_url -> {}", request);
-                Ok(request)
-            } else {
-                match reqwest::Url::parse_with_params(request.as_str(), queries) {
-                    Ok(req_w_params) => {
-                        log::trace!("exit: format_url -> {}", req_w_params);
-                        Ok(req_w_params) // request with params attached
-                    }
-                    Err(e) => {
-                        log::error!(
-                            "Could not add query params {:?} to {}: {}",
-                            queries,
-                            request,
-                            e
-                        );
-                        log::trace!("exit: format_url -> {}", request);
-                        Ok(request) // couldn't process params, return initially ok url
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            log::trace!("exit: format_url -> {}", e);
-            log::error!("Could not join {} with {}", word, base_url);
-            Err(Box::new(e))
-        }
-    }
-}
 
 /// Initiate request to the given `Url` using the pre-configured `Client`
 pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
@@ -615,47 +540,4 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     }
     log::trace!("done awaiting report receiver");
     log::trace!("exit: scan_url");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    //
-    #[test]
-    fn test_format_url_normal() {
-        assert_eq!(
-            format_url("http://localhost", "stuff", false, &Vec::new(), None).unwrap(),
-            reqwest::Url::parse("http://localhost/stuff").unwrap()
-        );
-    }
-
-    #[test]
-    fn test_format_url_no_word() {
-        assert_eq!(
-            format_url("http://localhost", "", false, &Vec::new(), None).unwrap(),
-            reqwest::Url::parse("http://localhost").unwrap()
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_format_url_no_url() {
-        format_url("", "stuff", false, &Vec::new(), None).unwrap();
-    }
-
-    #[test]
-    fn test_format_url_word_with_preslash() {
-        assert_eq!(
-            format_url("http://localhost", "/stuff", false, &Vec::new(), None).unwrap(),
-            reqwest::Url::parse("http://localhost/stuff").unwrap()
-        );
-    }
-
-    #[test]
-    fn test_format_url_word_with_postslash() {
-        assert_eq!(
-            format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
-            reqwest::Url::parse("http://localhost/stuff/").unwrap()
-        );
-    }
 }
