@@ -2,7 +2,15 @@
 name = "feroxbuster"
 version = "0.1.0"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
+license = "MIT"
 edition = "2018"
+maintenance = { status = "actively-developed" }
+homepage = "https://github.com/epi052/feroxbuster"
+repository = "https://github.com/epi052/feroxbuster"
+description = "A fast, simple, recursive content discovery tool."
+categories = ["command-line-utilities"]
+keywords = ["pentest", "enumeration", "url-bruteforce", "content-discovery", "web"]
+exclude = [".github/*"]
 
 [dependencies]
 futures = { version = "0.3"}
@@ -28,7 +36,11 @@ assert_cmd = "1.0.1"
 predicates = "1.0.5"
 
 [profile.release]
-opt-level = 'z'  # optimize for size
 lto = true
 codegen-units = 1
 panic = 'abort'
+
+[package.metadata.deb]
+section = "utility"
+license-file = ["LICENSE", "4"]
+conf-files = ["ferox-config.toml"]
