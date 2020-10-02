@@ -1,4 +1,4 @@
-# HOLUP / Hacktoberfest / Pre-release Version
+# HOLUP / :jack_o_lantern: Hacktoberfest :jack_o_lantern: / Pre-release Version
 
 I'm making this project public earlier than I normally would for Hacktoberfest.  It is not done. I make no guarantees 
 about master even being in a state where the tool works. I'll remove this message once things stabilize, which should
@@ -27,9 +27,16 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#example-usage)
+    - [Multiple Values](#multiple-values)
+    - [Include Headers](#include-headers)
+    - [IPv6, Non-recursive scan with INFO logging enabled](#ipv6-non-recursive-scan-with-info-level-logging-enabled)
+    - [Read urls from STDIN; pipe only resulting urls out to another tool](#read-urls-from-stdin-pipe-only-resulting-urls-out-to-another-tool)
+    - [Proxy traffic through Burp](#proxy-traffic-through-burp)
+    - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
+    - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
 - [Comparison w/ Similar Tools](#comparison-w-similar-tools)
 
-## Downloads
+## :floppy_disk: Downloads
 There are pre-built binaries for the following systems:
 
 - [Linux x86](https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip)
@@ -38,9 +45,9 @@ There are pre-built binaries for the following systems:
 - [Windows x86](https://github.com/epi052/feroxbuster/releases/latest/download/x86-windows-feroxbuster.exe.zip)
 - [Windows x86_64](https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-windows-feroxbuster.exe.zip)
 
-## Installation
+## :cd: Installation
 
-For now, please see the [Downloads](#downloads) section. Eventually, feroxbuster will have additional install options to include `cargo install` and `apt install`.
+For now, please see the [Releases](https://github.com/epi052/feroxbuster/releases) section. Eventually, feroxbuster will have additional install options to include `cargo install` and `apt install`.
 
 ## :gear: Configuration
 ### Default Values
@@ -155,12 +162,15 @@ OPTIONS:
     -w, --wordlist <FILE>                   Path to the wordlist
 ```
 
-## Example Usage
+## :toolbox: Example Usage
 
 ### Multiple Values
 
 Options that take multiple values are very flexible.  Consider the following ways of specifying extensions:
-        `./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx`
+
+```
+./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx
+```
 
 The command above adds .pdf, .js, .html, .php, .txt, .json, and .docx to each url
 
@@ -203,7 +213,7 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ```
 
 
-## Comparison w/ Similar Tools
+## :monocle_face: Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
 However, in my opinion, there are two that set the standard: [gobuster](https://github.com/OJ/gobuster) and 
