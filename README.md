@@ -14,9 +14,9 @@ Happy Hacktoberfest!
 
 `feroxbuster` is a fast, simple, recursive content discovery tool written in Rust.
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/epi052/feroxbuster?logo=rust)
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github)
 ![GitHub All Releases](https://img.shields.io/github/downloads/epi052/feroxbuster/total?label=Downloads&logo=github)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/epi052/feroxbuster?logo=rust)
 ![Crates.io](https://img.shields.io/crates/d/feroxbuster?label=Downloads&logo=rust)
 ![GitHub last commit](https://img.shields.io/github/last-commit/epi052/feroxbuster)
 
