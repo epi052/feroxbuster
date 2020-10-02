@@ -4,13 +4,15 @@ version = "0.1.0"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
-maintenance = { status = "actively-developed" }
 homepage = "https://github.com/epi052/feroxbuster"
 repository = "https://github.com/epi052/feroxbuster"
 description = "A fast, simple, recursive content discovery tool."
 categories = ["command-line-utilities"]
 keywords = ["pentest", "enumeration", "url-bruteforce", "content-discovery", "web"]
 exclude = [".github/*"]
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 futures = { version = "0.3"}
@@ -44,3 +46,13 @@ panic = 'abort'
 section = "utility"
 license-file = ["LICENSE", "4"]
 conf-files = ["ferox-config.toml"]
+
+[package.metadata.rpm.cargo]
+buildflags = ["--release"]
+target = "x86_64-unknown-linux-musl"
+
+[package.metadata.rpm.targets]
+feroxbuster = { path = "/usr/bin/feroxbuster" }
+
+[package.metadata.rpm.files]
+"ferox-config.toml.example" = { path = "ferox-config.toml", mode = "644" }

@@ -24,6 +24,10 @@ Happy Hacktoberfest!
 
 Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  :shrug:	
 
+## :rocket: Quick Demo
+
+![Quick Demo](img/quick-demo.gif)
+
 :open_book: Table of Contents
 -----------------
 - [Downloads](#downloads)
