@@ -1,34 +1,22 @@
-# HOLUP / :jack_o_lantern: Hacktoberfest :jack_o_lantern: / Pre-release Version
-
-I'm making this project public earlier than I normally would for Hacktoberfest.  It is not done. I make no guarantees 
-about master even being in a state where the tool works. I'll remove this message once things stabilize, which should
-be relatively soon.
-
-If you want to submit a PR as part of hacktoberfest, I'm mostly working off of the items in the 
-[Pre-release project](https://github.com/epi052/feroxbuster/projects/1).  It's very fluid as I've been working on it 
-myself up to this point.  I'll look at formalizing what's there into issues soon.
-
-Happy Hacktoberfest!   
-
 # feroxbuster
 
 `feroxbuster` is a fast, simple, recursive content discovery tool written in Rust.
 
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github)
-![GitHub All Releases](https://img.shields.io/github/downloads/epi052/feroxbuster/total?label=Downloads&logo=github)
-![Crates.io](https://img.shields.io/crates/v/feroxbuster?label=version&logo=rust)
-![Crates.io](https://img.shields.io/crates/d/feroxbuster?label=Downloads&logo=rust)
-![GitHub last commit](https://img.shields.io/github/last-commit/epi052/feroxbuster)
+![GitHub All Releases](https://img.shields.io/github/downloads/epi052/feroxbuster/total?label=downloads&logo=github&color=inactive)
+![GitHub last commit](https://img.shields.io/github/last-commit/epi052/feroxbuster?logo=github)
+![Crates.io](https://img.shields.io/crates/v/feroxbuster?color=blue&label=version&logo=rust)
+![Crates.io](https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive)
 
-## :confused: What the heck is a ferox anyway?
+## 😕 What the heck is a ferox anyway?
 
-Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  :shrug:	
+Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  🤷	
 
-## :rocket: Quick Demo
+## 🚀 Quick Demo
 
 ![Quick Demo](img/quick-demo.gif)
 
-:open_book: Table of Contents
+📖 Table of Contents
 -----------------
 - [Downloads](#floppy_disk-downloads)
 - [Installation](#cd-installation)
@@ -49,7 +37,7 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
 - [Comparison w/ Similar Tools](#monocle_face-comparison-w-similar-tools)
 
-## :floppy_disk: Downloads
+## 💾 Downloads
 There are pre-built binaries for the following systems:
 
 - [Linux x86](https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip)
@@ -58,7 +46,7 @@ There are pre-built binaries for the following systems:
 - [Windows x86](https://github.com/epi052/feroxbuster/releases/latest/download/x86-windows-feroxbuster.exe.zip)
 - [Windows x86_64](https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-windows-feroxbuster.exe.zip)
 
-## :cd: Installation
+## 💿 Installation
 
 ### Download a Release
 
@@ -80,7 +68,7 @@ Head to the [Releases](https://github.com/epi052/feroxbuster/releases) section a
 sudo apt install ./feroxbuster_amd64.deb
 ```
 
-## :gear: Configuration
+## ⚙️ Configuration
 ### Default Values
 Configuration begins with with the following built-in default values baked into the binary:
 
@@ -193,7 +181,7 @@ OPTIONS:
     -w, --wordlist <FILE>                   Path to the wordlist
 ```
 
-## :toolbox: Example Usage
+## 🧰 Example Usage
 
 ### Multiple Values
 
@@ -244,7 +232,7 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ```
 
 
-## :monocle_face: Comparison w/ Similar Tools
+## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
 However, in my opinion, there are two that set the standard: [gobuster](https://github.com/OJ/gobuster) and 
@@ -261,26 +249,26 @@ a few of the use-cases in which feroxbuster may be a better fit:
 - You want **recursion** along with some other thing mentioned above (ffuf also does recursion)
 - You want a **configuration file** option for overriding built-in default values for your scans
 
-|                                                     | feroxbuster        | gobuster           | ffuf               |
-|-----------------------------------------------------|--------------------|--------------------|--------------------|
-| fast                                                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| easy to use                                         | :heavy_check_mark: | :heavy_check_mark: |                    |
-| blacklist status codes (in addition to whitelist)   |                    | :heavy_check_mark: | :heavy_check_mark: |
-| allows recursion                                    | :heavy_check_mark: |                    | :heavy_check_mark: |
-| can specify query parameters                        | :heavy_check_mark: |                    | :heavy_check_mark: |
-| SOCKS proxy support                                 | :heavy_check_mark: |                    |                    |
-| multiple target scan (via stdin or multiple -u)     | :heavy_check_mark: |                    |                    |
-| configuration file for default value override       | :heavy_check_mark: |                    | :heavy_check_mark: |
-| can accept urls via STDIN as part of a pipeline     | :heavy_check_mark: |                    |                    |
-| can accept wordlists via STDIN                      |                    | :heavy_check_mark: |                    |
-| filter by response size                             | :heavy_check_mark: |                    | :heavy_check_mark: |
-| auto-filter wildcard responses                      | :heavy_check_mark: |                    | :heavy_check_mark: |
-| performs other scans (vhost, dns, etc)              |                    | :heavy_check_mark: | :heavy_check_mark: |
-| time delay / rate limiting                          |                    | :heavy_check_mark: | :heavy_check_mark: |
-| **huge** number of other options                    |                    |                    | :heavy_check_mark: |
+|                                                     | feroxbuster | gobuster | ffuf |
+|-----------------------------------------------------|---|---|---|
+| fast                                                | ✔ | ✔ | ✔ |
+| easy to use                                         | ✔ | ✔ |   |
+| blacklist status codes (in addition to whitelist)   |   | ✔ | ✔ |
+| allows recursion                                    | ✔ |   | ✔ |
+| can specify query parameters                        | ✔ |   | ✔ |
+| SOCKS proxy support                                 | ✔ |   |   |
+| multiple target scan (via stdin or multiple -u)     | ✔ |   |   |
+| configuration file for default value override       | ✔ |   | ✔ |
+| can accept urls via STDIN as part of a pipeline     | ✔ |   |   |
+| can accept wordlists via STDIN                      |   | ✔ |   |
+| filter by response size                             | ✔ |   | ✔ |
+| auto-filter wildcard responses                      | ✔ |   | ✔ |
+| performs other scans (vhost, dns, etc)              |   | ✔ | ✔ |
+| time delay / rate limiting                          |   | ✔ | ✔ |
+| **huge** number of other options                    |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
-came across rustbuster when I was naming my tool (:cry:). I don't have any experience using it, but it appears to 
+came across rustbuster when I was naming my tool (😢). I don't have any experience using it, but it appears to 
 be able to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost
 dns, directory, etc...).  In short, it definitely looks interesting and may be what you're looking for as it has some 
 capability I haven't seen in similar tools.  

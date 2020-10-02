@@ -244,7 +244,6 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
             }
             Err(e) => {
                 if !CONFIGURATION.quiet {
-                    // todo unwrap
                     ferox_print(
                         &format!("Could not connect to {}, skipping...", target_url),
                         &PROGRESS_PRINTER,

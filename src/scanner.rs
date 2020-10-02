@@ -89,7 +89,6 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 /// reporting criteria
 async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
     log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
-    //todo trace
 
     while let Some(resp) = report_channel.recv().await {
         log::debug!("received {} on reporting channel", resp.url());
