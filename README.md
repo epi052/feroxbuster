@@ -30,13 +30,16 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
 
 :open_book: Table of Contents
 -----------------
-- [Downloads](#downloads)
-- [Installation](#installation)
-- [Configuration](#configuration)
+- [Downloads](#floppy_disk-downloads)
+- [Installation](#cd-installation)
+    - [Download a Release](#download-a-release)
+    - [Cargo Install](#cargo-install)
+    - [apt Install](#apt-install)
+- [Configuration](#gear-configuration)
     - [Default Values](#default-values)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
-- [Example Usage](#example-usage)
+- [Example Usage](#toolbox-example-usage)
     - [Multiple Values](#multiple-values)
     - [Include Headers](#include-headers)
     - [IPv6, Non-recursive scan with INFO logging enabled](#ipv6-non-recursive-scan-with-info-level-logging-enabled)
@@ -44,7 +47,7 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
-- [Comparison w/ Similar Tools](#comparison-w-similar-tools)
+- [Comparison w/ Similar Tools](#monocle_face-comparison-w-similar-tools)
 
 ## :floppy_disk: Downloads
 There are pre-built binaries for the following systems:
@@ -57,7 +60,25 @@ There are pre-built binaries for the following systems:
 
 ## :cd: Installation
 
-For now, please see the [Releases](https://github.com/epi052/feroxbuster/releases) section. Eventually, feroxbuster will have additional install options to include `cargo install` and `apt install`.
+### Download a Release
+
+Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.
+
+### Cargo Install
+
+`feroxbuster` is published on crates.io, making it easy to install if you already have rust installed on your system.
+
+```
+cargo install feroxbuster
+```
+
+### apt Install
+
+Head to the [Releases](https://github.com/epi052/feroxbuster/releases) section and download `feroxbuster_amd64.deb`.  After that, use your favorite package manager to install the .deb.
+
+```
+sudo apt install ./feroxbuster_amd64.deb
+```
 
 ## :gear: Configuration
 ### Default Values
