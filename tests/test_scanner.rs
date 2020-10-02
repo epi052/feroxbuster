@@ -28,8 +28,8 @@ fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
-            .and(predicate::str::contains("200 OK"))
-            .and(predicate::str::contains("[14 bytes]")),
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("14")),
     );
 
     assert_eq!(mock.times_called(), 1);

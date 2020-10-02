@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::scanner::{make_request};
-use crate::utils::{ferox_print, get_url_path_length, status_colorizer, format_url};
+use crate::scanner::make_request;
+use crate::utils::{ferox_print, format_url, get_url_path_length, status_colorizer};
 use ansi_term::Color::{Cyan, Yellow};
 use indicatif::ProgressBar;
 use reqwest::Response;
@@ -186,19 +186,17 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                                     &PROGRESS_PRINTER,
                                 );
                             }
-                        } else {
-                            if !CONFIGURATION.quiet {
-                                ferox_print(
-                                    &format!(
-                                        "{} {:>10} {} redirects to => {:?}",
-                                        wildcard,
-                                        content_len,
-                                        response.url(),
-                                        next_loc
-                                    ),
-                                    &PROGRESS_PRINTER,
-                                );
-                            }
+                        } else if !CONFIGURATION.quiet {
+                            ferox_print(
+                                &format!(
+                                    "{} {:>10} {} redirects to => {:?}",
+                                    wildcard,
+                                    content_len,
+                                    response.url(),
+                                    next_loc
+                                ),
+                                &PROGRESS_PRINTER,
+                            );
                         }
                     }
                 }

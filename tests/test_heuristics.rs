@@ -83,8 +83,8 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
         .success()
         .stdout(
             predicate::str::contains("/LICENSE")
-                .and(predicate::str::contains("200 OK"))
-                .and(predicate::str::contains("[14 bytes]")),
+                .and(predicate::str::contains("200"))
+                .and(predicate::str::contains("14")),
         );
     assert_eq!(mock.times_called(), 1);
 
@@ -115,7 +115,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 
     teardown_tmp_directory(tmp_dir);
 
-    cmd.assert().success().stderr(
+    cmd.assert().success().stdout(
         predicate::str::contains("WLD")
             .and(predicate::str::contains("Got"))
             .and(predicate::str::contains("200"))

@@ -42,7 +42,7 @@ pub fn initialize(verbosity: u8) {
 
             let msg = format!(
                 "{} {:10.03} {}",
-                style(format!("{}", level_name)).bg(level_color).black(),
+                style(level_name).bg(level_color).black(),
                 style(t).dim(),
                 style(record.args()).dim(),
             );

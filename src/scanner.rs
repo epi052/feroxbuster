@@ -1,6 +1,8 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
 use crate::heuristics::WildcardFilter;
-use crate::utils::{ferox_print, get_current_depth, get_url_path_length, status_colorizer, format_url};
+use crate::utils::{
+    ferox_print, format_url, get_current_depth, get_url_path_length, status_colorizer,
+};
 use crate::{heuristics, progress, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
@@ -13,8 +15,6 @@ use tokio::fs;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-
-
 
 /// Initiate request to the given `Url` using the pre-configured `Client`
 pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {

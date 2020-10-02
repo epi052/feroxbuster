@@ -1,9 +1,9 @@
+use crate::FeroxResult;
 use ansi_term::Color::{Blue, Cyan, Green, Red, Yellow};
 use console::{strip_ansi_codes, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use std::convert::TryInto;
-use crate::FeroxResult;
 
 /// Helper function that determines the current depth of a given url
 ///
@@ -269,5 +269,4 @@ mod tests {
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
         );
     }
-
 }
