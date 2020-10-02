@@ -1,12 +1,12 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
 use crate::heuristics::WildcardFilter;
 use crate::utils::{
-    ferox_print, format_url, get_current_depth, get_url_path_length, status_colorizer,
+    ferox_print, format_url, get_current_depth, get_url_path_length, make_request, status_colorizer,
 };
-use crate::{heuristics, progress, FeroxResult};
+use crate::{heuristics, progress};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
-use reqwest::{Client, Response, Url};
+use reqwest::{Response, Url};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::ops::Deref;
@@ -15,24 +15,6 @@ use tokio::fs;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-
-/// Initiate request to the given `Url` using the pre-configured `Client`
-pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
-    log::trace!("enter: make_request(CONFIGURATION.Client, {})", url);
-
-    match client.get(url.to_owned()).send().await {
-        Ok(resp) => {
-            log::debug!("requested Url: {}", resp.url());
-            log::trace!("exit: make_request -> {:?}", resp);
-            Ok(resp)
-        }
-        Err(e) => {
-            log::trace!("exit: make_request -> {}", e);
-            log::error!("Error while making request: {}", e);
-            Err(Box::new(e))
-        }
-    }
-}
 
 /// Spawn a single consumer task (sc side of mpsc)
 ///

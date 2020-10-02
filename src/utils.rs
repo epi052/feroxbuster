@@ -3,6 +3,7 @@ use ansi_term::Color::{Blue, Cyan, Green, Red, Yellow};
 use console::{strip_ansi_codes, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
+use reqwest::{Client, Response};
 use std::convert::TryInto;
 
 /// Helper function that determines the current depth of a given url
@@ -199,6 +200,24 @@ pub fn format_url(
         Err(e) => {
             log::trace!("exit: format_url -> {}", e);
             log::error!("Could not join {} with {}", word, base_url);
+            Err(Box::new(e))
+        }
+    }
+}
+
+/// Initiate request to the given `Url` using `Client`
+pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
+    log::trace!("enter: make_request(CONFIGURATION.Client, {})", url);
+
+    match client.get(url.to_owned()).send().await {
+        Ok(resp) => {
+            log::debug!("requested Url: {}", resp.url());
+            log::trace!("exit: make_request -> {:?}", resp);
+            Ok(resp)
+        }
+        Err(e) => {
+            log::trace!("exit: make_request -> {}", e);
+            log::error!("Error while making request: {}", e);
             Err(Box::new(e))
         }
     }
