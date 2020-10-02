@@ -120,19 +120,6 @@ jobs:
           name: feroxbuster_amd64.deb
           path: ./target/x86_64-unknown-linux-musl/debian/*
 
-  build-rpm:
-    needs: [build-nix]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: RPM Build
-        uses: ebbflow-io/cargo-rpm-amd64-fedora@1.1
-      - name: Upload RPM Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: feroxbuster_amd64.rpm
-          path: ./target/x86_64-unknown-linux-musl/release/rpmbuild/RPMS/x86_64/*
-
   build-rest:
     runs-on: ${{ matrix.os }}
     if: github.ref == 'refs/heads/master'

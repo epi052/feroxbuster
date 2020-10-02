@@ -46,13 +46,3 @@ panic = 'abort'
 section = "utility"
 license-file = ["LICENSE", "4"]
 conf-files = ["ferox-config.toml"]
-
-[package.metadata.rpm.cargo]
-buildflags = ["--release"]
-target = "x86_64-unknown-linux-musl"
-
-[package.metadata.rpm.targets]
-feroxbuster = { path = "/usr/bin/feroxbuster" }
-
-[package.metadata.rpm.files]
-"ferox-config.toml.example" = { path = "ferox-config.toml", mode = "644" }
