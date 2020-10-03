@@ -1,6 +1,6 @@
 <h1 align="center">
   <br>
-  <a href="https://github.com/epi052/feroxbuster"><img src="img/logo/default.png" alt="feroxbuster"></a>
+  <a href="https://github.com/epi052/feroxbuster"><img src="img/logo/default-cropped.png" alt="feroxbuster"></a>
   <br>
 </h1>
 
