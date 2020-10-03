@@ -12,17 +12,19 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 fn test_single_target_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
 
-    let cmd = std::panic::catch_unwind(|| {
-        Command::cargo_bin("feroxbuster")
-            .unwrap()
-            .arg("--url")
-            .arg("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk")
-            .arg("--wordlist")
-            .arg(file.as_os_str())
-            .unwrap()
-    });
-
-    assert!(cmd.is_err());
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("Could not connect to any target provided")
+                .and(predicate::str::contains("ERROR"))
+                .and(predicate::str::contains("heuristics::connectivity_test")),
+        );
 
     teardown_tmp_directory(tmp_dir);
     Ok(())
@@ -37,18 +39,20 @@ fn test_two_targets_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
     let urls = vec![not_real.clone(), not_real];
     let (tmp_dir, file) = setup_tmp_directory(&urls)?;
 
-    let cmd = std::panic::catch_unwind(|| {
-        Command::cargo_bin("feroxbuster")
-            .unwrap()
-            .arg("--stdin")
-            .arg("--wordlist")
-            .arg(file.as_os_str())
-            .pipe_stdin(file)
-            .unwrap()
-            .unwrap()
-    });
-
-    assert!(cmd.is_err());
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--stdin")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .pipe_stdin(file)
+        .unwrap()
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("Could not connect to any target provided")
+                .and(predicate::str::contains("ERROR"))
+                .and(predicate::str::contains("heuristics::connectivity_test")),
+        );
 
     teardown_tmp_directory(tmp_dir);
     Ok(())

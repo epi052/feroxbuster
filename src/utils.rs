@@ -290,7 +290,14 @@ mod tests {
     /// base url + word + no slash + no extension + queries
     fn format_url_joins_queries() {
         assert_eq!(
-            format_url("http://localhost", "lazer", false, &[(String::from("stuff"), String::from("things"))], None).unwrap(),
+            format_url(
+                "http://localhost",
+                "lazer",
+                false,
+                &[(String::from("stuff"), String::from("things"))],
+                None
+            )
+            .unwrap(),
             reqwest::Url::parse("http://localhost/lazer?stuff=things").unwrap()
         );
     }
@@ -299,7 +306,14 @@ mod tests {
     /// base url + no word + no slash + no extension + queries
     fn format_url_without_word_joins_queries() {
         assert_eq!(
-            format_url("http://localhost", "", false, &[(String::from("stuff"), String::from("things"))], None).unwrap(),
+            format_url(
+                "http://localhost",
+                "",
+                false,
+                &[(String::from("stuff"), String::from("things"))],
+                None
+            )
+            .unwrap(),
             reqwest::Url::parse("http://localhost/?stuff=things").unwrap()
         );
     }
@@ -332,62 +346,46 @@ mod tests {
     #[test]
     /// status colorizer uses red for 500s
     fn status_colorizer_uses_red_for_500s() {
-        assert_eq!(
-            status_colorizer("500"), style("500").red().to_string()
-        );
+        assert_eq!(status_colorizer("500"), style("500").red().to_string());
     }
 
     #[test]
     /// status colorizer uses red for 400s
     fn status_colorizer_uses_red_for_400s() {
-        assert_eq!(
-            status_colorizer("400"), style("400").red().to_string()
-        );
+        assert_eq!(status_colorizer("400"), style("400").red().to_string());
     }
 
     #[test]
     /// status colorizer uses red for errors
     fn status_colorizer_uses_red_for_errors() {
-        assert_eq!(
-            status_colorizer("ERROR"), style("ERROR").red().to_string()
-        );
+        assert_eq!(status_colorizer("ERROR"), style("ERROR").red().to_string());
     }
 
     #[test]
     /// status colorizer uses cyan for wildcards
     fn status_colorizer_uses_cyan_for_wildcards() {
-        assert_eq!(
-            status_colorizer("WLD"), style("WLD").cyan().to_string()
-        );
+        assert_eq!(status_colorizer("WLD"), style("WLD").cyan().to_string());
     }
 
     #[test]
     /// status colorizer uses blue for 100s
     fn status_colorizer_uses_blue_for_100s() {
-        assert_eq!(
-            status_colorizer("100"), style("100").blue().to_string()
-        );
+        assert_eq!(status_colorizer("100"), style("100").blue().to_string());
     }
     #[test]
     /// status colorizer uses green for 200s
     fn status_colorizer_uses_green_for_200s() {
-        assert_eq!(
-            status_colorizer("200"), style("200").green().to_string()
-        );
+        assert_eq!(status_colorizer("200"), style("200").green().to_string());
     }
     #[test]
     /// status colorizer uses yellow for 300s
     fn status_colorizer_uses_yellow_for_300s() {
-        assert_eq!(
-            status_colorizer("300"), style("300").yellow().to_string()
-        );
+        assert_eq!(status_colorizer("300"), style("300").yellow().to_string());
     }
 
     #[test]
     /// status colorizer doesnt color anything else
     fn status_colorizer_returns_as_is() {
-        assert_eq!(
-            status_colorizer("farfignewton"), "farfignewton".to_string()
-        );
+        assert_eq!(status_colorizer("farfignewton"), "farfignewton".to_string());
     }
 }
