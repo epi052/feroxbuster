@@ -15,3 +15,9 @@ Cargo.lock
 
 # personal feroxbuster config for testing
 ferox-config.toml
+
+# images for the README on github
+img/**
+
+# personal script to check code coverage using nightly compiler
+check-coverage.sh
