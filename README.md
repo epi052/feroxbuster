@@ -18,16 +18,16 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
 
 📖 Table of Contents
 -----------------
-- [Downloads](#floppy_disk-downloads)
-- [Installation](#cd-installation)
+- [Downloads](#-downloads)
+- [Installation](#-installation)
     - [Download a Release](#download-a-release)
     - [Cargo Install](#cargo-install)
     - [apt Install](#apt-install)
-- [Configuration](#gear-configuration)
+- [Configuration](#-configuration)
     - [Default Values](#default-values)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
-- [Example Usage](#toolbox-example-usage)
+- [Example Usage](#-example-usage)
     - [Multiple Values](#multiple-values)
     - [Include Headers](#include-headers)
     - [IPv6, Non-recursive scan with INFO logging enabled](#ipv6-non-recursive-scan-with-info-level-logging-enabled)
@@ -35,7 +35,7 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
-- [Comparison w/ Similar Tools](#monocle_face-comparison-w-similar-tools)
+- [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 
 ## 💾 Downloads
 There are pre-built binaries for the following systems:
