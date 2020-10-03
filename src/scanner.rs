@@ -538,38 +538,46 @@ mod tests {
     /// sending url + word + 1 extension should get back two urls, one base and one with extension
     fn create_urls_one_extension_returns_two_urls() {
         let urls = create_urls("http://localhost", "turbo", &[String::from("js")]);
-        assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap(), Url::parse("http://localhost/turbo.js").unwrap()])
+        assert_eq!(
+            urls,
+            [
+                Url::parse("http://localhost/turbo").unwrap(),
+                Url::parse("http://localhost/turbo.js").unwrap()
+            ]
+        )
     }
 
     #[test]
     /// sending url + word + multiple extensions should get back n+1 urls
     fn create_urls_multiple_extensions_returns_n_plus_one_urls() {
-
         let ext_vec = vec![
             vec![String::from("js")],
             vec![String::from("js"), String::from("php")],
             vec![String::from("js"), String::from("php"), String::from("pdf")],
-            vec![String::from("js"), String::from("php"), String::from("pdf"), String::from("tar.gz")]
+            vec![
+                String::from("js"),
+                String::from("php"),
+                String::from("pdf"),
+                String::from("tar.gz"),
+            ],
         ];
 
         let base = Url::parse("http://localhost/turbo").unwrap();
         let js = Url::parse("http://localhost/turbo.js").unwrap();
         let php = Url::parse("http://localhost/turbo.php").unwrap();
         let pdf = Url::parse("http://localhost/turbo.pdf").unwrap();
-        let tar= Url::parse("http://localhost/turbo.tar.gz").unwrap();
+        let tar = Url::parse("http://localhost/turbo.tar.gz").unwrap();
 
         let expected = vec![
             vec![base.clone(), js.clone()],
             vec![base.clone(), js.clone(), php.clone()],
             vec![base.clone(), js.clone(), php.clone(), pdf.clone()],
-            vec![base.clone(), js.clone(), php.clone(), pdf.clone(), tar],
+            vec![base, js, php, pdf, tar],
         ];
 
-        let mut i = 0;
-        for ext_set in ext_vec {
+        for (i, ext_set) in ext_vec.into_iter().enumerate() {
             let urls = create_urls("http://localhost", "turbo", &ext_set);
             assert_eq!(urls, expected[i]);
-            i += 1;
         }
     }
 }
