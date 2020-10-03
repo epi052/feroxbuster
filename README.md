@@ -1,12 +1,28 @@
-# feroxbuster
+<h1 align="center">
+  <br>
+  <a href="https://github.com/epi052/feroxbuster"><img src="img/logo/cover.png" alt="feroxbuster"></a>
+  <br>
+</h1>
 
-`feroxbuster` is a fast, simple, recursive content discovery tool written in Rust.
+<h4 align="center">A fast, simple, recursive content discovery tool written in Rust</h4>
 
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github)
-![GitHub All Releases](https://img.shields.io/github/downloads/epi052/feroxbuster/total?label=downloads&logo=github&color=inactive)
-![GitHub last commit](https://img.shields.io/github/last-commit/epi052/feroxbuster?logo=github)
-![Crates.io](https://img.shields.io/crates/v/feroxbuster?color=blue&label=version&logo=rust)
-![Crates.io](https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive)
+<p align="center">
+  <img src="https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github">
+  <img src="https://img.shields.io/github/downloads/epi052/feroxbuster/total?label=downloads&logo=github&color=inactive" alt="github downloads">
+  <img src="https://img.shields.io/github/issues-closed-raw/s0md3v/Photon.svg">
+  <img src="https://img.shields.io/github/last-commit/epi052/feroxbuster?logo=github">
+  <img src="https://img.shields.io/crates/v/feroxbuster?color=blue&label=version&logo=rust">
+  <img src="https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive">
+</p>
+
+![demo](img/quick-demo.gif)
+
+<p align="center">
+  <a href="https://github.com/epi052/feroxbuster/releases">Releases</a> •
+  <a href="#-example-usage">Example Usage</a> •
+  <a href="https://github.com/epi052/feroxbuster/blob/master/CONTRIBUTING.md">Contributing</a> •
+  <a href="https://docs.rs/feroxbuster/latest/feroxbuster/">Documentation</a>
+</p>
 
 ## 😕 What the heck is a ferox anyway?
 
@@ -14,7 +30,7 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
 
 ## 🚀 Quick Demo
 
-![Quick Demo](img/quick-demo.gif)
+![Quick Demo]()
 
 📖 Table of Contents
 -----------------
@@ -37,20 +53,17 @@ Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name ru
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 
-## 💾 Downloads
-There are pre-built binaries for the following systems:
-
-- [Linux x86](https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip)
-- [Linux x86_64](https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip)
-- [MacOS x86_64](https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip)
-- [Windows x86](https://github.com/epi052/feroxbuster/releases/latest/download/x86-windows-feroxbuster.exe.zip)
-- [Windows x86_64](https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-windows-feroxbuster.exe.zip)
-
 ## 💿 Installation
 
 ### Download a Release
 
-Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.
+Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.  Builds for the following systems are currently supported:
+
+- Linux x86
+- Linux x86_64
+- MacOS x86_64
+- Windows x86
+- Windows x86_64
 
 ### Cargo Install
 
