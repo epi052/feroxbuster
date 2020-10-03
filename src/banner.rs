@@ -1,5 +1,6 @@
 use crate::{config::CONFIGURATION, utils::status_colorizer, VERSION};
 
+/// macro helper to abstract away repetitive string formatting
 macro_rules! format_banner_entry_helper {
     // \u{0020} -> unicode space
     // \u{2502} -> vertical box drawing character, i.e. │
@@ -26,6 +27,7 @@ macro_rules! format_banner_entry_helper {
     };
 }
 
+/// macro that wraps another macro helper to abstract away repetitive string formatting
 macro_rules! format_banner_entry {
     // 4 -> unicode emoji padding width
     // 22 -> column width (when unicode rune is 4 bytes wide, 23 when it's 3)

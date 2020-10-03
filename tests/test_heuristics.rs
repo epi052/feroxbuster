@@ -93,6 +93,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 }
 
 #[test]
+/// test finds a static wildcard and reports as much to stdout
 fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
@@ -127,6 +128,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[test]
+/// test finds a dynamic wildcard and reports as much to stdout
 fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;

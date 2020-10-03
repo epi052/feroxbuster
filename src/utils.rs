@@ -69,7 +69,7 @@ pub fn status_colorizer(status: &str) -> String {
         Some('4') => Red.paint(status).to_string(),  // client error
         Some('5') => Red.paint(status).to_string(),  // server error
         Some('W') => Cyan.paint(status).to_string(), // wildcard
-        Some('E') => Red.paint(status).to_string(),  // wildcard
+        Some('E') => Red.paint(status).to_string(),  // error
         _ => status.to_string(),                     // ¯\_(ツ)_/¯
     }
 }
@@ -228,31 +228,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn base_url_returns_1() {
+    fn get_current_depth_base_url_returns_1() {
         let depth = get_current_depth("http://localhost");
         assert_eq!(depth, 1);
     }
 
     #[test]
-    fn base_url_with_slash_returns_1() {
+    fn get_current_depth_base_url_with_slash_returns_1() {
         let depth = get_current_depth("http://localhost/");
         assert_eq!(depth, 1);
     }
 
     #[test]
-    fn one_dir_returns_2() {
+    fn get_current_depth_one_dir_returns_2() {
         let depth = get_current_depth("http://localhost/src");
         assert_eq!(depth, 2);
     }
 
     #[test]
-    fn one_dir_with_slash_returns_2() {
+    fn get_current_depth_one_dir_with_slash_returns_2() {
         let depth = get_current_depth("http://localhost/src/");
         assert_eq!(depth, 2);
     }
 
     #[test]
-    fn test_format_url_normal() {
+    fn format_url_normal() {
         assert_eq!(
             format_url("http://localhost", "stuff", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_url_no_word() {
+    fn format_url_no_word() {
         assert_eq!(
             format_url("http://localhost", "", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost").unwrap()
@@ -269,12 +269,12 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_format_url_no_url() {
+    fn format_url_no_url() {
         format_url("", "stuff", false, &Vec::new(), None).unwrap();
     }
 
     #[test]
-    fn test_format_url_word_with_preslash() {
+    fn format_url_word_with_preslash() {
         assert_eq!(
             format_url("http://localhost", "/stuff", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
@@ -282,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_format_url_word_with_postslash() {
+    fn format_url_word_with_postslash() {
         assert_eq!(
             format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()

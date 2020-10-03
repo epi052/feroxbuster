@@ -2,6 +2,8 @@ use std::fs::{remove_dir_all, write};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
+/// integration test helper: creates a temp directory, and writes `words` to
+/// a file named `wordlist` in the temp directory
 pub fn setup_tmp_directory(
     words: &[String],
 ) -> Result<(TempDir, PathBuf), Box<dyn std::error::Error>> {
@@ -11,6 +13,8 @@ pub fn setup_tmp_directory(
     Ok((tmp_dir, file))
 }
 
+/// integration test helper: removes a temporary directory, presumably created with
+/// [setup_tmp_directory](fn.setup_tmp_directory.html)
 pub fn teardown_tmp_directory(directory: TempDir) {
     remove_dir_all(directory).unwrap();
 }

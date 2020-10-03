@@ -6,6 +6,7 @@ use reqwest::Response;
 use std::process;
 use uuid::Uuid;
 
+/// length of a standard UUID, used when determining wildcard responses
 const UUID_LENGTH: u64 = 32;
 
 /// Data holder for two pieces of data needed when auto-filtering out wildcard responses

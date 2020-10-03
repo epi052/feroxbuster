@@ -35,48 +35,91 @@ lazy_static! {
 /// Inspired by and derived from https://github.com/PhilipDaniels/rust-config-example
 #[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
+    /// Path to the wordlist
     #[serde(default = "wordlist")]
     pub wordlist: String,
+
+    /// Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     #[serde(default)]
     pub proxy: String,
+
+    /// The target URL
     #[serde(default)]
     pub target_url: String,
+
+    /// Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
     #[serde(default = "statuscodes")]
     pub statuscodes: Vec<u16>,
+
+    /// Instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
     #[serde(skip)]
     pub client: Client,
+
+    /// Number of concurrent threads (default: 50)
     #[serde(default = "threads")]
     pub threads: usize,
+
+    /// Number of seconds before a request times out (default: 7)
     #[serde(default = "timeout")]
     pub timeout: u64,
+
+    /// Level of verbosity, equates to log level
     #[serde(default)]
     pub verbosity: u8,
+
+    /// Only print URLs
     #[serde(default)]
     pub quiet: bool,
+
+    /// Output file to write results to (default: stdout)
     #[serde(default)]
     pub output: String,
+
+    /// Sets the User-Agent (default: feroxbuster/VERSION)
     #[serde(default = "useragent")]
     pub useragent: String,
+
+    /// Follow redirects
     #[serde(default)]
     pub redirects: bool,
+
+    /// Disables TLS certificate validation
     #[serde(default)]
     pub insecure: bool,
+
+    /// File extension(s) to search for
     #[serde(default)]
     pub extensions: Vec<String>,
+
+    /// HTTP headers to be used in each request
     #[serde(default)]
     pub headers: HashMap<String, String>,
+
+    /// URL query parameters
     #[serde(default)]
     pub queries: Vec<(String, String)>,
+
+    /// Do not scan recursively
     #[serde(default)]
     pub norecursion: bool,
+
+    /// Append / to each request
     #[serde(default)]
     pub addslash: bool,
+
+    /// Read url(s) from STDIN
     #[serde(default)]
     pub stdin: bool,
+
+    /// Maximum recursion depth, a depth of 0 is infinite recursion
     #[serde(default = "depth")]
     pub depth: usize,
+
+    /// Filter out messages of a particular size
     #[serde(default)]
     pub sizefilters: Vec<u64>,
+
+    /// Don't auto-filter wildcard responses
     #[serde(default)]
     pub dontfilter: bool,
 }
@@ -84,29 +127,43 @@ pub struct Configuration {
 // functions timeout, threads, statuscodes, useragent, wordlist, and depth are used to provide
 // defaults in the event that a ferox-config.toml is found but one or more of the values below
 // aren't listed in the config.  This way, we get the correct defaults upon Deserialization
+
+/// default timeout value
 fn timeout() -> u64 {
     7
 }
+
+/// default threads value
 fn threads() -> usize {
     50
 }
+
+/// default status codes
 fn statuscodes() -> Vec<u16> {
     DEFAULT_STATUS_CODES
         .iter()
         .map(|code| code.as_u16())
         .collect()
 }
+
+/// default wordlist
 fn wordlist() -> String {
     String::from(DEFAULT_WORDLIST)
 }
+
+/// default useragent
 fn useragent() -> String {
     format!("feroxbuster/{}", VERSION)
 }
+
+/// default recursion depth
 fn depth() -> usize {
     4
 }
 
 impl Default for Configuration {
+
+    /// Builds the default Configuration for feroxbuster
     fn default() -> Self {
         let timeout = timeout();
         let useragent = useragent();
