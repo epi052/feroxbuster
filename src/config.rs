@@ -162,7 +162,6 @@ fn depth() -> usize {
 }
 
 impl Default for Configuration {
-
     /// Builds the default Configuration for feroxbuster
     fn default() -> Self {
         let timeout = timeout();
