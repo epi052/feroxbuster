@@ -262,7 +262,9 @@ impl Configuration {
         //   - current directory
 
         // merge a config found at /etc/feroxbuster/ferox-config.toml
-        let config_file = PathBuf::new().join("/etc/feroxbuster").join(DEFAULT_CONFIG_NAME);
+        let config_file = PathBuf::new()
+            .join("/etc/feroxbuster")
+            .join(DEFAULT_CONFIG_NAME);
         Self::parse_and_merge_config(config_file, &mut config);
 
         // merge a config found at ~/.config/feroxbuster/ferox-config.toml
