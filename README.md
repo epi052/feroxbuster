@@ -4,7 +4,7 @@
   <br>
 </h1>
 
-<h4 align="center">A fast, simple, recursive content discovery tool written in Rust</h4>
+<h4 align="center">A simple, fast, recursive content discovery tool written in Rust</h4>
 
 <p align="center">
   <img src="https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github">
