@@ -1,4 +1,5 @@
 use crate::utils::status_colorizer;
+use ansi_term::Color::Cyan;
 use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
@@ -25,8 +26,9 @@ pub fn initialize(
         Ok(map) => map,
         Err(e) => {
             eprintln!(
-                "[{}] - Client::initialize: {}",
+                "{} {} {}",
                 status_colorizer("ERROR"),
+                Cyan.paint("Client::initialize"),
                 e
             );
             exit(1);
@@ -45,13 +47,15 @@ pub fn initialize(
             Ok(proxy_obj) => client.proxy(proxy_obj),
             Err(e) => {
                 eprintln!(
-                    "[{}] - Could not add proxy ({:?}) to Client configuration",
+                    "{} {} Could not add proxy ({:?}) to Client configuration",
                     status_colorizer("ERROR"),
+                    Cyan.paint("Client::initialize"),
                     proxy
                 );
                 eprintln!(
-                    "[{}] - Client::initialize: {}",
+                    "{} {} {}",
                     status_colorizer("ERROR"),
+                    Cyan.paint("Client::initialize"),
                     e
                 );
                 exit(1);
@@ -65,10 +69,16 @@ pub fn initialize(
         Ok(client) => client,
         Err(e) => {
             eprintln!(
-                "[{}] - Could not create a Client with the given configuration, exiting.",
-                status_colorizer("ERROR")
+                "{} {} Could not create a Client with the given configuration, exiting.",
+                status_colorizer("ERROR"),
+                Cyan.paint("Client::build")
             );
-            eprintln!("[{}] - Client::build: {}", status_colorizer("ERROR"), e);
+            eprintln!(
+                "{} {} {}",
+                status_colorizer("ERROR"),
+                Cyan.paint("Client::build"),
+                e
+            );
             exit(1);
         }
     }

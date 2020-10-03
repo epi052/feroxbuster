@@ -94,9 +94,18 @@ Configuration begins with with the following built-in default values baked into 
 
 ### ferox-config.toml
 After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
-built-in defaults.  If `ferox-config.toml` is not found in the **same directory** as `feroxbuster`, nothing happens at this stage. 
+built-in defaults.  
 
-For example, say that we prefer to use a different wordlist as our default when scanning; we can
+`feroxbuster` searches for `ferox-config.toml` in the following locations (in the order shown):
+- `CONFIG_DIR/ferxobuster/`
+- The same directory as the `feroxbuster` executable
+- The user's current working directory
+
+If more than one valid configuration file is found, each one overwrites the values found previously.  
+
+If no configuration file is found, nothing happens at this stage.
+
+As an example, let's say that we prefer to use a different wordlist as our default when scanning; we can
 set the `wordlist` value in the config file to override the baked-in default.
 
 Notes of interest:

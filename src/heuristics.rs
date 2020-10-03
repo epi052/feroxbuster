@@ -258,6 +258,12 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
     if good_urls.is_empty() {
         log::error!("Could not connect to any target provided, exiting.");
         log::trace!("exit: connectivity_test");
+        eprintln!(
+            "{} {} Could not connect to any target provided",
+            status_colorizer("ERROR"),
+            Cyan.paint("heuristics::connectivity_test"),
+        );
+
         process::exit(1);
     }
 

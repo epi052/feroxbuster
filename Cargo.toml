@@ -30,6 +30,7 @@ ansi_term = "0.12"
 indicatif = "0.15"
 console = "0.12"
 openssl = { version = "0.10", features = ["vendored"] }
+dirs = "3.0"
 
 [dev-dependencies]
 tempfile = "3.1"
@@ -45,4 +46,4 @@ panic = 'abort'
 [package.metadata.deb]
 section = "utility"
 license-file = ["LICENSE", "4"]
-conf-files = ["ferox-config.toml"]
+conf-files = ["~/.config/feroxbuster/ferox-config.toml"]

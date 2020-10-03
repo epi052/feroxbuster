@@ -1,11 +1,13 @@
+use ansi_term::Color::Cyan;
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::get_current_depth;
+use feroxbuster::utils::{get_current_depth, status_colorizer};
 use feroxbuster::{banner, heuristics, logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::process;
 use std::sync::Arc;
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
@@ -17,6 +19,12 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => {
+            eprintln!(
+                "{} {} {}",
+                status_colorizer("ERROR"),
+                Cyan.paint("main::get_unique_words_from_wordlist"),
+                e
+            );
             log::error!("Could not open wordlist: {}", e);
             log::trace!("exit: get_unique_words_from_wordlist -> {}", e);
 
@@ -55,6 +63,16 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
     let words =
         tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) })
             .await??;
+
+    if words.len() == 0 {
+        eprintln!(
+            "{} {} Did not find any words in {}",
+            status_colorizer("ERROR"),
+            Cyan.paint("main::scan"),
+            CONFIGURATION.wordlist
+        );
+        process::exit(1);
+    }
 
     let mut tasks = vec![];
 

@@ -99,6 +99,13 @@ by Ben "epi" Risher {}                  ver: {}"#,
     ); // 🦡
 
     // followed by the maybe printed or variably displayed values
+    if !CONFIGURATION.config.is_empty() {
+        eprintln!(
+            "{}",
+            format_banner_entry!("\u{1f489}", "Config File", CONFIGURATION.config)
+        ); // 💉
+    }
+
     if !CONFIGURATION.proxy.is_empty() {
         eprintln!(
             "{}",
