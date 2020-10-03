@@ -97,10 +97,10 @@ After setting built-in default values, any values defined in a `ferox-config.tom
 built-in defaults.  
 
 `feroxbuster` searches for `ferox-config.toml` in the following locations (in the order shown):
-- `/etc/feroxbuster/`
-- `CONFIG_DIR/ferxobuster/`
-- The same directory as the `feroxbuster` executable
-- The user's current working directory
+- `/etc/feroxbuster/` (global)
+- `CONFIG_DIR/ferxobuster/` (per-user)
+- The same directory as the `feroxbuster` executable (per-user)
+- The user's current working directory (per-target)
 
 If more than one valid configuration file is found, each one overwrites the values found previously.  
 
