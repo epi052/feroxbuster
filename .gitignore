@@ -19,5 +19,6 @@ ferox-config.toml
 # images for the README on github
 img/**
 
-# personal script to check code coverage using nightly compiler
+# scripts to check code coverage using nightly compiler
 check-coverage.sh
+lcov_cobertura.py

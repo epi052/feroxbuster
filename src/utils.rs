@@ -234,30 +234,42 @@ mod tests {
     use super::*;
 
     #[test]
+    /// base url returns 1
     fn get_current_depth_base_url_returns_1() {
         let depth = get_current_depth("http://localhost");
         assert_eq!(depth, 1);
     }
 
     #[test]
+    /// base url with slash returns 1
     fn get_current_depth_base_url_with_slash_returns_1() {
         let depth = get_current_depth("http://localhost/");
         assert_eq!(depth, 1);
     }
 
     #[test]
+    /// base url + 1 dir returns 2
     fn get_current_depth_one_dir_returns_2() {
         let depth = get_current_depth("http://localhost/src");
         assert_eq!(depth, 2);
     }
 
     #[test]
+    /// base url + 1 dir and slash returns 2
     fn get_current_depth_one_dir_with_slash_returns_2() {
         let depth = get_current_depth("http://localhost/src/");
         assert_eq!(depth, 2);
     }
 
     #[test]
+    /// base url + 1 dir and slash returns 2
+    fn get_current_depth_single_forward_slash_is_zero() {
+        let depth = get_current_depth("");
+        assert_eq!(depth, 0);
+    }
+
+    #[test]
+    /// base url + 1 word + no slash + no extension
     fn format_url_normal() {
         assert_eq!(
             format_url("http://localhost", "stuff", false, &Vec::new(), None).unwrap(),
@@ -266,6 +278,7 @@ mod tests {
     }
 
     #[test]
+    /// base url + no word + no slash + no extension
     fn format_url_no_word() {
         assert_eq!(
             format_url("http://localhost", "", false, &Vec::new(), None).unwrap(),
@@ -274,12 +287,32 @@ mod tests {
     }
 
     #[test]
+    /// base url + word + no slash + no extension + queries
+    fn format_url_joins_queries() {
+        assert_eq!(
+            format_url("http://localhost", "lazer", false, &[(String::from("stuff"), String::from("things"))], None).unwrap(),
+            reqwest::Url::parse("http://localhost/lazer?stuff=things").unwrap()
+        );
+    }
+
+    #[test]
+    /// base url + no word + no slash + no extension + queries
+    fn format_url_without_word_joins_queries() {
+        assert_eq!(
+            format_url("http://localhost", "", false, &[(String::from("stuff"), String::from("things"))], None).unwrap(),
+            reqwest::Url::parse("http://localhost/?stuff=things").unwrap()
+        );
+    }
+
+    #[test]
     #[should_panic]
+    /// no base url is an error
     fn format_url_no_url() {
         format_url("", "stuff", false, &Vec::new(), None).unwrap();
     }
 
     #[test]
+    /// word prepended with slash is adjusted for correctness
     fn format_url_word_with_preslash() {
         assert_eq!(
             format_url("http://localhost", "/stuff", false, &Vec::new(), None).unwrap(),
@@ -288,10 +321,73 @@ mod tests {
     }
 
     #[test]
+    /// word with appended slash allows the slash to persist
     fn format_url_word_with_postslash() {
         assert_eq!(
             format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
+        );
+    }
+
+    #[test]
+    /// status colorizer uses red for 500s
+    fn status_colorizer_uses_red_for_500s() {
+        assert_eq!(
+            status_colorizer("500"), style("500").red().to_string()
+        );
+    }
+
+    #[test]
+    /// status colorizer uses red for 400s
+    fn status_colorizer_uses_red_for_400s() {
+        assert_eq!(
+            status_colorizer("400"), style("400").red().to_string()
+        );
+    }
+
+    #[test]
+    /// status colorizer uses red for errors
+    fn status_colorizer_uses_red_for_errors() {
+        assert_eq!(
+            status_colorizer("ERROR"), style("ERROR").red().to_string()
+        );
+    }
+
+    #[test]
+    /// status colorizer uses cyan for wildcards
+    fn status_colorizer_uses_cyan_for_wildcards() {
+        assert_eq!(
+            status_colorizer("WLD"), style("WLD").cyan().to_string()
+        );
+    }
+
+    #[test]
+    /// status colorizer uses blue for 100s
+    fn status_colorizer_uses_blue_for_100s() {
+        assert_eq!(
+            status_colorizer("100"), style("100").blue().to_string()
+        );
+    }
+    #[test]
+    /// status colorizer uses green for 200s
+    fn status_colorizer_uses_green_for_200s() {
+        assert_eq!(
+            status_colorizer("200"), style("200").green().to_string()
+        );
+    }
+    #[test]
+    /// status colorizer uses yellow for 300s
+    fn status_colorizer_uses_yellow_for_300s() {
+        assert_eq!(
+            status_colorizer("300"), style("300").yellow().to_string()
+        );
+    }
+
+    #[test]
+    /// status colorizer doesnt color anything else
+    fn status_colorizer_returns_as_is() {
+        assert_eq!(
+            status_colorizer("farfignewton"), "farfignewton".to_string()
         );
     }
 }
