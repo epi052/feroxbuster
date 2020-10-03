@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive">
 </p>
 
-![demo](img/quick-demo.gif)
+![demo](img/demo.gif)
 
 <p align="center">
   <a href="https://github.com/epi052/feroxbuster/releases">Releases</a> •
