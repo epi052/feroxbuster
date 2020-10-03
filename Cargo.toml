@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -46,4 +46,8 @@ panic = 'abort'
 [package.metadata.deb]
 section = "utility"
 license-file = ["LICENSE", "4"]
-conf-files = ["~/.config/feroxbuster/ferox-config.toml"]
+conf-files = ["/etc/feroxbuster/ferox-config.toml"]
+assets = [
+    ["target/release/feroxbuster", "/usr/bin/", "755"],
+    ["ferox-config.toml.example", "/etc/feroxbuster/ferox-config.toml", "644"],
+]

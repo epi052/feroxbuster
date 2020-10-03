@@ -233,6 +233,7 @@ impl Configuration {
     /// built-in defaults.
     ///
     /// `ferox-config.toml` can be placed in any of the following locations (in the order shown):
+    /// - `/etc/feroxbuster/`
     /// - `CONFIG_DIR/ferxobuster/`
     /// - The same directory as the `feroxbuster` executable
     /// - The user's current working directory
@@ -255,9 +256,14 @@ impl Configuration {
         // actually specified in the config file
         //
         // search for a config using the following order of precedence
+        //   - /etc/feroxbuster/
         //   - CONFIG_DIR/ferxobuster/
         //   - same directory as feroxbuster executable
         //   - current directory
+
+        // merge a config found at /etc/feroxbuster/ferox-config.toml
+        let config_file = PathBuf::new().join("/etc/feroxbuster").join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config);
 
         // merge a config found at ~/.config/feroxbuster/ferox-config.toml
         if let Some(config_dir) = dirs::config_dir() {
