@@ -245,6 +245,11 @@ impl Configuration {
     /// The resulting [Configuration](struct.Configuration.html) is a singleton with a `static`
     /// lifetime.
     pub fn new() -> Self {
+        // when compiling for test, we want to eliminate the runtime dependency of the parser
+        if cfg!(test) {
+            return Configuration::default();
+        }
+
         // Get the default configuration, this is what will apply if nothing
         // else is specified.
         let mut config = Configuration::default();
