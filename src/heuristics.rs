@@ -1,6 +1,8 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer};
-use ansi_term::Color::{Cyan, Yellow};
+use crate::utils::{
+    ferox_print, format_url, get_url_path_length, make_request, module_colorizer, status_colorizer,
+};
+use console::style;
 use indicatif::ProgressBar;
 use reqwest::Response;
 use std::process;
@@ -86,9 +88,9 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                             "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}",
                             status_colorizer("WLD"),
                             wc_length - url_len,
-                            Yellow.paint("auto-filtering"),
-                            Cyan.paint(format!("{}", wc_length - url_len)),
-                            Yellow.paint("--dontfilter")
+                            style("auto-filtering").yellow(),
+                            style(wc_length - url_len).cyan(),
+                            style("--dontfilter").yellow()
                         ), &PROGRESS_PRINTER
                     );
                 }
@@ -100,9 +102,9 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                         "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}",
                         status_colorizer("WLD"),
                         wc_length,
-                        Yellow.paint("auto-filtering"),
-                        Cyan.paint(format!("{}", wc_length)),
-                        Yellow.paint("--dontfilter")
+                        style("auto-filtering").yellow(),
+                        style(wc_length).cyan(),
+                        style("--dontfilter").yellow()
                     ), &PROGRESS_PRINTER);
                 }
                 wildcard.size = wc_length;
@@ -261,7 +263,7 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
         eprintln!(
             "{} {} Could not connect to any target provided",
             status_colorizer("ERROR"),
-            Cyan.paint("heuristics::connectivity_test"),
+            module_colorizer("heuristics::connectivity_test"),
         );
 
         process::exit(1);

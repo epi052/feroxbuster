@@ -1,7 +1,6 @@
-use ansi_term::Color::Cyan;
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::{get_current_depth, status_colorizer};
+use feroxbuster::utils::{get_current_depth, module_colorizer, status_colorizer};
 use feroxbuster::{banner, heuristics, logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
@@ -22,7 +21,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
             eprintln!(
                 "{} {} {}",
                 status_colorizer("ERROR"),
-                Cyan.paint("main::get_unique_words_from_wordlist"),
+                module_colorizer("main::get_unique_words_from_wordlist"),
                 e
             );
             log::error!("Could not open wordlist: {}", e);
@@ -68,7 +67,7 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
         eprintln!(
             "{} {} Did not find any words in {}",
             status_colorizer("ERROR"),
-            Cyan.paint("main::scan"),
+            module_colorizer("main::scan"),
             CONFIGURATION.wordlist
         );
         process::exit(1);

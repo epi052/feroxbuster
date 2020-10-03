@@ -1,5 +1,5 @@
-use crate::utils::status_colorizer;
-use ansi_term::Color::Cyan;
+use crate::utils::{module_colorizer, status_colorizer};
+use console::style;
 use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
@@ -28,7 +28,7 @@ pub fn initialize(
             eprintln!(
                 "{} {} {}",
                 status_colorizer("ERROR"),
-                Cyan.paint("Client::initialize"),
+                module_colorizer("Client::initialize"),
                 e
             );
             exit(1);
@@ -49,13 +49,13 @@ pub fn initialize(
                 eprintln!(
                     "{} {} Could not add proxy ({:?}) to Client configuration",
                     status_colorizer("ERROR"),
-                    Cyan.paint("Client::initialize"),
+                    module_colorizer("Client::initialize"),
                     proxy
                 );
                 eprintln!(
                     "{} {} {}",
                     status_colorizer("ERROR"),
-                    Cyan.paint("Client::initialize"),
+                    style("Client::initialize").cyan(),
                     e
                 );
                 exit(1);
@@ -71,12 +71,12 @@ pub fn initialize(
             eprintln!(
                 "{} {} Could not create a Client with the given configuration, exiting.",
                 status_colorizer("ERROR"),
-                Cyan.paint("Client::build")
+                module_colorizer("Client::build")
             );
             eprintln!(
                 "{} {} {}",
                 status_colorizer("ERROR"),
-                Cyan.paint("Client::build"),
+                module_colorizer("Client::build"),
                 e
             );
             exit(1);

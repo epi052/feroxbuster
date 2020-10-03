@@ -1,7 +1,6 @@
-use crate::utils::status_colorizer;
+use crate::utils::{module_colorizer, status_colorizer};
 use crate::{client, parser, progress};
 use crate::{DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
-use ansi_term::Color::Cyan;
 use clap::value_t;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use lazy_static::lazy_static;
@@ -524,7 +523,7 @@ impl Configuration {
                     println!(
                         "{} {} {}",
                         status_colorizer("ERROR"),
-                        Cyan.paint("config::parse_config"),
+                        module_colorizer("config::parse_config"),
                         e
                     );
                 }

@@ -1,6 +1,5 @@
 use crate::FeroxResult;
-use ansi_term::Color::{Blue, Cyan, Green, Red, Yellow};
-use console::{strip_ansi_codes, user_attended};
+use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use reqwest::{Client, Response};
@@ -63,15 +62,22 @@ pub fn get_current_depth(target: &str) -> usize {
 /// Takes in a string and examines the first character to return a color version of the same string
 pub fn status_colorizer(status: &str) -> String {
     match status.chars().next() {
-        Some('1') => Blue.paint(status).to_string(), // informational
-        Some('2') => Green.bold().paint(status).to_string(), // success
-        Some('3') => Yellow.paint(status).to_string(), // redirects
-        Some('4') => Red.paint(status).to_string(),  // client error
-        Some('5') => Red.paint(status).to_string(),  // server error
-        Some('W') => Cyan.paint(status).to_string(), // wildcard
-        Some('E') => Red.paint(status).to_string(),  // error
-        _ => status.to_string(),                     // ¯\_(ツ)_/¯
+        Some('1') => style(status).blue().to_string(), // informational
+        Some('2') => style(status).green().to_string(), // success
+        Some('3') => style(status).yellow().to_string(), // redirects
+        Some('4') => style(status).red().to_string(),  // client error
+        Some('5') => style(status).red().to_string(),  // server error
+        Some('W') => style(status).cyan().to_string(), // wildcard
+        Some('E') => style(status).red().to_string(),  // error
+        _ => status.to_string(),                       // ¯\_(ツ)_/¯
     }
+}
+
+/// Takes in a string and colors it using console::style
+///
+/// mainly putting this here in case i want to change the color later, making any changes easy
+pub fn module_colorizer(modname: &str) -> String {
+    style(modname).cyan().to_string()
 }
 
 /// Gets the length of a url's path
