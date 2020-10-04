@@ -1,3 +1,8 @@
+name: CD Pipeline
+
+on: [push]
+
+jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
     if: github.ref == 'refs/heads/master'
