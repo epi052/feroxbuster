@@ -519,3 +519,20 @@ fn banner_prints_no_recursion() -> Result<(), Box<dyn std::error::Error>> {
         );
     Ok(())
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see only the error of could not connect
+fn banner_doesnt_print() -> Result<(), Box<dyn std::error::Error>> {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-q")
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("ERROR heuristics::connectivity_test Could not connect to any target provided")
+        );
+    Ok(())
+}
