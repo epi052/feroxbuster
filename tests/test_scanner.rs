@@ -8,7 +8,6 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
 fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
 
@@ -41,7 +40,6 @@ fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
     let srv = MockServer::start();
     let urls = [
         "js".to_string(),
