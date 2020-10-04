@@ -279,6 +279,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// request a unique string of 32bytes * a value returns correct result
     fn unique_string_returns_correct_length() {
         for i in 0..10 {
             assert_eq!(unique_string(i).len(), i * 32);

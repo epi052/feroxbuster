@@ -372,11 +372,13 @@ mod tests {
     fn status_colorizer_uses_blue_for_100s() {
         assert_eq!(status_colorizer("100"), style("100").blue().to_string());
     }
+
     #[test]
     /// status colorizer uses green for 200s
     fn status_colorizer_uses_green_for_200s() {
         assert_eq!(status_colorizer("200"), style("200").green().to_string());
     }
+
     #[test]
     /// status colorizer uses yellow for 300s
     fn status_colorizer_uses_yellow_for_300s() {

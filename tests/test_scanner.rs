@@ -7,6 +7,7 @@ use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
+/// send a single valid request, expect a 200 response
 fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
@@ -39,6 +40,7 @@ fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+/// send a valid request, follow redirects into new directories, expect 301/200 responses
 fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let urls = [
@@ -100,6 +102,8 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(js_prod_mock.times_called(), 1);
     assert_eq!(js_dev_mock.times_called(), 1);
     assert_eq!(js_dev_file_mock.times_called(), 1);
+
     teardown_tmp_directory(tmp_dir);
+
     Ok(())
 }
