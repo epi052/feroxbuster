@@ -10,23 +10,23 @@
   <a href="https://github.com/epi052/feroxbuster/actions?query=workflow%3A%22CI+Pipeline%22">
     <img src="https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github">
   </a>
-  ✨
+
   <a href="https://github.com/epi052/feroxbuster/releases">
     <img src="https://img.shields.io/github/downloads/epi052/feroxbuster/total?label=downloads&logo=github&color=inactive" alt="github downloads">
   </a>
-  ✨
+
   <a href="https://github.com/epi052/feroxbuster/commits/master">
     <img src="https://img.shields.io/github/last-commit/epi052/feroxbuster?logo=github">
   </a>
-  ✨
+
   <a href="https://crates.io/crates/feroxbuster">
     <img src="https://img.shields.io/crates/v/feroxbuster?color=blue&label=version&logo=rust">
   </a>
-  ✨ 
+ 
   <a href="https://crates.io/crates/feroxbuster">
     <img src="https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive">
   </a>
-  ✨
+
   <a href="https://codecov.io/gh/epi052/feroxbuster">
     <img src="https://codecov.io/gh/epi052/feroxbuster/branch/master/graph/badge.svg" />
   </a>
@@ -35,9 +35,9 @@
 ![demo](img/demo.gif)
 
 <p align="center">
-  <a href="https://github.com/epi052/feroxbuster/releases">Releases</a> •
-  <a href="#-example-usage">Example Usage</a> •
-  <a href="https://github.com/epi052/feroxbuster/blob/master/CONTRIBUTING.md">Contributing</a> •
+  <a href="https://github.com/epi052/feroxbuster/releases">Releases</a> ✨
+  <a href="#-example-usage">Example Usage</a> ✨
+  <a href="https://github.com/epi052/feroxbuster/blob/master/CONTRIBUTING.md">Contributing</a> ✨
   <a href="https://docs.rs/feroxbuster/latest/feroxbuster/">Documentation</a>
 </p>
 
