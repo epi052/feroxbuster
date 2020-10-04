@@ -1,6 +1,6 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::{get_current_depth, module_colorizer, status_colorizer};
+use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
 use feroxbuster::{banner, heuristics, logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
@@ -36,20 +36,14 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     let mut words = HashSet::new();
 
     for line in reader.lines() {
-        match line {
-            Ok(word) => {
-                words.insert(word);
-            }
-            Err(e) => {
-                log::warn!("Could not parse current line from wordlist : {}", e);
-            }
-        }
+        words.insert(line?);
     }
 
     log::trace!(
         "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
         words.len()
     );
+
     Ok(Arc::new(words))
 }
 
@@ -93,7 +87,7 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
     Ok(())
 }
 
-async fn get_targets() -> Vec<String> {
+async fn get_targets() -> FeroxResult<Vec<String>> {
     log::trace!("enter: get_targets");
 
     let mut targets = vec![];
@@ -105,14 +99,7 @@ async fn get_targets() -> Vec<String> {
         let mut reader = FramedRead::new(stdin, LinesCodec::new());
 
         while let Some(line) = reader.next().await {
-            match line {
-                Ok(target) => {
-                    targets.push(target);
-                }
-                Err(e) => {
-                    log::error!("{}", e);
-                }
-            }
+            targets.push(line?);
         }
     } else {
         targets.push(CONFIGURATION.target_url.clone());
@@ -120,7 +107,7 @@ async fn get_targets() -> Vec<String> {
 
     log::trace!("exit: get_targets -> {:?}", targets);
 
-    targets
+    Ok(targets)
 }
 
 #[tokio::main]
@@ -131,7 +118,23 @@ async fn main() {
     log::debug!("{:#?}", *CONFIGURATION);
 
     // get targets from command line or stdin
-    let targets = get_targets().await;
+    let targets = match get_targets().await {
+        Ok(t) => t,
+        Err(e) => {
+            // should only happen in the event that there was an error reading from stdin
+            log::error!("{}", e);
+            ferox_print(
+                &format!(
+                    "{} {} {}",
+                    status_colorizer("ERROR"),
+                    module_colorizer("main::get_targets"),
+                    e
+                ),
+                &PROGRESS_PRINTER,
+            );
+            process::exit(1);
+        }
+    };
 
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used

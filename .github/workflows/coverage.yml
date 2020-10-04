@@ -3,7 +3,7 @@ on: [push]
 name: Code Coverage Pipeline
 
 jobs:
-  lint:
+  upload-coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
