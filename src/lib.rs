@@ -52,3 +52,26 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
 ///
 /// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// asserts default config name is correct
+    fn default_config_name() {
+        assert_eq!(DEFAULT_CONFIG_NAME, "ferox-config.toml");
+    }
+
+    #[test]
+    /// asserts default wordlist is correct
+    fn default_wordlist() {
+        assert_eq!(DEFAULT_WORDLIST, "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt");
+    }
+
+    #[test]
+    /// asserts default version is correct
+    fn default_version() {
+        assert_eq!(VERSION, env!("CARGO_PKG_VERSION"));
+    }
+}

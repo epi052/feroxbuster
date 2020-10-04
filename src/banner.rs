@@ -241,10 +241,8 @@ by Ben "epi" Risher {}                  ver: {}"#,
     eprintln!("{}", bottom);
 }
 
+#[cfg(test)]
 mod tests {
-    #[allow(unused)]
-    // not really sure why this shows an unused import warning, as i definitely need it to compile
-    // the test functions as they're written...
     use super::*;
 
     #[test]
