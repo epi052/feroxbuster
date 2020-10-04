@@ -531,8 +531,8 @@ fn banner_doesnt_print() -> Result<(), Box<dyn std::error::Error>> {
         .arg("-q")
         .assert()
         .failure()
-        .stderr(
-            predicate::str::contains("ERROR heuristics::connectivity_test Could not connect to any target provided")
-        );
+        .stderr(predicate::str::contains(
+            "ERROR heuristics::connectivity_test Could not connect to any target provided",
+        ));
     Ok(())
 }

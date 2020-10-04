@@ -66,7 +66,10 @@ mod tests {
     #[test]
     /// asserts default wordlist is correct
     fn default_wordlist() {
-        assert_eq!(DEFAULT_WORDLIST, "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt");
+        assert_eq!(
+            DEFAULT_WORDLIST,
+            "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt"
+        );
     }
 
     #[test]

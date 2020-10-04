@@ -1,12 +1,12 @@
-mod utils;
-use httpmock::Method::GET;
-use httpmock::{MockServer, Mock};
+pub mod utils;
 use assert_cmd::Command;
+use httpmock::Method::GET;
+use httpmock::{Mock, MockServer};
 use predicates::prelude::*;
 
 #[test]
-/// send the function a directory to execute error branch
-fn main_use_directory_as_wordlist() -> Result<(), Box<dyn std::error::Error>> {
+/// send the function a file to which we dont have permission in order to execute error branch
+fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
 
     let mock = Mock::new()
@@ -25,9 +25,9 @@ fn main_use_directory_as_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .arg("-vvvv")
         .assert()
         .success()
-        .stderr(
-            predicate::str::contains("ERROR main::get_unique_words_from_wordlist Permission denied (os error 13)")
-        );
+        .stderr(predicate::str::contains(
+            "ERROR main::get_unique_words_from_wordlist Permission denied (os error 13)",
+        ));
 
     // connectivity test hits it once
     assert_eq!(mock.times_called(), 1);
