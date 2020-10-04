@@ -1,22 +1,34 @@
+mod utils;
 use assert_cmd::Command;
 use predicates::prelude::*;
+use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + proxy
 fn banner_prints_proxy() -> Result<(), Box<dyn std::error::Error>> {
+    let urls = vec![
+        String::from("http://localhost"),
+        String::from("http://schmocalhost"),
+    ];
+    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+
     Command::cargo_bin("feroxbuster")
         .unwrap()
-        .arg("--url")
-        .arg("http://localhost")
+        .arg("--stdin")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
         .arg("--proxy")
         .arg("http://127.0.0.1:8080")
+        .pipe_stdin(file)
+        .unwrap()
         .assert()
         .failure()
         .stderr(
             predicate::str::contains("─┬─")
                 .and(predicate::str::contains("Target Url"))
                 .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("http://schmocalhost"))
                 .and(predicate::str::contains("Threads"))
                 .and(predicate::str::contains("Wordlist"))
                 .and(predicate::str::contains("Status Codes"))
@@ -26,6 +38,8 @@ fn banner_prints_proxy() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("http://127.0.0.1:8080"))
                 .and(predicate::str::contains("─┴─")),
         );
+
+    teardown_tmp_directory(tmp_dir);
     Ok(())
 }
 
@@ -117,6 +131,33 @@ fn banner_prints_queries() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("Query Parameter"))
                 .and(predicate::str::contains("token=supersecret"))
                 .and(predicate::str::contains("stuff=things"))
+                .and(predicate::str::contains("─┴─")),
+        );
+    Ok(())
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + status codes
+fn banner_prints_status_codes() -> Result<(), Box<dyn std::error::Error>> {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-s")
+        .arg("201,301,401")
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("[201, 301, 401]"))
                 .and(predicate::str::contains("─┴─")),
         );
     Ok(())
