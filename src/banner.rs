@@ -1,4 +1,4 @@
-use crate::{config::CONFIGURATION, utils::status_colorizer, VERSION};
+use crate::{config::Configuration, utils::status_colorizer, VERSION};
 
 /// macro helper to abstract away repetitive string formatting
 macro_rules! format_banner_entry_helper {
@@ -43,7 +43,7 @@ macro_rules! format_banner_entry {
 /// Prints the banner to stdout.
 ///
 /// Only prints those settings which are either always present, or passed in by the user.
-pub fn initialize(targets: &[String]) {
+pub fn initialize(targets: &[String], config: &Configuration) {
     let artwork = format!(
         r#"
  ___  ___  __   __     __      __         __   ___
@@ -69,17 +69,17 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     let mut codes = vec![];
 
-    for code in &CONFIGURATION.statuscodes {
+    for code in &config.statuscodes {
         codes.push(status_colorizer(&code.to_string()))
     }
 
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1F680}", "Threads", CONFIGURATION.threads)
+        format_banner_entry!("\u{1F680}", "Threads", config.threads)
     ); // 🚀
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1f4d6}", "Wordlist", CONFIGURATION.wordlist)
+        format_banner_entry!("\u{1f4d6}", "Wordlist", config.wordlist)
     ); // 📖
     eprintln!(
         "{}",
@@ -91,30 +91,30 @@ by Ben "epi" Risher {}                  ver: {}"#,
     ); // 🆗
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1f4a5}", "Timeout (secs)", CONFIGURATION.timeout)
+        format_banner_entry!("\u{1f4a5}", "Timeout (secs)", config.timeout)
     ); // 💥
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1F9a1}", "User-Agent", CONFIGURATION.useragent)
+        format_banner_entry!("\u{1F9a1}", "User-Agent", config.useragent)
     ); // 🦡
 
     // followed by the maybe printed or variably displayed values
-    if !CONFIGURATION.config.is_empty() {
+    if !config.config.is_empty() {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f489}", "Config File", CONFIGURATION.config)
+            format_banner_entry!("\u{1f489}", "Config File", config.config)
         ); // 💉
     }
 
-    if !CONFIGURATION.proxy.is_empty() {
+    if !config.proxy.is_empty() {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f48e}", "Proxy", CONFIGURATION.proxy)
+            format_banner_entry!("\u{1f48e}", "Proxy", config.proxy)
         ); // 💎
     }
 
-    if !CONFIGURATION.headers.is_empty() {
-        for (name, value) in &CONFIGURATION.headers {
+    if !config.headers.is_empty() {
+        for (name, value) in &config.headers {
             eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f92f}", "Header", name, value)
@@ -122,8 +122,8 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
-    if !CONFIGURATION.sizefilters.is_empty() {
-        for filter in &CONFIGURATION.sizefilters {
+    if !config.sizefilters.is_empty() {
+        for filter in &config.sizefilters {
             eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f4a2}", "Size Filter", filter)
@@ -131,8 +131,8 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
-    if !CONFIGURATION.queries.is_empty() {
-        for query in &CONFIGURATION.queries {
+    if !config.queries.is_empty() {
+        for query in &config.queries {
             eprintln!(
                 "{}",
                 format_banner_entry!(
@@ -144,83 +144,83 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
-    if !CONFIGURATION.output.is_empty() {
+    if !config.output.is_empty() {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f4be}", "Output File", CONFIGURATION.output)
+            format_banner_entry!("\u{1f4be}", "Output File", config.output)
         ); // 💾
     }
 
-    if !CONFIGURATION.extensions.is_empty() {
+    if !config.extensions.is_empty() {
         eprintln!(
             "{}",
             format_banner_entry!(
                 "\u{1f4b2}",
                 "Extensions",
-                format!("[{}]", CONFIGURATION.extensions.join(", "))
+                format!("[{}]", config.extensions.join(", "))
             )
         ); // 💲
     }
 
-    if CONFIGURATION.insecure {
+    if config.insecure {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f513}", "Insecure", CONFIGURATION.insecure)
+            format_banner_entry!("\u{1f513}", "Insecure", config.insecure)
         ); // 🔓
     }
 
-    if CONFIGURATION.redirects {
+    if config.redirects {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f4cd}", "Follow Redirects", CONFIGURATION.redirects)
+            format_banner_entry!("\u{1f4cd}", "Follow Redirects", config.redirects)
         ); // 📍
     }
 
-    if CONFIGURATION.dontfilter {
+    if config.dontfilter {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !CONFIGURATION.dontfilter)
+            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !config.dontfilter)
         ); // 🤪
     }
 
-    match CONFIGURATION.verbosity {
+    match config.verbosity {
         //speaker medium volume (increasing with verbosity to loudspeaker)
         1 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f508}", "Verbosity", CONFIGURATION.verbosity)
+                format_banner_entry!("\u{1f508}", "Verbosity", config.verbosity)
             ); // 🔈
         }
         2 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f509}", "Verbosity", CONFIGURATION.verbosity)
+                format_banner_entry!("\u{1f509}", "Verbosity", config.verbosity)
             ); // 🔉
         }
         3 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f50a}", "Verbosity", CONFIGURATION.verbosity)
+                format_banner_entry!("\u{1f50a}", "Verbosity", config.verbosity)
             ); // 🔊
         }
         4 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f4e2}", "Verbosity", CONFIGURATION.verbosity)
+                format_banner_entry!("\u{1f4e2}", "Verbosity", config.verbosity)
             ); // 📢
         }
         _ => {}
     }
 
-    if CONFIGURATION.addslash {
+    if config.addslash {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1fa93}", "Add Slash", CONFIGURATION.addslash)
+            format_banner_entry!("\u{1fa93}", "Add Slash", config.addslash)
         ); // 🪓
     }
 
-    if !CONFIGURATION.norecursion {
-        if CONFIGURATION.depth == 0 {
+    if !config.norecursion {
+        if config.depth == 0 {
             eprintln!(
                 "{}",
                 format_banner_entry!("\u{1f503}", "Recursion Depth", "INFINITE")
@@ -228,15 +228,53 @@ by Ben "epi" Risher {}                  ver: {}"#,
         } else {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f503}", "Recursion Depth", CONFIGURATION.depth)
+                format_banner_entry!("\u{1f503}", "Recursion Depth", config.depth)
             ); // 🔃
         }
     } else {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", CONFIGURATION.norecursion)
+            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", config.norecursion)
         ); // 🚫
     }
 
     eprintln!("{}", bottom);
+}
+
+mod tests {
+    #[allow(unused)]
+    // not really sure why this shows an unused import warning, as i definitely need it to compile
+    // the test functions as they're written...
+    use super::*;
+
+    #[test]
+    /// test to hit no execution of targets for loop in banner
+    fn banner_without_targets() {
+        let config = Configuration::default();
+        initialize(&[], &config);
+    }
+
+    #[test]
+    /// test to hit no execution of statuscode for loop in banner
+    fn banner_without_status_codes() {
+        let mut config = Configuration::default();
+        config.statuscodes = vec![];
+        initialize(&[String::from("http://localhost")], &config);
+    }
+
+    #[test]
+    /// test to hit an empty config file
+    fn banner_without_config_file() {
+        let mut config = Configuration::default();
+        config.config = String::new();
+        initialize(&[String::from("http://localhost")], &config);
+    }
+
+    #[test]
+    /// test to hit an empty config file
+    fn banner_without_queries() {
+        let mut config = Configuration::default();
+        config.queries = vec![(String::new(), String::new())];
+        initialize(&[String::from("http://localhost")], &config);
+    }
 }

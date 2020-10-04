@@ -135,7 +135,7 @@ async fn main() {
 
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
-        banner::initialize(&targets);
+        banner::initialize(&targets, &CONFIGURATION);
     }
 
     // discard non-responsive targets
