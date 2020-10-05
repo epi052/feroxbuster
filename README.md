@@ -47,7 +47,7 @@
 
 Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  🤷	
 
-## What's it do tho? 
+## 🤔 What's it do tho? 
 
 `feroxbuster` is a tool designed to perform [Forced Browsing](https://owasp.org/www-community/attacks/Forced_browsing).  
 
