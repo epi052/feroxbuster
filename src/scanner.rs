@@ -10,11 +10,14 @@ use reqwest::{Response, Url};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::ops::Deref;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::fs;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
+
+static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Spawn a single consumer task (sc side of mpsc)
 ///
@@ -430,10 +433,10 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     let progress_bar = progress::add_bar(&target_url, num_reqs_expected, false);
     progress_bar.reset_elapsed();
 
-    if get_current_depth(&target_url) - base_depth == 0 {
+    if CALL_COUNT.load(Ordering::Relaxed) == 0 {
         // join can only be called once, otherwise it causes the thread to panic
-        // when current depth - base depth equals zero, we're in the first call to scan_url
         tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
+        CALL_COUNT.fetch_add(1, Ordering::Relaxed);
     }
 
     let wildcard_bar = progress_bar.clone();
