@@ -295,10 +295,10 @@ a few of the use-cases in which feroxbuster may be a better fit:
 | allows recursion                                    | ✔ |   | ✔ |
 | can specify query parameters                        | ✔ |   | ✔ |
 | SOCKS proxy support                                 | ✔ |   |   |
-| multiple target scan (via stdin or multiple -u)     | ✔ |   |   |
+| multiple target scan (via stdin or multiple -u)     | ✔ |   | ✔ |
 | configuration file for default value override       | ✔ |   | ✔ |
-| can accept urls via STDIN as part of a pipeline     | ✔ |   |   |
-| can accept wordlists via STDIN                      |   | ✔ |   |
+| can accept urls via STDIN as part of a pipeline     | ✔ |   | ✔ |
+| can accept wordlists via STDIN                      |   | ✔ | ✔ |
 | filter by response size                             | ✔ |   | ✔ |
 | auto-filter wildcard responses                      | ✔ |   | ✔ |
 | performs other scans (vhost, dns, etc)              |   | ✔ | ✔ |
