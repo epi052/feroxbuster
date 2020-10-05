@@ -47,6 +47,18 @@
 
 Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  🤷	
 
+## What's it do tho? 
+
+`feroxbuster` is a tool designed to perform [Forced Browsing](https://owasp.org/www-community/attacks/Forced_browsing).  
+
+Forced browsing is an attack where the aim is to enumerate and access resources that are not referenced by the web application, but are still accessible by an attacker.
+
+`feroxbuster` uses brute force combined with a wordlist to search for unlinked contents in target directories, such as temporary directories and files, and old backup and configuration files. These resources may store sensitive information about web applications and operational systems, such as source code, credentials, internal network addressing, and so on.
+
+This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource Enumeration.
+
+ref: https://owasp.org/www-community/attacks/Forced_browsing
+
 📖 Table of Contents
 -----------------
 - [Downloads](#-downloads)
