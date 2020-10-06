@@ -7,6 +7,6 @@ RUN apk add --no-cache --virtual .depends subversion && \
 	apk del .depends
 
 # install latest release
-RUN wget https://github.com/epi052/feroxbuster/releases/download/v1.0.0/x86_64-linux-feroxbuster.zip -qO feroxbuster.zip && unzip -d /usr/local/bin/ feroxbuster.zip feroxbuster && rm feroxbuster.zip && chmod +x /usr/local/bin/feroxbuster
+RUN wget https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip -qO feroxbuster.zip && unzip -d /usr/local/bin/ feroxbuster.zip feroxbuster && rm feroxbuster.zip && chmod +x /usr/local/bin/feroxbuster
 
 ENTRYPOINT ["feroxbuster"]
