@@ -140,7 +140,7 @@ cat targets.txt | sudo docker run --net=host --init -i feroxbuster --stdin -x js
 
 #### Mount a volume to pass in `ferox-config.toml`
 
-You've got some options available if you want to pass in a config file.  [`ferox-buster.toml`](#ferox-config-toml) can live in multiple locations and still be valid, so it's up to you how you'd like to pass it in.  Below are a few valid examples:
+You've got some options available if you want to pass in a config file.  [`ferox-buster.toml`](#ferox-configtoml) can live in multiple locations and still be valid, so it's up to you how you'd like to pass it in.  Below are a few valid examples:
 
 ```
 sudo docker run --init -v $(pwd)/ferox-config.toml:/etc/feroxbuster/ferox-config.toml -it feroxbuster -u http://example.com
