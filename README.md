@@ -64,6 +64,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Download a Release](#download-a-release)
     - [Cargo Install](#cargo-install)
     - [apt Install](#apt-install)
+    - [Docker Install](#docker-install)
 - [Configuration](#-configuration)
     - [Default Values](#default-values)
     - [ferox-config.toml](#ferox-configtoml)
@@ -104,6 +105,49 @@ Head to the [Releases](https://github.com/epi052/feroxbuster/releases) section a
 
 ```
 sudo apt install ./feroxbuster_amd64.deb
+```
+
+### Docker Install
+
+> The following steps assume you have docker installed / setup
+
+First, clone the repository.
+
+```
+git clone https://github.com/epi052/feroxbuster.git
+cd feroxbuster
+```
+
+Next, build the image.
+
+```
+sudo docker build -t feroxbuster .
+```
+
+After that, you should be able to use `docker run` to perform the following.
+
+#### Basic usage
+
+```
+sudo docker run --init -it feroxbuster -u http://example.com -x js,html
+```
+
+#### Piping from stdin and proxying all requests through socks5 proxy
+
+```
+cat targets.txt | sudo docker run --net=host --init -i feroxbuster --stdin -x js,html --proxy socks5://127.0.0.1:9050
+```
+
+#### Mount a volume to pass in `ferox-config.toml`
+
+```
+sudo docker run --init -v ~/.config/feroxbuster:/root/.config/feroxbuster -it feroxbuster -u http://example.com
+```
+
+#### Define an alias for simplicity
+
+```
+alias feroxbuster="sudo docker run --init -v ~/.config/feroxbuster:/root/.config/feroxbuster -i feroxbuster"
 ```
 
 ## ⚙️ Configuration
