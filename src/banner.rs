@@ -49,8 +49,8 @@ pub fn initialize(targets: &[String], config: &Configuration) {
  ___  ___  __   __     __      __         __   ___
 |__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__
 |    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___
-by Ben "epi" Risher {}                  ver: {}"#,
-        '\u{1F913}', VERSION
+by Ben "epi" Risher                    ver: {}"#,
+        VERSION
     );
 
     let top = "───────────────────────────┬──────────────────────";
@@ -63,7 +63,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     for target in targets {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1F3af}", "Target Url", target)
+            format_banner_entry!("\u", "Target Url", target)
         ); // 🎯
     }
 
@@ -75,11 +75,11 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1F680}", "Threads", config.threads)
+        format_banner_entry!("\u", "Threads", config.threads)
     ); // 🚀
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1f4d6}", "Wordlist", config.wordlist)
+        format_banner_entry!("\u", "Wordlist", config.wordlist)
     ); // 📖
     eprintln!(
         "{}",
@@ -91,25 +91,25 @@ by Ben "epi" Risher {}                  ver: {}"#,
     ); // 🆗
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1f4a5}", "Timeout (secs)", config.timeout)
+        format_banner_entry!("\u", "Timeout (secs)", config.timeout)
     ); // 💥
     eprintln!(
         "{}",
-        format_banner_entry!("\u{1F9a1}", "User-Agent", config.useragent)
+        format_banner_entry!("\u", "User-Agent", config.useragent)
     ); // 🦡
 
     // followed by the maybe printed or variably displayed values
     if !config.config.is_empty() {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f489}", "Config File", config.config)
+            format_banner_entry!("\u", "Config File", config.config)
         ); // 💉
     }
 
     if !config.proxy.is_empty() {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f48e}", "Proxy", config.proxy)
+            format_banner_entry!("\u", "Proxy", config.proxy)
         ); // 💎
     }
 
@@ -117,7 +117,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
         for (name, value) in &config.headers {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f92f}", "Header", name, value)
+                format_banner_entry!("\u", "Header", name, value)
             ); // 🤯
         }
     }
@@ -126,7 +126,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
         for filter in &config.sizefilters {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f4a2}", "Size Filter", filter)
+                format_banner_entry!("\u", "Size Filter", filter)
             ); // 💢
         }
     }
@@ -136,7 +136,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
             eprintln!(
                 "{}",
                 format_banner_entry!(
-                    "\u{1f914}",
+                    "\u",
                     "Query Parameter",
                     format!("{}={}", query.0, query.1)
                 )
@@ -147,7 +147,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     if !config.output.is_empty() {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f4be}", "Output File", config.output)
+            format_banner_entry!("\u", "Output File", config.output)
         ); // 💾
     }
 
@@ -155,7 +155,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
         eprintln!(
             "{}",
             format_banner_entry!(
-                "\u{1f4b2}",
+                "\u",
                 "Extensions",
                 format!("[{}]", config.extensions.join(", "))
             )
@@ -165,21 +165,21 @@ by Ben "epi" Risher {}                  ver: {}"#,
     if config.insecure {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f513}", "Insecure", config.insecure)
+            format_banner_entry!("\u", "Insecure", config.insecure)
         ); // 🔓
     }
 
     if config.redirects {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f4cd}", "Follow Redirects", config.redirects)
+            format_banner_entry!("\u", "Follow Redirects", config.redirects)
         ); // 📍
     }
 
     if config.dontfilter {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !config.dontfilter)
+            format_banner_entry!("\u", "Filter Wildcards", !config.dontfilter)
         ); // 🤪
     }
 
@@ -188,25 +188,25 @@ by Ben "epi" Risher {}                  ver: {}"#,
         1 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f508}", "Verbosity", config.verbosity)
+                format_banner_entry!("\u", "Verbosity", config.verbosity)
             ); // 🔈
         }
         2 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f509}", "Verbosity", config.verbosity)
+                format_banner_entry!("\u", "Verbosity", config.verbosity)
             ); // 🔉
         }
         3 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f50a}", "Verbosity", config.verbosity)
+                format_banner_entry!("\u", "Verbosity", config.verbosity)
             ); // 🔊
         }
         4 => {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f4e2}", "Verbosity", config.verbosity)
+                format_banner_entry!("\u", "Verbosity", config.verbosity)
             ); // 📢
         }
         _ => {}
@@ -215,7 +215,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     if config.addslash {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1fa93}", "Add Slash", config.addslash)
+            format_banner_entry!("\u", "Add Slash", config.addslash)
         ); // 🪓
     }
 
@@ -223,18 +223,18 @@ by Ben "epi" Risher {}                  ver: {}"#,
         if config.depth == 0 {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f503}", "Recursion Depth", "INFINITE")
+                format_banner_entry!("\u", "Recursion Depth", "INFINITE")
             ); // 🔃
         } else {
             eprintln!(
                 "{}",
-                format_banner_entry!("\u{1f503}", "Recursion Depth", config.depth)
+                format_banner_entry!("\u", "Recursion Depth", config.depth)
             ); // 🔃
         }
     } else {
         eprintln!(
             "{}",
-            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", config.norecursion)
+            format_banner_entry!("\u", "Do Not Recurse", config.norecursion)
         ); // 🚫
     }
 
