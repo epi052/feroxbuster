@@ -1,5 +1,4 @@
 use crate::utils::{module_colorizer, status_colorizer};
-use console::style;
 use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
@@ -22,18 +21,8 @@ pub fn initialize(
         Policy::none()
     };
 
-    let header_map: HeaderMap = match headers.try_into() {
-        Ok(map) => map,
-        Err(e) => {
-            eprintln!(
-                "{} {} {}",
-                status_colorizer("ERROR"),
-                module_colorizer("Client::initialize"),
-                e
-            );
-            exit(1);
-        }
-    };
+    // try_into returns infallible as its error, unwrap is safe here
+    let header_map: HeaderMap = headers.try_into().unwrap();
 
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
@@ -55,9 +44,13 @@ pub fn initialize(
                 eprintln!(
                     "{} {} {}",
                     status_colorizer("ERROR"),
-                    style("Client::initialize").cyan(),
+                    module_colorizer("Client::initialize"),
                     e
                 );
+
+                #[cfg(test)]
+                panic!();
+                #[cfg(not(test))]
                 exit(1);
             }
         }
@@ -79,7 +72,23 @@ pub fn initialize(
                 module_colorizer("Client::build"),
                 e
             );
+
+            #[cfg(test)]
+            panic!();
+            #[cfg(not(test))]
             exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    fn client_with_bad_proxy() {
+        let headers = HashMap::new();
+        let client = initialize(0, "stuff", true, false, &headers, Some("not a valid proxy"));
     }
 }
