@@ -10,7 +10,6 @@ pub fn setup_tmp_directory(
 ) -> Result<(TempDir, PathBuf), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
     let file = tmp_dir.path().join(&filename);
-    println!("file: {:?}", file);
     write(&file, words.join("\n"))?;
     Ok((tmp_dir, file))
 }
