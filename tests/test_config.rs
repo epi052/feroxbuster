@@ -18,7 +18,7 @@ fn read_in_config_file_for_settings() -> Result<(), Box<dyn std::error::Error>> 
         .arg(file.as_os_str())
         .arg("-vvvv")
         .assert()
-        .success()
+        .failure()
         .stderr(predicate::str::contains("│ 37"));
 
     teardown_tmp_directory(tmp_dir);
