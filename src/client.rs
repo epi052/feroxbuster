@@ -91,4 +91,11 @@ mod tests {
         let headers = HashMap::new();
         let client = initialize(0, "stuff", true, false, &headers, Some("not a valid proxy"));
     }
+
+    #[test]
+    fn client_with_good_proxy() {
+        let headers = HashMap::new();
+        let proxy = "http://127.0.0.1:8080";
+        let client = initialize(0, "stuff", true, true, &headers, Some(proxy.clone()));
+    }
 }
