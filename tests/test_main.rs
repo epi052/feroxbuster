@@ -39,7 +39,7 @@ fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Erro
 /// send the function an empty file
 fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&[])?;
+    let (tmp_dir, file) = setup_tmp_directory(&[], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -70,7 +70,7 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 /// send nothing over stdin, expect heuristics to be upset during connectivity test
 fn main_use_empty_stdin_targets() -> Result<(), Box<dyn std::error::Error>> {
-    let (tmp_dir, file) = setup_tmp_directory(&[])?;
+    let (tmp_dir, file) = setup_tmp_directory(&[], "wordlist")?;
 
     // get_targets is called before scan, so the empty wordlist shouldn't trigger
     // the 'Did not find any words' error

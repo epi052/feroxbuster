@@ -3,12 +3,14 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 /// integration test helper: creates a temp directory, and writes `words` to
-/// a file named `wordlist` in the temp directory
+/// a file named `filename` in the temp directory
 pub fn setup_tmp_directory(
     words: &[String],
+    filename: &str,
 ) -> Result<(TempDir, PathBuf), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
-    let file = tmp_dir.path().join("wordlist");
+    let file = tmp_dir.path().join(&filename);
+    println!("file: {:?}", file);
     write(&file, words.join("\n"))?;
     Ok((tmp_dir, file))
 }

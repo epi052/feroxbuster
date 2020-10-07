@@ -10,7 +10,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 /// test passes one bad target via -u to the scanner, expected result is that the
 /// scanner dies
 fn test_single_target_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -37,7 +37,7 @@ fn test_two_targets_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
     let not_real =
         String::from("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk");
     let urls = vec![not_real.clone(), not_real];
-    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -67,7 +67,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
     let not_real =
         String::from("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk");
     let urls = vec![not_real, srv.url("/"), String::from("LICENSE")];
-    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -100,7 +100,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 /// test finds a static wildcard and reports as much to stdout
 fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -135,7 +135,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 /// test finds a dynamic wildcard and reports as much to stdout
 fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)

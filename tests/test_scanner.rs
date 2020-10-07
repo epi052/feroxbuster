@@ -10,7 +10,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 /// send a single valid request, expect a 200 response
 fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -49,7 +49,7 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
         "dev".to_string(),
         "file.js".to_string(),
     ];
-    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
     let js_mock = Mock::new()
         .expect_method(GET)
