@@ -8,7 +8,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
 /// send a single valid request, expect a 200 response
-fn test_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
+fn scanner_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
@@ -139,6 +139,43 @@ fn scanner_single_request_scan_with_file_output() -> Result<(), Box<dyn std::err
     assert!(contents.contains("/LICENSE"));
     assert!(contents.contains("200"));
     assert!(contents.contains("14"));
+
+    assert_eq!(mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}
+
+#[test]
+/// send a single valid request with -q, get a response, and write only the url to disk
+fn scanner_single_request_scan_with_file_output_and_tack_q() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    let outfile = tmp_dir.path().join("output");
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-vvvv")
+        .arg("-q")
+        .arg("-o")
+        .arg(outfile.as_os_str())
+        .unwrap();
+
+    let contents = std::fs::read_to_string(outfile)?;
+
+    let url = srv.url("/LICENSE");
+    assert!(contents.contains(&url));
 
     assert_eq!(mock.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
