@@ -62,6 +62,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 - [Downloads](#-downloads)
 - [Installation](#-installation)
     - [Download a Release](#download-a-release)
+    - [Homebrew on MacOS and Linux](#homebrew-on-macos-and-linux)
     - [Cargo Install](#cargo-install)
     - [apt Install](#apt-install)
     - [Docker Install](#docker-install)
@@ -90,6 +91,24 @@ Releases for multiple architectures can be found in the [Releases](https://githu
 - MacOS x86_64
 - Windows x86
 - Windows x86_64
+
+### Homebrew on MacOS and Linux
+
+Installable by Homebrew throughout own formulas:
+
+🍏 [MacOS](https://github.com/TGotwig/homebrew-feroxbuster/blob/main/feroxbuster.rb)
+
+```shell
+brew tap tgotwig/feroxbuster
+brew install feroxbuster
+```
+
+🐧 [Linux](https://github.com/TGotwig/homebrew-linux-feroxbuster/blob/main/feroxbuster.rb)
+
+```shell
+brew tap tgotwig/linux-feroxbuster
+brew install feroxbuster
+```
 
 ### Cargo Install
 
