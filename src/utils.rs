@@ -223,7 +223,12 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
         }
         Err(e) => {
             log::trace!("exit: make_request -> {}", e);
-            log::error!("Error while making request: {}", e);
+            if e.to_string().contains("operation timed out") {
+                // only warn for timeouts, while actual errors are still left as errors
+                log::warn!("Error while making request: {}", e);
+            } else {
+                log::error!("Error while making request: {}", e);
+            }
             Err(Box::new(e))
         }
     }
