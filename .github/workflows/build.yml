@@ -76,7 +76,7 @@ jobs:
           args: --release --target=x86_64-apple-darwin
       - name: Build tar.gz for homebrew installs
         run: |
-          tar cjf x86_64-macos-feroxbuster.tar.gz target/x86_64-apple-darwin/release/feroxbuster
+          tar czf x86_64-macos-feroxbuster.tar.gz -C target/x86_64-apple-darwin/release feroxbuster
       - uses: actions/upload-artifact@v2
         with:
           name: x86_64-macos-feroxbuster
