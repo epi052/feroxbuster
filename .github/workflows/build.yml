@@ -59,18 +59,40 @@ jobs:
           name: feroxbuster_amd64.deb
           path: ./target/x86_64-unknown-linux-musl/debian/*
 
-  build-rest:
+  build-macos:
+    runs-on: macos-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target=x86_64-apple-darwin
+      - name: Build tar.gz for homebrew installs
+        run: |
+          tar cjf x86_64-macos-feroxbuster.tar.gz target/x86_64-apple-darwin/release/feroxbuster
+      - uses: actions/upload-artifact@v2
+        with:
+          name: x86_64-macos-feroxbuster
+          path: target/x86_64-apple-darwin/release/feroxbuster
+      - uses: actions/upload-artifact@v2
+        with:
+          name: x86_64-macos-feroxbuster.tar.gz
+          path: x86_64-macos-feroxbuster.tar.gz
+
+  build-windows:
     runs-on: ${{ matrix.os }}
     if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [windows-x64, windows-x86, macos]
+        type: [windows-x64, windows-x86]
         include:
-          - type: macos
-            os: macos-latest
-            target: x86_64-apple-darwin
-            name: x86_64-macos-feroxbuster
-            path: target/x86_64-apple-darwin/release/feroxbuster
           - type: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
@@ -93,16 +115,8 @@ jobs:
           use-cross: true
           command: build
           args: --release --target=${{ matrix.target }}
-      - name: Build tar.gz for homebrew installs
-        if: ${{ matrix.type }} == macos
-        run: |
-          tar cjf ${{ matrix.name}}.tar.gz ${{ matrix.path }}
       - uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
-      - uses: actions/upload-artifact@v2
-        if: ${{ matrix.type }} == macos
-        with:
-          name: ${{ matrix.name}}.tar.gz
-          path: ${{ matrix.name}}.tar.gz
+
