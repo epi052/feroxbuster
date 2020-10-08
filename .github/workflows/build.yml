@@ -102,7 +102,7 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
       - uses: actions/upload-artifact@v2
-          if: ${{ matrix.type }} == macos
-          with:
-            name: ${{ matrix.name}}.tar.gz
-            path: ${{ matrix.name}}.tar.gz
+        if: ${{ matrix.type }} == macos
+        with:
+          name: ${{ matrix.name}}.tar.gz
+          path: ${{ matrix.name}}.tar.gz
