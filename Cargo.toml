@@ -37,11 +37,6 @@ httpmock = "0.4.5"
 assert_cmd = "1.0.1"
 predicates = "1.0.5"
 
-[package.metadata.precommit]
-fmt = "cargo fmt"
-test = "cargo test"
-clippy = "cargo clippy --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap"
-
 [profile.release]
 lto = true
 codegen-units = 1
