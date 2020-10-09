@@ -245,7 +245,9 @@ fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn st
             .and(predicate::str::contains("200"))
             .and(predicate::str::contains("(url length: 32)"))
             .and(predicate::str::contains("(url length: 96)"))
-            .and(predicate::str::contains("Wildcard response is static; auto-filtering 46")),
+            .and(predicate::str::contains(
+                "Wildcard response is static; auto-filtering 46",
+            )),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -255,7 +257,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn st
 
 #[test]
 /// test finds a static wildcard and only reports the url to stdout
-fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled() -> Result<(), Box<dyn std::error::Error>> {
+fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
+) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
@@ -286,7 +289,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled() -> Re
     teardown_tmp_directory(tmp_dir);
 
     cmd.assert().success().stdout(predicate::str::is_empty());
-
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(mock2.times_called(), 1);
