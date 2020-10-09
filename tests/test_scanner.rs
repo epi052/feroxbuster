@@ -362,3 +362,48 @@ fn scanner_single_request_returns_301_without_location_header(
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
+
+#[test]
+/// send a single valid request, filter the size of the response, expect one out of 2 urls
+fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string(), "ignored".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a not a test")
+        .create_on(&srv);
+
+    let filtered_mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/ignored")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-n")
+        .arg("-S")
+        .arg("14")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("20"))
+            .and(predicate::str::contains("ignored")).not()
+            .and(predicate::str::contains("14")).not()
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(filtered_mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}
