@@ -18,10 +18,11 @@ use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
+/// Single atomic number that gets incremented once, used to track first scan vs. all others
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 lazy_static! {
-    /// Global configuration state
+    /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
 }
 

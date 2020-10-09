@@ -109,6 +109,76 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+/// send a valid request, follow 200s into new directories, expect 200 responses
+fn scanner_recursive_request_scan_using_only_success_responses() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let urls = [
+        "js/".to_string(),
+        "prod/".to_string(),
+        "dev/".to_string(),
+        "file.js".to_string(),
+    ];
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
+
+    let js_mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/js/")
+        .return_status(200)
+        .return_header("Location", &srv.url("/js/"))
+        .create_on(&srv);
+
+    let js_prod_mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/js/prod/")
+        .return_status(200)
+        .return_header("Location", &srv.url("/js/prod/"))
+        .create_on(&srv);
+
+    let js_dev_mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/js/dev/")
+        .return_status(200)
+        .return_header("Location", &srv.url("/js/dev/"))
+        .create_on(&srv);
+
+    let js_dev_file_mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/js/dev/file.js")
+        .return_status(200)
+        .return_body("this is a test and is more bytes than other ones")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-vvvv")
+        .arg("-t")
+        .arg("1")
+        .arg("--redirects")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::is_match("200.*js")
+            .unwrap()
+            .and(predicate::str::is_match("200.*js/prod").unwrap())
+            .and(predicate::str::is_match("200.*js/dev").unwrap())
+            .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
+    );
+
+    assert_eq!(js_mock.times_called(), 1);
+    assert_eq!(js_prod_mock.times_called(), 1);
+    assert_eq!(js_dev_mock.times_called(), 1);
+    assert_eq!(js_dev_file_mock.times_called(), 1);
+
+    teardown_tmp_directory(tmp_dir);
+
+    Ok(())
+}
+
+#[test]
 /// send a single valid request, get a response, and write it to disk
 fn scanner_single_request_scan_with_file_output() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
@@ -217,4 +287,74 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
     assert_eq!(mock.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
+}
+
+#[test]
+/// send a single valid request using -q, expect only the url on stdout
+fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-x")
+        .arg("js,html")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains(srv.url("/LICENSE"))
+            .and(predicate::str::contains("200")).not()
+            .and(predicate::str::contains("14")).not(),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}
+
+#[test]
+/// send single valid request, get back a 301 without a Location header, expect false
+fn scanner_single_request_returns_301_without_location_header() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+        let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(301)
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-T")
+        .arg("5")
+        .arg("-a")
+        .arg("some-user-agent-string")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains(srv.url("/LICENSE"))
+            .and(predicate::str::contains("301"))
+            .and(predicate::str::contains("14")).not(),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+
 }
