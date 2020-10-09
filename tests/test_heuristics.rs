@@ -179,3 +179,31 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
     assert_eq!(mock2.times_called(), 1);
     Ok(())
 }
+
+#[test]
+/// uses dontfilter, so the normal wildcard test should never happen
+fn heuristics_static_wildcard_request_with_dontfilter() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--dontfilter")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(mock.times_called(), 0);
+    Ok(())
+}

@@ -521,12 +521,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
 
     let filter = match heuristics::wildcard_test(&target_url, wildcard_bar).await {
         Some(f) => {
-            if CONFIGURATION.dontfilter {
-                // don't auto filter, i.e. use the defaults
-                Arc::new(WildcardFilter::default())
-            } else {
-                Arc::new(f)
-            }
+            Arc::new(f)
         }
         None => Arc::new(WildcardFilter::default()),
     };
