@@ -110,7 +110,8 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 /// send a valid request, follow 200s into new directories, expect 200 responses
-fn scanner_recursive_request_scan_using_only_success_responses() -> Result<(), Box<dyn std::error::Error>> {
+fn scanner_recursive_request_scan_using_only_success_responses(
+) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let urls = [
         "js/".to_string(),
@@ -314,8 +315,10 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
 
     cmd.assert().success().stdout(
         predicate::str::contains(srv.url("/LICENSE"))
-            .and(predicate::str::contains("200")).not()
-            .and(predicate::str::contains("14")).not(),
+            .and(predicate::str::contains("200"))
+            .not()
+            .and(predicate::str::contains("14"))
+            .not(),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -325,11 +328,12 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
 
 #[test]
 /// send single valid request, get back a 301 without a Location header, expect false
-fn scanner_single_request_returns_301_without_location_header() -> Result<(), Box<dyn std::error::Error>> {
+fn scanner_single_request_returns_301_without_location_header(
+) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-        let mock = Mock::new()
+    let mock = Mock::new()
         .expect_method(GET)
         .expect_path("/LICENSE")
         .return_status(301)
@@ -350,11 +354,11 @@ fn scanner_single_request_returns_301_without_location_header() -> Result<(), Bo
     cmd.assert().success().stdout(
         predicate::str::contains(srv.url("/LICENSE"))
             .and(predicate::str::contains("301"))
-            .and(predicate::str::contains("14")).not(),
+            .and(predicate::str::contains("14"))
+            .not(),
     );
 
     assert_eq!(mock.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
-
 }

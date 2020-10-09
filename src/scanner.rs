@@ -302,7 +302,12 @@ fn response_is_directory(response: &Response) -> bool {
 /// Essentially looks at the Url path and determines how many directories are present in the
 /// given Url
 fn reached_max_depth(url: &Url, base_depth: usize, max_depth: usize) -> bool {
-    log::trace!("enter: reached_max_depth({}, {}, {})", url, base_depth, max_depth);
+    log::trace!(
+        "enter: reached_max_depth({}, {}, {})",
+        url,
+        base_depth,
+        max_depth
+    );
 
     if max_depth == 0 {
         // early return, as 0 means recurse forever; no additional processing needed
@@ -335,7 +340,9 @@ async fn try_recursion(
         transmitter
     );
 
-    if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth) && response_is_directory(&response) {
+    if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth)
+        && response_is_directory(&response)
+    {
         if CONFIGURATION.redirects {
             // response is 2xx can simply send it because we're following redirects
             log::info!("Added new directory to recursive scan: {}", response.url());
