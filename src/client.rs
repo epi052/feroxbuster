@@ -1,9 +1,9 @@
 use crate::utils::{module_colorizer, status_colorizer};
-use console::style;
 use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
 use std::convert::TryInto;
+#[cfg(not(test))]
 use std::process::exit;
 use std::time::Duration;
 
@@ -22,18 +22,8 @@ pub fn initialize(
         Policy::none()
     };
 
-    let header_map: HeaderMap = match headers.try_into() {
-        Ok(map) => map,
-        Err(e) => {
-            eprintln!(
-                "{} {} {}",
-                status_colorizer("ERROR"),
-                module_colorizer("Client::initialize"),
-                e
-            );
-            exit(1);
-        }
-    };
+    // try_into returns infallible as its error, unwrap is safe here
+    let header_map: HeaderMap = headers.try_into().unwrap();
 
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
@@ -55,9 +45,13 @@ pub fn initialize(
                 eprintln!(
                     "{} {} {}",
                     status_colorizer("ERROR"),
-                    style("Client::initialize").cyan(),
+                    module_colorizer("Client::initialize"),
                     e
                 );
+
+                #[cfg(test)]
+                panic!();
+                #[cfg(not(test))]
                 exit(1);
             }
         }
@@ -79,7 +73,32 @@ pub fn initialize(
                 module_colorizer("Client::build"),
                 e
             );
+
+            #[cfg(test)]
+            panic!();
+            #[cfg(not(test))]
             exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    /// create client with a bad proxy, expect panic
+    fn client_with_bad_proxy() {
+        let headers = HashMap::new();
+        initialize(0, "stuff", true, false, &headers, Some("not a valid proxy"));
+    }
+
+    #[test]
+    /// create client with a proxy, expect no error
+    fn client_with_good_proxy() {
+        let headers = HashMap::new();
+        let proxy = "http://127.0.0.1:8080";
+        initialize(0, "stuff", true, true, &headers, Some(proxy));
     }
 }

@@ -18,10 +18,11 @@ use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
+/// Single atomic number that gets incremented once, used to track first scan vs. all others
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 lazy_static! {
-    /// Global configuration state
+    /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
 }
 
@@ -300,10 +301,15 @@ fn response_is_directory(response: &Response) -> bool {
 ///
 /// Essentially looks at the Url path and determines how many directories are present in the
 /// given Url
-fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
-    log::trace!("enter: reached_max_depth({}, {})", url, base_depth);
+fn reached_max_depth(url: &Url, base_depth: usize, max_depth: usize) -> bool {
+    log::trace!(
+        "enter: reached_max_depth({}, {}, {})",
+        url,
+        base_depth,
+        max_depth
+    );
 
-    if CONFIGURATION.depth == 0 {
+    if max_depth == 0 {
         // early return, as 0 means recurse forever; no additional processing needed
         log::trace!("exit: reached_max_depth -> false");
         return false;
@@ -311,7 +317,7 @@ fn reached_max_depth(url: &Url, base_depth: usize) -> bool {
 
     let depth = get_current_depth(url.as_str());
 
-    if depth - base_depth >= CONFIGURATION.depth {
+    if depth - base_depth >= max_depth {
         return true;
     }
 
@@ -334,7 +340,9 @@ async fn try_recursion(
         transmitter
     );
 
-    if !reached_max_depth(response.url(), base_depth) && response_is_directory(&response) {
+    if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth)
+        && response_is_directory(&response)
+    {
         if CONFIGURATION.redirects {
             // response is 2xx can simply send it because we're following redirects
             log::info!("Added new directory to recursive scan: {}", response.url());
@@ -512,14 +520,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         );
 
     let filter = match heuristics::wildcard_test(&target_url, wildcard_bar).await {
-        Some(f) => {
-            if CONFIGURATION.dontfilter {
-                // don't auto filter, i.e. use the defaults
-                Arc::new(WildcardFilter::default())
-            } else {
-                Arc::new(f)
-            }
-        }
+        Some(f) => Arc::new(f),
         None => Arc::new(WildcardFilter::default()),
     };
 
@@ -636,6 +637,46 @@ mod tests {
             let urls = create_urls("http://localhost", "turbo", &ext_set);
             assert_eq!(urls, expected[i]);
         }
+    }
+
+    #[test]
+    /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
+    fn reached_max_depth_returns_early_on_zero() {
+        let url = Url::parse("http://localhost").unwrap();
+        let result = reached_max_depth(&url, 0, 0);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth equal to max depth, expect true
+    fn reached_max_depth_current_depth_equals_max() {
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let result = reached_max_depth(&url, 0, 2);
+        assert!(result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url dpeth less than max depth, expect false
+    fn reached_max_depth_current_depth_less_than_max() {
+        let url = Url::parse("http://localhost").unwrap();
+        let result = reached_max_depth(&url, 0, 2);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
+    fn reached_max_depth_base_depth_equals_max_depth() {
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let result = reached_max_depth(&url, 2, 2);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth greater than max depth, expect true
+    fn reached_max_depth_current_greater_than_max() {
+        let url = Url::parse("http://localhost/one/two/three").unwrap();
+        let result = reached_max_depth(&url, 0, 2);
+        assert!(result);
     }
 
     #[test]

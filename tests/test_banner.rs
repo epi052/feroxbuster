@@ -11,7 +11,7 @@ fn banner_prints_proxy() -> Result<(), Box<dyn std::error::Error>> {
         String::from("http://localhost"),
         String::from("http://schmocalhost"),
     ];
-    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
     Command::cargo_bin("feroxbuster")
         .unwrap()

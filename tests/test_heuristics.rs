@@ -10,7 +10,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 /// test passes one bad target via -u to the scanner, expected result is that the
 /// scanner dies
 fn test_single_target_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -37,7 +37,7 @@ fn test_two_targets_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
     let not_real =
         String::from("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk");
     let urls = vec![not_real.clone(), not_real];
-    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -67,7 +67,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
     let not_real =
         String::from("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk");
     let urls = vec![not_real, srv.url("/"), String::from("LICENSE")];
-    let (tmp_dir, file) = setup_tmp_directory(&urls)?;
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -100,7 +100,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 /// test finds a static wildcard and reports as much to stdout
 fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -135,7 +135,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 /// test finds a dynamic wildcard and reports as much to stdout
 fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()])?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -173,6 +173,168 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
             .and(predicate::str::contains(
                 "(14 + url length) responses; toggle this behavior by using",
             )),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+    Ok(())
+}
+
+#[test]
+/// uses dontfilter, so the normal wildcard test should never happen
+fn heuristics_static_wildcard_request_with_dontfilter() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--dontfilter")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(mock.times_called(), 0);
+    Ok(())
+}
+
+#[test]
+/// test finds a static wildcard and reports as much to stdout
+fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("WLD")
+            .and(predicate::str::contains("Got"))
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("(url length: 96)"))
+            .and(predicate::str::contains(
+                "Wildcard response is static; auto-filtering 46",
+            )),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+    Ok(())
+}
+
+#[test]
+/// test finds a static wildcard and reports nothing to stdout
+fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .arg("-q")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(predicate::str::is_empty());
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+    Ok(())
+}
+
+#[test]
+/// test finds a static wildcard that returns 3xx, expect redirects to => in response
+fn heuristics_wildcard_test_with_redirect_as_response_code(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(301)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(301)
+        .return_header("Location", &srv.url("/some-redirect"))
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("redirects to => ")
+            .and(predicate::str::contains("/some-redirect"))
+            .and(predicate::str::contains("301"))
+            .and(predicate::str::contains(srv.url("/")))
+            .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("WLD")),
     );
 
     assert_eq!(mock.times_called(), 1);
