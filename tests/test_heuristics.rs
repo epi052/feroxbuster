@@ -207,3 +207,88 @@ fn heuristics_static_wildcard_request_with_dontfilter() -> Result<(), Box<dyn st
     assert_eq!(mock.times_called(), 0);
     Ok(())
 }
+
+#[test]
+/// test finds a static wildcard and reports as much to stdout
+fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("WLD")
+            .and(predicate::str::contains("Got"))
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("(url length: 96)"))
+            .and(predicate::str::contains("Wildcard response is static; auto-filtering 46")),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+    Ok(())
+}
+
+#[test]
+/// test finds a static wildcard and only reports the url to stdout
+fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .arg("-q")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(predicate::str::is_empty());
+
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+    Ok(())
+}
