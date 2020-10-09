@@ -11,13 +11,19 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::fs;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
+use lazy_static::lazy_static;
 
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+lazy_static! {
+    /// Global configuration state
+    static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
+}
 
 /// Spawn a single consumer task (sc side of mpsc)
 ///
@@ -119,6 +125,40 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
     log::trace!("exit: spawn_terminal_reporter");
 }
 
+/// Adds the given url to `SCANNED_URLS`
+///
+/// If `SCANNED_URLS` did not already contain the url, return true; otherwise return false
+fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<String>>) -> bool {
+    log::trace!("enter: add_url_to_list_of_scanned_urls({}, {:?})", resp, scanned_urls);
+
+    return match scanned_urls.write() {
+        // check new url against what's already been scanned
+        Ok(mut urls) => {
+            let normalized_url = if resp.ends_with("/") {
+                // append a / to the list of 'seen' urls, this is to prevent the case where
+                // 3xx and 2xx duplicate eachother
+                resp.to_string()
+            } else {
+                format!("{}/", resp)
+            };
+
+            // If the set did not contain resp, true is returned.
+            // If the set did contain resp, false is returned.
+            let response = urls.insert(normalized_url);
+
+            log::trace!("exit: add_url_to_list_of_scanned_urls -> {}", response);
+            response
+        }
+        Err(e) => {
+            // poisoned lock
+            log::error!("Set of scanned urls poisoned: {}", e);
+            log::trace!("exit: add_url_to_list_of_scanned_urls -> false");
+            false
+        }
+    }
+
+}
+
 /// Spawn a single consumer task (sc side of mpsc)
 ///
 /// The consumer simply receives Urls and scans them
@@ -137,6 +177,13 @@ fn spawn_recursion_handler(
     let boxed_future = async move {
         let mut scans = vec![];
         while let Some(resp) = recursion_channel.recv().await {
+            let unknown = add_url_to_list_of_scanned_urls(&resp, &SCANNED_URLS);
+
+            if !unknown {
+                // not unknown, i.e. we've seen the url before and don't need to scan again
+                continue;
+            }
+
             log::info!("received {} on recursion channel", resp);
             let clonedresp = resp.clone();
             let clonedlist = wordlist.clone();
@@ -437,6 +484,10 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         // join can only be called once, otherwise it causes the thread to panic
         tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
+
+        // this protection around join also allows us to add the first scanned url to SCANNED_URLS
+        // from within the scan_url function instead of the recursion handler
+        add_url_to_list_of_scanned_urls(&target_url, &SCANNED_URLS);
     }
 
     let wildcard_bar = progress_bar.clone();
@@ -582,5 +633,35 @@ mod tests {
             let urls = create_urls("http://localhost", "turbo", &ext_set);
             assert_eq!(urls, expected[i]);
         }
+    }
+
+    #[test]
+    /// add an unknown url to the hashset, expect true
+    fn add_url_to_list_of_scanned_urls_with_unknown_url() {
+        let urls = RwLock::new(HashSet::<String>::new());
+        let url = "http://unknown_url";
+        assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), true);
+    }
+
+    #[test]
+    /// add a known url to the hashset, with a trailing slash, expect false
+    fn add_url_to_list_of_scanned_urls_with_known_url() {
+        let urls = RwLock::new(HashSet::<String>::new());
+        let url = "http://unknown_url/";
+
+        assert_eq!(urls.write().unwrap().insert(url.to_string()), true);
+
+        assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
+    }
+
+    #[test]
+    /// add a known url to the hashset, without a trailing slash, expect false
+    fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
+        let urls = RwLock::new(HashSet::<String>::new());
+        let url = "http://unknown_url";
+
+        assert_eq!(urls.write().unwrap().insert("http://unknown_url/".to_string()), true);
+
+        assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
     }
 }
