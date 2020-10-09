@@ -256,7 +256,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn st
 }
 
 #[test]
-/// test finds a static wildcard and only reports the url to stdout
+/// test finds a static wildcard and reports nothing to stdout
 fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
@@ -289,6 +289,53 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
     teardown_tmp_directory(tmp_dir);
 
     cmd.assert().success().stdout(predicate::str::is_empty());
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+    Ok(())
+}
+
+#[test]
+/// test finds a static wildcard that returns 3xx, expect redirects to => in response
+fn heuristics_wildcard_test_with_redirect_as_response_code(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(301)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(301)
+        .return_header("Location", &srv.url("/some-redirect"))
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("redirects to => ")
+            .and(predicate::str::contains("/some-redirect"))
+            .and(predicate::str::contains("301"))
+            .and(predicate::str::contains(srv.url("/")))
+            .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("WLD")),
+    );
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(mock2.times_called(), 1);
