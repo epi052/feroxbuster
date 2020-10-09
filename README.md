@@ -84,13 +84,44 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 
 ### Download a Release
 
-Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.  Builds for the following systems are currently supported:
+Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.  The latest release for each of the following systems can be downloaded and executed as shown below.
 
-- Linux x86
-- Linux x86_64
-- MacOS x86_64
-- Windows x86
-- Windows x86_64
+#### Linux x86
+```
+wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip
+unzip x86-linux-feroxbuster.zip
+./feroxbuster -V
+```
+#### Linux x86_64
+
+```
+wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip
+unzip x86_64-linux-feroxbuster.zip
+./feroxbuster -V
+```
+
+#### MacOS x86_64
+```
+wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip
+unzip x86_64-macos-feroxbuster.zip
+./feroxbuster -V
+```
+
+#### Windows x86
+
+```
+https://github.com/epi052/feroxbuster/releases/latest/download/x86-windows-feroxbuster.exe.zip
+Expand-Archive .\feroxbuster.zip
+.\feroxbuster\feroxbuster.exe -V
+```
+
+#### Windows x86_64
+
+```
+Invoke-WebRequest https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-windows-feroxbuster.exe.zip -OutFile feroxbuster.zip
+Expand-Archive .\feroxbuster.zip
+.\feroxbuster\feroxbuster.exe -V
+```
 
 ### Homebrew on MacOS and Linux
 
@@ -120,9 +151,11 @@ cargo install feroxbuster
 
 ### apt Install
 
-Head to the [Releases](https://github.com/epi052/feroxbuster/releases) section and download `feroxbuster_amd64.deb`.  After that, use your favorite package manager to install the .deb.
+Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/feroxbuster/releases) section.  After that, use your favorite package manager to install the `.deb`.
 
 ```
+wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
+unzip feroxbuster_amd64.deb.zip
 sudo apt install ./feroxbuster_amd64.deb
 ```
 
