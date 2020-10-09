@@ -367,7 +367,8 @@ fn scanner_single_request_returns_301_without_location_header(
 /// send a single valid request, filter the size of the response, expect one out of 2 urls
 fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string(), "ignored".to_string()], "wordlist")?;
+    let (tmp_dir, file) =
+        setup_tmp_directory(&["LICENSE".to_string(), "ignored".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -398,8 +399,10 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
             .and(predicate::str::contains("20"))
-            .and(predicate::str::contains("ignored")).not()
-            .and(predicate::str::contains("14")).not()
+            .and(predicate::str::contains("ignored"))
+            .not()
+            .and(predicate::str::contains("14"))
+            .not(),
     );
 
     assert_eq!(mock.times_called(), 1);
