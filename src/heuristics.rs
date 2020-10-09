@@ -21,7 +21,11 @@ const UUID_LENGTH: u64 = 32;
 /// configuration and any static wildcard lengths.
 #[derive(Default, Debug)]
 pub struct WildcardFilter {
+    /// size of the response that will later be combined with the length of the path of the url
+    /// requested
     pub dynamic: u64,
+
+    /// size of the response that should be included with filters passed via runtime configuration
     pub size: u64,
 }
 
@@ -280,9 +284,17 @@ mod tests {
 
     #[test]
     /// request a unique string of 32bytes * a value returns correct result
-    fn unique_string_returns_correct_length() {
+    fn heuristics_unique_string_returns_correct_length() {
         for i in 0..10 {
             assert_eq!(unique_string(i).len(), i * 32);
         }
+    }
+
+    #[test]
+    /// simply test the default values for wildcardfilter, expect 0, 0
+    fn heuristics_wildcardfilter_dafaults() {
+        let wcf = WildcardFilter::default();
+        assert_eq!(wcf.size, 0);
+        assert_eq!(wcf.dynamic, 0);
     }
 }

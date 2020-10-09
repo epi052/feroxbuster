@@ -520,9 +520,7 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         );
 
     let filter = match heuristics::wildcard_test(&target_url, wildcard_bar).await {
-        Some(f) => {
-            Arc::new(f)
-        }
+        Some(f) => Arc::new(f),
         None => Arc::new(WildcardFilter::default()),
     };
 
