@@ -6,6 +6,7 @@ use crate::utils::{
 use crate::{heuristics, progress};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
+use lazy_static::lazy_static;
 use reqwest::{Response, Url};
 use std::collections::HashSet;
 use std::convert::TryInto;
@@ -16,7 +17,6 @@ use tokio::fs;
 use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
-use lazy_static::lazy_static;
 
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
@@ -129,12 +129,16 @@ async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>
 ///
 /// If `SCANNED_URLS` did not already contain the url, return true; otherwise return false
 fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<String>>) -> bool {
-    log::trace!("enter: add_url_to_list_of_scanned_urls({}, {:?})", resp, scanned_urls);
+    log::trace!(
+        "enter: add_url_to_list_of_scanned_urls({}, {:?})",
+        resp,
+        scanned_urls
+    );
 
-    return match scanned_urls.write() {
+    match scanned_urls.write() {
         // check new url against what's already been scanned
         Ok(mut urls) => {
-            let normalized_url = if resp.ends_with("/") {
+            let normalized_url = if resp.ends_with('/') {
                 // append a / to the list of 'seen' urls, this is to prevent the case where
                 // 3xx and 2xx duplicate eachother
                 resp.to_string()
@@ -156,7 +160,6 @@ fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<Str
             false
         }
     }
-
 }
 
 /// Spawn a single consumer task (sc side of mpsc)
@@ -660,7 +663,12 @@ mod tests {
         let urls = RwLock::new(HashSet::<String>::new());
         let url = "http://unknown_url";
 
-        assert_eq!(urls.write().unwrap().insert("http://unknown_url/".to_string()), true);
+        assert_eq!(
+            urls.write()
+                .unwrap()
+                .insert("http://unknown_url/".to_string()),
+            true
+        );
 
         assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
     }
