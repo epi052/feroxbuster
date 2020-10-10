@@ -42,7 +42,7 @@ jobs:
           command: build
           args: --release --target=${{ matrix.target }}
       - name: Build tar.gz for homebrew installs
-        if: matrix.type == "ubuntu-x64"
+        if: matrix.type == 'ubuntu-x64'
         run: |
           tar czf ${{ matrix.name }}.tar.gz -C target/x86_64-unknown-linux-musl/release feroxbuster
       - uses: actions/upload-artifact@v2
@@ -50,7 +50,7 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
       - uses: actions/upload-artifact@v2
-        if: matrix.type == "ubuntu-x64"
+        if: matrix.type == 'ubuntu-x64'
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.path }}
