@@ -229,3 +229,15 @@ EXAMPLES:
         ./feroxbuster -u http://127.1 -t 200
     "#)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// initalize parser, expect a clap::App returned
+    fn parser_initialize_gives_defaults() {
+        let app = initialize();
+        assert_eq!(app.get_name(), "feroxbuster");
+    }
+}

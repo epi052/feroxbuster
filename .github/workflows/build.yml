@@ -52,8 +52,8 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: matrix.type == 'ubuntu-x64'
         with:
-          name: ${{ matrix.name }}
-          path: ${{ matrix.path }}
+          name: ${{ matrix.name }}.tar.gz
+          path: ${{ matrix.name }}.tar.gz
 
   build-deb:
     needs: [build-nix]
