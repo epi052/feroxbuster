@@ -148,7 +148,10 @@ brew install feroxbuster
 ```
 cargo install feroxbuster
 ```
-
+__Build the with latest commits by Cargo:__
+```bash
+cargo install --git https://github.com/epi052/feroxbuster
+```
 ### apt Install
 
 Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/feroxbuster/releases) section.  After that, use your favorite package manager to install the `.deb`.
