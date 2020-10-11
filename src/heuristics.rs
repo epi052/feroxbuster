@@ -1,11 +1,13 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::utils::{
-    ferox_print, format_url, get_url_path_length, make_request, module_colorizer, status_colorizer,
+    ferox_print, format_url, get_url_path_length, make_request, module_colorizer, safe_file_write,
+    status_colorizer,
 };
 use console::style;
 use indicatif::ProgressBar;
 use reqwest::Response;
-use std::process;
+use std::sync::{Arc, RwLock};
+use std::{fs, io, process};
 use uuid::Uuid;
 
 /// length of a standard UUID, used when determining wildcard responses
@@ -52,8 +54,17 @@ fn unique_string(length: usize) -> String {
 ///
 /// In the event that url returns a wildcard response, a
 /// [WildcardFilter](struct.WildcardFilter.html) is created and returned to the caller.
-pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<WildcardFilter> {
-    log::trace!("enter: wildcard_test({:?})", target_url);
+pub async fn wildcard_test(
+    target_url: &str,
+    bar: ProgressBar,
+    locked_file: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
+) -> Option<WildcardFilter> {
+    log::trace!(
+        "enter: wildcard_test({:?}, {:?}, {:?})",
+        target_url,
+        bar,
+        locked_file
+    );
 
     if CONFIGURATION.dontfilter {
         // early return, dontfilter scans don't need tested
@@ -61,7 +72,10 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
         return None;
     }
 
-    if let Some(resp_one) = make_wildcard_request(&target_url, 1).await {
+    let clone_req_one = locked_file.clone();
+    let clone_req_two = locked_file.clone();
+
+    if let Some(resp_one) = make_wildcard_request(&target_url, 1, clone_req_one).await {
         bar.inc(1);
 
         // found a wildcard response
@@ -76,7 +90,7 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
 
         // content length of wildcard is non-zero, perform additional tests:
         //   make a second request, with a known-sized (64) longer request
-        if let Some(resp_two) = make_wildcard_request(&target_url, 3).await {
+        if let Some(resp_two) = make_wildcard_request(&target_url, 3, clone_req_two).await {
             bar.inc(1);
 
             let wc2_length = resp_two.content_length().unwrap_or(0);
@@ -87,29 +101,37 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
                 let url_len = get_url_path_length(&resp_one.url());
 
                 if !CONFIGURATION.quiet {
-                    ferox_print(
-                    &format!(
-                            "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}",
+                    let msg = format!(
+                            "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
                             status_colorizer("WLD"),
                             wc_length - url_len,
                             style("auto-filtering").yellow(),
                             style(wc_length - url_len).cyan(),
                             style("--dontfilter").yellow()
-                        ), &PROGRESS_PRINTER
-                    );
+                        );
+                    ferox_print(&msg, &PROGRESS_PRINTER);
+                    if locked_file.is_some() {
+                        // unwrap on the file handle ok as we checked that it's not None already
+                        safe_file_write(&msg, locked_file.clone().unwrap());
+                    }
                 }
 
                 wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
                 if !CONFIGURATION.quiet {
-                    ferox_print(&format!(
-                        "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}",
+                    let msg = format!(
+                        "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
                         status_colorizer("WLD"),
                         wc_length,
                         style("auto-filtering").yellow(),
                         style(wc_length).cyan(),
                         style("--dontfilter").yellow()
-                    ), &PROGRESS_PRINTER);
+                    );
+                    ferox_print(&msg, &PROGRESS_PRINTER);
+                    if locked_file.is_some() {
+                        // unwrap on the file handle ok as we checked that it's not None already
+                        safe_file_write(&msg, locked_file.clone().unwrap());
+                    }
                 }
                 wildcard.size = wc_length;
             }
@@ -131,7 +153,11 @@ pub async fn wildcard_test(target_url: &str, bar: ProgressBar) -> Option<Wildcar
 /// Once the unique url is created, the request is sent to the server. If the server responds
 /// back with a valid status code, the response is considered to be a wildcard response. If that
 /// wildcard response has a 3xx status code, that redirection location is displayed to the user.
-async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Response> {
+async fn make_wildcard_request(
+    target_url: &str,
+    length: usize,
+    locked_file: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
+) -> Option<Response> {
     log::trace!("enter: make_wildcard_request({}, {})", target_url, length);
 
     let unique_str = unique_string(length);
@@ -164,45 +190,52 @@ async fn make_wildcard_request(target_url: &str, length: usize) -> Option<Respon
                 let content_len = response.content_length().unwrap_or(0);
 
                 if !CONFIGURATION.quiet {
-                    ferox_print(
-                        &format!(
-                            "{} {:>10} Got {} for {} (url length: {})",
-                            wildcard,
-                            content_len,
-                            status_colorizer(&response.status().as_str()),
-                            response.url(),
-                            url_len
-                        ),
-                        &PROGRESS_PRINTER,
+                    let msg = format!(
+                        "{} {:>10} Got {} for {} (url length: {})\n",
+                        wildcard,
+                        content_len,
+                        status_colorizer(&response.status().as_str()),
+                        response.url(),
+                        url_len
                     );
+                    ferox_print(&msg, &PROGRESS_PRINTER);
+                    if locked_file.is_some() {
+                        // unwrap on the file handle ok as we checked that it's not None already
+                        safe_file_write(&msg, locked_file.clone().unwrap());
+                    }
                 }
+
                 if response.status().is_redirection() {
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
                             if !CONFIGURATION.quiet {
-                                ferox_print(
-                                    &format!(
-                                        "{} {:>10} {} redirects to => {}",
-                                        wildcard,
-                                        content_len,
-                                        response.url(),
-                                        next_loc_str
-                                    ),
-                                    &PROGRESS_PRINTER,
-                                );
-                            }
-                        } else if !CONFIGURATION.quiet {
-                            ferox_print(
-                                &format!(
-                                    "{} {:>10} {} redirects to => {:?}",
+                                let msg = format!(
+                                    "{} {:>10} {} redirects to => {}\n",
                                     wildcard,
                                     content_len,
                                     response.url(),
-                                    next_loc
-                                ),
-                                &PROGRESS_PRINTER,
+                                    next_loc_str
+                                );
+                                ferox_print(&msg, &PROGRESS_PRINTER);
+                                if locked_file.is_some() {
+                                    // unwrap on the file handle ok as we checked that it's not None already
+                                    safe_file_write(&msg, locked_file.clone().unwrap());
+                                }
+                            }
+                        } else if !CONFIGURATION.quiet {
+                            let msg = format!(
+                                "{} {:>10} {} redirects to => {:?}\n",
+                                wildcard,
+                                content_len,
+                                response.url(),
+                                next_loc
                             );
+                            ferox_print(&msg, &PROGRESS_PRINTER);
+                            if locked_file.is_some() {
+                                // unwrap on the file handle ok as we checked that it's not None already
+                                safe_file_write(&msg, locked_file.clone().unwrap());
+                            }
                         }
                     }
                 }

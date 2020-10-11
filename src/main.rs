@@ -1,13 +1,15 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
+use feroxbuster::utils::{
+    ferox_print, get_current_depth, module_colorizer, open_file, status_colorizer,
+};
 use feroxbuster::{banner, heuristics, logger, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, BufWriter};
 use std::process;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
@@ -48,8 +50,11 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan(targets: Vec<String>) -> FeroxResult<()> {
-    log::trace!("enter: scan");
+async fn scan(
+    targets: Vec<String>,
+    file_handle: Option<Arc<RwLock<BufWriter<File>>>>,
+) -> FeroxResult<()> {
+    log::trace!("enter: scan({:?}, {:?})", targets, file_handle);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
@@ -70,11 +75,12 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
     let mut tasks = vec![];
 
     for target in targets {
-        let wordclone = words.clone();
+        let word_clone = words.clone();
+        let scan_clone = file_handle.clone();
 
         let task = tokio::spawn(async move {
             let base_depth = get_current_depth(&target);
-            scan_url(&target, wordclone, base_depth).await;
+            scan_url(&target, word_clone, base_depth, scan_clone).await;
         });
 
         tasks.push(task);
@@ -112,7 +118,14 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
 
 #[tokio::main]
 async fn main() {
-    logger::initialize(CONFIGURATION.verbosity);
+    let file_handle = if !CONFIGURATION.output.is_empty() {
+        // -o used, need to open the file for writing
+        open_file(&CONFIGURATION.output)
+    } else {
+        None
+    };
+
+    logger::initialize(CONFIGURATION.verbosity, file_handle.clone());
 
     log::trace!("enter: main");
     log::debug!("{:#?}", *CONFIGURATION);
@@ -144,7 +157,7 @@ async fn main() {
     // discard non-responsive targets
     let live_targets = heuristics::connectivity_test(&targets).await;
 
-    match scan(live_targets).await {
+    match scan(live_targets, file_handle).await {
         Ok(_) => {
             log::info!("Done");
         }

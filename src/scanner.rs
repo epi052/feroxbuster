@@ -1,7 +1,8 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
 use crate::heuristics::WildcardFilter;
 use crate::utils::{
-    ferox_print, format_url, get_current_depth, get_url_path_length, make_request, status_colorizer,
+    ferox_print, format_url, get_current_depth, get_url_path_length, make_request, safe_file_write,
+    status_colorizer,
 };
 use crate::{heuristics, progress};
 use futures::future::{BoxFuture, FutureExt};
@@ -13,8 +14,7 @@ use std::convert::TryInto;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
-use tokio::fs;
-use tokio::io::{self, AsyncWriteExt};
+use std::{fs, io};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
@@ -30,65 +30,27 @@ lazy_static! {
 ///
 /// The consumer simply receives responses and writes them to the given output file if they meet
 /// the given reporting criteria
-async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
-    log::trace!("enter: spawn_file_reporter({:?}", report_channel);
+async fn spawn_file_reporter(
+    mut report_channel: UnboundedReceiver<String>,
+    writer: Arc<RwLock<io::BufWriter<fs::File>>>,
+) {
+    log::trace!(
+        "enter: spawn_file_reporter({:?}, {:?})",
+        report_channel,
+        writer
+    );
 
     log::info!("Writing scan results to {}", CONFIGURATION.output);
 
-    match fs::OpenOptions::new() // tokio fs
-        .create(true)
-        .append(true)
-        .open(&CONFIGURATION.output)
-        .await
-    {
-        Ok(outfile) => {
-            log::debug!("{:?} opened in append mode", outfile);
+    // if let Ok(mut handle) = writer.clone().write() {
+    while let Some(report) = report_channel.recv().await {
+        log::debug!("received {} on reporting channel", report);
 
-            let mut writer = io::BufWriter::new(outfile); // tokio BufWriter
+        safe_file_write(&report, writer.clone());
 
-            while let Some(resp) = report_channel.recv().await {
-                log::debug!("received {} on reporting channel", resp.url());
-
-                if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
-                    let report = if CONFIGURATION.quiet {
-                        format!("{}\n", resp.url())
-                    } else {
-                        // example output
-                        // 200       3280 https://localhost.com/FAQ
-                        format!(
-                            "{} {:>10} {}\n",
-                            resp.status().as_str(),
-                            resp.content_length().unwrap_or(0),
-                            resp.url()
-                        )
-                    };
-
-                    match writer.write(report.as_bytes()).await {
-                        Ok(written) => {
-                            log::trace!("wrote {} bytes to {}", written, CONFIGURATION.output);
-                        }
-                        Err(e) => {
-                            log::error!("could not write report to disk: {}", e);
-                        }
-                    }
-                }
-
-                match writer.flush().await {
-                    // i'm flushing inside the while loop so in the event of a ctrl+c or w/e
-                    // results seen so far are saved instead of left lying around in the buffer
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("error writing to file: {}", e);
-                    }
-                }
-
-                log::debug!("report complete: {}", resp.url());
-            }
-        }
-        Err(e) => {
-            log::error!("error opening file: {}", e);
-        }
+        log::debug!("report complete: {}", report);
     }
+    // }
 
     log::trace!("exit: spawn_file_reporter");
 }
@@ -97,28 +59,53 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
 ///
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
-async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
+async fn spawn_terminal_reporter(
+    mut report_channel: UnboundedReceiver<Response>,
+    logfile: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
+) {
     log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
+
+    let (tx_file, rx_file): (UnboundedSender<String>, UnboundedReceiver<String>) =
+        mpsc::unbounded_channel();
+
+    if logfile.is_some() {
+        // -o used, need to spawn the thread for writing to disk
+        let writer = logfile.clone().unwrap();
+        tokio::spawn(async move { spawn_file_reporter(rx_file, writer).await });
+    }
 
     while let Some(resp) = report_channel.recv().await {
         log::debug!("received {} on reporting channel", resp.url());
 
         if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
-            if CONFIGURATION.quiet {
-                ferox_print(&format!("{}", resp.url()), &PROGRESS_PRINTER);
+            let report = if CONFIGURATION.quiet {
+                // -q used, just need the url
+                format!("{}\n", resp.url())
             } else {
+                // normal printing with status and size
                 let status = status_colorizer(&resp.status().as_str());
-                ferox_print(
-                    &format!(
-                        // example output
-                        // 200       3280 https://localhost.com/FAQ
-                        "{} {:>10} {}",
-                        status,
-                        resp.content_length().unwrap_or(0),
-                        resp.url()
-                    ),
-                    &PROGRESS_PRINTER,
-                );
+                format!(
+                    // example output
+                    // 200       3280 https://localhost.com/FAQ
+                    "{} {:>10} {}\n",
+                    status,
+                    resp.content_length().unwrap_or(0),
+                    resp.url()
+                )
+            };
+
+            ferox_print(&report, &PROGRESS_PRINTER);
+
+            if logfile.is_some() {
+                // -o used, need to send the report to be written out to disk
+                match tx_file.send(report.to_string()) {
+                    Ok(_) => {
+                        log::debug!("Sent {} to file handler", resp.url());
+                    }
+                    Err(e) => {
+                        log::error!("Could not send {} to file handler: {}", resp.url(), e);
+                    }
+                }
             }
         }
         log::debug!("report complete: {}", resp.url());
@@ -170,6 +157,7 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
+    writer: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {})",
@@ -181,6 +169,7 @@ fn spawn_recursion_handler(
     let boxed_future = async move {
         let mut scans = vec![];
         while let Some(resp) = recursion_channel.recv().await {
+            let scan_writer = writer.clone();
             let unknown = add_url_to_list_of_scanned_urls(&resp, &SCANNED_URLS);
 
             if !unknown {
@@ -192,7 +181,13 @@ fn spawn_recursion_handler(
             let clonedresp = resp.clone();
             let clonedlist = wordlist.clone();
             scans.push(tokio::spawn(async move {
-                scan_url(clonedresp.to_owned().as_str(), clonedlist, base_depth).await
+                scan_url(
+                    clonedresp.to_owned().as_str(),
+                    clonedlist,
+                    base_depth,
+                    scan_writer,
+                )
+                .await
             }));
         }
         scans
@@ -353,9 +348,8 @@ async fn try_recursion(
                 }
                 Err(e) => {
                     log::error!(
-                        "could not send {} across {:?}: {}",
+                        "Could not send {} to recursion handler: {}",
                         response.url(),
-                        transmitter,
                         e
                     );
                 }
@@ -369,9 +363,8 @@ async fn try_recursion(
                 Ok(_) => {}
                 Err(e) => {
                     log::error!(
-                        "could not send {}/ across {:?}: {}",
+                        "could not send {}/ to recursion handler: {}",
                         response.url(),
-                        transmitter,
                         e
                     );
                 }
@@ -465,12 +458,18 @@ async fn make_requests(
 /// Scan a given url using a given wordlist
 ///
 /// This is the primary entrypoint for the scanner
-pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_depth: usize) {
+pub async fn scan_url(
+    target_url: &str,
+    wordlist: Arc<HashSet<String>>,
+    base_depth: usize,
+    writer: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
+) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?})",
         target_url,
         wordlist.len(),
-        base_depth
+        base_depth,
+        writer
     );
 
     log::info!("Starting scan against: {}", target_url);
@@ -502,24 +501,22 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     }
 
     let wildcard_bar = progress_bar.clone();
+    let report_writer = writer.clone();
+    let heuristics_writer = writer.clone();
 
-    let reporter = if !CONFIGURATION.output.is_empty() {
-        // output file defined
-        tokio::spawn(async move { spawn_file_reporter(rx_rpt).await })
-    } else {
-        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt).await })
-    };
+    let reporter =
+        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt, report_writer).await });
 
     // lifetime satisfiers, as it's an Arc, clones are cheap anyway
     let looping_words = wordlist.clone();
     let recurser_words = wordlist.clone();
 
-    let recurser =
-        tokio::spawn(
-            async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
-        );
+    let recurser = tokio::spawn(async move {
+        spawn_recursion_handler(rx_dir, recurser_words, base_depth, writer.clone()).await
+    });
 
-    let filter = match heuristics::wildcard_test(&target_url, wildcard_bar).await {
+    let filter = match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_writer).await
+    {
         Some(f) => Arc::new(f),
         None => Arc::new(WildcardFilter::default()),
     };

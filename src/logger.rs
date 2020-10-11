@@ -1,13 +1,17 @@
 use crate::config::PROGRESS_PRINTER;
+// use crate::utils::safe_file_write;
 use console::{style, Color};
 use env_logger::Builder;
-use std::env;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
+use std::{env, fs, io};
 
 /// Create a customized instance of
 /// [env_logger::Logger](https://docs.rs/env_logger/latest/env_logger/struct.Logger.html)
 /// with timer offset/color and set the log level based on `verbosity`
-pub fn initialize(verbosity: u8) {
+///
+/// If `logfile` isn't empty, `logfile` will have each log entry appended to it
+pub fn initialize(verbosity: u8, _writer: Option<Arc<RwLock<io::BufWriter<fs::File>>>>) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
     match env::var("RUST_LOG") {
@@ -41,13 +45,19 @@ pub fn initialize(verbosity: u8) {
             };
 
             let msg = format!(
-                "{} {:10.03} {}",
+                "{} {:10.03} {}\n",
                 style(level_name).bg(level_color).black(),
                 style(t).dim(),
                 style(record.args()).dim(),
             );
 
-            PROGRESS_PRINTER.println(msg);
+            PROGRESS_PRINTER.println(&msg);
+
+            // if writer.is_some() {
+            //     // unwrap on the file handle ok as we checked that it's not None already
+            //     safe_file_write(&msg, writer.clone().unwrap());
+            // }
+
             Ok(())
         })
         .init();
