@@ -111,23 +111,11 @@ pub async fn wildcard_test(
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
 
-                    if !CONFIGURATION.output.is_empty() {
-                        match tx_file.send(msg) {
-                            Ok(_) => {
-                                log::trace!(
-                                    "sent message from heuristics::wildcard_test to file handler"
-                                );
-                            }
-                            Err(e) => {
-                                log::error!(
-                                    "{} {} {}",
-                                    status_colorizer("ERROR"),
-                                    module_colorizer("heuristics::wildcard_test"),
-                                    e
-                                );
-                            }
-                        }
-                    }
+                    try_send_message_to_file(
+                        &msg,
+                        tx_file.clone(),
+                        !CONFIGURATION.output.is_empty(),
+                    );
                 }
 
                 wildcard.dynamic = wc_length - url_len;
@@ -144,23 +132,11 @@ pub async fn wildcard_test(
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
 
-                    if !CONFIGURATION.output.is_empty() {
-                        match tx_file.send(msg) {
-                            Ok(_) => {
-                                log::trace!(
-                                    "sent message from heuristics::wildcard_test to file handler"
-                                );
-                            }
-                            Err(e) => {
-                                log::error!(
-                                    "{} {} {}",
-                                    status_colorizer("ERROR"),
-                                    module_colorizer("heuristics::wildcard_test"),
-                                    e
-                                );
-                            }
-                        }
-                    }
+                    try_send_message_to_file(
+                        &msg,
+                        tx_file.clone(),
+                        !CONFIGURATION.output.is_empty(),
+                    );
                 }
                 wildcard.size = wc_length;
             }
@@ -235,23 +211,11 @@ async fn make_wildcard_request(
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
 
-                    if !CONFIGURATION.output.is_empty() {
-                        match tx_file.send(msg) {
-                            Ok(_) => {
-                                log::trace!(
-                                    "sent message from heuristics::make_request to file handler"
-                                );
-                            }
-                            Err(e) => {
-                                log::error!(
-                                    "{} {} {}",
-                                    status_colorizer("ERROR"),
-                                    module_colorizer("heuristics::make_request"),
-                                    e
-                                );
-                            }
-                        }
-                    }
+                    try_send_message_to_file(
+                        &msg,
+                        tx_file.clone(),
+                        !CONFIGURATION.output.is_empty(),
+                    );
                 }
 
                 if response.status().is_redirection() {
@@ -269,21 +233,11 @@ async fn make_wildcard_request(
 
                                 ferox_print(&msg, &PROGRESS_PRINTER);
 
-                                if !CONFIGURATION.output.is_empty() {
-                                    match tx_file.send(msg) {
-                                        Ok(_) => {
-                                            log::trace!("sent message from heuristics::make_request to file handler");
-                                        }
-                                        Err(e) => {
-                                            log::error!(
-                                                "{} {} {}",
-                                                status_colorizer("ERROR"),
-                                                module_colorizer("heuristics::make_request"),
-                                                e
-                                            );
-                                        }
-                                    }
-                                }
+                                try_send_message_to_file(
+                                    &msg,
+                                    tx_file.clone(),
+                                    !CONFIGURATION.output.is_empty(),
+                                );
                             }
                         } else if !CONFIGURATION.quiet {
                             let msg = format!(
@@ -296,21 +250,11 @@ async fn make_wildcard_request(
 
                             ferox_print(&msg, &PROGRESS_PRINTER);
 
-                            if !CONFIGURATION.output.is_empty() {
-                                match tx_file.send(msg) {
-                                    Ok(_) => {
-                                        log::trace!("sent message from heuristics::make_request to file handler");
-                                    }
-                                    Err(e) => {
-                                        log::error!(
-                                            "{} {} {}",
-                                            status_colorizer("ERROR"),
-                                            module_colorizer("heuristics::make_request"),
-                                            e
-                                        );
-                                    }
-                                }
-                            }
+                            try_send_message_to_file(
+                                &msg,
+                                tx_file.clone(),
+                                !CONFIGURATION.output.is_empty(),
+                            );
                         }
                     }
                 }
@@ -386,9 +330,36 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
     good_urls
 }
 
+/// simple helper to keep DRY; sends a message using the transmitter side of the given mpsc channel
+/// the receiver is expected to be the side that saves the message to CONFIGURATION.output.
+fn try_send_message_to_file(msg: &str, tx_file: UnboundedSender<String>, save_output: bool) {
+    log::trace!("enter: try_send_message_to_file({}, {:?})", msg, tx_file);
+
+    if save_output {
+        match tx_file.send(msg.to_string()) {
+            Ok(_) => {
+                log::trace!(
+                    "sent message from heuristics::try_send_message_to_file to file handler"
+                );
+            }
+            Err(e) => {
+                log::error!(
+                    "{} {} {}",
+                    status_colorizer("ERROR"),
+                    module_colorizer("heuristics::try_send_message_to_file"),
+                    e
+                );
+            }
+        }
+    }
+    log::trace!("exit: try_send_message_to_file");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FeroxChannel;
+    use tokio::sync::mpsc;
 
     #[test]
     /// request a unique string of 32bytes * a value returns correct result
@@ -404,5 +375,42 @@ mod tests {
         let wcf = WildcardFilter::default();
         assert_eq!(wcf.size, 0);
         assert_eq!(wcf.dynamic, 0);
+    }
+
+    #[tokio::test(core_threads = 1)]
+    /// tests that given a message and transmitter, the function sends the message across the
+    /// channel
+    async fn heuristics_try_send_message_to_file_sends_when_true() {
+        let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
+        let msg = "It really tied the room together.";
+        let should_save = true;
+        try_send_message_to_file(&msg, tx, should_save);
+
+        assert_eq!(rx.recv().await.unwrap(), msg);
+    }
+
+    #[tokio::test(core_threads = 1)]
+    #[should_panic]
+    /// tests that when save_output is false, nothing is sent to the receiver
+    async fn heuristics_try_send_message_to_file_sends_when_false() {
+        let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
+        let msg = "I'm the Dude, so that's what you call me.";
+        let should_save = false;
+        try_send_message_to_file(&msg, tx, should_save);
+
+        assert_ne!(rx.recv().await.unwrap(), msg);
+    }
+
+    #[tokio::test(core_threads = 1)]
+    #[should_panic]
+    /// tests that when save_output is true, but the receiver is closed, nothing is sent to the receiver
+    async fn heuristics_try_send_message_to_file_sends_with_closed_receiver() {
+        let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
+        rx.close();
+        let msg = "Hey, nice marmot.";
+        let should_save = true;
+        try_send_message_to_file(&msg, tx, should_save);
+
+        assert_ne!(rx.recv().await.unwrap(), msg);
     }
 }
