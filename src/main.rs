@@ -1,14 +1,16 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, FeroxResult};
+use feroxbuster::{banner, heuristics, logger, reporter, FeroxResult};
 use futures::StreamExt;
+use reqwest::Response;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::process;
 use std::sync::Arc;
 use tokio::io;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
@@ -48,8 +50,12 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan(targets: Vec<String>) -> FeroxResult<()> {
-    log::trace!("enter: scan");
+async fn scan(
+    targets: Vec<String>,
+    tx_term: UnboundedSender<Response>,
+    tx_file: UnboundedSender<String>,
+) -> FeroxResult<()> {
+    log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
@@ -70,11 +76,13 @@ async fn scan(targets: Vec<String>) -> FeroxResult<()> {
     let mut tasks = vec![];
 
     for target in targets {
-        let wordclone = words.clone();
+        let word_clone = words.clone();
+        let term_clone = tx_term.clone();
+        let file_clone = tx_file.clone();
 
         let task = tokio::spawn(async move {
             let base_depth = get_current_depth(&target);
-            scan_url(&target, wordclone, base_depth).await;
+            scan_url(&target, word_clone, base_depth, term_clone, file_clone).await;
         });
 
         tasks.push(task);
@@ -112,10 +120,17 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
 
 #[tokio::main]
 async fn main() {
+    // setup logging based on the number of -v's used
     logger::initialize(CONFIGURATION.verbosity);
 
+    // can't trace main until after logger is initialized
     log::trace!("enter: main");
     log::debug!("{:#?}", *CONFIGURATION);
+
+    let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
+
+    let (tx_term, tx_file, term_handle, file_handle) =
+        reporter::initialize(&CONFIGURATION.output, save_output);
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
@@ -144,14 +159,49 @@ async fn main() {
     // discard non-responsive targets
     let live_targets = heuristics::connectivity_test(&targets).await;
 
-    match scan(live_targets).await {
+    // kick off a scan against any targets determined to be responsive
+    match scan(live_targets, tx_term.clone(), tx_file.clone()).await {
         Ok(_) => {
-            log::info!("Done");
+            log::info!("All scans complete!");
         }
         Err(e) => log::error!("An error occurred: {}", e),
     };
 
-    PROGRESS_PRINTER.finish();
+    // manually drop tx in order for the rx task's while loops to eval to false
+    drop(tx_term);
+    log::trace!("dropped terminal output handler's transmitter");
+
+    log::trace!("awaiting terminal output handler's receiver");
+    // after dropping tx, we can await the future where rx lived
+    match term_handle.await {
+        Ok(_) => {}
+        Err(e) => {
+            log::error!("error awaiting terminal output handler's receiver: {}", e);
+        }
+    }
+    log::trace!("done awaiting terminal output handler's receiver");
+
+    log::trace!("tx_file: {:?}", tx_file);
+    // the same drop/await process used on the terminal handler is repeated for the file handler
+    // we drop the file transmitter every time, because it's created no matter what
+    drop(tx_file);
+
+    log::trace!("dropped file output handler's transmitter");
+    if save_output {
+        // but we only await if -o was specified
+        log::trace!("awaiting file output handler's receiver");
+        match file_handle.unwrap().await {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("error awaiting file output handler's receiver: {}", e);
+            }
+        }
+        log::trace!("done awaiting file output handler's receiver");
+    }
 
     log::trace!("exit: main");
+
+    // clean-up function for the MultiProgress bar; must be called last in order to still see
+    // the final trace message above
+    PROGRESS_PRINTER.finish();
 }

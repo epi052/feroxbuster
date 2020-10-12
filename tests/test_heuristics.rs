@@ -132,10 +132,11 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[test]
-/// test finds a dynamic wildcard and reports as much to stdout
+/// test finds a dynamic wildcard and reports as much to stdout and a file
 fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let outfile = tmp_dir.path().join("outfile");
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -158,9 +159,25 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--addslash")
+        .arg("--output")
+        .arg(outfile.as_os_str())
         .unwrap();
 
+    let contents = std::fs::read_to_string(outfile).unwrap();
+
     teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(contents.contains("WLD"), true);
+    assert_eq!(contents.contains("Got"), true);
+    assert_eq!(contents.contains("200"), true);
+    assert_eq!(contents.contains("auto-filtering"), true);
+    assert_eq!(contents.contains("(url length: 32)"), true);
+    assert_eq!(contents.contains("(url length: 96)"), true);
+    assert_eq!(contents.contains("Wildcard response is dynamic"), true);
+    assert_eq!(
+        contents.contains("(14 + url length) responses; toggle this behavior by using"),
+        true
+    );
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
@@ -296,11 +313,77 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
 }
 
 #[test]
-/// test finds a static wildcard that returns 3xx, expect redirects to => in response
+/// test finds a static wildcard and reports as much to stdout and a file
+fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let outfile = tmp_dir.path().join("outfile");
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let mock2 = Mock::new()
+        .expect_method(GET)
+        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
+        .return_status(200)
+        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--addslash")
+        .arg("--output")
+        .arg(outfile.as_os_str())
+        .unwrap();
+
+    let contents = std::fs::read_to_string(outfile).unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(contents.contains("WLD"), true);
+    assert_eq!(contents.contains("Got"), true);
+    assert_eq!(contents.contains("200"), true);
+    assert_eq!(contents.contains("(url length: 32)"), true);
+    assert_eq!(contents.contains("(url length: 96)"), true);
+    assert_eq!(
+        contents.contains("Wildcard response is static; auto-filtering 46"),
+        true
+    );
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("WLD")
+            .and(predicate::str::contains("Got"))
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("(url length: 96)"))
+            .and(predicate::str::contains(
+                "Wildcard response is static; auto-filtering 46",
+            )),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock2.times_called(), 1);
+
+    Ok(())
+}
+
+#[test]
+/// test finds a static wildcard that returns 3xx, expect redirects to => in response as well as
+/// in the output file
 fn heuristics_wildcard_test_with_redirect_as_response_code(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let outfile = tmp_dir.path().join("outfile");
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -324,9 +407,20 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--addslash")
+        .arg("--output")
+        .arg(outfile.as_os_str())
         .unwrap();
 
+    let contents = std::fs::read_to_string(outfile).unwrap();
+
     teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(contents.contains("WLD"), true);
+    assert_eq!(contents.contains("301"), true);
+    assert_eq!(contents.contains("/some-redirect"), true);
+    assert_eq!(contents.contains("redirects to => "), true);
+    assert_eq!(contents.contains(&srv.url("/")), true);
+    assert_eq!(contents.contains("(url length: 32)"), true);
 
     cmd.assert().success().stdout(
         predicate::str::contains("redirects to => ")

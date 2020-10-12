@@ -1,9 +1,7 @@
-use crate::config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER};
+use crate::config::{CONFIGURATION, PROGRESS_BAR};
 use crate::heuristics::WildcardFilter;
-use crate::utils::{
-    ferox_print, format_url, get_current_depth, get_url_path_length, make_request, status_colorizer,
-};
-use crate::{heuristics, progress};
+use crate::utils::{format_url, get_current_depth, get_url_path_length, make_request};
+use crate::{heuristics, progress, FeroxChannel};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
@@ -13,8 +11,6 @@ use std::convert::TryInto;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
-use tokio::fs;
-use tokio::io::{self, AsyncWriteExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
@@ -24,106 +20,6 @@ static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
-}
-
-/// Spawn a single consumer task (sc side of mpsc)
-///
-/// The consumer simply receives responses and writes them to the given output file if they meet
-/// the given reporting criteria
-async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<Response>) {
-    log::trace!("enter: spawn_file_reporter({:?}", report_channel);
-
-    log::info!("Writing scan results to {}", CONFIGURATION.output);
-
-    match fs::OpenOptions::new() // tokio fs
-        .create(true)
-        .append(true)
-        .open(&CONFIGURATION.output)
-        .await
-    {
-        Ok(outfile) => {
-            log::debug!("{:?} opened in append mode", outfile);
-
-            let mut writer = io::BufWriter::new(outfile); // tokio BufWriter
-
-            while let Some(resp) = report_channel.recv().await {
-                log::debug!("received {} on reporting channel", resp.url());
-
-                if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
-                    let report = if CONFIGURATION.quiet {
-                        format!("{}\n", resp.url())
-                    } else {
-                        // example output
-                        // 200       3280 https://localhost.com/FAQ
-                        format!(
-                            "{} {:>10} {}\n",
-                            resp.status().as_str(),
-                            resp.content_length().unwrap_or(0),
-                            resp.url()
-                        )
-                    };
-
-                    match writer.write(report.as_bytes()).await {
-                        Ok(written) => {
-                            log::trace!("wrote {} bytes to {}", written, CONFIGURATION.output);
-                        }
-                        Err(e) => {
-                            log::error!("could not write report to disk: {}", e);
-                        }
-                    }
-                }
-
-                match writer.flush().await {
-                    // i'm flushing inside the while loop so in the event of a ctrl+c or w/e
-                    // results seen so far are saved instead of left lying around in the buffer
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("error writing to file: {}", e);
-                    }
-                }
-
-                log::debug!("report complete: {}", resp.url());
-            }
-        }
-        Err(e) => {
-            log::error!("error opening file: {}", e);
-        }
-    }
-
-    log::trace!("exit: spawn_file_reporter");
-}
-
-/// Spawn a single consumer task (sc side of mpsc)
-///
-/// The consumer simply receives responses and prints them if they meet the given
-/// reporting criteria
-async fn spawn_terminal_reporter(mut report_channel: UnboundedReceiver<Response>) {
-    log::trace!("enter: spawn_terminal_reporter({:?})", report_channel);
-
-    while let Some(resp) = report_channel.recv().await {
-        log::debug!("received {} on reporting channel", resp.url());
-
-        if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
-            if CONFIGURATION.quiet {
-                ferox_print(&format!("{}", resp.url()), &PROGRESS_PRINTER);
-            } else {
-                let status = status_colorizer(&resp.status().as_str());
-                ferox_print(
-                    &format!(
-                        // example output
-                        // 200       3280 https://localhost.com/FAQ
-                        "{} {:>10} {}",
-                        status,
-                        resp.content_length().unwrap_or(0),
-                        resp.url()
-                    ),
-                    &PROGRESS_PRINTER,
-                );
-            }
-        }
-        log::debug!("report complete: {}", resp.url());
-    }
-    log::trace!("exit: spawn_terminal_reporter");
 }
 
 /// Adds the given url to `SCANNED_URLS`
@@ -170,12 +66,16 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
+    tx_term: UnboundedSender<Response>,
+    tx_file: UnboundedSender<String>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
-        base_depth
+        base_depth,
+        tx_term,
+        tx_file
     );
 
     let boxed_future = async move {
@@ -189,10 +89,21 @@ fn spawn_recursion_handler(
             }
 
             log::info!("received {} on recursion channel", resp);
-            let clonedresp = resp.clone();
-            let clonedlist = wordlist.clone();
+
+            let term_clone = tx_term.clone();
+            let file_clone = tx_file.clone();
+            let resp_clone = resp.clone();
+            let list_clone = wordlist.clone();
+
             scans.push(tokio::spawn(async move {
-                scan_url(clonedresp.to_owned().as_str(), clonedlist, base_depth).await
+                scan_url(
+                    resp_clone.to_owned().as_str(),
+                    list_clone,
+                    base_depth,
+                    term_clone,
+                    file_clone,
+                )
+                .await
             }));
         }
         scans
@@ -353,9 +264,8 @@ async fn try_recursion(
                 }
                 Err(e) => {
                     log::error!(
-                        "could not send {} across {:?}: {}",
+                        "Could not send {} to recursion handler: {}",
                         response.url(),
-                        transmitter,
                         e
                     );
                 }
@@ -369,9 +279,8 @@ async fn try_recursion(
                 Ok(_) => {}
                 Err(e) => {
                     log::error!(
-                        "could not send {}/ across {:?}: {}",
+                        "Could not send {}/ to recursion handler: {}",
                         response.url(),
-                        transmitter,
                         e
                     );
                 }
@@ -465,21 +374,25 @@ async fn make_requests(
 /// Scan a given url using a given wordlist
 ///
 /// This is the primary entrypoint for the scanner
-pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_depth: usize) {
+pub async fn scan_url(
+    target_url: &str,
+    wordlist: Arc<HashSet<String>>,
+    base_depth: usize,
+    tx_term: UnboundedSender<Response>,
+    tx_file: UnboundedSender<String>,
+) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?})",
         target_url,
         wordlist.len(),
-        base_depth
+        base_depth,
+        tx_term,
+        tx_file
     );
 
     log::info!("Starting scan against: {}", target_url);
 
-    let (tx_rpt, rx_rpt): (UnboundedSender<Response>, UnboundedReceiver<Response>) =
-        mpsc::unbounded_channel();
-
-    let (tx_dir, rx_dir): (UnboundedSender<String>, UnboundedReceiver<String>) =
-        mpsc::unbounded_channel();
+    let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
     let num_reqs_expected: u64 = if CONFIGURATION.extensions.is_empty() {
         wordlist.len().try_into().unwrap()
@@ -501,35 +414,37 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
         add_url_to_list_of_scanned_urls(&target_url, &SCANNED_URLS);
     }
 
+    // Arc clones to be passed around to the various scans
     let wildcard_bar = progress_bar.clone();
-
-    let reporter = if !CONFIGURATION.output.is_empty() {
-        // output file defined
-        tokio::spawn(async move { spawn_file_reporter(rx_rpt).await })
-    } else {
-        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt).await })
-    };
-
-    // lifetime satisfiers, as it's an Arc, clones are cheap anyway
-    let looping_words = wordlist.clone();
+    let heuristics_file_clone = tx_file.clone();
+    let recurser_term_clone = tx_term.clone();
+    let recurser_file_clone = tx_file.clone();
     let recurser_words = wordlist.clone();
+    let looping_words = wordlist.clone();
 
-    let recurser =
-        tokio::spawn(
-            async move { spawn_recursion_handler(rx_dir, recurser_words, base_depth).await },
-        );
+    let recurser = tokio::spawn(async move {
+        spawn_recursion_handler(
+            rx_dir,
+            recurser_words,
+            base_depth,
+            recurser_term_clone,
+            recurser_file_clone,
+        )
+        .await
+    });
 
-    let filter = match heuristics::wildcard_test(&target_url, wildcard_bar).await {
-        Some(f) => Arc::new(f),
-        None => Arc::new(WildcardFilter::default()),
-    };
+    let filter =
+        match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_file_clone).await {
+            Some(f) => Arc::new(f),
+            None => Arc::new(WildcardFilter::default()),
+        };
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
         .map(|word| {
             let wc_filter = filter.clone();
             let txd = tx_dir.clone();
-            let txr = tx_rpt.clone();
+            let txr = tx_term.clone();
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             (
@@ -566,18 +481,6 @@ pub async fn scan_url(target_url: &str, wordlist: Arc<HashSet<String>>, base_dep
     futures::future::join_all(recurser.await.unwrap()).await;
     log::trace!("done awaiting recursive scan receiver/scans");
 
-    // same thing here, drop report tx so the rx can finish up
-    log::trace!("dropped report handler's transmitter");
-    drop(tx_rpt);
-
-    log::trace!("awaiting report receiver");
-    match reporter.await {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("error awaiting report receiver: {}", e);
-        }
-    }
-    log::trace!("done awaiting report receiver");
     log::trace!("exit: scan_url");
 }
 

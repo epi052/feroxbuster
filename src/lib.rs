@@ -5,14 +5,19 @@ pub mod heuristics;
 pub mod logger;
 pub mod parser;
 pub mod progress;
+pub mod reporter;
 pub mod scanner;
 pub mod utils;
 
 use reqwest::StatusCode;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
 pub type FeroxResult<T> =
     std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+
+/// Generic mpsc::unbounded_channel type to tidy up some code
+pub type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
 
 /// Version pulled from Cargo.toml at compile time
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
