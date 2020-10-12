@@ -1,13 +1,12 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::utils::{
-    ferox_print, format_url, get_url_path_length, make_request, module_colorizer, safe_file_write,
-    status_colorizer,
+    ferox_print, format_url, get_url_path_length, make_request, module_colorizer, status_colorizer,
 };
 use console::style;
 use indicatif::ProgressBar;
 use reqwest::Response;
-use std::sync::{Arc, RwLock};
-use std::{fs, io, process};
+use std::process;
+use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
 /// length of a standard UUID, used when determining wildcard responses
@@ -57,13 +56,13 @@ fn unique_string(length: usize) -> String {
 pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
-    locked_file: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
+    tx_file: UnboundedSender<String>,
 ) -> Option<WildcardFilter> {
     log::trace!(
         "enter: wildcard_test({:?}, {:?}, {:?})",
         target_url,
         bar,
-        locked_file
+        tx_file
     );
 
     if CONFIGURATION.dontfilter {
@@ -72,8 +71,8 @@ pub async fn wildcard_test(
         return None;
     }
 
-    let clone_req_one = locked_file.clone();
-    let clone_req_two = locked_file.clone();
+    let clone_req_one = tx_file.clone();
+    let clone_req_two = tx_file.clone();
 
     if let Some(resp_one) = make_wildcard_request(&target_url, 1, clone_req_one).await {
         bar.inc(1);
@@ -109,10 +108,25 @@ pub async fn wildcard_test(
                             style(wc_length - url_len).cyan(),
                             style("--dontfilter").yellow()
                         );
+
                     ferox_print(&msg, &PROGRESS_PRINTER);
-                    if locked_file.is_some() {
-                        // unwrap on the file handle ok as we checked that it's not None already
-                        safe_file_write(&msg, locked_file.clone().unwrap());
+
+                    if !CONFIGURATION.output.is_empty() {
+                        match tx_file.send(msg) {
+                            Ok(_) => {
+                                log::trace!(
+                                    "sent message from heuristics::wildcard_test to file handler"
+                                );
+                            }
+                            Err(e) => {
+                                log::error!(
+                                    "{} {} {}",
+                                    status_colorizer("ERROR"),
+                                    module_colorizer("heuristics::wildcard_test"),
+                                    e
+                                );
+                            }
+                        }
                     }
                 }
 
@@ -127,10 +141,25 @@ pub async fn wildcard_test(
                         style(wc_length).cyan(),
                         style("--dontfilter").yellow()
                     );
+
                     ferox_print(&msg, &PROGRESS_PRINTER);
-                    if locked_file.is_some() {
-                        // unwrap on the file handle ok as we checked that it's not None already
-                        safe_file_write(&msg, locked_file.clone().unwrap());
+
+                    if !CONFIGURATION.output.is_empty() {
+                        match tx_file.send(msg) {
+                            Ok(_) => {
+                                log::trace!(
+                                    "sent message from heuristics::wildcard_test to file handler"
+                                );
+                            }
+                            Err(e) => {
+                                log::error!(
+                                    "{} {} {}",
+                                    status_colorizer("ERROR"),
+                                    module_colorizer("heuristics::wildcard_test"),
+                                    e
+                                );
+                            }
+                        }
                     }
                 }
                 wildcard.size = wc_length;
@@ -156,9 +185,14 @@ pub async fn wildcard_test(
 async fn make_wildcard_request(
     target_url: &str,
     length: usize,
-    locked_file: Option<Arc<RwLock<io::BufWriter<fs::File>>>>,
+    tx_file: UnboundedSender<String>,
 ) -> Option<Response> {
-    log::trace!("enter: make_wildcard_request({}, {})", target_url, length);
+    log::trace!(
+        "enter: make_wildcard_request({}, {}, {:?})",
+        target_url,
+        length,
+        tx_file
+    );
 
     let unique_str = unique_string(length);
 
@@ -198,10 +232,25 @@ async fn make_wildcard_request(
                         response.url(),
                         url_len
                     );
+
                     ferox_print(&msg, &PROGRESS_PRINTER);
-                    if locked_file.is_some() {
-                        // unwrap on the file handle ok as we checked that it's not None already
-                        safe_file_write(&msg, locked_file.clone().unwrap());
+
+                    if !CONFIGURATION.output.is_empty() {
+                        match tx_file.send(msg) {
+                            Ok(_) => {
+                                log::trace!(
+                                    "sent message from heuristics::make_request to file handler"
+                                );
+                            }
+                            Err(e) => {
+                                log::error!(
+                                    "{} {} {}",
+                                    status_colorizer("ERROR"),
+                                    module_colorizer("heuristics::make_request"),
+                                    e
+                                );
+                            }
+                        }
                     }
                 }
 
@@ -217,10 +266,23 @@ async fn make_wildcard_request(
                                     response.url(),
                                     next_loc_str
                                 );
+
                                 ferox_print(&msg, &PROGRESS_PRINTER);
-                                if locked_file.is_some() {
-                                    // unwrap on the file handle ok as we checked that it's not None already
-                                    safe_file_write(&msg, locked_file.clone().unwrap());
+
+                                if !CONFIGURATION.output.is_empty() {
+                                    match tx_file.send(msg) {
+                                        Ok(_) => {
+                                            log::trace!("sent message from heuristics::make_request to file handler");
+                                        }
+                                        Err(e) => {
+                                            log::error!(
+                                                "{} {} {}",
+                                                status_colorizer("ERROR"),
+                                                module_colorizer("heuristics::make_request"),
+                                                e
+                                            );
+                                        }
+                                    }
                                 }
                             }
                         } else if !CONFIGURATION.quiet {
@@ -231,10 +293,23 @@ async fn make_wildcard_request(
                                 response.url(),
                                 next_loc
                             );
+
                             ferox_print(&msg, &PROGRESS_PRINTER);
-                            if locked_file.is_some() {
-                                // unwrap on the file handle ok as we checked that it's not None already
-                                safe_file_write(&msg, locked_file.clone().unwrap());
+
+                            if !CONFIGURATION.output.is_empty() {
+                                match tx_file.send(msg) {
+                                    Ok(_) => {
+                                        log::trace!("sent message from heuristics::make_request to file handler");
+                                    }
+                                    Err(e) => {
+                                        log::error!(
+                                            "{} {} {}",
+                                            status_colorizer("ERROR"),
+                                            module_colorizer("heuristics::make_request"),
+                                            e
+                                        );
+                                    }
+                                }
                             }
                         }
                     }

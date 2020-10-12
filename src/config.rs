@@ -325,7 +325,7 @@ impl Configuration {
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| {
-                            eprintln!("[!] Error encountered: {}", e);
+                            eprintln!("[!] Error encountered: {}", e); // todo normalize error output
                             exit(1)
                         })
                         .as_u16()
@@ -347,7 +347,7 @@ impl Configuration {
                 .unwrap() // already known good
                 .map(|size| {
                     size.parse::<u64>().unwrap_or_else(|e| {
-                        eprintln!("[!] Error encountered: {}", e);
+                        eprintln!("[!] Error encountered: {}", e); // todo normalize error output
                         exit(1)
                     })
                 })

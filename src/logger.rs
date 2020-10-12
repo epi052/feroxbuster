@@ -1,17 +1,14 @@
 use crate::config::PROGRESS_PRINTER;
-// use crate::utils::safe_file_write;
+use crate::reporter::{get_cached_file_handle, safe_file_write};
 use console::{style, Color};
 use env_logger::Builder;
-use std::sync::{Arc, RwLock};
+use std::env;
 use std::time::Instant;
-use std::{env, fs, io};
 
 /// Create a customized instance of
 /// [env_logger::Logger](https://docs.rs/env_logger/latest/env_logger/struct.Logger.html)
 /// with timer offset/color and set the log level based on `verbosity`
-///
-/// If `logfile` isn't empty, `logfile` will have each log entry appended to it
-pub fn initialize(verbosity: u8, _writer: Option<Arc<RwLock<io::BufWriter<fs::File>>>>) {
+pub fn initialize(verbosity: u8) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
     match env::var("RUST_LOG") {
@@ -30,6 +27,19 @@ pub fn initialize(verbosity: u8, _writer: Option<Arc<RwLock<io::BufWriter<fs::Fi
 
     let start = Instant::now();
     let mut builder = Builder::from_default_env();
+
+    // I REALLY wanted the logger to also use the reporting channels found in the `reporter`
+    // module. However, in order to properly clean up the channels, all references to the
+    // transmitter side of a channel need to go out of scope, then you can await the future into
+    // which the receiver was moved.
+    //
+    // The problem was that putting a transmitter reference in this closure, which gets initialized
+    // as part of the global logger, made it so that I couldn't destroy/leak/take/swap the last
+    // reference to allow the channels to gracefully close.
+    //
+    // The workaround was to have a RwLock around the file and allow both the logger and the
+    // file handler to both write independent of each other.
+    let locked_file = get_cached_file_handle();
 
     builder
         .format(move |_, record| {
@@ -53,10 +63,9 @@ pub fn initialize(verbosity: u8, _writer: Option<Arc<RwLock<io::BufWriter<fs::Fi
 
             PROGRESS_PRINTER.println(&msg);
 
-            // if writer.is_some() {
-            //     // unwrap on the file handle ok as we checked that it's not None already
-            //     safe_file_write(&msg, writer.clone().unwrap());
-            // }
+            if let Some(buffered_file) = locked_file.clone() {
+                safe_file_write(&msg, buffered_file);
+            }
 
             Ok(())
         })

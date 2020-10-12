@@ -1,71 +1,9 @@
-use crate::config::CONFIGURATION;
 use crate::FeroxResult;
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use reqwest::{Client, Response};
 use std::convert::TryInto;
-use std::io::Write;
-use std::sync::{Arc, RwLock};
-use std::{fs, io};
-
-/// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
-/// return a reference to the file that is buffered and locked
-pub fn open_file(filename: &str) -> Option<Arc<RwLock<io::BufWriter<fs::File>>>> {
-    log::trace!("enter: open_file({})", filename);
-
-    match fs::OpenOptions::new() // std fs
-        .create(true)
-        .append(true)
-        .open(filename)
-    {
-        Ok(file) => {
-            let writer = io::BufWriter::new(file); // std io
-
-            let locked_file = Some(Arc::new(RwLock::new(writer)));
-
-            log::trace!("exit: open_file -> {:?}", locked_file);
-            locked_file
-        }
-        Err(e) => {
-            log::error!("{}", e);
-            log::trace!("exit: open_file -> None");
-            None
-        }
-    }
-}
-
-/// Given a string and a reference to a locked buffered file, write the contents and flush
-/// the buffer to disk.
-pub fn safe_file_write(contents: &str, locked_file: Arc<RwLock<io::BufWriter<fs::File>>>) {
-    log::trace!("enter: safe_file_write({}, {:?})", contents, locked_file);
-
-    let contents = strip_ansi_codes(&contents);
-
-    if let Ok(mut handle) = locked_file.write() {
-        // write lock acquired
-        match handle.write(contents.as_bytes()) {
-            Ok(written) => {
-                log::trace!("wrote {} bytes to {}", written, CONFIGURATION.output);
-            }
-            Err(e) => {
-                log::error!("could not write report to disk: {}", e);
-            }
-        }
-
-        match handle.flush() {
-            // this function is used within async functions/loops, so i'm flushing so that in
-            // the event of a ctrl+c or w/e results seen so far are saved instead of left lying
-            // around in the buffer
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("error writing to file: {}", e);
-            }
-        }
-    }
-
-    log::trace!("exit: safe_file_write");
-}
 
 /// Helper function that determines the current depth of a given url
 ///
