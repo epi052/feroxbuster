@@ -402,15 +402,15 @@ mod tests {
     }
 
     #[tokio::test(core_threads = 1)]
-    #[should_panic]
     /// tests that when save_output is true, but the receiver is closed, nothing is sent to the receiver
+    /// this test doesn't assert anything, but reaches the error block of the given function and
+    /// can be verified with --nocapture and RUST_LOG being set
     async fn heuristics_try_send_message_to_file_sends_with_closed_receiver() {
+        env_logger::init();
         let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
-        rx.close();
         let msg = "Hey, nice marmot.";
         let should_save = true;
+        rx.close();
         try_send_message_to_file(&msg, tx, should_save);
-
-        assert_ne!(rx.recv().await.unwrap(), msg);
     }
 }

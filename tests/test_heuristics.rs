@@ -377,11 +377,13 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
 }
 
 #[test]
-/// test finds a static wildcard that returns 3xx, expect redirects to => in response
+/// test finds a static wildcard that returns 3xx, expect redirects to => in response as well as
+/// in the output file
 fn heuristics_wildcard_test_with_redirect_as_response_code(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let outfile = tmp_dir.path().join("outfile");
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -405,9 +407,20 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--addslash")
+        .arg("--output")
+        .arg(outfile.as_os_str())
         .unwrap();
 
+    let contents = std::fs::read_to_string(outfile).unwrap();
+
     teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(contents.contains("WLD"), true);
+    assert_eq!(contents.contains("301"), true);
+    assert_eq!(contents.contains("/some-redirect"), true);
+    assert_eq!(contents.contains("redirects to => "), true);
+    assert_eq!(contents.contains(&srv.url("/")), true);
+    assert_eq!(contents.contains("(url length: 32)"), true);
 
     cmd.assert().success().stdout(
         predicate::str::contains("redirects to => ")
