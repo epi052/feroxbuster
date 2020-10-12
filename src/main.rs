@@ -120,15 +120,17 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
 
 #[tokio::main]
 async fn main() {
+    // setup logging based on the number of -v's used
+    logger::initialize(CONFIGURATION.verbosity);
+
+    // can't trace main until after logger is initialized
+    log::trace!("enter: main");
+    log::debug!("{:#?}", *CONFIGURATION);
+
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
     let (tx_term, tx_file, term_handle, file_handle) =
         reporter::initialize(&CONFIGURATION.output, save_output);
-
-    logger::initialize(CONFIGURATION.verbosity);
-
-    log::trace!("enter: main");
-    log::debug!("{:#?}", *CONFIGURATION);
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
@@ -157,9 +159,10 @@ async fn main() {
     // discard non-responsive targets
     let live_targets = heuristics::connectivity_test(&targets).await;
 
+    // kick off a scan against any targets determined to be responsive
     match scan(live_targets, tx_term.clone(), tx_file.clone()).await {
         Ok(_) => {
-            log::info!("Done");
+            log::info!("All scans complete!");
         }
         Err(e) => log::error!("An error occurred: {}", e),
     };
@@ -168,32 +171,37 @@ async fn main() {
     drop(tx_term);
     log::trace!("dropped terminal output handler's transmitter");
 
-    log::trace!("awaiting terminal output receiver");
+    log::trace!("awaiting terminal output handler's receiver");
+    // after dropping tx, we can await the future where rx lived
     match term_handle.await {
         Ok(_) => {}
         Err(e) => {
-            log::error!("error awaiting terminal output's receiver: {}", e);
+            log::error!("error awaiting terminal output handler's receiver: {}", e);
         }
     }
-    log::trace!("done awaiting terminal output receiver");
+    log::trace!("done awaiting terminal output handler's receiver");
 
     log::trace!("tx_file: {:?}", tx_file);
+    // the same drop/await process used on the terminal handler is repeated for the file handler
+    // we drop the file transmitter every time, because it's created no matter what
     drop(tx_file);
 
     log::trace!("dropped file output handler's transmitter");
-
     if save_output {
-        log::trace!("awaiting file output receiver");
+        // but we only await if -o was specified
+        log::trace!("awaiting file output handler's receiver");
         match file_handle.unwrap().await {
             Ok(_) => {}
             Err(e) => {
-                log::error!("error awaiting file output's receiver: {}", e);
+                log::error!("error awaiting file output handler's receiver: {}", e);
             }
         }
-        log::trace!("done awaiting file output receiver");
+        log::trace!("done awaiting file output handler's receiver");
     }
 
-    PROGRESS_PRINTER.finish();
-
     log::trace!("exit: main");
+
+    // clean-up function for the MultiProgress bar; must be called last in order to still see
+    // the final trace message above
+    PROGRESS_PRINTER.finish();
 }

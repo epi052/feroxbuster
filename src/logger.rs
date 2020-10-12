@@ -1,4 +1,4 @@
-use crate::config::PROGRESS_PRINTER;
+use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::reporter::{get_cached_file_handle, safe_file_write};
 use console::{style, Color};
 use env_logger::Builder;
@@ -39,7 +39,7 @@ pub fn initialize(verbosity: u8) {
     //
     // The workaround was to have a RwLock around the file and allow both the logger and the
     // file handler to both write independent of each other.
-    let locked_file = get_cached_file_handle();
+    let locked_file = get_cached_file_handle(&CONFIGURATION.output);
 
     builder
         .format(move |_, record| {

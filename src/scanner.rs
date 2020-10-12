@@ -279,7 +279,7 @@ async fn try_recursion(
                 Ok(_) => {}
                 Err(e) => {
                     log::error!(
-                        "could not send {}/ to recursion handler: {}",
+                        "Could not send {}/ to recursion handler: {}",
                         response.url(),
                         e
                     );

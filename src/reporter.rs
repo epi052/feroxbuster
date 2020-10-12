@@ -9,7 +9,12 @@ use std::{fs, io};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
+/// Singleton buffered file behind an Arc/RwLock; used for file writes from two locations:
+///     - [logger::initialize](../logger/fn.initialize.html) (specifically a closure on the global logger instance)
+///     - `reporter::spawn_file_handler`
 pub static mut LOCKED_FILE: Option<Arc<RwLock<io::BufWriter<fs::File>>>> = None;
+
+/// An initializer Once variable used to create `LOCKED_FILE`
 static INIT: Once = Once::new();
 
 // Accessing a `static mut` is unsafe much of the time, but if we do so
@@ -18,18 +23,17 @@ static INIT: Once = Once::new();
 //
 // This function will only call `open_file` once, and will
 // otherwise always return the value returned from the first invocation.
-pub fn get_cached_file_handle() -> Option<Arc<RwLock<io::BufWriter<fs::File>>>> {
+pub fn get_cached_file_handle(filename: &str) -> Option<Arc<RwLock<io::BufWriter<fs::File>>>> {
     unsafe {
         INIT.call_once(|| {
-            LOCKED_FILE = open_file(&CONFIGURATION.output);
+            LOCKED_FILE = open_file(&filename);
         });
         LOCKED_FILE.clone()
     }
 }
 
 /// Creates all required output handlers (terminal, file) and returns
-/// the transmitter side of an mpsc and the primary output handler's JoinHandle
-/// to be awaited
+/// the transmitter sides of each mpsc along with each receiver's future's JoinHandle to be awaited
 ///
 /// Any other module that needs to write a Response to stdout or output results to a file should
 /// be passed a clone of the appropriate returned transmitter
@@ -133,7 +137,7 @@ async fn spawn_terminal_reporter(
 /// The consumer simply receives responses and writes them to the given output file if they meet
 /// the given reporting criteria
 async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<String>, output_file: &str) {
-    let buffered_file = match get_cached_file_handle() {
+    let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
         Some(file) => file,
         None => {
             log::trace!("exit: spawn_file_reporter");
@@ -210,5 +214,17 @@ pub fn safe_file_write(contents: &str, locked_file: Arc<RwLock<io::BufWriter<fs:
                 log::error!("error writing to file: {}", e);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[should_panic]
+    /// asserts that an empty string for a filename returns None
+    fn reporter_get_cached_file_handle_without_filename_returns_none() {
+        let _used = get_cached_file_handle(&"").unwrap();
     }
 }
