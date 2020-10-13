@@ -195,6 +195,13 @@ pub fn initialize() -> App<'static, 'static> {
                     "Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)",
                 ),
         )
+        .arg(
+            Arg::with_name("extract_links")
+                .short("e")
+                .long("extract-links")
+                .takes_value(false)
+                .help("Extract links from html and javascript files; make new requests based on findings (default: false)")
+        )
 
         .after_help(r#"NOTE:
     Options that take multiple values are very flexible.  Consider the following ways of specifying
@@ -224,6 +231,9 @@ EXAMPLES:
 
     Pass auth token via query parameter
         ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
+
+    Find links in javascript/html and make additional requests based on results
+        ./feroxbuster -u http://127.1 --extract-links
 
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 -t 200

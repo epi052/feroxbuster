@@ -77,10 +77,12 @@ by Ben "epi" Risher {}                  ver: {}"#,
         "{}",
         format_banner_entry!("\u{1F680}", "Threads", config.threads)
     ); // 🚀
+
     eprintln!(
         "{}",
         format_banner_entry!("\u{1f4d6}", "Wordlist", config.wordlist)
     ); // 📖
+
     eprintln!(
         "{}",
         format_banner_entry!(
@@ -89,10 +91,12 @@ by Ben "epi" Risher {}                  ver: {}"#,
             format!("[{}]", codes.join(", "))
         )
     ); // 🆗
+
     eprintln!(
         "{}",
         format_banner_entry!("\u{1f4a5}", "Timeout (secs)", config.timeout)
     ); // 💥
+
     eprintln!(
         "{}",
         format_banner_entry!("\u{1F9a1}", "User-Agent", config.useragent)
@@ -129,6 +133,13 @@ by Ben "epi" Risher {}                  ver: {}"#,
                 format_banner_entry!("\u{1f4a2}", "Size Filter", filter)
             ); // 💢
         }
+    }
+
+    if config.extract_links {
+        eprintln!(
+            "{}",
+            format_banner_entry!("\u{1F50E}", "Extract Links", config.extract_links)
+        ); // 🔎
     }
 
     if !config.queries.is_empty() {
