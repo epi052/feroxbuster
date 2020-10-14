@@ -90,6 +90,7 @@ Releases for multiple architectures can be found in the [Releases](https://githu
 ```
 curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip
 unzip x86-linux-feroxbuster.zip
+chmod +x ./feroxbuster
 ./feroxbuster -V
 ```
 #### Linux x86_64
@@ -97,6 +98,7 @@ unzip x86-linux-feroxbuster.zip
 ```
 curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip
 unzip x86_64-linux-feroxbuster.zip
+chmod +x ./feroxbuster
 ./feroxbuster -V
 ```
 
@@ -104,6 +106,7 @@ unzip x86_64-linux-feroxbuster.zip
 ```
 curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip
 unzip x86_64-macos-feroxbuster.zip
+chmod +x ./feroxbuster
 ./feroxbuster -V
 ```
 
