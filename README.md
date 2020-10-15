@@ -242,6 +242,11 @@ built-in defaults.
 - The same directory as the `feroxbuster` executable (per-user)
 - The user's current working directory (per-target)
 
+> `CONFIG_DIR` is defined as the following:
+> - Linux: `$XDG_CONFIG_HOME` or `$HOME/.config` i.e. `/home/bob/.config`
+> - MacOs: `$HOME/Library/Application Support` i.e. `/Users/bob/Library/Application Support`
+> - Windows: `{FOLDERID_RoamingAppData}` i.e. `C:\Users\Bob\AppData\Roaming`
+
 If more than one valid configuration file is found, each one overwrites the values found previously.  
 
 If no configuration file is found, nothing happens at this stage.
