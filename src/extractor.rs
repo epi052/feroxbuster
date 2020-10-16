@@ -33,9 +33,9 @@ fn get_sub_paths_from_path(path: &str) -> Vec<String> {
     let length = parts.len();
 
     for _ in 0..length {
-        // iterate over all parts of the path, using .pop() to remove the last part of the path
+        // iterate over all parts of the path
         if parts.is_empty() {
-            // pop left us with an empty vector, ignore
+            // pop left us with an empty vector, we're done
             break;
         }
 
@@ -47,7 +47,7 @@ fn get_sub_paths_from_path(path: &str) -> Vec<String> {
         }
 
         paths.push(possible_path); // good sub-path found
-        parts.pop();
+        parts.pop(); // use .pop() to remove the last part of the path and continue iteration
     }
 
     log::trace!("exit: get_sub_paths_from_path -> {:?}", paths);
@@ -89,7 +89,16 @@ pub async fn get_links(response: Response) -> HashSet<String> {
     let url = response.url().clone();
     let mut links = HashSet::<String>::new();
 
-    for capture in REGEX.captures_iter(&response.text().await.unwrap()) {
+    let body = match response.text().await {
+        // await the response's body
+        Ok(text) => text,
+        Err(e) => {
+            log::error!("Could not parse body from response: {}", e);
+            return links;
+        }
+    };
+
+    for capture in REGEX.captures_iter(&body) {
         // remove single & double quotes from both ends of the capture
         // capture[0] is the entire match, additional capture groups start at [1]
         let link = capture[0].trim_matches(|c| c == '\'' || c == '"');
