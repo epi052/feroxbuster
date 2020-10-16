@@ -27,17 +27,16 @@ fn get_sub_paths_from_path(path: &str) -> Vec<String> {
     log::trace!("enter: get_sub_paths_from_path({})", path);
     let mut paths = vec![];
 
-    let mut parts: Vec<&str> = path.split('/').collect();
+    // filter out any empty strings caused by .split
+    let mut parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
 
     let length = parts.len();
 
     for _ in 0..length {
         // iterate over all parts of the path, using .pop() to remove the last part of the path
-        parts.pop();
-
         if parts.is_empty() {
             // pop left us with an empty vector, ignore
-            continue;
+            break;
         }
 
         let possible_path = parts.join("/");
@@ -48,6 +47,7 @@ fn get_sub_paths_from_path(path: &str) -> Vec<String> {
         }
 
         paths.push(possible_path); // good sub-path found
+        parts.pop();
     }
 
     log::trace!("exit: get_sub_paths_from_path -> {:?}", paths);
@@ -102,9 +102,6 @@ pub async fn get_links(response: Response) -> HashSet<String> {
                     continue;
                 }
 
-                // absolute url that points to the same domain the user specified, save it
-                links.insert(absolute.to_string());
-
                 for sub_path in get_sub_paths_from_path(absolute.path()) {
                     // take a url fragment like homepage/assets/img/icons/handshake.svg and
                     // incrementally add
@@ -120,9 +117,6 @@ pub async fn get_links(response: Response) -> HashSet<String> {
                 //     ex: Url::parse("/login") -> Err("relative URL without a base")
                 // while this is technically an error, these are good results for us
                 if e.to_string().contains("relative URL without a base") {
-                    // relative url joined with the base url, save it
-                    add_link_to_set_of_links(&link, &url, &mut links);
-
                     for sub_path in get_sub_paths_from_path(link) {
                         // incrementally save all sub-paths that led to the relative url's resource
                         add_link_to_set_of_links(&sub_path, &url, &mut links);
@@ -137,4 +131,67 @@ pub async fn get_links(response: Response) -> HashSet<String> {
 
     log::trace!("exit: get_links -> {:?}", links);
     links
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// extract sub paths from the given url fragment; expect 4 sub paths and that all are
+    /// in the expected array
+    fn extractor_get_sub_paths_from_path_with_multiple_paths() {
+        let path = "homepage/assets/img/icons/handshake.svg";
+        let paths = get_sub_paths_from_path(&path);
+        let expected = vec!["homepage", "homepage/assets", "homepage/assets/img", "homepage/assets/img/icons", "homepage/assets/img/icons/handshake.svg"];
+
+        assert_eq!(paths.len(), expected.len());
+        for expected_path in expected {
+            assert_eq!(paths.contains(&expected_path.to_string()), true);
+        }
+    }
+
+    #[test]
+    /// extract sub paths from the given url fragment; expect 2 sub paths and that all are
+    /// in the expected array. the fragment is wrapped in slashes to ensure no empty strings are
+    /// returned
+    fn extractor_get_sub_paths_from_path_with_enclosing_slashes() {
+        let path = "/homepage/assets/";
+        let paths = get_sub_paths_from_path(&path);
+        let expected = vec!["homepage", "homepage/assets"];
+
+        assert_eq!(paths.len(), expected.len());
+        for expected_path in expected {
+            assert_eq!(paths.contains(&expected_path.to_string()), true);
+        }
+    }
+
+    #[test]
+    /// extract sub paths from the given url fragment; expect 1 sub path, no forward slashes are
+    /// included
+    fn extractor_get_sub_paths_from_path_with_only_a_word() {
+        let path = "homepage";
+        let paths = get_sub_paths_from_path(&path);
+        let expected = vec!["homepage"];
+
+        assert_eq!(paths.len(), expected.len());
+        for expected_path in expected {
+            assert_eq!(paths.contains(&expected_path.to_string()), true);
+        }
+    }
+
+    #[test]
+    /// extract sub paths from the given url fragment; expect 1 sub path, forward slash removed
+    fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
+        let path = "/homepage";
+        let paths = get_sub_paths_from_path(&path);
+        let expected = vec!["homepage"];
+
+        assert_eq!(paths.len(), expected.len());
+        for expected_path in expected {
+            assert_eq!(paths.contains(&expected_path.to_string()), true);
+        }
+    }
+
+
 }
