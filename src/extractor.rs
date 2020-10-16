@@ -143,7 +143,13 @@ mod tests {
     fn extractor_get_sub_paths_from_path_with_multiple_paths() {
         let path = "homepage/assets/img/icons/handshake.svg";
         let paths = get_sub_paths_from_path(&path);
-        let expected = vec!["homepage", "homepage/assets", "homepage/assets/img", "homepage/assets/img/icons", "homepage/assets/img/icons/handshake.svg"];
+        let expected = vec![
+            "homepage",
+            "homepage/assets",
+            "homepage/assets/img",
+            "homepage/assets/img/icons",
+            "homepage/assets/img/icons/handshake.svg",
+        ];
 
         assert_eq!(paths.len(), expected.len());
         for expected_path in expected {
@@ -192,6 +198,4 @@ mod tests {
             assert_eq!(paths.contains(&expected_path.to_string()), true);
         }
     }
-
-
 }
