@@ -198,4 +198,33 @@ mod tests {
             assert_eq!(paths.contains(&expected_path.to_string()), true);
         }
     }
+
+    #[test]
+    /// test that a full url and fragment are joined correctly, then added to the given list
+    /// i.e. the happy path
+    fn extractor_add_link_to_set_of_links_happy_path() {
+        let url = Url::parse("https://localhost").unwrap();
+        let mut links = HashSet::<String>::new();
+        let link = "admin";
+
+        assert_eq!(links.len(), 0);
+        add_link_to_set_of_links(link, &url, &mut links);
+
+        assert_eq!(links.len(), 1);
+        assert!(links.contains("https://localhost/admin"));
+    }
+
+    #[test]
+    /// test that an invalid path fragment doesn't add anything to the set of links
+    fn extractor_add_link_to_set_of_links_with_non_base_url() {
+        let url = Url::parse("https://localhost").unwrap();
+        let mut links = HashSet::<String>::new();
+        let link = "\\\\\\\\";
+
+        assert_eq!(links.len(), 0);
+        add_link_to_set_of_links(link, &url, &mut links);
+
+        assert_eq!(links.len(), 0);
+        assert!(links.is_empty());
+    }
 }
