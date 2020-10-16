@@ -78,11 +78,11 @@ fn add_link_to_set_of_links(link: &str, url: &Url, links: &mut HashSet<String>) 
 ///   - for every link found take its url path and parse each sub-path
 ///     - example: Response contains a link fragment `homepage/assets/img/icons/handshake.svg`
 ///       with a base url of http://localhost, the following urls would be returned:
-///         - homepage/assets/img/icons/handshake.svg
-///         - homepage/assets/img/icons/
-///         - homepage/assets/img/
-///         - homepage/assets/
-///         - homepage/
+///         - http://localhost/homepage/assets/img/icons/handshake.svg
+///         - http://localhost/homepage/assets/img/icons/
+///         - http://localhost/homepage/assets/img/
+///         - http://localhost/homepage/assets/
+///         - http://localhost/homepage/
 pub async fn get_links(response: Response) -> HashSet<String> {
     log::trace!("enter: get_links({})", response.url().as_str());
 
