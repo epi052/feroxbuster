@@ -88,22 +88,25 @@ Releases for multiple architectures can be found in the [Releases](https://githu
 
 #### Linux x86
 ```
-wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip
+curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip
 unzip x86-linux-feroxbuster.zip
+chmod +x ./feroxbuster
 ./feroxbuster -V
 ```
 #### Linux x86_64
 
 ```
-wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip
+curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip
 unzip x86_64-linux-feroxbuster.zip
+chmod +x ./feroxbuster
 ./feroxbuster -V
 ```
 
 #### MacOS x86_64
 ```
-wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip
+curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip
 unzip x86_64-macos-feroxbuster.zip
+chmod +x ./feroxbuster
 ./feroxbuster -V
 ```
 
@@ -238,6 +241,11 @@ built-in defaults.
 - `CONFIG_DIR/ferxobuster/` (per-user)
 - The same directory as the `feroxbuster` executable (per-user)
 - The user's current working directory (per-target)
+
+> `CONFIG_DIR` is defined as the following:
+> - Linux: `$XDG_CONFIG_HOME` or `$HOME/.config` i.e. `/home/bob/.config`
+> - MacOs: `$HOME/Library/Application Support` i.e. `/Users/bob/Library/Application Support`
+> - Windows: `{FOLDERID_RoamingAppData}` i.e. `C:\Users\Bob\AppData\Roaming`
 
 If more than one valid configuration file is found, each one overwrites the values found previously.  
 
