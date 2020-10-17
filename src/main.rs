@@ -38,7 +38,13 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     let mut words = HashSet::new();
 
     for line in reader.lines() {
-        words.insert(line?);
+        let result = line?;
+
+        if result.starts_with('#') || result.is_empty() {
+            continue;
+        }
+
+        words.insert(result);
     }
 
     log::trace!(
