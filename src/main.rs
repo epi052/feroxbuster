@@ -1,105 +1,11 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
-use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
+use feroxbuster::scanner::scan;
+use feroxbuster::utils::{ferox_print, module_colorizer, status_colorizer};
 use feroxbuster::{banner, heuristics, logger, reporter, FeroxResult};
 use futures::StreamExt;
-use reqwest::Response;
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::process;
-use std::sync::Arc;
 use tokio::io;
-use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{FramedRead, LinesCodec};
-
-/// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
-fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
-    log::trace!("enter: get_unique_words_from_wordlist({})", path);
-
-    let file = match File::open(&path) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!(
-                "{} {} {}",
-                status_colorizer("ERROR"),
-                module_colorizer("main::get_unique_words_from_wordlist"),
-                e
-            );
-            log::error!("Could not open wordlist: {}", e);
-            log::trace!("exit: get_unique_words_from_wordlist -> {}", e);
-
-            return Err(Box::new(e));
-        }
-    };
-
-    let reader = BufReader::new(file);
-
-    let mut words = HashSet::new();
-
-    for line in reader.lines() {
-        let result = line?;
-
-        if result.starts_with('#') || result.is_empty() {
-            continue;
-        }
-
-        words.insert(result);
-    }
-
-    log::trace!(
-        "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
-        words.len()
-    );
-
-    Ok(Arc::new(words))
-}
-
-/// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan(
-    targets: Vec<String>,
-    tx_term: UnboundedSender<Response>,
-    tx_file: UnboundedSender<String>,
-) -> FeroxResult<()> {
-    log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
-    // cloning an Arc is cheap (it's basically a pointer into the heap)
-    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
-    // as well as additional directories found as part of recursion
-    let words =
-        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) })
-            .await??;
-
-    if words.len() == 0 {
-        eprintln!(
-            "{} {} Did not find any words in {}",
-            status_colorizer("ERROR"),
-            module_colorizer("main::scan"),
-            CONFIGURATION.wordlist
-        );
-        process::exit(1);
-    }
-
-    let mut tasks = vec![];
-
-    for target in targets {
-        let word_clone = words.clone();
-        let term_clone = tx_term.clone();
-        let file_clone = tx_file.clone();
-
-        let task = tokio::spawn(async move {
-            let base_depth = get_current_depth(&target);
-            scan_url(&target, word_clone, base_depth, term_clone, file_clone).await;
-        });
-
-        tasks.push(task);
-    }
-
-    // drive execution of all accumulated futures
-    futures::future::join_all(tasks).await;
-    log::trace!("exit: scan");
-
-    Ok(())
-}
 
 async fn get_targets() -> FeroxResult<Vec<String>> {
     log::trace!("enter: get_targets");

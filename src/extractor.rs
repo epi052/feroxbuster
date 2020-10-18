@@ -93,7 +93,7 @@ pub async fn get_links(response: Response) -> HashSet<String> {
         // await the response's body
         Ok(text) => text,
         Err(e) => {
-            log::error!("Could not parse body from response: {}", e);
+            log::warn!("Could not parse body from response: {}", e);
             return links;
         }
     };

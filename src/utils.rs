@@ -3,7 +3,11 @@ use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use reqwest::{Client, Response};
+use std::collections::HashSet;
 use std::convert::TryInto;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::sync::Arc;
 
 /// Helper function that determines the current depth of a given url
 ///
@@ -232,6 +236,100 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
             Err(Box::new(e))
         }
     }
+}
+
+/// Helper function to determine suitability for recursion
+///
+/// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
+/// or if the Location header is present and matches the base url + / (3xx)
+pub fn response_is_directory(response: &Response) -> bool {
+    log::trace!("enter: is_directory({:?})", response);
+
+    if response.status().is_redirection() {
+        // status code is 3xx
+        match response.headers().get("Location") {
+            // and has a Location header
+            Some(loc) => {
+                // get absolute redirect Url based on the already known base url
+                log::debug!("Location header: {:?}", loc);
+
+                if let Ok(loc_str) = loc.to_str() {
+                    if let Ok(abs_url) = response.url().join(loc_str) {
+                        if format!("{}/", response.url()) == abs_url.as_str() {
+                            // if current response's Url + / == the absolute redirection
+                            // location, we've found a directory suitable for recursion
+                            log::debug!(
+                                "found directory suitable for recursion: {}",
+                                response.url()
+                            );
+                            log::trace!("exit: is_directory -> true");
+                            return true;
+                        }
+                    }
+                }
+            }
+            None => {
+                log::debug!(
+                    "expected Location header, but none was found: {:?}",
+                    response
+                );
+                log::trace!("exit: is_directory -> false");
+                return false;
+            }
+        }
+    } else if response.status().is_success() {
+        // status code is 2xx, need to check if it ends in /
+        if response.url().as_str().ends_with('/') {
+            log::debug!("{} is directory suitable for recursion", response.url());
+            log::trace!("exit: is_directory -> true");
+            return true;
+        }
+    }
+
+    log::trace!("exit: is_directory -> false");
+    false
+}
+
+/// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
+pub fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
+    log::trace!("enter: get_unique_words_from_wordlist({})", path);
+
+    let file = match File::open(&path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!(
+                "{} {} {}",
+                status_colorizer("ERROR"),
+                module_colorizer("main::get_unique_words_from_wordlist"),
+                e
+            );
+            log::error!("Could not open wordlist: {}", e);
+            log::trace!("exit: get_unique_words_from_wordlist -> {}", e);
+
+            return Err(Box::new(e));
+        }
+    };
+
+    let reader = BufReader::new(file);
+
+    let mut words = HashSet::new();
+
+    for line in reader.lines() {
+        let result = line?;
+
+        if result.starts_with('#') || result.is_empty() {
+            continue;
+        }
+
+        words.insert(result);
+    }
+
+    log::trace!(
+        "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
+        words.len()
+    );
+
+    Ok(Arc::new(words))
 }
 
 #[cfg(test)]

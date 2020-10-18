@@ -1,14 +1,20 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR};
+use crate::extractor::get_links;
 use crate::heuristics::WildcardFilter;
-use crate::utils::{format_url, get_current_depth, get_url_path_length, make_request};
-use crate::{heuristics, progress, FeroxChannel};
+use crate::utils::{
+    format_url, get_current_depth, get_unique_words_from_wordlist, get_url_path_length,
+    make_request, module_colorizer, response_is_directory, status_colorizer,
+};
+use crate::{heuristics, progress, FeroxChannel, FeroxResult};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
 use reqwest::{Response, Url};
 use std::collections::HashSet;
 use std::convert::TryInto;
+use std::iter::FromIterator;
 use std::ops::Deref;
+use std::process;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -156,58 +162,6 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
     urls
 }
 
-/// Helper function to determine suitability for recursion
-///
-/// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
-/// or if the Location header is present and matches the base url + / (3xx)
-fn response_is_directory(response: &Response) -> bool {
-    log::trace!("enter: is_directory({:?})", response);
-
-    if response.status().is_redirection() {
-        // status code is 3xx
-        match response.headers().get("Location") {
-            // and has a Location header
-            Some(loc) => {
-                // get absolute redirect Url based on the already known base url
-                log::debug!("Location header: {:?}", loc);
-
-                if let Ok(loc_str) = loc.to_str() {
-                    if let Ok(abs_url) = response.url().join(loc_str) {
-                        if format!("{}/", response.url()) == abs_url.as_str() {
-                            // if current response's Url + / == the absolute redirection
-                            // location, we've found a directory suitable for recursion
-                            log::debug!(
-                                "found directory suitable for recursion: {}",
-                                response.url()
-                            );
-                            log::trace!("exit: is_directory -> true");
-                            return true;
-                        }
-                    }
-                }
-            }
-            None => {
-                log::debug!(
-                    "expected Location header, but none was found: {:?}",
-                    response
-                );
-                log::trace!("exit: is_directory -> false");
-                return false;
-            }
-        }
-    } else if response.status().is_success() {
-        // status code is 2xx, need to check if it ends in /
-        if response.url().as_str().ends_with('/') {
-            log::debug!("{} is directory suitable for recursion", response.url());
-            log::trace!("exit: is_directory -> true");
-            return true;
-        }
-    }
-
-    log::trace!("exit: is_directory -> false");
-    false
-}
-
 /// Helper function that determines if the configured maximum recursion depth has been reached
 ///
 /// Essentially looks at the Url path and determines how many directories are present in the
@@ -324,7 +278,7 @@ async fn make_requests(
             }
 
             // purposefully doing recursion before filtering. the thought process is that
-            // even though this particular url is filtered, subsequent urls may not
+            // even though this particular url is filtered, subsequent urls may not be
 
             let content_len = &response.content_length().unwrap_or(0);
 
@@ -371,6 +325,166 @@ async fn make_requests(
     log::trace!("exit: make_requests");
 }
 
+// /// Simple helper to determine whether the given url has been scanned already or not
+// fn url_has_been_scanned(url: &str, scanned_urls: &RwLock<HashSet<String>>) -> bool {
+//     log::trace!("enter: url_has_been_scanned({}, {:?})", url, scanned_urls);
+//
+//     match scanned_urls.read() {
+//         Ok(urls) => {
+//             log::warn!("scanned urls: {:?}", urls);  // todo remove
+//             let seen = urls.contains(url);
+//             log::trace!("exit: url_has_been_scanned -> {}", seen);
+//             seen
+//         }
+//         Err(e) => {
+//             // poisoned lock
+//             log::error!("Set of scanned urls poisoned: {}", e);
+//             log::trace!("exit: url_has_been_scanned -> false");
+//             false
+//         }
+//     }
+// }
+
+/// todo doc
+pub async fn extract_new_content_from_response(
+    response: Response,
+    response_sender: UnboundedSender<Response>,
+    file_sender: UnboundedSender<String>,
+) {
+    // todo trace
+    log::trace!("enter: extract_new_content_from_response({:?})", response);
+
+    // response should have a [1,2,4,5]xx status code, based on if branch of caller
+
+    // get set of strings that are full urls
+    // get_links internally consumes the Response given
+    let new_links: Vec<String> = Vec::from_iter(get_links(response).await);
+    log::info!("Extracted links: {:?}", new_links);
+
+    for new_link in new_links {
+        let unknown = add_url_to_list_of_scanned_urls(&new_link, &SCANNED_URLS);
+
+        if !unknown {
+            // not unknown, i.e. we've seen the url before and don't need to scan again
+            continue;
+        }
+
+        let _test_url = Url::parse(&new_link).unwrap();
+
+        // if test_url.query_pairs().count() > 0 {
+        //     // very likely a file, simply request and report
+        //     // todo: request and report
+        //     continue;
+        // }
+        // else if test_url.path_segments().unwrap().last().unwrap().contains('.') {
+        //     // might be a file, pure supposition, but should cut down on noise significantly
+        //     // todo: request and report
+        //     continue;
+        // }
+
+        // haven't seen this url before, scan it
+
+        let scan_links = vec![new_link];
+        scan(scan_links, response_sender.clone(), file_sender.clone())
+            .await
+            .unwrap();
+    }
+
+    drop(file_sender);
+    drop(response_sender);
+    // if !new_links.is_empty() {
+    //     scan(new_links, response_sender.clone(), file_sender.clone()).await.unwrap();
+    // }
+
+    // for link in new_links {
+    //     if url_has_been_scanned(&link, &SCANNED_URLS) {
+    //         // this url has been processed before, skip it
+    //         continue;
+    //     }
+    //
+    //     // create a Url type from string
+    //     let url = Url::parse(&link);
+    //
+    //     if url.is_err() {
+    //         continue;
+    //     }
+    //     // url is Ok() at this point; safe to unwrap
+    //
+    //     // make a request to the newly discovered url
+    //     match make_request(&CONFIGURATION.client, &url.unwrap()).await {
+    //         Ok(response) => {
+    //             if !CONFIGURATION.norecursion && response_is_directory(&response) {
+    //                 try_recursion(&response, base_depth, dir_chan.clone()).await;
+    //             }
+    //             else {
+    //                 // todo make a helper function
+    //                 match report_chan.send(response) {
+    //                     Ok(_) => {
+    //                         log::debug!("sent {} over reporting channel", &link);
+    //                     }
+    //                     Err(e) => {
+    //                         log::error!("wtf: {}", e);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         Err(e) => {
+    //             log::error!("{}", e);
+    //         }
+    //     }
+    // }
+    log::trace!("exit: extract_new_content_from_response");
+}
+
+/// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
+pub async fn scan(
+    targets: Vec<String>,
+    tx_term: UnboundedSender<Response>,
+    tx_file: UnboundedSender<String>,
+) -> FeroxResult<()> {
+    log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
+    // cloning an Arc is cheap (it's basically a pointer into the heap)
+    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
+    // as well as additional directories found as part of recursion
+    let words =
+        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) })
+            .await??;
+
+    if words.len() == 0 {
+        eprintln!(
+            "{} {} Did not find any words in {}",
+            status_colorizer("ERROR"),
+            module_colorizer("main::scan"),
+            CONFIGURATION.wordlist
+        );
+        process::exit(1);
+    }
+
+    let mut tasks = vec![];
+
+    for target in targets {
+        let word_clone = words.clone();
+        let term_clone = tx_term.clone();
+        let file_clone = tx_file.clone();
+
+        let task = tokio::spawn(async move {
+            let base_depth = get_current_depth(&target);
+            scan_url(&target, word_clone, base_depth, term_clone, file_clone).await;
+        });
+
+        tasks.push(task);
+    }
+
+    // drive execution of all accumulated futures
+    futures::future::join_all(tasks).await;
+    log::trace!("exit: scan");
+
+    drop(tx_file);
+    drop(tx_term);
+
+    Ok(())
+}
+
 /// Scan a given url using a given wordlist
 ///
 /// This is the primary entrypoint for the scanner
@@ -392,7 +506,7 @@ pub async fn scan_url(
 
     log::info!("Starting scan against: {}", target_url);
 
-    let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel(); // todo
 
     let num_reqs_expected: u64 = if CONFIGURATION.extensions.is_empty() {
         wordlist.len().try_into().unwrap()
@@ -616,4 +730,6 @@ mod tests {
 
         assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
     }
+
+    // todo test url_has_been_scanned
 }

@@ -1,4 +1,5 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
+use crate::scanner::extract_new_content_from_response;
 use crate::utils::{ferox_print, status_colorizer};
 use crate::FeroxChannel;
 use console::strip_ansi_codes;
@@ -52,9 +53,11 @@ pub fn initialize(
     let (tx_file, rx_file): FeroxChannel<String> = mpsc::unbounded_channel();
 
     let file_clone = tx_file.clone();
+    let term_clone = tx_rpt.clone();
 
-    let term_reporter =
-        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt, file_clone, save_output).await });
+    let term_reporter = tokio::spawn(async move {
+        spawn_terminal_reporter(rx_rpt, file_clone, term_clone, save_output).await
+    });
 
     let file_reporter = if save_output {
         // -o used, need to spawn the thread for writing to disk
@@ -81,18 +84,19 @@ pub fn initialize(
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
 async fn spawn_terminal_reporter(
-    mut resp_chan: UnboundedReceiver<Response>,
-    file_chan: UnboundedSender<String>,
+    mut response_receiver: UnboundedReceiver<Response>,
+    file_sender: UnboundedSender<String>,
+    response_sender: UnboundedSender<Response>,
     save_output: bool,
 ) {
     log::trace!(
         "enter: spawn_terminal_reporter({:?}, {:?}, {})",
-        resp_chan,
-        file_chan,
+        response_receiver,
+        file_sender,
         save_output
     );
 
-    while let Some(resp) = resp_chan.recv().await {
+    while let Some(resp) = response_receiver.recv().await {
         log::debug!("received {} on reporting channel", resp.url());
 
         if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
@@ -117,7 +121,7 @@ async fn spawn_terminal_reporter(
 
             if save_output {
                 // -o used, need to send the report to be written out to disk
-                match file_chan.send(report.to_string()) {
+                match file_sender.send(report.to_string()) {
                     Ok(_) => {
                         log::debug!("Sent {} to file handler", resp.url());
                     }
@@ -127,7 +131,23 @@ async fn spawn_terminal_reporter(
                 }
             }
         }
+
         log::debug!("report complete: {}", resp.url());
+
+        if CONFIGURATION.extract_links && resp.status().is_success() {
+            // && response_is_directory(&resp) {  // todo is directory check needed?
+            // everything that should have been filtered, has been by this point.
+            // A response here has the potential for interesting linked content, with
+            // the exception of redirects, which are excluded.
+            //
+            // side note: i wanted this function to be executed in `scanner::make_requests`,
+            // however, both `extractor::get_links` consumes the `Response` and
+            // `UnboundedSender::send` can't be passed a reference unless it's static. So, this
+            // function call is here to allow the `Response` to remain Send while at the same time
+            // allowing `Response::text` to consume the `Response` inside of `extractor::get_links`
+            // extract_new_content_from_response(resp, response_sender.clone(), file_sender.clone())
+            //     .await;
+        }
     }
     log::trace!("exit: spawn_terminal_reporter");
 }
@@ -136,7 +156,7 @@ async fn spawn_terminal_reporter(
 ///
 /// The consumer simply receives responses and writes them to the given output file if they meet
 /// the given reporting criteria
-async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<String>, output_file: &str) {
+async fn spawn_file_reporter(mut file_receiver: UnboundedReceiver<String>, output_file: &str) {
     let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
         Some(file) => file,
         None => {
@@ -147,13 +167,13 @@ async fn spawn_file_reporter(mut report_channel: UnboundedReceiver<String>, outp
 
     log::trace!(
         "enter: spawn_file_reporter({:?}, {})",
-        report_channel,
+        file_receiver,
         output_file
     );
 
     log::info!("Writing scan results to {}", output_file);
 
-    while let Some(report) = report_channel.recv().await {
+    while let Some(report) = file_receiver.recv().await {
         safe_file_write(&report, buffered_file.clone());
     }
 
