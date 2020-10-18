@@ -1,7 +1,7 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR};
 use crate::heuristics::WildcardFilter;
 use crate::utils::{format_url, get_current_depth, get_url_path_length, make_request};
-use crate::{heuristics, progress, FeroxChannel};
+use crate::{heuristics, progress, FeroxChannel, FeroxResponse};
 use futures::future::{BoxFuture, FutureExt};
 use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
@@ -66,7 +66,7 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
-    tx_term: UnboundedSender<Response>,
+    tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<String>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
@@ -301,7 +301,7 @@ async fn make_requests(
     base_depth: usize,
     filter: Arc<WildcardFilter>,
     dir_chan: UnboundedSender<String>,
-    report_chan: UnboundedSender<Response>,
+    report_chan: UnboundedSender<FeroxResponse>,
 ) {
     log::trace!(
         "enter: make_requests({}, {}, {}, {:?}, {:?})",
@@ -357,8 +357,10 @@ async fn make_requests(
                 }
             }
 
+            let ferox_response = FeroxResponse::new(response).await;
+
             // everything else should be reported
-            match report_chan.send(response) {
+            match report_chan.send(ferox_response) {
                 Ok(_) => {
                     log::debug!("sent {}/{} over reporting channel", &target_url, &word);
                 }
@@ -378,7 +380,7 @@ pub async fn scan_url(
     target_url: &str,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
-    tx_term: UnboundedSender<Response>,
+    tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<String>,
 ) {
     log::trace!(

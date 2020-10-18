@@ -10,7 +10,9 @@ pub mod reporter;
 pub mod scanner;
 pub mod utils;
 
-use reqwest::StatusCode;
+use crate::config::CONFIGURATION;
+
+use reqwest::{Url, StatusCode, Response};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
@@ -58,6 +60,66 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
 ///
 /// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
+
+/// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
+#[derive(Debug)]
+pub struct FeroxResponse {
+    /// todo doc
+    pub url: Url,
+
+    /// todo doc
+    pub status: StatusCode,
+
+    /// todo doc
+    pub text: String,
+
+    /// todo doc
+    pub content_length: u64
+}
+
+/// todo doc
+impl FeroxResponse {
+    /// Get the `StatusCode` of this `FeroxResponse`
+    pub fn status(&self) -> &StatusCode {
+        &self.status
+    }
+
+    /// Get the final `Url` of this `FeroxResponse`.
+    pub fn url(&self) -> &Url {
+        &self.url
+    }
+
+    /// Get the full response text
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    /// Get the content-length of this response, if known
+    pub fn content_length(&self) -> u64 {
+        self.content_length
+    }
+
+    /// todo doc
+    pub async fn new(response: Response) -> Self {
+        let url = response.url().clone();
+        let status = response.status().clone();
+        let content_length = response.content_length().unwrap_or(0);
+
+        let text = if CONFIGURATION.extract_links {
+            // .text() consumes the response, must be called last
+            response.text().await.unwrap()
+        } else {
+            String::new()
+        };
+
+        FeroxResponse {
+            url,
+            status,
+            content_length,
+            text
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,8 +1,7 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::utils::{ferox_print, status_colorizer};
-use crate::FeroxChannel;
+use crate::{FeroxResponse, FeroxChannel};
 use console::strip_ansi_codes;
-use reqwest::Response;
 use std::io::Write;
 use std::sync::{Arc, Once, RwLock};
 use std::{fs, io};
@@ -41,14 +40,14 @@ pub fn initialize(
     output_file: &str,
     save_output: bool,
 ) -> (
-    UnboundedSender<Response>,
+    UnboundedSender<FeroxResponse>,
     UnboundedSender<String>,
     JoinHandle<()>,
     Option<JoinHandle<()>>,
 ) {
     log::trace!("enter: initialize({}, {})", output_file, save_output);
 
-    let (tx_rpt, rx_rpt): FeroxChannel<Response> = mpsc::unbounded_channel();
+    let (tx_rpt, rx_rpt): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
     let (tx_file, rx_file): FeroxChannel<String> = mpsc::unbounded_channel();
 
     let file_clone = tx_file.clone();
@@ -81,7 +80,7 @@ pub fn initialize(
 /// The consumer simply receives responses and prints them if they meet the given
 /// reporting criteria
 async fn spawn_terminal_reporter(
-    mut resp_chan: UnboundedReceiver<Response>,
+    mut resp_chan: UnboundedReceiver<FeroxResponse>,
     file_chan: UnboundedSender<String>,
     save_output: bool,
 ) {
@@ -107,7 +106,7 @@ async fn spawn_terminal_reporter(
                     // 200       3280 https://localhost.com/FAQ
                     "{} {:>10} {}\n",
                     status,
-                    resp.content_length().unwrap_or(0),
+                    resp.content_length(),
                     resp.url()
                 )
             };
