@@ -65,6 +65,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Homebrew on MacOS and Linux](#homebrew-on-macos-and-linux)
     - [Cargo Install](#cargo-install)
     - [apt Install](#apt-install)
+    - [AUR Install](#aur-install)
     - [Docker Install](#docker-install)
 - [Configuration](#-configuration)
     - [Default Values](#default-values)
@@ -160,6 +161,14 @@ Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/f
 wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
 unzip feroxbuster_amd64.deb.zip
 sudo apt install ./feroxbuster_amd64.deb
+```
+
+### AUR Install
+
+Install `feroxbuster` on Arch Linux with your AUR helper of choice:
+
+```
+yay -S feroxbuster
 ```
 
 ### Docker Install
