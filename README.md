@@ -165,10 +165,10 @@ sudo apt install ./feroxbuster_amd64.deb
 
 ### AUR Install
 
-Install `feroxbuster` on Arch Linux with your AUR helper of choice:
+Install `feroxbuster-git` on Arch Linux with your AUR helper of choice:
 
 ```
-yay -S feroxbuster
+yay -S feroxbuster-git
 ```
 
 ### Docker Install
