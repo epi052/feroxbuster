@@ -1,6 +1,6 @@
+use crate::FeroxResponse;
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::Response;
 use reqwest::Url;
 use std::collections::HashSet;
 
@@ -83,20 +83,12 @@ fn add_link_to_set_of_links(link: &str, url: &Url, links: &mut HashSet<String>) 
 ///         - homepage/assets/img/
 ///         - homepage/assets/
 ///         - homepage/
-pub async fn get_links(response: Response) -> HashSet<String> {
+pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
     log::trace!("enter: get_links({})", response.url().as_str());
 
-    let url = response.url().clone();
     let mut links = HashSet::<String>::new();
 
-    let body = match response.text().await {
-        // await the response's body
-        Ok(text) => text,
-        Err(e) => {
-            log::error!("Could not parse body from response: {}", e);
-            return links;
-        }
-    };
+    let body = response.text();
 
     for capture in REGEX.captures_iter(&body) {
         // remove single & double quotes from both ends of the capture
@@ -105,7 +97,7 @@ pub async fn get_links(response: Response) -> HashSet<String> {
 
         match Url::parse(link) {
             Ok(absolute) => {
-                if absolute.domain() != url.domain() {
+                if absolute.domain() != response.url().domain() {
                     // domains are not the same, don't scan things that aren't part of the original
                     // target url
                     continue;
@@ -118,7 +110,8 @@ pub async fn get_links(response: Response) -> HashSet<String> {
                     //     - homepage/assets/img/
                     //     - homepage/assets/
                     //     - homepage/
-                    add_link_to_set_of_links(&sub_path, &url, &mut links);
+                    log::debug!("Adding {} to {:?}", sub_path, links);
+                    add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
                 }
             }
             Err(e) => {
@@ -128,7 +121,8 @@ pub async fn get_links(response: Response) -> HashSet<String> {
                 if e.to_string().contains("relative URL without a base") {
                     for sub_path in get_sub_paths_from_path(link) {
                         // incrementally save all sub-paths that led to the relative url's resource
-                        add_link_to_set_of_links(&sub_path, &url, &mut links);
+                        log::debug!("Adding {} to {:?}", sub_path, links);
+                        add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
                     }
                 } else {
                     // unexpected error has occurred

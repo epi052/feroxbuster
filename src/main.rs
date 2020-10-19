@@ -1,7 +1,7 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, reporter, FeroxResult, FeroxResponse};
+use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;

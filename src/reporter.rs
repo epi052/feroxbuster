@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
 use crate::utils::{ferox_print, status_colorizer};
-use crate::{FeroxResponse, FeroxChannel};
+use crate::{FeroxChannel, FeroxResponse};
 use console::strip_ansi_codes;
 use std::io::Write;
 use std::sync::{Arc, Once, RwLock};

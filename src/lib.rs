@@ -12,7 +12,8 @@ pub mod utils;
 
 use crate::config::CONFIGURATION;
 
-use reqwest::{Url, StatusCode, Response};
+use reqwest::header::HeaderMap;
+use reqwest::{Response, StatusCode, Url};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
@@ -64,20 +65,23 @@ pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
 #[derive(Debug)]
 pub struct FeroxResponse {
-    /// todo doc
+    /// The final `Url` of this `FeroxResponse`
     pub url: Url,
 
-    /// todo doc
+    /// The `StatusCode` of this `FeroxResponse`
     pub status: StatusCode,
 
-    /// todo doc
+    /// The full response text
     pub text: String,
 
-    /// todo doc
-    pub content_length: u64
+    /// The content-length of this response, if known
+    pub content_length: u64,
+
+    /// The `Headers` of this `FeroxResponse`
+    pub headers: HeaderMap,
 }
 
-/// todo doc
+/// `FeroxResponse` implementation
 impl FeroxResponse {
     /// Get the `StatusCode` of this `FeroxResponse`
     pub fn status(&self) -> &StatusCode {
@@ -94,20 +98,45 @@ impl FeroxResponse {
         &self.text
     }
 
+    /// Get the `Headers` of this `FeroxResponse`
+    pub fn headers(&self) -> &HeaderMap {
+        &self.headers
+    }
+
     /// Get the content-length of this response, if known
     pub fn content_length(&self) -> u64 {
         self.content_length
     }
 
-    /// todo doc
-    pub async fn new(response: Response) -> Self {
+    /// Set `FeroxResponse`'s `url` attribute, has no affect if an error occurs
+    pub fn set_url(&mut self, url: &str) {
+        match Url::parse(&url) {
+            Ok(url) => {
+                self.url = url;
+            }
+            Err(e) => {
+                log::error!("Could not parse {} into a Url: {}", url, e);
+            }
+        };
+    }
+
+    /// Create a new `FeroxResponse` from the given `Response`
+    pub async fn from(response: Response) -> Self {
         let url = response.url().clone();
         let status = response.status().clone();
+        let headers = response.headers().clone();
         let content_length = response.content_length().unwrap_or(0);
 
         let text = if CONFIGURATION.extract_links {
             // .text() consumes the response, must be called last
-            response.text().await.unwrap()
+            match response.text().await {
+                // await the response's body
+                Ok(text) => text,
+                Err(e) => {
+                    log::error!("Could not parse body from response: {}", e);
+                    String::new()
+                }
+            }
         } else {
             String::new()
         };
@@ -116,7 +145,8 @@ impl FeroxResponse {
             url,
             status,
             content_length,
-            text
+            text,
+            headers,
         }
     }
 }
