@@ -38,7 +38,9 @@ fn extractor_finds_absolute_url() -> Result<(), Box<dyn std::error::Error>> {
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg"))
+            .and(predicate::str::contains(
+                "/homepage/assets/img/icons/handshake.svg",
+            )),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -73,7 +75,10 @@ fn extractor_finds_absolute_url_to_different_domain() -> Result<(), Box<dyn std:
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg")).not()
+            .and(predicate::str::contains(
+                "/homepage/assets/img/icons/handshake.svg",
+            ))
+            .not(),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -112,7 +117,9 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg"))
+            .and(predicate::str::contains(
+                "/homepage/assets/img/icons/handshake.svg",
+            )),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -126,7 +133,8 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
 /// should follow then filter
 fn extractor_finds_same_absolute_url_twice() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;
+    let (tmp_dir, file) =
+        setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -148,7 +156,6 @@ fn extractor_finds_same_absolute_url_twice() -> Result<(), Box<dyn std::error::E
         .return_status(200)
         .create_on(&srv);
 
-
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -161,7 +168,9 @@ fn extractor_finds_same_absolute_url_twice() -> Result<(), Box<dyn std::error::E
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg"))
+            .and(predicate::str::contains(
+                "/homepage/assets/img/icons/handshake.svg",
+            )),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -176,7 +185,8 @@ fn extractor_finds_same_absolute_url_twice() -> Result<(), Box<dyn std::error::E
 /// that should filter it out, expect not to see the second response reported
 fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;
+    let (tmp_dir, file) =
+        setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -206,7 +216,10 @@ fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> 
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg")).not()
+            .and(predicate::str::contains(
+                "/homepage/assets/img/icons/handshake.svg",
+            ))
+            .not(),
     );
 
     assert_eq!(mock.times_called(), 1);
