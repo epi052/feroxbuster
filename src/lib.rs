@@ -10,8 +10,6 @@ pub mod reporter;
 pub mod scanner;
 pub mod utils;
 
-use crate::config::CONFIGURATION;
-
 use reqwest::header::HeaderMap;
 use reqwest::{Response, StatusCode, Url};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -66,19 +64,19 @@ pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
 #[derive(Debug)]
 pub struct FeroxResponse {
     /// The final `Url` of this `FeroxResponse`
-    pub url: Url,
+    url: Url,
 
     /// The `StatusCode` of this `FeroxResponse`
-    pub status: StatusCode,
+    status: StatusCode,
 
     /// The full response text
-    pub text: String,
+    text: String,
 
     /// The content-length of this response, if known
-    pub content_length: u64,
+    content_length: u64,
 
     /// The `Headers` of this `FeroxResponse`
-    pub headers: HeaderMap,
+    headers: HeaderMap,
 }
 
 /// `FeroxResponse` implementation
@@ -142,13 +140,13 @@ impl FeroxResponse {
     }
 
     /// Create a new `FeroxResponse` from the given `Response`
-    pub async fn from(response: Response) -> Self {
+    pub async fn from(response: Response, read_body: bool) -> Self {
         let url = response.url().clone();
         let status = response.status();
         let headers = response.headers().clone();
         let content_length = response.content_length().unwrap_or(0);
 
-        let text = if CONFIGURATION.extract_links {
+        let text = if read_body {
             // .text() consumes the response, must be called last
             // additionally, --extract-links is currently the only place we use the body of the
             // response, so we forego the processing if not performing extraction

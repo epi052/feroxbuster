@@ -7,7 +7,7 @@ use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
-/// send a request to a page that contains an absolute link, --extract-links should find the link
+/// send a request to a page that contains a relative link, --extract-links should find the link
 /// and make a request to the new link
 fn extractor_finds_absolute_url() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
@@ -129,9 +129,9 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-/// send a request to a page that contains an absolute link, follow it, and find the same link again
+/// send a request to a page that contains an relative link, follow it, and find the same link again
 /// should follow then filter
-fn extractor_finds_same_absolute_url_twice() -> Result<(), Box<dyn std::error::Error>> {
+fn extractor_finds_same_relative_url_twice() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;

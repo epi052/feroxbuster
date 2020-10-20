@@ -97,8 +97,10 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
 
         match Url::parse(link) {
             Ok(absolute) => {
-                if absolute.domain() != response.url().domain() {
-                    // domains are not the same, don't scan things that aren't part of the original
+                if absolute.domain() != response.url().domain()
+                    || absolute.host() != response.url().host()
+                {
+                    // domains/ips are not the same, don't scan things that aren't part of the original
                     // target url
                     continue;
                 }
@@ -139,6 +141,10 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::make_request;
+    use httpmock::Method::GET;
+    use httpmock::{Mock, MockServer};
+    use reqwest::Client;
 
     #[test]
     /// extract sub paths from the given url fragment; expect 4 sub paths and that all are
@@ -229,5 +235,35 @@ mod tests {
 
         assert_eq!(links.len(), 0);
         assert!(links.is_empty());
+    }
+
+    #[tokio::test(core_threads = 1)]
+    /// use make_request to generate a Response, and use the Response to test get_links;
+    /// the response will contain an absolute path to a domain that is not part of the scanned
+    /// domain; expect an empty set returned
+    async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let srv = MockServer::start();
+
+        let mock = Mock::new()
+            .expect_method(GET)
+            .expect_path("/some-path")
+            .return_status(200)
+            .return_body("\"http://defintely.not.a.thing.probably.com/homepage/assets/img/icons/handshake.svg\"")
+            .create_on(&srv);
+
+        let client = Client::new();
+        let url = Url::parse(&srv.url("/some-path")).unwrap();
+
+        let response = make_request(&client, &url).await.unwrap();
+
+        let ferox_response = FeroxResponse::from(response, true).await;
+
+        let links = get_links(&ferox_response).await;
+
+        assert!(links.is_empty());
+
+        assert_eq!(mock.times_called(), 1);
+        Ok(())
     }
 }
