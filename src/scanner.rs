@@ -770,7 +770,6 @@ mod tests {
         add_filter_to_list_of_wildcard_filters(filter, WILDCARD_FILTERS.clone());
         let result = should_filter_response(&18, &url);
         assert!(result);
-
     }
 
     #[test]
