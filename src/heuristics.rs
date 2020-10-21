@@ -226,35 +226,16 @@ async fn make_wildcard_request(
                 if response.status().is_redirection() {
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
-                        if let Ok(next_loc_str) = next_loc.to_str() {
-                            if !CONFIGURATION.quiet
-                                && !should_filter_response(&content_len, &response.url())
-                            {
-                                let msg = format!(
-                                    "{} {:>10} {} redirects to => {}\n",
-                                    wildcard,
-                                    content_len,
-                                    response.url(),
-                                    next_loc_str
-                                );
-
-                                ferox_print(&msg, &PROGRESS_PRINTER);
-
-                                try_send_message_to_file(
-                                    &msg,
-                                    tx_file.clone(),
-                                    !CONFIGURATION.output.is_empty(),
-                                );
-                            }
-                        } else if !CONFIGURATION.quiet
+                        let next_loc_str = next_loc.to_str().unwrap_or("Unknown");
+                        if !CONFIGURATION.quiet
                             && !should_filter_response(&content_len, &response.url())
                         {
                             let msg = format!(
-                                "{} {:>10} {} redirects to => {:?}\n",
+                                "{} {:>10} {} redirects to => {}\n",
                                 wildcard,
                                 content_len,
                                 response.url(),
-                                next_loc
+                                next_loc_str
                             );
 
                             ferox_print(&msg, &PROGRESS_PRINTER);
