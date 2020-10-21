@@ -1,4 +1,5 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
+use crate::scanner::should_filter_response;
 use crate::utils::{
     ferox_print, format_url, get_url_path_length, make_request, module_colorizer, status_colorizer,
 };
@@ -20,7 +21,7 @@ const UUID_LENGTH: u64 = 32;
 ///
 /// `size` is size of the response that should be included with filters passed via runtime
 /// configuration and any static wildcard lengths.
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq, Copy, Clone)]
 pub struct WildcardFilter {
     /// size of the response that will later be combined with the length of the path of the url
     /// requested
@@ -99,11 +100,15 @@ pub async fn wildcard_test(
                 // reflected in the response along with some static content; aka custom 404
                 let url_len = get_url_path_length(&resp_one.url());
 
-                if !CONFIGURATION.quiet {
+                wildcard.dynamic = wc_length - url_len;
+
+                if !CONFIGURATION.quiet
+                    && !should_filter_response(&wildcard.dynamic, &resp_one.url())
+                {
                     let msg = format!(
                             "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
                             status_colorizer("WLD"),
-                            wc_length - url_len,
+                            wildcard.dynamic,
                             style("auto-filtering").yellow(),
                             style(wc_length - url_len).cyan(),
                             style("--dontfilter").yellow()
@@ -117,10 +122,11 @@ pub async fn wildcard_test(
                         !CONFIGURATION.output.is_empty(),
                     );
                 }
-
-                wildcard.dynamic = wc_length - url_len;
             } else if wc_length == wc2_length {
-                if !CONFIGURATION.quiet {
+                wildcard.size = wc_length;
+
+                if !CONFIGURATION.quiet && !should_filter_response(&wildcard.size, &resp_one.url())
+                {
                     let msg = format!(
                         "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
                         status_colorizer("WLD"),
@@ -138,7 +144,6 @@ pub async fn wildcard_test(
                         !CONFIGURATION.output.is_empty(),
                     );
                 }
-                wildcard.size = wc_length;
             }
         } else {
             bar.inc(2);
@@ -199,7 +204,7 @@ async fn make_wildcard_request(
                 let url_len = get_url_path_length(&response.url());
                 let content_len = response.content_length().unwrap_or(0);
 
-                if !CONFIGURATION.quiet {
+                if !CONFIGURATION.quiet && !should_filter_response(&content_len, &response.url()) {
                     let msg = format!(
                         "{} {:>10} Got {} for {} (url length: {})\n",
                         wildcard,
@@ -222,7 +227,9 @@ async fn make_wildcard_request(
                     // show where it goes, if possible
                     if let Some(next_loc) = response.headers().get("Location") {
                         if let Ok(next_loc_str) = next_loc.to_str() {
-                            if !CONFIGURATION.quiet {
+                            if !CONFIGURATION.quiet
+                                && !should_filter_response(&content_len, &response.url())
+                            {
                                 let msg = format!(
                                     "{} {:>10} {} redirects to => {}\n",
                                     wildcard,
@@ -239,7 +246,9 @@ async fn make_wildcard_request(
                                     !CONFIGURATION.output.is_empty(),
                                 );
                             }
-                        } else if !CONFIGURATION.quiet {
+                        } else if !CONFIGURATION.quiet
+                            && !should_filter_response(&content_len, &response.url())
+                        {
                             let msg = format!(
                                 "{} {:>10} {} redirects to => {:?}\n",
                                 wildcard,

@@ -21,6 +21,9 @@ static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
+
+    /// Vector of WildcardFilters that have been ID'd through heuristics
+    static ref WILDCARD_FILTERS: Arc<RwLock<Vec<Arc<WildcardFilter>>>> = Arc::new(RwLock::new(Vec::<Arc<WildcardFilter>>::new()));
 }
 
 /// Adds the given url to `SCANNED_URLS`
@@ -55,6 +58,42 @@ fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<Str
             // poisoned lock
             log::error!("Set of scanned urls poisoned: {}", e);
             log::trace!("exit: add_url_to_list_of_scanned_urls -> false");
+            false
+        }
+    }
+}
+
+/// Adds the given WildcardFilter to `WILDCARD_FILTERS`
+///
+/// If `WILDCARD_FILTERS` did not already contain the filter, return true; otherwise return false
+fn add_filter_to_list_of_wildcard_filters(
+    filter: Arc<WildcardFilter>,
+    wildcard_filters: Arc<RwLock<Vec<Arc<WildcardFilter>>>>,
+) -> bool {
+    log::trace!(
+        "enter: add_filter_to_list_of_wildcard_filters({:?}, {:?})",
+        filter,
+        wildcard_filters
+    );
+
+    match wildcard_filters.write() {
+        Ok(mut filters) => {
+            // If the set did not contain the assigned filter, true is returned.
+            // If the set did contain the assigned filter, false is returned.
+            if filters.contains(&filter) {
+                log::trace!("exit: add_filter_to_list_of_wildcard_filters -> false");
+                return false;
+            }
+
+            filters.push(filter);
+
+            log::trace!("exit: add_filter_to_list_of_wildcard_filters -> true");
+            true
+        }
+        Err(e) => {
+            // poisoned lock
+            log::error!("Set of wildcard filters poisoned: {}", e);
+            log::trace!("exit: add_filter_to_list_of_wildcard_filters -> false");
             false
         }
     }
@@ -293,40 +332,49 @@ async fn try_recursion(
 
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
 /// to the user or not.
-fn should_filter_response(
-    content_len: &u64,
-    filter: Arc<WildcardFilter>,
-    response: &FeroxResponse,
-) -> bool {
+pub fn should_filter_response(content_len: &u64, url: &Url) -> bool {
     if CONFIGURATION.sizefilters.contains(content_len) {
         // filtered value from --sizefilters, move on to the next url
-        log::debug!("size filter: filtered out {}", response.url());
+        log::debug!("size filter: filtered out {}", url);
         return true;
     }
 
-    if filter.size > 0 && filter.size == *content_len && !CONFIGURATION.dontfilter {
-        // static wildcard size found during testing
-        // size isn't default, size equals response length, and auto-filter is on
-        log::debug!("static wildcard: filtered out {}", response.url());
-        return true;
-    }
+    match WILDCARD_FILTERS.read() {
+        Ok(filters) => {
+            for filter in filters.iter() {
+                if CONFIGURATION.dontfilter {
+                    // quick return if dontfilter is set
+                    return false;
+                }
 
-    if filter.dynamic > 0 && !CONFIGURATION.dontfilter {
-        // dynamic wildcard offset found during testing
+                if filter.size > 0 && filter.size == *content_len {
+                    // static wildcard size found during testing
+                    // size isn't default, size equals response length, and auto-filter is on
+                    log::debug!("static wildcard: filtered out {}", url);
+                    return true;
+                }
 
-        // I'm about to manually split this url path instead of using reqwest::Url's
-        // builtin parsing. The reason is that they call .split() on the url path
-        // except that I don't want an empty string taking up the last index in the
-        // event that the url ends with a forward slash.  It's ugly enough to be split
-        // into its own function for readability.
-        let url_len = get_url_path_length(&response.url());
+                if filter.dynamic > 0 {
+                    // dynamic wildcard offset found during testing
 
-        if url_len + filter.dynamic == *content_len {
-            log::debug!("dynamic wildcard: filtered out {}", response.url());
-            return true;
+                    // I'm about to manually split this url path instead of using reqwest::Url's
+                    // builtin parsing. The reason is that they call .split() on the url path
+                    // except that I don't want an empty string taking up the last index in the
+                    // event that the url ends with a forward slash.  It's ugly enough to be split
+                    // into its own function for readability.
+                    let url_len = get_url_path_length(&url);
+
+                    if url_len + filter.dynamic == *content_len {
+                        log::debug!("dynamic wildcard: filtered out {}", url);
+                        return true;
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("{}", e);
         }
     }
-
     false
 }
 
@@ -339,7 +387,6 @@ async fn make_requests(
     target_url: &str,
     word: &str,
     base_depth: usize,
-    filter: Arc<WildcardFilter>,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<FeroxResponse>,
 ) {
@@ -369,7 +416,7 @@ async fn make_requests(
 
             let content_len = &ferox_response.content_length();
 
-            if should_filter_response(content_len, filter.clone(), &ferox_response) {
+            if should_filter_response(content_len, &ferox_response.url()) {
                 continue;
             }
 
@@ -406,11 +453,8 @@ async fn make_requests(
                         FeroxResponse::from(new_response, CONFIGURATION.extract_links).await;
 
                     // filter if necessary
-                    if should_filter_response(
-                        &new_ferox_response.content_length(),
-                        filter.clone(),
-                        &new_ferox_response,
-                    ) {
+                    let new_content_len = &new_ferox_response.content_length();
+                    if should_filter_response(new_content_len, &new_ferox_response.url()) {
                         continue;
                     }
 
@@ -538,18 +582,17 @@ pub async fn scan_url(
             None => Arc::new(WildcardFilter::default()),
         };
 
+    add_filter_to_list_of_wildcard_filters(filter.clone(), WILDCARD_FILTERS.clone());
+
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
         .map(|word| {
-            let wc_filter = filter.clone();
             let txd = tx_dir.clone();
             let txr = tx_term.clone();
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             (
-                tokio::spawn(async move {
-                    make_requests(&tgt, &word, base_depth, wc_filter, txd, txr).await
-                }),
+                tokio::spawn(async move { make_requests(&tgt, &word, base_depth, txd, txr).await }),
                 pb,
             )
         })
