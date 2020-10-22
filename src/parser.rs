@@ -200,7 +200,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("e")
                 .long("extract-links")
                 .takes_value(false)
-                .help("Extract links from html and javascript files; make new requests based on findings (default: false)")
+                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)")
         )
 
         .after_help(r#"NOTE:

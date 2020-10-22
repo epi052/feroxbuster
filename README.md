@@ -59,19 +59,19 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 
 📖 Table of Contents
 -----------------
-- [Downloads](#-downloads)
 - [Installation](#-installation)
     - [Download a Release](#download-a-release)
     - [Homebrew on MacOS and Linux](#homebrew-on-macos-and-linux)
     - [Cargo Install](#cargo-install)
     - [apt Install](#apt-install)
     - [Docker Install](#docker-install)
-- [Configuration](#-configuration)
+- [Configuration](#%EF%B8%8F-configuration)
     - [Default Values](#default-values)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
     - [Multiple Values](#multiple-values)
+    - [Extract Links from Response Body (new in `v1.1.0`)](#extract-links-from-response-body-new-in-v110)
     - [Include Headers](#include-headers)
     - [IPv6, Non-recursive scan with INFO logging enabled](#ipv6-non-recursive-scan-with-info-level-logging-enabled)
     - [Read urls from STDIN; pipe only resulting urls out to another tool](#read-urls-from-stdin-pipe-only-resulting-urls-out-to-another-tool)
@@ -292,6 +292,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # addslash = true
 # stdin = true
 # dontfilter = true
+# extract_links = true
 # depth = 1
 # sizefilters = [5174]
 # queries = [["name","value"], ["rick", "astley"]]
@@ -318,16 +319,18 @@ USAGE:
     feroxbuster [FLAGS] [OPTIONS] --url <URL>...
 
 FLAGS:
-    -f, --addslash       Append / to each request
-    -D, --dontfilter     Don't auto-filter wildcard responses
-    -h, --help           Prints help information
-    -k, --insecure       Disables TLS certificate validation
-    -n, --norecursion    Do not scan recursively
-    -q, --quiet          Only print URLs; Don't print status codes, response size, running config, etc...
-    -r, --redirects      Follow redirects
-        --stdin          Read url(s) from STDIN
-    -V, --version        Prints version information
-    -v, --verbosity      Increase verbosity level (use -vv or more for greater effect)
+    -f, --addslash         Append / to each request
+    -D, --dontfilter       Don't auto-filter wildcard responses
+    -e, --extract-links    Extract links from response body (html, javascript, etc...); make new requests based on
+                           findings (default: false)
+    -h, --help             Prints help information
+    -k, --insecure         Disables TLS certificate validation
+    -n, --norecursion      Do not scan recursively
+    -q, --quiet            Only print URLs; Don't print status codes, response size, running config, etc...
+    -r, --redirects        Follow redirects
+        --stdin            Read url(s) from STDIN
+    -V, --version          Prints version information
+    -v, --verbosity        Increase verbosity level (use -vv or more for greater effect)
 
 OPTIONS:
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
@@ -363,6 +366,26 @@ All of the methods above (multiple flags, space separated, comma separated, etc.
 
 ```
 ./feroxbuster -u http://127.1 -H Accept:application/json "Authorization: Bearer {token}"
+```
+
+### Extract Links from Response Body (New in `v1.1.0`) 
+
+Search through the body of valid responses (html, javascript, etc...) for additional endpoints to scan. This turns
+`feroxbuster` into a hybrid that looks for both linked and unlinked content. 
+
+Example request/response with `--extract-links` enabled:
+- Make request to `http://example.com/index.html`
+- Receive, and read in, the `body` of the response
+- Search the `body` for absolute and relative links (i.e. `homepage/assets/img/icons/handshake.svg`)
+- Add the following directories for recursive scanning:
+    - `http://example.com/homepage`
+    - `http://example.com/homepage/assets`
+    - `http://example.com/homepage/assets/img`
+    - `http://example.com/homepage/assets/img/icons`
+- Make a single request to `http://example.com/homepage/assets/img/icons/handshake.svg`
+
+```
+./feroxbuster -u http://127.1 --extract-links
 ```
 
 ### IPv6, non-recursive scan with INFO-level logging enabled
@@ -410,26 +433,28 @@ a few of the use-cases in which feroxbuster may be a better fit:
 - You want to be able to run your content discovery as part of some crazy 12 command unix **pipeline extravaganza**
 - You want to scan through a **SOCKS** proxy
 - You want **auto-filtering** of Wildcard responses by default
+- You want an integrated **link extractor** to increase discovered endpoints
 - You want **recursion** along with some other thing mentioned above (ffuf also does recursion)
 - You want a **configuration file** option for overriding built-in default values for your scans
 
-|                                                     | feroxbuster | gobuster | ffuf |
-|-----------------------------------------------------|---|---|---|
-| fast                                                | ✔ | ✔ | ✔ |
-| easy to use                                         | ✔ | ✔ |   |
-| blacklist status codes (in addition to whitelist)   |   | ✔ | ✔ |
-| allows recursion                                    | ✔ |   | ✔ |
-| can specify query parameters                        | ✔ |   | ✔ |
-| SOCKS proxy support                                 | ✔ |   |   |
-| multiple target scan (via stdin or multiple -u)     | ✔ |   | ✔ |
-| configuration file for default value override       | ✔ |   | ✔ |
-| can accept urls via STDIN as part of a pipeline     | ✔ |   | ✔ |
-| can accept wordlists via STDIN                      |   | ✔ | ✔ |
-| filter by response size                             | ✔ |   | ✔ |
-| auto-filter wildcard responses                      | ✔ |   | ✔ |
-| performs other scans (vhost, dns, etc)              |   | ✔ | ✔ |
-| time delay / rate limiting                          |   | ✔ | ✔ |
-| **huge** number of other options                    |   |   | ✔ |
+|                                                                  | feroxbuster | gobuster | ffuf |
+|------------------------------------------------------------------|---|---|---|
+| fast                                                             | ✔ | ✔ | ✔ |
+| easy to use                                                      | ✔ | ✔ |   |
+| blacklist status codes (in addition to whitelist)                |   | ✔ | ✔ |
+| allows recursion                                                 | ✔ |   | ✔ |
+| can specify query parameters                                     | ✔ |   | ✔ |
+| SOCKS proxy support                                              | ✔ |   |   |
+| extracts links from response body to increase scan coverage      | ✔ |   |   |
+| multiple target scan (via stdin or multiple -u)                  | ✔ |   | ✔ |
+| configuration file for default value override                    | ✔ |   | ✔ |
+| can accept urls via STDIN as part of a pipeline                  | ✔ |   | ✔ |
+| can accept wordlists via STDIN                                   |   | ✔ | ✔ |
+| filter by response size                                          | ✔ |   | ✔ |
+| auto-filter wildcard responses                                   | ✔ |   | ✔ |
+| performs other scans (vhost, dns, etc)                           |   | ✔ | ✔ |
+| time delay / rate limiting                                       |   | ✔ | ✔ |
+| **huge** number of other options                                 |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
 came across rustbuster when I was naming my tool (😢). I don't have any experience using it, but it appears to 
