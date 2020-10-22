@@ -1,6 +1,6 @@
+use crate::FeroxResponse;
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::Response;
 use reqwest::Url;
 use std::collections::HashSet;
 
@@ -83,20 +83,12 @@ fn add_link_to_set_of_links(link: &str, url: &Url, links: &mut HashSet<String>) 
 ///         - homepage/assets/img/
 ///         - homepage/assets/
 ///         - homepage/
-pub async fn get_links(response: Response) -> HashSet<String> {
+pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
     log::trace!("enter: get_links({})", response.url().as_str());
 
-    let url = response.url().clone();
     let mut links = HashSet::<String>::new();
 
-    let body = match response.text().await {
-        // await the response's body
-        Ok(text) => text,
-        Err(e) => {
-            log::error!("Could not parse body from response: {}", e);
-            return links;
-        }
-    };
+    let body = response.text();
 
     for capture in REGEX.captures_iter(&body) {
         // remove single & double quotes from both ends of the capture
@@ -105,8 +97,10 @@ pub async fn get_links(response: Response) -> HashSet<String> {
 
         match Url::parse(link) {
             Ok(absolute) => {
-                if absolute.domain() != url.domain() {
-                    // domains are not the same, don't scan things that aren't part of the original
+                if absolute.domain() != response.url().domain()
+                    || absolute.host() != response.url().host()
+                {
+                    // domains/ips are not the same, don't scan things that aren't part of the original
                     // target url
                     continue;
                 }
@@ -118,7 +112,8 @@ pub async fn get_links(response: Response) -> HashSet<String> {
                     //     - homepage/assets/img/
                     //     - homepage/assets/
                     //     - homepage/
-                    add_link_to_set_of_links(&sub_path, &url, &mut links);
+                    log::debug!("Adding {} to {:?}", sub_path, links);
+                    add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
                 }
             }
             Err(e) => {
@@ -128,7 +123,8 @@ pub async fn get_links(response: Response) -> HashSet<String> {
                 if e.to_string().contains("relative URL without a base") {
                     for sub_path in get_sub_paths_from_path(link) {
                         // incrementally save all sub-paths that led to the relative url's resource
-                        add_link_to_set_of_links(&sub_path, &url, &mut links);
+                        log::debug!("Adding {} to {:?}", sub_path, links);
+                        add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
                     }
                 } else {
                     // unexpected error has occurred
@@ -145,6 +141,10 @@ pub async fn get_links(response: Response) -> HashSet<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::make_request;
+    use httpmock::Method::GET;
+    use httpmock::{Mock, MockServer};
+    use reqwest::Client;
 
     #[test]
     /// extract sub paths from the given url fragment; expect 4 sub paths and that all are
@@ -235,5 +235,35 @@ mod tests {
 
         assert_eq!(links.len(), 0);
         assert!(links.is_empty());
+    }
+
+    #[tokio::test(core_threads = 1)]
+    /// use make_request to generate a Response, and use the Response to test get_links;
+    /// the response will contain an absolute path to a domain that is not part of the scanned
+    /// domain; expect an empty set returned
+    async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let srv = MockServer::start();
+
+        let mock = Mock::new()
+            .expect_method(GET)
+            .expect_path("/some-path")
+            .return_status(200)
+            .return_body("\"http://defintely.not.a.thing.probably.com/homepage/assets/img/icons/handshake.svg\"")
+            .create_on(&srv);
+
+        let client = Client::new();
+        let url = Url::parse(&srv.url("/some-path")).unwrap();
+
+        let response = make_request(&client, &url).await.unwrap();
+
+        let ferox_response = FeroxResponse::from(response, true).await;
+
+        let links = get_links(&ferox_response).await;
+
+        assert!(links.is_empty());
+
+        assert_eq!(mock.times_called(), 1);
+        Ok(())
     }
 }

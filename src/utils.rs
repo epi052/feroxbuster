@@ -160,7 +160,11 @@ pub fn format_url(
     //
     // the transforms that occur here will need to keep this in mind, i.e. add a slash to preserve
     // the current directory sent as part of the url
-    let url = if !url.ends_with('/') {
+    let url = if word.is_empty() {
+        // v1.0.6: added during --extract-links feature inplementation to support creating urls
+        // that were extracted from response bodies, i.e. http://localhost/some/path/js/main.js
+        url.to_string()
+    } else if !url.ends_with('/') {
         format!("{}/", url)
     } else {
         url.to_string()
