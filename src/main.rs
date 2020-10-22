@@ -1,9 +1,8 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, reporter, FeroxResult};
+use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult};
 use futures::StreamExt;
-use reqwest::Response;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -38,7 +37,13 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     let mut words = HashSet::new();
 
     for line in reader.lines() {
-        words.insert(line?);
+        let result = line?;
+
+        if result.starts_with('#') || result.is_empty() {
+            continue;
+        }
+
+        words.insert(result);
     }
 
     log::trace!(
@@ -52,7 +57,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(
     targets: Vec<String>,
-    tx_term: UnboundedSender<Response>,
+    tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<String>,
 ) -> FeroxResult<()> {
     log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
