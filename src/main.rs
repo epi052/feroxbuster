@@ -1,7 +1,7 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult};
+use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult, VERSION};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tokio::io;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{FramedRead, LinesCodec};
+use reqwest::Client;
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
@@ -123,6 +124,12 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
     Ok(targets)
 }
 
+/// todo doc
+async fn check_for_updates(client: &Client) {
+    // todo trace
+
+}
+
 #[tokio::main]
 async fn main() {
     // setup logging based on the number of -v's used
@@ -131,6 +138,8 @@ async fn main() {
     // can't trace main until after logger is initialized
     log::trace!("enter: main");
     log::debug!("{:#?}", *CONFIGURATION);
+
+    check_for_updates(&CONFIGURATION.client).await;
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
