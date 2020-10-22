@@ -107,6 +107,10 @@ pub struct Configuration {
     #[serde(default)]
     pub norecursion: bool,
 
+    /// Extract links from html/javscript
+    #[serde(default)]
+    pub extract_links: bool,
+
     /// Append / to each request
     #[serde(default)]
     pub addslash: bool,
@@ -182,8 +186,9 @@ impl Default for Configuration {
             verbosity: 0,
             addslash: false,
             insecure: false,
-            norecursion: false,
             redirects: false,
+            norecursion: false,
+            extract_links: false,
             proxy: String::new(),
             config: String::new(),
             output: String::new(),
@@ -206,6 +211,7 @@ impl Configuration {
     ///
     /// - **timeout**: `5` seconds
     /// - **redirects**: `false`
+    /// - **extract-links**: `false`
     /// - **wordlist**: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
     /// - **config**: `None`
     /// - **threads**: `50`
@@ -390,6 +396,10 @@ impl Configuration {
             config.addslash = args.is_present("addslash");
         }
 
+        if args.is_present("extract_links") {
+            config.extract_links = args.is_present("extract_links");
+        }
+
         if args.is_present("stdin") {
             config.stdin = args.is_present("stdin");
         } else {
@@ -514,6 +524,7 @@ impl Configuration {
         settings.useragent = settings_to_merge.useragent;
         settings.redirects = settings_to_merge.redirects;
         settings.insecure = settings_to_merge.insecure;
+        settings.extract_links = settings_to_merge.extract_links;
         settings.extensions = settings_to_merge.extensions;
         settings.headers = settings_to_merge.headers;
         settings.queries = settings_to_merge.queries;
@@ -574,6 +585,7 @@ mod tests {
             addslash = true
             stdin = true
             dontfilter = true
+            extract_links = true
             depth = 1
             sizefilters = [4120]
         "#;
@@ -602,6 +614,7 @@ mod tests {
         assert_eq!(config.stdin, false);
         assert_eq!(config.addslash, false);
         assert_eq!(config.redirects, false);
+        assert_eq!(config.extract_links, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
@@ -712,6 +725,13 @@ mod tests {
     fn config_reads_addslash() {
         let config = setup_config_test();
         assert_eq!(config.addslash, true);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_extract_links() {
+        let config = setup_config_test();
+        assert_eq!(config.extract_links, true);
     }
 
     #[test]

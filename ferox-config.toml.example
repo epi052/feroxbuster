@@ -23,6 +23,7 @@
 # addslash = true
 # stdin = true
 # dontfilter = true
+# extract_links = true
 # depth = 1
 # sizefilters = [5174]
 # queries = [["name","value"], ["rick", "astley"]]
