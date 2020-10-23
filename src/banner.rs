@@ -81,14 +81,7 @@ async fn needs_update(client: &Client, url: &str, bin_version: &str) -> UpdateSt
     };
 
     if let Ok(response) = make_request(&client, &api_url).await {
-        let body = match response.text().await {
-            Ok(text) => text,
-            Err(e) => {
-                log::error!("{}", e);
-                log::trace!("exit: needs_update -> {:?}", unknown);
-                return unknown;
-            }
-        };
+        let body = response.text().await.unwrap_or_default();
 
         let json_response: Value = serde_json::from_str(&body).unwrap_or_default();
 
