@@ -102,8 +102,8 @@ async fn needs_update(client: &Client, url: &str, bin_version: &str) -> UpdateSt
         let latest_version = match json_response["tag_name"].as_str() {
             Some(tag) => tag.trim_start_matches('v'),
             None => {
-                // .unwrap_or("v1.0.0")
                 log::error!("Could not get version field from JSON response");
+                log::debug!("{}", json_response);
                 log::trace!("exit: needs_update -> {:?}", unknown);
                 return unknown;
             }
