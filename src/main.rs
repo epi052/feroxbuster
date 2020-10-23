@@ -5,13 +5,12 @@ use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResu
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{stderr, BufRead, BufReader};
 use std::process;
 use std::sync::Arc;
 use tokio::io;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_util::codec::{FramedRead, LinesCodec};
-use reqwest::Client;
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
@@ -124,12 +123,6 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
     Ok(targets)
 }
 
-/// todo doc
-async fn check_for_updates(client: &Client) {
-    // todo trace
-
-}
-
 #[tokio::main]
 async fn main() {
     // setup logging based on the number of -v's used
@@ -138,8 +131,6 @@ async fn main() {
     // can't trace main until after logger is initialized
     log::trace!("enter: main");
     log::debug!("{:#?}", *CONFIGURATION);
-
-    check_for_updates(&CONFIGURATION.client).await;
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
@@ -167,7 +158,8 @@ async fn main() {
 
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
-        banner::initialize(&targets, &CONFIGURATION);
+        let std_stderr = stderr(); // std::io::stderr
+        banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
     }
 
     // discard non-responsive targets
