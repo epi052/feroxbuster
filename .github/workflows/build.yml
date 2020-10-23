@@ -5,7 +5,7 @@ on: [push]
 jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master'
+#    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86]
@@ -41,6 +41,9 @@ jobs:
           use-cross: true
           command: build
           args: --release --target=${{ matrix.target }}
+      - name: Strip symbols from binary
+          run: |
+            strip -s ${{ matrix.path }}
       - name: Build tar.gz for homebrew installs
         if: matrix.type == 'ubuntu-x64'
         run: |
@@ -70,7 +73,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    if: github.ref == 'refs/heads/master'
+#    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -83,6 +86,9 @@ jobs:
           use-cross: true
           command: build
           args: --release --target=x86_64-apple-darwin
+      - name: Strip symbols from binary
+          run: |
+            strip -u -r target/x86_64-apple-darwin/release/feroxbuster
       - name: Build tar.gz for homebrew installs
         run: |
           tar czf x86_64-macos-feroxbuster.tar.gz -C target/x86_64-apple-darwin/release feroxbuster
