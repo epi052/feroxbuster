@@ -5,7 +5,7 @@ on: [push]
 jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
-#    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86]
@@ -73,7 +73,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-#    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
