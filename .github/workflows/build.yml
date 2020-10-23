@@ -42,8 +42,8 @@ jobs:
           command: build
           args: --release --target=${{ matrix.target }}
       - name: Strip symbols from binary
-          run: |
-            strip -s ${{ matrix.path }}
+        run: |
+          strip -s ${{ matrix.path }}
       - name: Build tar.gz for homebrew installs
         if: matrix.type == 'ubuntu-x64'
         run: |
@@ -87,8 +87,8 @@ jobs:
           command: build
           args: --release --target=x86_64-apple-darwin
       - name: Strip symbols from binary
-          run: |
-            strip -u -r target/x86_64-apple-darwin/release/feroxbuster
+        run: |
+          strip -u -r target/x86_64-apple-darwin/release/feroxbuster
       - name: Build tar.gz for homebrew installs
         run: |
           tar czf x86_64-macos-feroxbuster.tar.gz -C target/x86_64-apple-darwin/release feroxbuster
