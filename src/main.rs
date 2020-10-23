@@ -1,11 +1,11 @@
 use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
 use feroxbuster::scanner::scan_url;
 use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult};
+use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult, VERSION};
 use futures::StreamExt;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{stderr, BufRead, BufReader};
 use std::process;
 use std::sync::Arc;
 use tokio::io;
@@ -158,7 +158,8 @@ async fn main() {
 
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
-        banner::initialize(&targets, &CONFIGURATION);
+        let std_stderr = stderr(); // std::io::stderr
+        banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
     }
 
     // discard non-responsive targets
