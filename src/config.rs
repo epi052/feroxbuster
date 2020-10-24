@@ -123,6 +123,10 @@ pub struct Configuration {
     #[serde(default = "depth")]
     pub depth: usize,
 
+    /// Number of concurrent scans permitted; a limit of 0 means no limit is imposed
+    #[serde(default)]
+    pub scan_limit: usize,
+
     /// Filter out messages of a particular size
     #[serde(default)]
     pub sizefilters: Vec<u64>,
@@ -184,6 +188,7 @@ impl Default for Configuration {
             quiet: false,
             stdin: false,
             verbosity: 0,
+            scan_limit: 0,
             addslash: false,
             insecure: false,
             redirects: false,
@@ -232,6 +237,7 @@ impl Configuration {
     /// - **stdin**: `false`
     /// - **dontfilter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
+    /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -314,6 +320,12 @@ impl Configuration {
         if args.value_of("depth").is_some() {
             let depth = value_t!(args.value_of("depth"), usize).unwrap_or_else(|e| e.exit());
             config.depth = depth;
+        }
+
+        if args.value_of("scan_limit").is_some() {
+            let scan_limit =
+                value_t!(args.value_of("scan_limit"), usize).unwrap_or_else(|e| e.exit());
+            config.scan_limit = scan_limit;
         }
 
         if args.value_of("wordlist").is_some() {
@@ -534,6 +546,7 @@ impl Configuration {
         settings.depth = settings_to_merge.depth;
         settings.sizefilters = settings_to_merge.sizefilters;
         settings.dontfilter = settings_to_merge.dontfilter;
+        settings.scan_limit = settings_to_merge.scan_limit;
     }
 
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
@@ -575,6 +588,7 @@ mod tests {
             proxy = "http://127.0.0.1:8080"
             quiet = true
             verbosity = 1
+            scan_limit = 6
             output = "/some/otherpath"
             redirects = true
             insecure = true
@@ -608,6 +622,7 @@ mod tests {
         assert_eq!(config.depth, depth());
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
+        assert_eq!(config.scan_limit, 0);
         assert_eq!(config.quiet, false);
         assert_eq!(config.dontfilter, false);
         assert_eq!(config.norecursion, false);
@@ -648,6 +663,13 @@ mod tests {
     fn config_reads_depth() {
         let config = setup_config_test();
         assert_eq!(config.depth, 1);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_scan_limit() {
+        let config = setup_config_test();
+        assert_eq!(config.scan_limit, 6);
     }
 
     #[test]

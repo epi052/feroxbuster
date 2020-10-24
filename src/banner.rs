@@ -389,6 +389,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 🚫
     }
 
+    if CONFIGURATION.scan_limit > 0 {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1f9a5}", "Concurrent Scan Limit", config.scan_limit)
+        )
+        .unwrap_or_default(); // 🦥
+    }
+
     if matches!(status, UpdateStatus::OutOfDate) {
         writeln!(
             &mut writer,
