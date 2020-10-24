@@ -23,6 +23,10 @@ plugs:
     read:
     - $HOME/.config/feroxbuster
 
+architectures:
+  - build-on: amd64
+  - build-on: i386
+
 parts:
   feroxbuster:
     plugin: rust
