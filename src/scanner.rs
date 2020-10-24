@@ -599,7 +599,7 @@ pub async fn scan_url(
         .for_each_concurrent(CONFIGURATION.threads, |(resp, bar)| async move {
             match resp.await {
                 Ok(_) => {
-                    bar.inc(1);
+                    bar.inc((CONFIGURATION.extensions.len() + 1) as u64);
                 }
                 Err(e) => {
                     log::error!("error awaiting a response: {}", e);
