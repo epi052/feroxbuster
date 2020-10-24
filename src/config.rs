@@ -11,7 +11,6 @@ use std::env::{current_dir, current_exe};
 use std::fs::read_to_string;
 use std::path::PathBuf;
 use std::process::exit;
-use std::sync::atomic::AtomicUsize;
 
 lazy_static! {
     /// Global configuration state
@@ -34,7 +33,7 @@ lazy_static! {
 /// In that order.
 ///
 /// Inspired by and derived from https://github.com/PhilipDaniels/rust-config-example
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
     /// Path to the wordlist
     #[serde(default = "wordlist")]
@@ -126,7 +125,7 @@ pub struct Configuration {
 
     /// Number of concurrent scans permitted; a limit of 0 means no limit is imposed
     #[serde(default)]
-    pub scan_limit: AtomicUsize,
+    pub scan_limit: usize,
 
     /// Filter out messages of a particular size
     #[serde(default)]
@@ -189,6 +188,7 @@ impl Default for Configuration {
             quiet: false,
             stdin: false,
             verbosity: 0,
+            scan_limit: 0,
             addslash: false,
             insecure: false,
             redirects: false,
@@ -206,7 +206,6 @@ impl Default for Configuration {
             depth: depth(),
             wordlist: wordlist(),
             statuscodes: statuscodes(),
-            scan_limit: AtomicUsize::new(0),
         }
     }
 }
@@ -326,7 +325,7 @@ impl Configuration {
         if args.value_of("scan_limit").is_some() {
             let scan_limit =
                 value_t!(args.value_of("scan_limit"), usize).unwrap_or_else(|e| e.exit());
-            config.scan_limit = AtomicUsize::new(scan_limit);
+            config.scan_limit = scan_limit;
         }
 
         if args.value_of("wordlist").is_some() {
@@ -578,7 +577,6 @@ mod tests {
     use super::*;
     use std::fs::write;
     use tempfile::TempDir;
-    use std::sync::atomic::Ordering;
 
     /// creates a dummy configuration file for testing
     fn setup_config_test() -> Configuration {
@@ -624,7 +622,7 @@ mod tests {
         assert_eq!(config.depth, depth());
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
-        assert_eq!(config.scan_limit.load(Ordering::Relaxed), 0);
+        assert_eq!(config.scan_limit, 0);
         assert_eq!(config.quiet, false);
         assert_eq!(config.dontfilter, false);
         assert_eq!(config.norecursion, false);
@@ -671,7 +669,7 @@ mod tests {
     /// parse the test config and see that the value parsed is correct
     fn config_reads_scan_limit() {
         let config = setup_config_test();
-        assert_eq!(config.scan_limit.load(Ordering::Relaxed), 6);
+        assert_eq!(config.scan_limit, 6);
     }
 
     #[test]
