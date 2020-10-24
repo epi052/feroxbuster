@@ -514,7 +514,7 @@ If you still find yourself hitting the file limit with the above changes, there 
 
 1. Increase the ephemeral port range, and decrease the tcp_fin_timeout.
 
-> This section was shamelessly stolen from [stackoverflow answer](https://stackoverflow.com/a/3923785).  More information is included in that post and is recommended reading if you end up needing to use this section.
+> This section was shamelessly stolen from this [stackoverflow answer](https://stackoverflow.com/a/3923785).  More information is included in that post and is recommended reading if you end up needing to use this section.
 
 The ephermal port range defines the maximum number of outbound sockets a host can create from a particular I.P. address. The fin_timeout defines the minimum time these sockets will stay in TIME_WAIT state (unusable after being used once). Usual system defaults are
 
