@@ -13,6 +13,7 @@
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
 # verbosity = 1
+# scan_limit = 6
 # quiet = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"

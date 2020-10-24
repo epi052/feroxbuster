@@ -202,7 +202,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(false)
                 .help("Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)")
         )
-
+        .arg(
+            Arg::with_name("scan_limit")
+                .short("L")
+                .long("scan-limit")
+                .value_name("SCAN_LIMIT")
+                .takes_value(true)
+                .help("Limit total number of concurrent scans (default: 0, i.e. no limit)")
+        )
         .after_help(r#"NOTE:
     Options that take multiple values are very flexible.  Consider the following ways of specifying
     extensions:
