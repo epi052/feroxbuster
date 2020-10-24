@@ -483,9 +483,15 @@ Why do I get a bunch of `No file descriptors available (os error 24)` errors?
 
 There are a few potential causes of this error.  The simplest is that your operating system sets an open file limit that is aggressively low.  Through personal testing, I've found that `4096` is a reasonable open file limit (this will vary based on your exact setup).
 
-This particular problem can be solved by increasing the number of open files your OS allows. On my Kali install, the default was `1024`, and I know some MacOS installs use `256` 😕. There are a few options to increase the number of open files, but I'll show two here and [link to more](https://www.tecmint.com/increase-set-open-file-limits-in-linux/) (linux assumed).
+There are quite a few options to solve this particular problem, of which a handful are shown below.  
 
-One option is to edit `/etc/security/limits.conf` to include the two lines below.  `*` is all users. `hard` and `soft` indicate the hard and soft limits for the OS. `nofile` is the number of open files option. 
+We'll start by increasing the number of open files the OS allows. On my Kali install, the default was `1024`, and I know some MacOS installs use `256` 😕.
+
+One option to up the limit is to edit `/etc/security/limits.conf` so that it includes the two lines below.  
+
+- `*` represents all users
+- `hard` and `soft` indicate the hard and soft limits for the OS 
+- `nofile` is the number of open files option. 
 
 ```
 /etc/security/limits.conf
@@ -496,7 +502,7 @@ One option is to edit `/etc/security/limits.conf` to include the two lines below
 ...
 ```
 
-A faster option, that is **not** persistent is to simply use the `ulimit` command to change the setting.
+A faster option, that is **not** persistent, is to simply use the `ulimit` command to change the setting.
 
 ```
 ulimit -n 4096
