@@ -3,6 +3,7 @@ use crate::utils::{make_request, status_colorizer};
 use reqwest::{Client, Url};
 use serde_json::Value;
 use std::io::Write;
+use std::sync::atomic::Ordering;
 
 /// macro helper to abstract away repetitive string formatting
 macro_rules! format_banner_entry_helper {
@@ -389,11 +390,11 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 🚫
     }
 
-    if CONFIGURATION.scan_limit > 0 {
+    if CONFIGURATION.scan_limit.load(Ordering::Relaxed) > 0 {
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1f9a5}", "Concurrent Scan Limit", config.scan_limit)
+            format_banner_entry!("\u{1f9a5}", "Concurrent Scan Limit", config.scan_limit.load(Ordering::Relaxed))
         )
         .unwrap_or_default(); // 🦥
     }
