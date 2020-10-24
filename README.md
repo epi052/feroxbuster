@@ -80,6 +80,8 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
+- [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
+    - [No file descriptors available](#no-file-descriptors-available)
 
 ## 💿 Installation
 
@@ -470,3 +472,60 @@ came across rustbuster when I was naming my tool (😢). I don't have any experi
 be able to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost
 dns, directory, etc...).  In short, it definitely looks interesting and may be what you're looking for as it has some 
 capability I haven't seen in similar tools.  
+
+## 🤯 Common Problems/Issues (FAQ)
+
+### No file descriptors available
+
+Why do I get a bunch of `No file descriptors available (os error 24)` errors?
+
+---
+
+There are a few potential causes of this error.  The simplest is that your operating system sets an open file limit that is aggressively low.  Through personal testing, I've found that `4096` is a reasonable open file limit (this will vary based on your exact setup).
+
+This particular problem can be solved by increasing the number of open files your OS allows. On my Kali install, the default was `1024`, and I know some MacOS installs use `256` 😕. There are a few options to increase the number of open files, but I'll show two here and [link to more](https://www.tecmint.com/increase-set-open-file-limits-in-linux/) (linux assumed).
+
+One option is to edit `/etc/security/limits.conf` to include the two lines below.  `*` is all users. `hard` and `soft` indicate the hard and soft limits for the OS. `nofile` is the number of open files option. 
+
+```
+/etc/security/limits.conf
+-------------------------
+...
+*        soft nofile 4096
+*        hard nofile 8192
+...
+```
+
+A faster option, that is **not** persistent is to simply use the `ulimit` command to change the setting.
+
+```
+ulimit -n 4096
+```
+
+If you still find yourself hitting the file limit with the above changes, there are a few additional tweaks that may help.  
+
+✨ Special thanks to HTB user [@sparkla](https://www.hackthebox.eu/home/users/profile/221599) for their help with identifying these additional tweaks ✨
+
+1. Increase the ephemeral port range, and decrease the tcp_fin_timeout.
+
+> This section was shamelessly stolen from [stackoverflow answer](https://stackoverflow.com/a/3923785).  More information is included in that post and is recommended reading if you end up needing to use this section.
+
+The ephermal port range defines the maximum number of outbound sockets a host can create from a particular I.P. address. The fin_timeout defines the minimum time these sockets will stay in TIME_WAIT state (unusable after being used once). Usual system defaults are
+
+- `net.ipv4.ip_local_port_range = 32768   61000`
+- `net.ipv4.tcp_fin_timeout = 60`
+
+This basically means your system cannot consistently guarantee more than `(61000 - 32768) / 60 = 470` sockets per second.
+
+```
+sudo sysctl net.ipv4.ip_local_port_range="15000 61000"
+sudo sysctl net.ipv4.tcp_fin_timeout=30
+```
+
+2. Allow socket reuse while in a `TIME_WAIT` status
+
+This allows fast cycling of sockets in time_wait state and re-using them. Make sure to read post [Coping with the TCP TIME-WAIT](https://vincent.bernat.ch/en/blog/2014-tcp-time-wait-state-linux) from Vincent Bernat to understand the implications.
+
+```
+sudo sysctl net.ipv4.tcp_tw_reuse=1 
+```
