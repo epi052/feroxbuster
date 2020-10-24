@@ -61,6 +61,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 -----------------
 - [Installation](#-installation)
     - [Download a Release](#download-a-release)
+    - [Snap Install](#snap-install)
     - [Homebrew on MacOS and Linux](#homebrew-on-macos-and-linux)
     - [Cargo Install](#cargo-install)
     - [apt Install](#apt-install)
@@ -127,9 +128,34 @@ Expand-Archive .\feroxbuster.zip
 .\feroxbuster\feroxbuster.exe -V
 ```
 
+### Snap Install
+
+Install using `snap`
+
+```
+sudo snap install feroxbuster
+```
+
+The only gotcha here is that the snap package can only read wordlists from a few specific locations. There are a few 
+possible solutions, of which two are shown below.
+
+If the wordlist is on the same partition as your home directory, it can be hard-linked into `~/snap/feroxbuster/common`
+
+```
+ln /path/to/the/wordlist ~/snap/feroxbuster/common
+./feroxbuster -u http://localhost -w ~/snap/feroxbuster/common/wordlist
+``` 
+
+If the wordlist is on a separate partition, hard-linking won't work.  You'll need to copy it into the snap directory.
+
+```
+cp /path/to/the/wordlist ~/snap/feroxbuster/common
+./feroxbuster -u http://localhost -w ~/snap/feroxbuster/common/wordlist
+``` 
+
 ### Homebrew on MacOS and Linux
 
-Installable by Homebrew throughout own formulas:
+Install using Homebrew via tap
 
 🍏 [MacOS](https://github.com/TGotwig/homebrew-feroxbuster/blob/main/feroxbuster.rb)
 
