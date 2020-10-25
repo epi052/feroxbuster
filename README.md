@@ -83,6 +83,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
+    - [Progress bars print one line at a time](#progress-bars-print-one-line-at-a-time)
 
 ## 💿 Installation
 
@@ -550,3 +551,22 @@ This allows fast cycling of sockets in time_wait state and re-using them. Make s
 ```
 sudo sysctl net.ipv4.tcp_tw_reuse=1 
 ```
+
+### Progress bars print one line at a time
+
+`feroxbuster` needs a terminal width of at least 85 in order to do progress bar printing correctly.  You can check your
+terminal width by running `stty size`.
+
+```
+stty size
+12 208
+
+# (12 is height, 208 is width)
+```
+
+If your width is less than 85, you may see output like what's shown below.
+
+![small-term](img/small-term.png)
+
+If you can, simply make the terminal wider and rerun.  If you're unable to make your terminal wider
+consider using `-q` to suppress the progress bars.
