@@ -79,6 +79,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
+    - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -426,11 +427,23 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
 ```
 
-### Pass auth token via query parameter and limit number of concurrent scans 
+### Pass auth token via query parameter 
 
 ```
-./feroxbuster -u http://127.1 --query token=0123456789ABCDEF --scan-limit 6
+./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
+
+### Limit Total Number of Concurrent Scans (new in `v1.2.0`)
+
+Limit the number of scans permitted to run at any given time.  Recursion will still identify new directories, but newly
+discovered directories can only begin scanning when the total number of active scans drops below the value passed to 
+`--scan-limit`.
+
+```
+./feroxbuster -u http://127.1 --scan-limit 2
+```
+
+![limit-demo](img/limit-demo.gif)
 
 ## 🧐 Comparison w/ Similar Tools
 
