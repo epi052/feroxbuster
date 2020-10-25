@@ -554,17 +554,7 @@ sudo sysctl net.ipv4.tcp_tw_reuse=1
 
 ### Progress bars print one line at a time
 
-`feroxbuster` needs a terminal width of at least 85 in order to do progress bar printing correctly.  You can check your
-terminal width by running `stty size`.
-
-```
-stty size
-12 208
-
-# (12 is height, 208 is width)
-```
-
-If your width is less than 85, you may see output like what's shown below.
+`feroxbuster` needs a terminal width of at least the size of what's being printed in order to do progress bar printing correctly.  If your width is too small, you may see output like what's shown below.
 
 ![small-term](img/small-term.png)
 
