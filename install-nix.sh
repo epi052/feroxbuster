@@ -11,8 +11,7 @@ LIN32_URL="${BASE_URL}/${LIN32_ZIP}"
 LIN64_ZIP=x86_64-linux-feroxbuster.zip
 LIN64_URL="${BASE_URL}/${LIN64_ZIP}"
 
-EMOJI_ZIP=NotoColorEmoji-unhinted.zip
-EMOJI_URL=https://noto-website-2.storage.googleapis.com/pkgs/NotoColorEmoji-unhinted.zip
+EMOJI_URL=https://gist.github.com/epi052/8196b550ea51d0907ad4b93751b1b57d/raw/6112c9f32ae07922983fdc549c54fd3fb9a38e4c/NotoColorEmoji.ttf
 
 echo "[+] Installing feroxbuster!"
 
@@ -43,8 +42,7 @@ elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
 
     curl -sLO "${EMOJI_URL}"
 
-    unzip -o "${EMOJI_ZIP}" >/dev/null
-    rm "${EMOJI_ZIP}"
+    fc-cache -f -v >/dev/null
 
     popd 2>&1 >/dev/null
     echo "[+] Noto Emoji Font installed"
