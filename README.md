@@ -79,6 +79,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
+    - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -237,6 +238,7 @@ Configuration begins with with the following built-in default values baked into 
 - wordlist: `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
 - threads: `50`
 - verbosity: `0` (no logging enabled)
+- scan_limit: `0` (no limit imposed on concurrent scans)
 - statuscodes: `200 204 301 302 307 308 401 403 405`
 - useragent: `feroxbuster/VERSION`
 - recursion depth: `4`
@@ -293,6 +295,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
 # verbosity = 1
+# scan_limit = 6
 # quiet = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
@@ -350,6 +353,7 @@ OPTIONS:
     -o, --output <FILE>                     Output file to write results to (default: stdout)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
+    -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 7)
     -S, --sizefilter <SIZE>...              Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
     -s, --statuscodes <STATUS_CODE>...      Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
     -t, --threads <THREADS>                 Number of concurrent threads (default: 50)
@@ -423,12 +427,23 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
 ```
 
-### Pass auth token via query parameter
+### Pass auth token via query parameter 
 
 ```
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
+### Limit Total Number of Concurrent Scans (new in `v1.2.0`)
+
+Limit the number of scans permitted to run at any given time.  Recursion will still identify new directories, but newly
+discovered directories can only begin scanning when the total number of active scans drops below the value passed to 
+`--scan-limit`.
+
+```
+./feroxbuster -u http://127.1 --scan-limit 2
+```
+
+![limit-demo](img/limit-demo.gif)
 
 ## 🧐 Comparison w/ Similar Tools
 
