@@ -90,28 +90,9 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 
 Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.  The latest release for each of the following systems can be downloaded and executed as shown below.
 
-#### Linux x86
+#### Linux (32 and 64-bit) & MacOS
 ```
-curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip
-unzip x86-linux-feroxbuster.zip
-chmod +x ./feroxbuster
-./feroxbuster -V
-```
-#### Linux x86_64
-
-```
-curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip
-unzip x86_64-linux-feroxbuster.zip
-chmod +x ./feroxbuster
-./feroxbuster -V
-```
-
-#### MacOS x86_64
-```
-curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip
-unzip x86_64-macos-feroxbuster.zip
-chmod +x ./feroxbuster
-./feroxbuster -V
+curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
 ```
 
 #### Windows x86
