@@ -37,16 +37,17 @@ elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
         rm "${LIN64_ZIP}"
     fi
 
-    if [[ $(lsb_release -d) =~ [Kk]ali ]]; then
-        echo "[=] Found Kali, installing Noto Emoji Font"
-        mkdir -p ~/.fonts
-        pushd ~/.fonts 2>&1 >/dev/null
-        curl -sLO "${EMOJI_URL}"
-        unzip -o "${EMOJI_ZIP}" >/dev/null
-        rm "${EMOJI_ZIP}"
-        popd 2>&1 >/dev/null
-        echo "[+] Noto Emoji Font installed"
-    fi 
+    echo "[=] Installing Noto Emoji Font"
+    mkdir -p ~/.fonts
+    pushd ~/.fonts 2>&1 >/dev/null
+
+    curl -sLO "${EMOJI_URL}"
+
+    unzip -o "${EMOJI_ZIP}" >/dev/null
+    rm "${EMOJI_ZIP}"
+
+    popd 2>&1 >/dev/null
+    echo "[+] Noto Emoji Font installed"
 fi
 
 chmod +x ./feroxbuster
