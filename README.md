@@ -403,9 +403,13 @@ Example request/response with `--extract-links` enabled:
 ./feroxbuster -u http://127.1 --extract-links
 ```
 
-Here's a comparison of `--extract-links` vs. wordlist-only scan using [Feline](https://www.hackthebox.eu/home/machines/profile/274) from Hack the Box
+Here's a comparison of a wordlist-only scan vs `--extract-links` using [Feline](https://www.hackthebox.eu/home/machines/profile/274) from Hack the Box:
+
+Wordlist only
 
 ![normal-scan-cmp-extract](img/normal-scan-cmp-extract.gif)
+
+With `--extract-links`
 
 ![extract-scan-cmp-normal](img/extract-scan-cmp-normal.gif)
 
