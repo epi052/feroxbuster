@@ -80,7 +80,11 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
+    - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
+- [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
+    - [No file descriptors available](#no-file-descriptors-available)
+    - [Progress bars print one line at a time](#progress-bars-print-one-line-at-a-time)
 
 ## 💿 Installation
 
@@ -88,28 +92,9 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 
 Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.  The latest release for each of the following systems can be downloaded and executed as shown below.
 
-#### Linux x86
+#### Linux (32 and 64-bit) & MacOS
 ```
-curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86-linux-feroxbuster.zip
-unzip x86-linux-feroxbuster.zip
-chmod +x ./feroxbuster
-./feroxbuster -V
-```
-#### Linux x86_64
-
-```
-curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.zip
-unzip x86_64-linux-feroxbuster.zip
-chmod +x ./feroxbuster
-./feroxbuster -V
-```
-
-#### MacOS x86_64
-```
-curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-macos-feroxbuster.zip
-unzip x86_64-macos-feroxbuster.zip
-chmod +x ./feroxbuster
-./feroxbuster -V
+curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
 ```
 
 #### Windows x86
@@ -261,6 +246,7 @@ Configuration begins with with the following built-in default values baked into 
 - wordlist: `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
 - threads: `50`
 - verbosity: `0` (no logging enabled)
+- scan_limit: `0` (no limit imposed on concurrent scans)
 - statuscodes: `200 204 301 302 307 308 401 403 405`
 - useragent: `feroxbuster/VERSION`
 - recursion depth: `4`
@@ -317,6 +303,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
 # verbosity = 1
+# scan_limit = 6
 # quiet = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
@@ -374,6 +361,7 @@ OPTIONS:
     -o, --output <FILE>                     Output file to write results to (default: stdout)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
+    -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 7)
     -S, --sizefilter <SIZE>...              Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
     -s, --statuscodes <STATUS_CODE>...      Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
     -t, --threads <THREADS>                 Number of concurrent threads (default: 50)
@@ -423,6 +411,17 @@ Example request/response with `--extract-links` enabled:
 ./feroxbuster -u http://127.1 --extract-links
 ```
 
+Here's a comparison of a wordlist-only scan vs `--extract-links` using [Feline](https://www.hackthebox.eu/home/machines/profile/274) from Hack the Box:
+
+Wordlist only
+
+![normal-scan-cmp-extract](img/normal-scan-cmp-extract.gif)
+
+With `--extract-links`
+
+![extract-scan-cmp-normal](img/extract-scan-cmp-normal.gif)
+
+
 ### IPv6, non-recursive scan with INFO-level logging enabled
 
 ```
@@ -447,12 +446,23 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
 ```
 
-### Pass auth token via query parameter
+### Pass auth token via query parameter 
 
 ```
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
+### Limit Total Number of Concurrent Scans (new in `v1.2.0`)
+
+Limit the number of scans permitted to run at any given time.  Recursion will still identify new directories, but newly
+discovered directories can only begin scanning when the total number of active scans drops below the value passed to 
+`--scan-limit`.
+
+```
+./feroxbuster -u http://127.1 --scan-limit 2
+```
+
+![limit-demo](img/limit-demo.gif)
 
 ## 🧐 Comparison w/ Similar Tools
 
@@ -496,3 +506,83 @@ came across rustbuster when I was naming my tool (😢). I don't have any experi
 be able to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost
 dns, directory, etc...).  In short, it definitely looks interesting and may be what you're looking for as it has some 
 capability I haven't seen in similar tools.  
+
+## 🤯 Common Problems/Issues (FAQ)
+
+### No file descriptors available
+
+Why do I get a bunch of `No file descriptors available (os error 24)` errors?
+
+---
+
+There are a few potential causes of this error.  The simplest is that your operating system sets an open file limit that is aggressively low.  Through personal testing, I've found that `4096` is a reasonable open file limit (this will vary based on your exact setup).
+
+There are quite a few options to solve this particular problem, of which a handful are shown below.  
+
+#### Increase the Number of Open Files
+
+We'll start by increasing the number of open files the OS allows. On my Kali install, the default was `1024`, and I know some MacOS installs use `256` 😕.
+
+##### Edit `/etc/security/limits.conf`
+
+One option to up the limit is to edit `/etc/security/limits.conf` so that it includes the two lines below.  
+
+- `*` represents all users
+- `hard` and `soft` indicate the hard and soft limits for the OS 
+- `nofile` is the number of open files option. 
+
+```
+/etc/security/limits.conf
+-------------------------
+...
+*        soft nofile 4096
+*        hard nofile 8192
+...
+```
+
+##### Use `ulimit` directly
+
+A faster option, that is **not** persistent, is to simply use the `ulimit` command to change the setting.
+
+```
+ulimit -n 4096
+```
+
+#### Additional Tweaks (may not be needed)
+
+If you still find yourself hitting the file limit with the above changes, there are a few additional tweaks that may help.  
+
+> This section was shamelessly stolen from this [stackoverflow answer](https://stackoverflow.com/a/3923785).  More information is included in that post and is recommended reading if you end up needing to use this section.
+
+✨ Special thanks to HTB user [@sparkla](https://www.hackthebox.eu/home/users/profile/221599) for their help with identifying these additional tweaks ✨
+
+##### Increase the ephemeral port range, and decrease the tcp_fin_timeout.
+
+The ephermal port range defines the maximum number of outbound sockets a host can create from a particular I.P. address. The fin_timeout defines the minimum time these sockets will stay in TIME_WAIT state (unusable after being used once). Usual system defaults are
+
+- `net.ipv4.ip_local_port_range = 32768   61000`
+- `net.ipv4.tcp_fin_timeout = 60`
+
+This basically means your system cannot consistently guarantee more than `(61000 - 32768) / 60 = 470` sockets per second.
+
+```
+sudo sysctl net.ipv4.ip_local_port_range="15000 61000"
+sudo sysctl net.ipv4.tcp_fin_timeout=30
+```
+
+##### Allow socket reuse while in a `TIME_WAIT` status
+
+This allows fast cycling of sockets in time_wait state and re-using them. Make sure to read post [Coping with the TCP TIME-WAIT](https://vincent.bernat.ch/en/blog/2014-tcp-time-wait-state-linux) from Vincent Bernat to understand the implications.
+
+```
+sudo sysctl net.ipv4.tcp_tw_reuse=1 
+```
+
+### Progress bars print one line at a time
+
+`feroxbuster` needs a terminal width of at least the size of what's being printed in order to do progress bar printing correctly.  If your width is too small, you may see output like what's shown below.
+
+![small-term](img/small-term.png)
+
+If you can, simply make the terminal wider and rerun.  If you're unable to make your terminal wider
+consider using `-q` to suppress the progress bars.

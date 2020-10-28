@@ -13,6 +13,7 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
+use tokio::sync::Semaphore;
 use tokio::task::JoinHandle;
 
 /// Single atomic number that gets incremented once, used to track first scan vs. all others
@@ -24,6 +25,9 @@ lazy_static! {
 
     /// Vector of WildcardFilters that have been ID'd through heuristics
     static ref WILDCARD_FILTERS: Arc<RwLock<Vec<Arc<WildcardFilter>>>> = Arc::new(RwLock::new(Vec::<Arc<WildcardFilter>>::new()));
+
+    /// Bounded semaphore used as a barrier to limit concurrent scans
+    static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
 }
 
 /// Adds the given url to `SCANNED_URLS`
@@ -120,6 +124,7 @@ fn spawn_recursion_handler(
 
     let boxed_future = async move {
         let mut scans = vec![];
+
         while let Some(resp) = recursion_channel.recv().await {
             let unknown = add_url_to_list_of_scanned_urls(&resp, &SCANNED_URLS);
 
@@ -555,7 +560,20 @@ pub async fn scan_url(
         // this protection around join also allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
         add_url_to_list_of_scanned_urls(&target_url, &SCANNED_URLS);
+
+        if CONFIGURATION.scan_limit == 0 {
+            // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
+            // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
+            // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
+            SCAN_LIMITER.add_permits(usize::MAX >> 4);
+        }
     }
+
+    // When acquire is called and the semaphore has remaining permits, the function immediately
+    // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
+    // waits until an outstanding permit is dropped. At this point, the freed permit is assigned
+    // to the caller.
+    let permit = SCAN_LIMITER.acquire().await;
 
     // Arc clones to be passed around to the various scans
     let wildcard_bar = progress_bar.clone();
@@ -599,7 +617,7 @@ pub async fn scan_url(
         .for_each_concurrent(CONFIGURATION.threads, |(resp, bar)| async move {
             match resp.await {
                 Ok(_) => {
-                    bar.inc(1);
+                    bar.inc((CONFIGURATION.extensions.len() + 1) as u64);
                 }
                 Err(e) => {
                     log::error!("error awaiting a response: {}", e);
@@ -611,6 +629,9 @@ pub async fn scan_url(
     log::trace!("awaiting scan producers");
     producers.await;
     log::trace!("done awaiting scan producers");
+
+    // drop the current permit so the semaphore will allow another scan to proceed
+    drop(permit);
 
     progress_bar.finish();
 

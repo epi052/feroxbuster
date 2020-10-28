@@ -563,3 +563,31 @@ fn banner_prints_extract_links() -> Result<(), Box<dyn std::error::Error>> {
         );
     Ok(())
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + scan-limit
+fn banner_prints_scan_limit() -> Result<(), Box<dyn std::error::Error>> {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-L")
+        .arg("4")
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Concurrent Scan Limit"))
+                .and(predicate::str::contains("│ 4"))
+                .and(predicate::str::contains("─┴─")),
+        );
+    Ok(())
+}
