@@ -14,11 +14,11 @@ description: |
 base: core18
 
 plugs:
-  etc-config:
+  etc-feroxbuster:
     interface: system-files
     read:
     - /etc/feroxbuster
-  dot-config:
+  dot-config-feroxbuster:
     interface: personal-files
     read:
     - $HOME/.config/feroxbuster
