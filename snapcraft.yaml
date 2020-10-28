@@ -36,6 +36,6 @@ apps:
   feroxbuster:
     command: bin/feroxbuster
     plugs:
-      - etc-config
-      - dot-config
+      - etc-feroxbuster
+      - dot-config-feroxbuster
       - network
