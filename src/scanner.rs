@@ -178,7 +178,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
     if let Ok(url) = format_url(
         &target_url,
         &word,
-        CONFIGURATION.addslash,
+        CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
     ) {
@@ -189,7 +189,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
         if let Ok(url) = format_url(
             &target_url,
             &word,
-            CONFIGURATION.addslash,
+            CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             Some(ext),
         ) {
@@ -242,6 +242,7 @@ fn response_is_directory(response: &FeroxResponse) -> bool {
         }
     } else if response.status().is_success() {
         // status code is 2xx, need to check if it ends in /
+
         if response.url().as_str().ends_with('/') {
             log::debug!("{} is directory suitable for recursion", response.url());
             log::trace!("exit: is_directory -> true");
@@ -339,17 +340,17 @@ async fn try_recursion(
 /// to the user or not.
 pub fn should_filter_response(response: &FeroxResponse) -> bool {
     if CONFIGURATION
-        .sizefilters
+        .filter_size
         .contains(&response.content_length())
     {
-        // filtered value from --sizefilters, sizefilters and wildcards are two separate filters
+        // filtered value from --filter-size, size filters and wildcards are two separate filters
         // and are applied independently
         log::debug!("size filter: filtered out {}", response.url());
         return true;
     }
 
-    if CONFIGURATION.dontfilter {
-        // quick return if dontfilter is set
+    if CONFIGURATION.dont_filter {
+        // quick return if dont_filter is set
         return false;
     }
 
@@ -398,7 +399,7 @@ async fn make_requests(
             let ferox_response = FeroxResponse::from(response, CONFIGURATION.extract_links).await;
 
             // do recursion if appropriate
-            if !CONFIGURATION.norecursion {
+            if !CONFIGURATION.no_recursion {
                 try_recursion(&ferox_response, base_depth, dir_chan.clone()).await;
             }
 
@@ -424,7 +425,7 @@ async fn make_requests(
                     let new_url = match format_url(
                         &new_link,
                         &"",
-                        CONFIGURATION.addslash,
+                        CONFIGURATION.add_slash,
                         &CONFIGURATION.queries,
                         None,
                     ) {
@@ -459,7 +460,7 @@ async fn make_requests(
                         continue;
                     }
 
-                    if !CONFIGURATION.norecursion {
+                    if !CONFIGURATION.no_recursion {
                         log::debug!(
                             "Recursive extraction: {} ({})",
                             new_ferox_response.url(),

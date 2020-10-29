@@ -49,8 +49,8 @@ pub async fn wildcard_test(
         tx_file
     );
 
-    if CONFIGURATION.dontfilter {
-        // early return, dontfilter scans don't need tested
+    if CONFIGURATION.dont_filter {
+        // early return, dont_filter scans don't need tested
         log::trace!("exit: wildcard_test -> None");
         return None;
     }
@@ -92,7 +92,7 @@ pub async fn wildcard_test(
                             wildcard.dynamic,
                             style("auto-filtering").yellow(),
                             style(wc_length - url_len).cyan(),
-                            style("--dontfilter").yellow()
+                            style("--dont-filter").yellow()
                         );
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
@@ -113,7 +113,7 @@ pub async fn wildcard_test(
                         wc_length,
                         style("auto-filtering").yellow(),
                         style(wc_length).cyan(),
-                        style("--dontfilter").yellow()
+                        style("--dont-filter").yellow()
                     );
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
@@ -160,7 +160,7 @@ async fn make_wildcard_request(
     let nonexistent = match format_url(
         target_url,
         &unique_str,
-        CONFIGURATION.addslash,
+        CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
     ) {
@@ -177,7 +177,7 @@ async fn make_wildcard_request(
     match make_request(&CONFIGURATION.client, &nonexistent.to_owned()).await {
         Ok(response) => {
             if CONFIGURATION
-                .statuscodes
+                .status_codes
                 .contains(&response.status().as_u16())
             {
                 // found a wildcard response
@@ -255,7 +255,7 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
         let request = match format_url(
             target_url,
             "",
-            CONFIGURATION.addslash,
+            CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             None,
         ) {

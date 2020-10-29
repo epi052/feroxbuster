@@ -221,8 +221,8 @@ Configuration begins with with the following built-in default values baked into 
 - threads: `50`
 - verbosity: `0` (no logging enabled)
 - scan_limit: `0` (no limit imposed on concurrent scans)
-- statuscodes: `200 204 301 302 307 308 401 403 405`
-- useragent: `feroxbuster/VERSION`
+- status_codes: `200 204 301 302 307 308 401 403 405`
+- user_agent: `feroxbuster/VERSION`
 - recursion depth: `4`
 - auto-filter wildcards - `true`
 - output: `stdout`
@@ -272,7 +272,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # Any setting used here can be overridden by the corresponding command line option/argument
 #
 # wordlist = "/wordlists/jhaddix/all.txt"
-# statuscodes = [200, 500]
+# status_codes = [200, 500]
 # threads = 1
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
@@ -280,17 +280,17 @@ A pre-made configuration file with examples of all available settings can be fou
 # scan_limit = 6
 # quiet = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
-# useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+# user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
 # redirects = true
 # insecure = true
 # extensions = ["php", "html"]
-# norecursion = true
-# addslash = true
+# no_recursion = true
+# add_slash = true
 # stdin = true
-# dontfilter = true
+# dont_filter = true
 # extract_links = true
 # depth = 1
-# sizefilters = [5174]
+# filter_size = [5174]
 # queries = [["name","value"], ["rick", "astley"]]
 
 # headers can be specified on multiple lines or as an inline table
@@ -315,13 +315,13 @@ USAGE:
     feroxbuster [FLAGS] [OPTIONS] --url <URL>...
 
 FLAGS:
-    -f, --addslash         Append / to each request
-    -D, --dontfilter       Don't auto-filter wildcard responses
+    -f, --add-slash         Append / to each request
+    -D, --dont-filter       Don't auto-filter wildcard responses
     -e, --extract-links    Extract links from response body (html, javascript, etc...); make new requests based on
                            findings (default: false)
     -h, --help             Prints help information
     -k, --insecure         Disables TLS certificate validation
-    -n, --norecursion      Do not scan recursively
+    -n, --no-recursion      Do not scan recursively
     -q, --quiet            Only print URLs; Don't print status codes, response size, running config, etc...
     -r, --redirects        Follow redirects
         --stdin            Read url(s) from STDIN
@@ -336,12 +336,12 @@ OPTIONS:
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
     -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 7)
-    -S, --sizefilter <SIZE>...              Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
-    -s, --statuscodes <STATUS_CODE>...      Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
+    -S, --filter-size <SIZE>...              Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
+    -s, --status-codes <STATUS_CODE>...      Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
     -t, --threads <THREADS>                 Number of concurrent threads (default: 50)
     -T, --timeout <SECONDS>                 Number of seconds before a request times out (default: 7)
     -u, --url <URL>...                      The target URL(s) (required, unless --stdin used)
-    -a, --useragent <USER_AGENT>            Sets the User-Agent (default: feroxbuster/VERSION)
+    -a, --user-agent <USER_AGENT>            Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                   Path to the wordlist
 ```
 
@@ -399,7 +399,7 @@ With `--extract-links`
 ### IPv6, non-recursive scan with INFO-level logging enabled
 
 ```
-./feroxbuster -u http://[::1] --norecursion -vv
+./feroxbuster -u http://[::1] --no-recursion -vv
 ```
 
 ### Read urls from STDIN; pipe only resulting urls out to another tool

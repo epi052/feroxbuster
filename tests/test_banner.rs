@@ -77,14 +77,14 @@ fn banner_prints_headers() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple size filters
-fn banner_prints_size_filters() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_filter_sizes() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
         .arg("http://localhost")
         .arg("-S")
         .arg("789456123")
-        .arg("--sizefilter")
+        .arg("--filter-size")
         .arg("44444444")
         .assert()
         .failure()
@@ -277,13 +277,13 @@ fn banner_prints_extensions() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
-/// expect to see all mandatory prints + dontfilter
-fn banner_prints_dontfilter() -> Result<(), Box<dyn std::error::Error>> {
+/// expect to see all mandatory prints + dont_filter
+fn banner_prints_dont_filter() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
         .arg("http://localhost")
-        .arg("--dontfilter")
+        .arg("--dont-filter")
         .assert()
         .failure()
         .stderr(
