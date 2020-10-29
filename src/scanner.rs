@@ -762,31 +762,4 @@ mod tests {
 
         assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
     }
-
-    // todo check coverage and remove
-    // #[test]
-    // /// add a wildcard filter with the `size` attribute set to FILTERS and ensure that
-    // /// should_filter_response correctly returns true
-    // fn should_filter_response_filters_wildcard_size() {
-    //     let mut filter = WildcardFilter::default();
-    //     let url = Url::parse("http://localhost").unwrap();
-    //     filter.size = 18;
-    //     let filter = Box::new(filter);
-    //     add_filter_to_list_of_wildcard_filters(filter, FILTERS.clone());
-    //     let result = should_filter_response(&18, &url);
-    //     assert!(result);
-    // }
-    //
-    // #[test]
-    // /// add a wildcard filter with the `dynamic` attribute set to FILTERS and ensure that
-    // /// should_filter_response correctly returns true
-    // fn should_filter_response_filters_wildcard_dynamic() {
-    //     let mut filter = WildcardFilter::default();
-    //     let url = Url::parse("http://localhost/some-path").unwrap();
-    //     filter.dynamic = 9;
-    //     let filter = Arc::new(filter);
-    //     add_filter_to_list_of_wildcard_filters(filter, FILTERS.clone());
-    //     let result = should_filter_response(&18, &url);
-    //     assert!(result);
-    // }
 }
