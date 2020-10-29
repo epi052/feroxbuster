@@ -2,6 +2,7 @@ pub mod banner;
 pub mod client;
 pub mod config;
 pub mod extractor;
+pub mod filters;
 pub mod heuristics;
 pub mod logger;
 pub mod parser;
@@ -61,7 +62,7 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
 
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FeroxResponse {
     /// The final `Url` of this `FeroxResponse`
     url: Url,
