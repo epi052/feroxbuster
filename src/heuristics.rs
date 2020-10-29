@@ -85,7 +85,7 @@ pub async fn wildcard_test(
 
                 wildcard.dynamic = wc_length - url_len;
 
-                if !CONFIGURATION.quiet { // && !wildcard.should_filter_response(&ferox_response) {
+                if !CONFIGURATION.quiet {
                     let msg = format!(
                             "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
                             status_colorizer("WLD"),
@@ -106,7 +106,7 @@ pub async fn wildcard_test(
             } else if wc_length == wc2_length {
                 wildcard.size = wc_length;
 
-                if !CONFIGURATION.quiet { // && !wildcard.should_filter_response(&ferox_response) {
+                if !CONFIGURATION.quiet {
                     let msg = format!(
                         "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
                         status_colorizer("WLD"),
