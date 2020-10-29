@@ -207,9 +207,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
 /// or if the Location header is present and matches the base url + / (3xx)
 fn response_is_directory(response: &FeroxResponse) -> bool {
     log::trace!("enter: is_directory({:?})", response);
-    if response.url().as_str().contains("/api") {
-        log::warn!("response: {:?}", response);
-    }
+
     if response.status().is_redirection() {
         // status code is 3xx
         match response.headers().get("Location") {
@@ -335,17 +333,6 @@ async fn try_recursion(
         }
     }
     log::trace!("exit: try_recursion");
-}
-
-/// Given a `FeroxResponse` and a `FeroxFilter` determine whether or not to apply the filter to
-/// the response
-pub fn should_filter(response: &FeroxResponse, filter: Box<dyn FeroxFilter>) -> bool {
-    log::trace!("enter: should_filter({:?}, {:?})", response, filter);
-
-    let result = filter.should_filter_response(&response);
-
-    log::trace!("exit: should_filter -> {}", result);
-    result
 }
 
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
