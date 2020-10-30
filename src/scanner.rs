@@ -1,6 +1,6 @@
 use crate::config::{CONFIGURATION, PROGRESS_BAR};
 use crate::extractor::get_links;
-use crate::filters::{FeroxFilter, WildcardFilter};
+use crate::filters::{FeroxFilter, StatusCodeFilter, WildcardFilter};
 use crate::utils::{format_url, get_current_depth, make_request};
 use crate::{heuristics, progress, FeroxChannel, FeroxResponse};
 use futures::future::{BoxFuture, FutureExt};
@@ -70,34 +70,34 @@ fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<Str
 /// Adds the given FeroxFilter to the given list of FeroxFilter implementors
 ///
 /// If the given list did not already contain the filter, return true; otherwise return false
-fn add_filter_to_list_of_wildcard_filters(
+fn add_filter_to_list_of_ferox_filters(
     filter: Box<dyn FeroxFilter>,
-    wildcard_filters: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>>,
+    ferox_filters: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>>,
 ) -> bool {
     log::trace!(
-        "enter: add_filter_to_list_of_wildcard_filters({:?}, {:?})",
+        "enter: add_filter_to_list_of_ferox_filters({:?}, {:?})",
         filter,
-        wildcard_filters
+        ferox_filters
     );
 
-    match wildcard_filters.write() {
+    match ferox_filters.write() {
         Ok(mut filters) => {
             // If the set did not contain the assigned filter, true is returned.
             // If the set did contain the assigned filter, false is returned.
             if filters.contains(&filter) {
-                log::trace!("exit: add_filter_to_list_of_wildcard_filters -> false");
+                log::trace!("exit: add_filter_to_list_of_ferox_filters -> false");
                 return false;
             }
 
             filters.push(filter);
 
-            log::trace!("exit: add_filter_to_list_of_wildcard_filters -> true");
+            log::trace!("exit: add_filter_to_list_of_ferox_filters -> true");
             true
         }
         Err(e) => {
             // poisoned lock
             log::error!("Set of wildcard filters poisoned: {}", e);
-            log::trace!("exit: add_filter_to_list_of_wildcard_filters -> false");
+            log::trace!("exit: add_filter_to_list_of_ferox_filters -> false");
             false
         }
     }
@@ -578,13 +578,23 @@ pub async fn scan_url(
         .await
     });
 
+    // add any wildcard filters to `FILTERS`
     let filter =
         match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_file_clone).await {
             Some(f) => Box::new(f),
             None => Box::new(WildcardFilter::default()),
         };
 
-    add_filter_to_list_of_wildcard_filters(filter, FILTERS.clone());
+    add_filter_to_list_of_ferox_filters(filter, FILTERS.clone());
+
+    // add any status code filters to `FILTERS`
+    for code_filter in &CONFIGURATION.filter_status {
+        let filter = StatusCodeFilter {
+            filter_code: *code_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
