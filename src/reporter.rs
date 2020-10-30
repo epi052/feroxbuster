@@ -94,7 +94,7 @@ async fn spawn_terminal_reporter(
     while let Some(resp) = resp_chan.recv().await {
         log::debug!("received {} on reporting channel", resp.url());
 
-        if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
+        if CONFIGURATION.status_codes.contains(&resp.status().as_u16()) {
             let report = if CONFIGURATION.quiet {
                 // -q used, just need the url
                 format!("{}\n", resp.url())

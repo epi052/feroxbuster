@@ -181,7 +181,7 @@ fn extractor_finds_same_relative_url_twice() -> Result<(), Box<dyn std::error::E
 }
 
 #[test]
-/// send a request to a page that contains an absolute link that leads to a page with a sizefilter
+/// send a request to a page that contains an absolute link that leads to a page with a filter_size
 /// that should filter it out, expect not to see the second response reported
 fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
@@ -209,7 +209,7 @@ fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> 
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--extract-links")
-        .arg("--sizefilter")
+        .arg("--filter-size")
         .arg("18")
         .unwrap();
 
