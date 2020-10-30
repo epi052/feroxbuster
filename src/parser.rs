@@ -196,7 +196,7 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
-            Arg::with_name("status_code_filters")
+            Arg::with_name("filter_status")
                 .short("C")
                 .long("filter-status")
                 .value_name("STATUS_CODE")

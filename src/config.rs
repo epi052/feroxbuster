@@ -362,6 +362,26 @@ impl Configuration {
                 .collect();
         }
 
+        if args.values_of("filter_status").is_some() {
+            config.filter_status = args
+                .values_of("filter_status")
+                .unwrap() // already known good
+                .map(|code| {
+                    StatusCode::from_bytes(code.as_bytes())
+                        .unwrap_or_else(|e| {
+                            eprintln!(
+                                "{} {}: {}",
+                                status_colorizer("ERROR"),
+                                module_colorizer("Configuration::new"),
+                                e
+                            );
+                            exit(1)
+                        })
+                        .as_u16()
+                })
+                .collect();
+        }
+
         if args.values_of("extensions").is_some() {
             config.extensions = args
                 .values_of("extensions")
@@ -551,6 +571,7 @@ impl Configuration {
         settings.stdin = settings_to_merge.stdin;
         settings.depth = settings_to_merge.depth;
         settings.filter_size = settings_to_merge.filter_size;
+        settings.filter_status = settings_to_merge.filter_status;
         settings.dont_filter = settings_to_merge.dont_filter;
         settings.scan_limit = settings_to_merge.scan_limit;
     }
@@ -608,6 +629,7 @@ mod tests {
             extract_links = true
             depth = 1
             filter_size = [4120]
+            filter_status = [201]
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -640,6 +662,7 @@ mod tests {
         assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.filter_size, Vec::<u64>::new());
+        assert_eq!(config.filter_status, Vec::<u16>::new());
         assert_eq!(config.headers, HashMap::new());
     }
 
@@ -774,6 +797,13 @@ mod tests {
     fn config_reads_filter_size() {
         let config = setup_config_test();
         assert_eq!(config.filter_size, vec![4120]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_status() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_status, vec![201]);
     }
 
     #[test]

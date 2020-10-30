@@ -190,6 +190,27 @@ by Ben "epi" Risher {}                  ver: {}"#,
     )
     .unwrap_or_default(); // 🆗
 
+    if !config.filter_status.is_empty() {
+        // exception here for optional print due to me wanting the allows and denys to be printed
+        // one after the other
+        let mut code_filters = vec![];
+
+        for code in &config.filter_status {
+            code_filters.push(status_colorizer(&code.to_string()))
+        }
+
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!(
+                "\u{1f5d1}",
+                "Status Code Filters",
+                format!("[{}]", code_filters.join(", "))
+            )
+        )
+        .unwrap_or_default(); // 🗑
+    }
+
     writeln!(
         &mut writer,
         "{}",
