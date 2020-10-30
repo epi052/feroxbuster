@@ -440,6 +440,8 @@ discovered directories can only begin scanning when the total number of active s
 ./feroxbuster -u http://127.1 --scan-limit 2
 ```
 
+![limit-demo](img/limit-demo.gif)
+
 ### Filter Response by Status Code  (new in `v1.3.0`)
 
 Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
@@ -449,8 +451,6 @@ each one is checked against a list of known filters and either displayed or not 
 ```
 ./feroxbuster -u http://127.1 --filter-status 301
 ```
-
-![limit-demo](img/limit-demo.gif)
 
 ## 🧐 Comparison w/ Similar Tools
 
