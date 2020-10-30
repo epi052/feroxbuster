@@ -336,6 +336,7 @@ fn scanner_single_request_returns_301_without_location_header(
     let mock = Mock::new()
         .expect_method(GET)
         .expect_path("/LICENSE")
+        .return_body("this is a test")
         .return_status(301)
         .create_on(&srv);
 
@@ -345,9 +346,9 @@ fn scanner_single_request_returns_301_without_location_header(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("-T")
+        .arg("--timeout")
         .arg("5")
-        .arg("-a")
+        .arg("--user-agent")
         .arg("some-user-agent-string")
         .unwrap();
 
