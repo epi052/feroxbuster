@@ -402,7 +402,7 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
             .and(predicate::str::contains("20"))
             .and(predicate::str::contains("ignored"))
             .not()
-            .and(predicate::str::contains("14"))
+            .and(predicate::str::contains(" 14 "))
             .not(),
     );
 
