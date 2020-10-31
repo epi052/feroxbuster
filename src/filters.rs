@@ -1,3 +1,4 @@
+use crate::config::CONFIGURATION;
 use crate::utils::get_url_path_length;
 use crate::FeroxResponse;
 use std::any::Any;
@@ -53,6 +54,14 @@ impl FeroxFilter for WildcardFilter {
     /// is a wildcard response and therefore should be filtered out
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
         log::trace!("enter: should_filter_response({:?} {:?})", self, response);
+
+        // quick return if dont_filter is set
+        if CONFIGURATION.dont_filter {
+            // --dont-filter applies specifically to wildcard filters, it is not a 100% catch all
+            // for not filtering anything.  As such, it should live in the implementation of
+            // a wildcard filter
+            return false;
+        }
 
         if self.size > 0 && self.size == response.content_length() {
             // static wildcard size found during testing

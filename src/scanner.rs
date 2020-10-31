@@ -349,11 +349,6 @@ pub fn should_filter_response(response: &FeroxResponse) -> bool {
         return true;
     }
 
-    if CONFIGURATION.dont_filter {
-        // quick return if dont_filter is set
-        return false;
-    }
-
     match FILTERS.read() {
         Ok(filters) => {
             for filter in filters.iter() {
