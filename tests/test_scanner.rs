@@ -327,7 +327,8 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[test]
-/// send single valid request, get back a 301 without a Location header, expect false
+/// send single valid request, get back a 301 without a Location header
+/// expect response_is_directory to return false when called
 fn scanner_single_request_returns_301_without_location_header(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
@@ -336,6 +337,7 @@ fn scanner_single_request_returns_301_without_location_header(
     let mock = Mock::new()
         .expect_method(GET)
         .expect_path("/LICENSE")
+        .return_body("this is a test")
         .return_status(301)
         .create_on(&srv);
 
@@ -345,17 +347,16 @@ fn scanner_single_request_returns_301_without_location_header(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("-T")
+        .arg("--timeout")
         .arg("5")
-        .arg("-a")
+        .arg("--user-agent")
         .arg("some-user-agent-string")
         .unwrap();
 
     cmd.assert().success().stdout(
         predicate::str::contains(srv.url("/LICENSE"))
             .and(predicate::str::contains("301"))
-            .and(predicate::str::contains("14"))
-            .not(),
+            .and(predicate::str::contains("14")),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -401,7 +402,7 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
             .and(predicate::str::contains("20"))
             .and(predicate::str::contains("ignored"))
             .not()
-            .and(predicate::str::contains("14"))
+            .and(predicate::str::contains(" 14 "))
             .not(),
     );
 

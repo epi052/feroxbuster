@@ -140,7 +140,7 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 pub fn format_url(
     url: &str,
     word: &str,
-    addslash: bool,
+    add_slash: bool,
     queries: &[(String, String)],
     extension: Option<&str>,
 ) -> FeroxResult<Url> {
@@ -148,7 +148,7 @@ pub fn format_url(
         "enter: format_url({}, {}, {}, {:?} {:?})",
         url,
         word,
-        addslash,
+        add_slash,
         queries,
         extension
     );
@@ -175,7 +175,7 @@ pub fn format_url(
     // extensions and slashes are mutually exclusive cases
     let word = if extension.is_some() {
         format!("{}.{}", word, extension.unwrap())
-    } else if addslash && !word.ends_with('/') {
+    } else if add_slash && !word.ends_with('/') {
         // -f used, and word doesn't already end with a /
         format!("{}/", word)
     } else {

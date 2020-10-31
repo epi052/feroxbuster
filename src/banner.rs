@@ -161,7 +161,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     let mut codes = vec![];
 
-    for code in &config.statuscodes {
+    for code in &config.status_codes {
         codes.push(status_colorizer(&code.to_string()))
     }
 
@@ -190,6 +190,27 @@ by Ben "epi" Risher {}                  ver: {}"#,
     )
     .unwrap_or_default(); // 🆗
 
+    if !config.filter_status.is_empty() {
+        // exception here for optional print due to me wanting the allows and denys to be printed
+        // one after the other
+        let mut code_filters = vec![];
+
+        for code in &config.filter_status {
+            code_filters.push(status_colorizer(&code.to_string()))
+        }
+
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!(
+                "\u{1f5d1}",
+                "Status Code Filters",
+                format!("[{}]", code_filters.join(", "))
+            )
+        )
+        .unwrap_or_default(); // 🗑
+    }
+
     writeln!(
         &mut writer,
         "{}",
@@ -200,7 +221,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     writeln!(
         &mut writer,
         "{}",
-        format_banner_entry!("\u{1F9a1}", "User-Agent", config.useragent)
+        format_banner_entry!("\u{1F9a1}", "User-Agent", config.user_agent)
     )
     .unwrap_or_default(); // 🦡
 
@@ -234,8 +255,8 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
-    if !config.sizefilters.is_empty() {
-        for filter in &config.sizefilters {
+    if !config.filter_size.is_empty() {
+        for filter in &config.filter_size {
             writeln!(
                 &mut writer,
                 "{}",
@@ -309,11 +330,11 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 📍
     }
 
-    if config.dontfilter {
+    if config.dont_filter {
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !config.dontfilter)
+            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !config.dont_filter)
         )
         .unwrap_or_default(); // 🤪
     }
@@ -355,16 +376,16 @@ by Ben "epi" Risher {}                  ver: {}"#,
         _ => {}
     }
 
-    if config.addslash {
+    if config.add_slash {
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1fa93}", "Add Slash", config.addslash)
+            format_banner_entry!("\u{1fa93}", "Add Slash", config.add_slash)
         )
         .unwrap_or_default(); // 🪓
     }
 
-    if !config.norecursion {
+    if !config.no_recursion {
         if config.depth == 0 {
             writeln!(
                 &mut writer,
@@ -384,7 +405,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", config.norecursion)
+            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", config.no_recursion)
         )
         .unwrap_or_default(); // 🚫
     }
@@ -436,7 +457,7 @@ mod tests {
     /// test to hit no execution of statuscode for loop in banner
     async fn banner_intialize_without_status_codes() {
         let mut config = Configuration::default();
-        config.statuscodes = vec![];
+        config.status_codes = vec![];
         initialize(
             &[String::from("http://localhost")],
             &config,

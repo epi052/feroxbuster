@@ -77,14 +77,14 @@ fn banner_prints_headers() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple size filters
-fn banner_prints_size_filters() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_filter_sizes() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
         .arg("http://localhost")
         .arg("-S")
         .arg("789456123")
-        .arg("--sizefilter")
+        .arg("--filter-size")
         .arg("44444444")
         .assert()
         .failure()
@@ -277,13 +277,13 @@ fn banner_prints_extensions() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
-/// expect to see all mandatory prints + dontfilter
-fn banner_prints_dontfilter() -> Result<(), Box<dyn std::error::Error>> {
+/// expect to see all mandatory prints + dont_filter
+fn banner_prints_dont_filter() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
         .arg("http://localhost")
-        .arg("--dontfilter")
+        .arg("--dont-filter")
         .assert()
         .failure()
         .stderr(
@@ -587,6 +587,34 @@ fn banner_prints_scan_limit() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Concurrent Scan Limit"))
                 .and(predicate::str::contains("│ 4"))
+                .and(predicate::str::contains("─┴─")),
+        );
+    Ok(())
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + filter-status
+fn banner_prints_filter_status() -> Result<(), Box<dyn std::error::Error>> {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-C")
+        .arg("200")
+        .assert()
+        .failure()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Status Code Filters"))
+                .and(predicate::str::contains("│ [200]"))
                 .and(predicate::str::contains("─┴─")),
         );
     Ok(())

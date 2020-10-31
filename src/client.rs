@@ -10,7 +10,7 @@ use std::time::Duration;
 /// Create and return an instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
 pub fn initialize(
     timeout: u64,
-    useragent: &str,
+    user_agent: &str,
     redirects: bool,
     insecure: bool,
     headers: &HashMap<String, String>,
@@ -27,7 +27,7 @@ pub fn initialize(
 
     let client = Client::builder()
         .timeout(Duration::new(timeout, 0))
-        .user_agent(useragent)
+        .user_agent(user_agent)
         .danger_accept_invalid_certs(insecure)
         .default_headers(header_map)
         .redirect(policy);
