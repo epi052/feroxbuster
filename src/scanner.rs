@@ -868,7 +868,6 @@ mod tests {
     /// test that get_single_spinner returns the correct spinner
     fn scanner_get_single_spinner_returns_spinner() {
         let spinner = get_single_spinner();
-        assert!(!spinner.is_hidden());
         assert!(!spinner.is_finished());
     }
 
@@ -882,15 +881,15 @@ mod tests {
         PAUSE_SCAN.store(true, Ordering::Relaxed);
         SINGLE_SPINNER.write().unwrap().finish_and_clear();
 
-        let expected = time::Duration::from_millis(1500);
+        let expected = time::Duration::from_secs(2);
 
         tokio::spawn(async move {
-            time::delay_for(time::Duration::from_secs(1)).await;
+            time::delay_for(expected).await;
             PAUSE_SCAN.store(false, Ordering::Relaxed);
         });
 
         pause_scan().await;
 
-        assert!(now.elapsed() >= expected);
+        assert!(now.elapsed() > expected);
     }
 }
