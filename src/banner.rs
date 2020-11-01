@@ -1,5 +1,6 @@
 use crate::config::{Configuration, CONFIGURATION};
 use crate::utils::{make_request, status_colorizer};
+use crossterm::style::Colorize;
 use reqwest::{Client, Url};
 use serde_json::Value;
 use std::io::Write;
@@ -144,6 +145,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     let status = needs_update(&CONFIGURATION.client, UPDATE_URL, version).await;
 
     let top = "───────────────────────────┬──────────────────────";
+    let addl_section = "──────────────────────────────────────────────────";
     let bottom = "───────────────────────────┴──────────────────────";
 
     writeln!(&mut writer, "{}", artwork).unwrap_or_default();
@@ -433,6 +435,16 @@ by Ben "epi" Risher {}                  ver: {}"#,
     }
 
     writeln!(&mut writer, "{}", bottom).unwrap_or_default();
+    // ⏯
+    writeln!(
+        &mut writer,
+        " \u{23ef}  Press [{}] to {}|{} your scan",
+        "ENTER".yellow(),
+        "pause".red(),
+        "resume".green()
+    )
+    .unwrap_or_default();
+    writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
 }
 
 #[cfg(test)]
