@@ -871,4 +871,44 @@ mod tests {
         assert!(!spinner.is_hidden());
         assert!(!spinner.is_finished());
     }
+
+    #[tokio::test(core_threads = 1)]
+    /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
+    /// the spinner used during the test has not had .finish_and_clear called on it
+    async fn scanner_pause_scan_with_unfinished_spinner() {
+        let now = time::Instant::now();
+        PAUSE_SCAN.store(true, Ordering::Relaxed);
+
+        let expected = time::Duration::from_millis(1100);
+
+        tokio::spawn(async move {
+            time::delay_for(time::Duration::from_secs(1)).await;
+            PAUSE_SCAN.store(false, Ordering::Relaxed);
+        });
+
+        pause_scan().await;
+        println!("{:?}, {:?}", now.elapsed(), expected);
+        assert!(now.elapsed() >= expected);
+    }
+
+    // #[tokio::test(core_threads = 1)]
+    // /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
+    // /// the spinner used during the test has had .finish_and_clear called on it, meaning that
+    // /// a new one will be created, taking the if branch within the function
+    // async fn scanner_pause_scan_with_finished_spinner() {
+    //     let now = time::Instant::now();
+    //     PAUSE_SCAN.store(true, Ordering::Relaxed);
+    //     SINGLE_SPINNER.write().unwrap().finish_and_clear();
+    //
+    //     let expected = time::Duration::from_millis(1500);
+    //
+    //     tokio::spawn(async move {
+    //         time::delay_for(time::Duration::from_secs(1)).await;
+    //         PAUSE_SCAN.store(false, Ordering::Relaxed);
+    //     });
+    //
+    //     pause_scan().await;
+    //
+    //     assert!(now.elapsed() >= expected);
+    // }
 }
