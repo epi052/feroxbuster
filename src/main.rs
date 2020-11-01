@@ -30,7 +30,7 @@ fn terminal_input_handler() {
     log::trace!("enter: terminal_input_handler");
 
     loop {
-        if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap() {
+        if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
             // It's guaranteed that the `read()` won't block when the `poll()`
             // function returns `true`
 
