@@ -863,4 +863,12 @@ mod tests {
 
         assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
     }
+
+    #[test]
+    /// test that get_single_spinner returns the correct spinner
+    fn scanner_get_single_spinner_returns_spinner() {
+        let spinner = get_single_spinner();
+        assert!(!spinner.is_hidden());
+        assert!(!spinner.is_finished());
+    }
 }
