@@ -71,6 +71,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
+    - [Pause and Resume Scans (new in `v1.4.0`)](#pause-and-resume-scans-new-in-v140)
     - [Multiple Values](#multiple-values)
     - [Extract Links from Response Body (new in `v1.1.0`)](#extract-links-from-response-body-new-in-v110)
     - [Include Headers](#include-headers)
@@ -350,6 +351,12 @@ OPTIONS:
 ```
 
 ## 🧰 Example Usage
+
+### Pause and Resume Scans (new in `v1.4.0`)
+
+Scans can be paused and resumed by pressing the ENTER key (shown below)
+
+![pause-resume-demo](img/pause-resume-demo.gif)
 
 ### Multiple Values
 
