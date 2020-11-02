@@ -1,16 +1,58 @@
-use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
-use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult, VERSION};
+use crossterm::event::{self, Event, KeyCode};
+use feroxbuster::{
+    banner,
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    heuristics, logger, reporter,
+    scanner::{scan_url, PAUSE_SCAN},
+    utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
+    FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
+};
 use futures::StreamExt;
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{stderr, BufRead, BufReader};
-use std::process;
-use std::sync::Arc;
-use tokio::io;
-use tokio::sync::mpsc::UnboundedSender;
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::{stderr, BufRead, BufReader},
+    process,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+use tokio::{io, sync::mpsc::UnboundedSender};
 use tokio_util::codec::{FramedRead, LinesCodec};
+
+/// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
+pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
+
+/// Handles specific key events triggered by the user over stdin
+fn terminal_input_handler() {
+    log::trace!("enter: terminal_input_handler");
+
+    loop {
+        if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
+            // It's guaranteed that the `read()` won't block when the `poll()`
+            // function returns `true`
+
+            if let Ok(key_pressed) = event::read() {
+                if key_pressed == Event::Key(KeyCode::Enter.into()) {
+                    // if the user presses Enter, toggle the value stored in PAUSE_SCAN
+                    // ignore any other keys
+                    let current = PAUSE_SCAN.load(Ordering::Acquire);
+
+                    PAUSE_SCAN.store(!current, Ordering::Release);
+                }
+            }
+        } else {
+            // Timeout expired and no `Event` is available; use the timeout to check SCAN_COMPLETE
+            if SCAN_COMPLETE.load(Ordering::Relaxed) {
+                // scan has been marked complete by main, time to exit the loop
+                break;
+            }
+        }
+    }
+    log::trace!("exit: terminal_input_handler");
+}
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
@@ -132,6 +174,11 @@ async fn main() {
     log::trace!("enter: main");
     log::debug!("{:#?}", *CONFIGURATION);
 
+    // spawn a thread that listens for keyboard input on stdin, when a user presses enter
+    // the input handler will toggle PAUSE_SCAN, which in turn is used to pause and resume
+    // scans that are already running
+    tokio::task::spawn_blocking(terminal_input_handler);
+
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
     let (tx_term, tx_file, term_handle, file_handle) =
@@ -204,6 +251,9 @@ async fn main() {
         }
         log::trace!("done awaiting file output handler's receiver");
     }
+
+    // mark all scans complete so the terminal input handler will exit cleanly
+    SCAN_COMPLETE.store(true, Ordering::Relaxed);
 
     log::trace!("exit: main");
 

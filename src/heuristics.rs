@@ -1,10 +1,13 @@
-use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::filters::WildcardFilter;
-use crate::scanner::should_filter_response;
-use crate::utils::{
-    ferox_print, format_url, get_url_path_length, make_request, module_colorizer, status_colorizer,
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    filters::WildcardFilter,
+    scanner::should_filter_response,
+    utils::{
+        ferox_print, format_url, get_url_path_length, make_request, module_colorizer,
+        status_colorizer,
+    },
+    FeroxResponse,
 };
-use crate::FeroxResponse;
 use console::style;
 use indicatif::ProgressBar;
 use std::process;

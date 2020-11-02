@@ -1,33 +1,120 @@
-use crate::config::{CONFIGURATION, PROGRESS_BAR};
-use crate::extractor::get_links;
-use crate::filters::{FeroxFilter, StatusCodeFilter, WildcardFilter};
-use crate::utils::{format_url, get_current_depth, make_request};
-use crate::{heuristics, progress, FeroxChannel, FeroxResponse};
-use futures::future::{BoxFuture, FutureExt};
-use futures::{stream, StreamExt};
+use crate::{
+    config::{CONFIGURATION, PROGRESS_BAR},
+    extractor::get_links,
+    filters::{FeroxFilter, StatusCodeFilter, WildcardFilter},
+    heuristics, progress,
+    utils::{format_url, get_current_depth, make_request},
+    FeroxChannel, FeroxResponse, SLEEP_DURATION,
+};
+use console::style;
+use futures::{
+    future::{BoxFuture, FutureExt},
+    stream, StreamExt,
+};
+use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
 use reqwest::Url;
-use std::collections::HashSet;
-use std::convert::TryInto;
-use std::ops::Deref;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Semaphore;
-use tokio::task::JoinHandle;
+use std::{
+    collections::HashSet,
+    convert::TryInto,
+    io::{stderr, Write},
+    ops::Deref,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::{Arc, RwLock},
+};
+use tokio::{
+    sync::{
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
+        Semaphore,
+    },
+    task::JoinHandle,
+    time,
+};
 
 /// Single atomic number that gets incremented once, used to track first scan vs. all others
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+/// Atomic boolean flag, used to determine whether or not a scan should pause or resume
+pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
+
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
+
+    /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
+    static ref SINGLE_SPINNER: RwLock<ProgressBar> = RwLock::new(get_single_spinner());
 
     /// Vector of implementors of the FeroxFilter trait
     static ref FILTERS: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>> = Arc::new(RwLock::new(Vec::<Box<dyn FeroxFilter>>::new()));
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
+}
+
+/// Return a clock spinner, used when scans are paused
+fn get_single_spinner() -> ProgressBar {
+    log::trace!("enter: get_single_spinner");
+
+    let spinner = ProgressBar::new_spinner().with_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&[
+                "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
+            ])
+            .template(&format!(
+                "\t-= All Scans {{spinner}} {} =-",
+                style("Paused").red()
+            )),
+    );
+
+    log::trace!("exit: get_single_spinner -> {:?}", spinner);
+    spinner
+}
+
+/// Forced the calling thread into a busy loop
+///
+/// Every `SLEEP_DURATION` milliseconds, the function examines the result stored in `PAUSE_SCAN`
+///
+/// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
+/// loop
+async fn pause_scan() {
+    log::trace!("enter: pause_scan");
+    // function uses tokio::time, not std
+
+    // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
+    // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
+    let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
+
+    // ignore any error returned
+    let _ = stderr().flush();
+
+    if SINGLE_SPINNER.read().unwrap().is_finished() {
+        // in order to not leave draw artifacts laying around in the terminal, we call
+        // finish_and_clear on the progress bar when resuming scans. For this reason, we need to
+        // check if the spinner is finished, and repopulate the RwLock with a new spinner if
+        // necessary
+        if let Ok(mut guard) = SINGLE_SPINNER.write() {
+            *guard = get_single_spinner();
+        }
+    }
+
+    if let Ok(spinner) = SINGLE_SPINNER.write() {
+        spinner.enable_steady_tick(120);
+    }
+
+    loop {
+        // first tick happens immediately, all others wait the specified duration
+        interval.tick().await;
+
+        if !PAUSE_SCAN.load(Ordering::Acquire) {
+            // PAUSE_SCAN is false, so we can exit the busy loop
+            if let Ok(spinner) = SINGLE_SPINNER.write() {
+                spinner.finish_and_clear();
+            }
+            let _ = stderr().flush();
+            log::trace!("exit: pause_scan");
+            return;
+        }
+    }
 }
 
 /// Adds the given url to `SCANNED_URLS`
@@ -599,7 +686,15 @@ pub async fn scan_url(
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             (
-                tokio::spawn(async move { make_requests(&tgt, &word, base_depth, txd, txr).await }),
+                tokio::spawn(async move {
+                    if PAUSE_SCAN.load(Ordering::Acquire) {
+                        // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
+                        // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
+                        // to false
+                        pause_scan().await;
+                    }
+                    make_requests(&tgt, &word, base_depth, txd, txr).await
+                }),
                 pb,
             )
         })
@@ -767,5 +862,34 @@ mod tests {
         );
 
         assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
+    }
+
+    #[test]
+    /// test that get_single_spinner returns the correct spinner
+    fn scanner_get_single_spinner_returns_spinner() {
+        let spinner = get_single_spinner();
+        assert!(!spinner.is_finished());
+    }
+
+    #[tokio::test(core_threads = 1)]
+    /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
+    /// the spinner used during the test has had .finish_and_clear called on it, meaning that
+    /// a new one will be created, taking the if branch within the function
+    async fn scanner_pause_scan_with_finished_spinner() {
+        let now = time::Instant::now();
+
+        PAUSE_SCAN.store(true, Ordering::Relaxed);
+        SINGLE_SPINNER.write().unwrap().finish_and_clear();
+
+        let expected = time::Duration::from_secs(2);
+
+        tokio::spawn(async move {
+            time::delay_for(expected).await;
+            PAUSE_SCAN.store(false, Ordering::Relaxed);
+        });
+
+        pause_scan().await;
+
+        assert!(now.elapsed() > expected);
     }
 }

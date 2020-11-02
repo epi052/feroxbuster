@@ -11,8 +11,10 @@ pub mod reporter;
 pub mod scanner;
 pub mod utils;
 
-use reqwest::header::HeaderMap;
-use reqwest::{Response, StatusCode, Url};
+use reqwest::{
+    header::HeaderMap,
+    {Response, StatusCode, Url},
+};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
@@ -32,6 +34,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// - `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
 pub const DEFAULT_WORDLIST: &str =
     "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
+
+/// Number of milliseconds to wait between polls of `PAUSE_SCAN` when user pauses a scan
+pub static SLEEP_DURATION: u64 = 500;
 
 /// Default list of status codes to report
 ///
