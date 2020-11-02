@@ -1,6 +1,6 @@
 use crate::config::{Configuration, CONFIGURATION};
 use crate::utils::{make_request, status_colorizer};
-use crossterm::style::Colorize;
+use console::style;
 use reqwest::{Client, Url};
 use serde_json::Value;
 use std::io::Write;
@@ -439,9 +439,9 @@ by Ben "epi" Risher {}                  ver: {}"#,
     writeln!(
         &mut writer,
         " \u{23ef}  Press [{}] to {}|{} your scan",
-        "ENTER".yellow(),
-        "pause".red(),
-        "resume".green()
+        style("ENTER").yellow(),
+        style("pause").red(),
+        style("resume").green()
     )
     .unwrap_or_default();
     writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
