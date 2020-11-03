@@ -26,7 +26,7 @@ fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Erro
         .arg("-vvvv")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Permission denied (os error 13)"));
+        .stdout(predicate::str::contains("Permission denied (os error 13)"));
 
     // connectivity test hits it once
     assert_eq!(mock.times_called(), 1);
