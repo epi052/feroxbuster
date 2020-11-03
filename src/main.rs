@@ -4,8 +4,8 @@ use feroxbuster::{
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger, reporter,
     scanner::{scan_url, PAUSE_SCAN},
-    utils::{ferox_print, get_current_depth, module_colorizer},
-    FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
+    utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
+    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };
 use futures::StreamExt;
 use std::{
@@ -105,8 +105,9 @@ async fn scan(
             .await??;
 
     if words.len() == 0 {
-        eprintln!("Did not find any words in {}", CONFIGURATION.wordlist);
-        process::exit(1); // todo cleanup?
+        let mut err = FeroxError::default();
+        err.message = format!("Did not find any words in {}", CONFIGURATION.wordlist);
+        return Err(Box::new(err));
     }
 
     let mut tasks = vec![];
@@ -131,6 +132,7 @@ async fn scan(
     Ok(())
 }
 
+/// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
 async fn get_targets() -> FeroxResult<Vec<String>> {
     log::trace!("enter: get_targets");
 
@@ -154,7 +156,8 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
     Ok(targets)
 }
 
-/// todo doc
+/// async main called from real main, broken out in this way to allow for some synchronous code
+/// to be executed before bringing the tokio runtime online
 async fn wrapped_main() {
     // join can only be called once, otherwise it causes the thread to panic
     tokio::task::spawn_blocking(move || {
@@ -215,7 +218,7 @@ async fn wrapped_main() {
         }
         Err(e) => {
             ferox_print(
-                &format!("An error occurred while scanning: {}", e),
+                &format!("{} while scanning: {}", status_colorizer("Error"), e),
                 &PROGRESS_PRINTER,
             );
             clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
@@ -228,7 +231,8 @@ async fn wrapped_main() {
     log::trace!("exit: main");
 }
 
-/// todo doc
+/// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
+/// shutdown the program
 async fn clean_up(
     tx_term: UnboundedSender<FeroxResponse>,
     term_handle: JoinHandle<()>,
@@ -236,7 +240,15 @@ async fn clean_up(
     file_handle: Option<JoinHandle<()>>,
     save_output: bool,
 ) {
-    // todo trace
+    log::trace!(
+        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {}",
+        tx_term,
+        term_handle,
+        tx_file,
+        file_handle,
+        save_output
+    );
+
     drop(tx_term);
     log::trace!("dropped terminal output handler's transmitter");
 
@@ -274,6 +286,8 @@ async fn clean_up(
     // clean-up function for the MultiProgress bar; must be called last in order to still see
     // the final trace messages above
     PROGRESS_PRINTER.finish();
+
+    log::trace!("exit: clean_up");
 }
 
 fn main() {

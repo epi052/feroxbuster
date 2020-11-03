@@ -55,7 +55,7 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .arg("-vvvv")
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Did not find any words in"));
+        .stdout(predicate::str::contains("Did not find any words in"));
 
     assert_eq!(mock.times_called(), 1);
 

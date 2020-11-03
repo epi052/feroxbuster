@@ -15,11 +15,26 @@ use reqwest::{
     header::HeaderMap,
     {Response, StatusCode, Url},
 };
+use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
-pub type FeroxResult<T> =
-    std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
+
+/// Simple Error implementation to allow for custom error returns
+#[derive(Debug, Default)]
+pub struct FeroxError {
+    /// fancy string that can be printed via Display
+    pub message: String,
+}
+
+impl error::Error for FeroxError {}
+
+impl fmt::Display for FeroxError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", &self.message)
+    }
+}
 
 /// Generic mpsc::unbounded_channel type to tidy up some code
 pub type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
