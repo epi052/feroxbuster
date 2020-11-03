@@ -92,7 +92,7 @@ async fn spawn_terminal_reporter(
     );
 
     while let Some(resp) = resp_chan.recv().await {
-        log::debug!("received {} on reporting channel", resp.url());
+        log::trace!("received {} on reporting channel", resp.url());
 
         if CONFIGURATION.status_codes.contains(&resp.status().as_u16()) {
             let report = if CONFIGURATION.quiet {
@@ -126,7 +126,7 @@ async fn spawn_terminal_reporter(
                 }
             }
         }
-        log::debug!("report complete: {}", resp.url());
+        log::trace!("report complete: {}", resp.url());
     }
     log::trace!("exit: spawn_terminal_reporter");
 }

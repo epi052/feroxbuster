@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "1.4.0"
+version = "1.4.1"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -19,7 +19,7 @@ futures = { version = "0.3"}
 tokio = { version = "0.2", features = ["full"] }
 tokio-util = {version = "0.3", features = ["codec"]}
 log = "0.4"
-env_logger = "0.7"
+env_logger = "0.8"
 reqwest = { version = "0.10", features = ["socks"] }
 clap = "2"
 lazy_static = "1.4"

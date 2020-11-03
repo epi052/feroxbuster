@@ -1,5 +1,5 @@
 use crate::{
-    config::{CONFIGURATION, PROGRESS_BAR},
+    config::CONFIGURATION,
     extractor::get_links,
     filters::{FeroxFilter, StatusCodeFilter, WildcardFilter},
     heuristics, progress,
@@ -619,8 +619,6 @@ pub async fn scan_url(
     progress_bar.reset_elapsed();
 
     if CALL_COUNT.load(Ordering::Relaxed) == 0 {
-        // join can only be called once, otherwise it causes the thread to panic
-        tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
         // this protection around join also allows us to add the first scanned url to SCANNED_URLS
