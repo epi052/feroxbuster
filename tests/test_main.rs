@@ -25,10 +25,8 @@ fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Erro
         .arg("/etc/shadow")
         .arg("-vvvv")
         .assert()
-        .success()
-        .stderr(predicate::str::contains(
-            "ERROR main::get_unique_words_from_wordlist Permission denied (os error 13)",
-        ));
+        .failure()
+        .stdout(predicate::str::contains("Permission denied (os error 13)"));
 
     // connectivity test hits it once
     assert_eq!(mock.times_called(), 1);
@@ -57,9 +55,7 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .arg("-vvvv")
         .assert()
         .failure()
-        .stderr(predicate::str::contains(
-            "ERROR main::scan Did not find any words in",
-        ));
+        .stdout(predicate::str::contains("Did not find any words in"));
 
     assert_eq!(mock.times_called(), 1);
 
@@ -83,11 +79,9 @@ fn main_use_empty_stdin_targets() -> Result<(), Box<dyn std::error::Error>> {
         .pipe_stdin(file)
         .unwrap()
         .assert()
-        .failure()
+        .success()
         .stderr(
             predicate::str::contains("Could not connect to any target provided")
-                .and(predicate::str::contains("ERROR"))
-                .and(predicate::str::contains("heuristics::connectivity_test"))
                 .and(predicate::str::contains("Target Url"))
                 .not(), // no target url found
         );

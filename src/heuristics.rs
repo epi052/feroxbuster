@@ -10,7 +10,6 @@ use crate::{
 };
 use console::style;
 use indicatif::ProgressBar;
-use std::process;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -287,14 +286,6 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
 
     if good_urls.is_empty() {
         log::error!("Could not connect to any target provided, exiting.");
-        log::trace!("exit: connectivity_test");
-        eprintln!(
-            "{} {} Could not connect to any target provided",
-            status_colorizer("ERROR"),
-            module_colorizer("heuristics::connectivity_test"),
-        );
-
-        process::exit(1);
     }
 
     log::trace!("exit: connectivity_test -> {:?}", good_urls);
@@ -316,8 +307,7 @@ fn try_send_message_to_file(msg: &str, tx_file: UnboundedSender<String>, save_ou
             }
             Err(e) => {
                 log::error!(
-                    "{} {} {}",
-                    status_colorizer("ERROR"),
+                    "{} {}",
                     module_colorizer("heuristics::try_send_message_to_file"),
                     e
                 );
