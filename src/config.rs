@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::env::{current_dir, current_exe};
 use std::fs::read_to_string;
 use std::path::PathBuf;
+#[cfg(not(test))]
 use std::process::exit;
 
 lazy_static! {
@@ -21,6 +22,21 @@ lazy_static! {
 
     /// Global progress bar that is only used for printing messages that don't jack up other bars
     pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true);
+}
+
+/// simple helper to clean up some code reuse below; panics under test / exits in prod
+fn report_and_exit(err: &str) -> ! {
+    eprintln!(
+        "{} {}: {}",
+        status_colorizer("ERROR"),
+        module_colorizer("Configuration::new"),
+        err
+    );
+
+    #[cfg(test)]
+    panic!();
+    #[cfg(not(test))]
+    exit(1);
 }
 
 /// Represents the final, global configuration of the program.
@@ -368,15 +384,7 @@ impl Configuration {
                 .unwrap() // already known good
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
-                        .unwrap_or_else(|e| {
-                            eprintln!(
-                                "{} {}: {}",
-                                status_colorizer("ERROR"),
-                                module_colorizer("Configuration::new"),
-                                e
-                            );
-                            exit(1)
-                        })
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                         .as_u16()
                 })
                 .collect();
@@ -389,15 +397,7 @@ impl Configuration {
                 .unwrap() // already known good
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
-                        .unwrap_or_else(|e| {
-                            eprintln!(
-                                "{} {}: {}",
-                                status_colorizer("ERROR"),
-                                module_colorizer("Configuration::new"),
-                                e
-                            );
-                            exit(1)
-                        })
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                         .as_u16()
                 })
                 .collect();
@@ -412,15 +412,7 @@ impl Configuration {
                 .unwrap() // already known good
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
-                        .unwrap_or_else(|e| {
-                            eprintln!(
-                                "{} {}: {}",
-                                status_colorizer("ERROR"),
-                                module_colorizer("Configuration::new"),
-                                e
-                            );
-                            exit(1)
-                        })
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                         .as_u16()
                 })
                 .collect();
@@ -439,15 +431,8 @@ impl Configuration {
                 .values_of("filter_size")
                 .unwrap() // already known good
                 .map(|size| {
-                    size.parse::<u64>().unwrap_or_else(|e| {
-                        eprintln!(
-                            "{} {}: {}",
-                            status_colorizer("ERROR"),
-                            module_colorizer("Configuration::new"),
-                            e
-                        );
-                        exit(1)
-                    })
+                    size.parse::<u64>()
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                 })
                 .collect();
         }
@@ -905,5 +890,12 @@ mod tests {
         queries.push(("name".to_string(), "value".to_string()));
         queries.push(("rick".to_string(), "astley".to_string()));
         assert_eq!(config.queries, queries);
+    }
+
+    #[test]
+    #[should_panic]
+    /// test that an error message is printed and panic is called when report_and_exit is called
+    fn config_report_and_exit_works() {
+        report_and_exit("some message");
     }
 }
