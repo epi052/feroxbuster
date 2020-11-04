@@ -47,6 +47,10 @@ pub struct Configuration {
     #[serde(default)]
     pub proxy: String,
 
+    /// Replay Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    #[serde(default)]
+    pub replay_proxy: String,
+
     /// The target URL
     #[serde(default)]
     pub target_url: String,
@@ -55,6 +59,10 @@ pub struct Configuration {
     #[serde(default = "status_codes")]
     pub status_codes: Vec<u16>,
 
+    /// Status Codes to replay to the Replay Proxy (default: whatever is passed to --status-code)
+    #[serde(default)]
+    pub replay_codes: Vec<u16>,
+
     /// Status Codes to filter out (deny list)
     #[serde(default)]
     pub filter_status: Vec<u16>,
@@ -62,6 +70,10 @@ pub struct Configuration {
     /// Instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
     #[serde(skip)]
     pub client: Client,
+
+    /// Instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
+    #[serde(skip)]
+    pub replay_client: Option<Client>,
 
     /// Number of concurrent threads (default: 50)
     #[serde(default = "threads")]
@@ -183,11 +195,17 @@ impl Default for Configuration {
         let timeout = timeout();
         let user_agent = user_agent();
         let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None);
+        let replay_client = None;
+        let status_codes = status_codes();
+        let replay_codes = status_codes.clone();
 
         Configuration {
             client,
             timeout,
             user_agent,
+            replay_codes,
+            status_codes,
+            replay_client,
             dont_filter: false,
             quiet: false,
             stdin: false,
@@ -202,15 +220,15 @@ impl Default for Configuration {
             config: String::new(),
             output: String::new(),
             target_url: String::new(),
+            replay_proxy: String::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
             filter_size: Vec::new(),
             filter_status: Vec::new(),
             headers: HashMap::new(),
-            threads: threads(),
             depth: depth(),
+            threads: threads(),
             wordlist: wordlist(),
-            status_codes: status_codes(),
         }
     }
 }
@@ -244,6 +262,8 @@ impl Configuration {
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
+    /// - **replay_proxy**: `None` (no limit on concurrent scans imposed)
+    /// - **replay_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -362,6 +382,30 @@ impl Configuration {
                 .collect();
         }
 
+        if args.values_of("replay_codes").is_some() {
+            // replay codes passed in by the user
+            config.replay_codes = args
+                .values_of("replay_codes")
+                .unwrap() // already known good
+                .map(|code| {
+                    StatusCode::from_bytes(code.as_bytes())
+                        .unwrap_or_else(|e| {
+                            eprintln!(
+                                "{} {}: {}",
+                                status_colorizer("ERROR"),
+                                module_colorizer("Configuration::new"),
+                                e
+                            );
+                            exit(1)
+                        })
+                        .as_u16()
+                })
+                .collect();
+        } else {
+            // not passed in by the user, use whatever value is held in status_codes
+            config.replay_codes = config.status_codes.clone();
+        }
+
         if args.values_of("filter_status").is_some() {
             config.filter_status = args
                 .values_of("filter_status")
@@ -451,6 +495,10 @@ impl Configuration {
             config.proxy = String::from(args.value_of("proxy").unwrap());
         }
 
+        if args.value_of("replay_proxy").is_some() {
+            config.replay_proxy = String::from(args.value_of("replay_proxy").unwrap());
+        }
+
         if args.value_of("user_agent").is_some() {
             config.user_agent = String::from(args.value_of("user_agent").unwrap());
         }
@@ -526,6 +574,18 @@ impl Configuration {
             }
         }
 
+        if !config.replay_proxy.is_empty() {
+            // only set replay_client when replay_proxy is set
+            config.replay_client = Some(client::initialize(
+                config.timeout,
+                &config.user_agent,
+                config.redirects,
+                config.insecure,
+                &config.headers,
+                Some(&config.replay_proxy),
+            ));
+        }
+
         config
     }
 
@@ -574,6 +634,8 @@ impl Configuration {
         settings.filter_status = settings_to_merge.filter_status;
         settings.dont_filter = settings_to_merge.dont_filter;
         settings.scan_limit = settings_to_merge.scan_limit;
+        settings.replay_proxy = settings_to_merge.replay_proxy;
+        settings.replay_codes = settings_to_merge.replay_codes;
     }
 
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
@@ -610,9 +672,11 @@ mod tests {
         let data = r#"
             wordlist = "/some/path"
             status_codes = [201, 301, 401]
+            replay_codes = [201, 301]
             threads = 40
             timeout = 5
             proxy = "http://127.0.0.1:8080"
+            replay_proxy = "http://127.0.0.1:8081"
             quiet = true
             verbosity = 1
             scan_limit = 6
@@ -645,7 +709,10 @@ mod tests {
         assert_eq!(config.proxy, String::new());
         assert_eq!(config.target_url, String::new());
         assert_eq!(config.config, String::new());
+        assert_eq!(config.replay_proxy, String::new());
         assert_eq!(config.status_codes, status_codes());
+        assert_eq!(config.replay_codes, config.status_codes);
+        assert!(config.replay_client.is_none());
         assert_eq!(config.threads, threads());
         assert_eq!(config.depth, depth());
         assert_eq!(config.timeout, timeout());
@@ -682,6 +749,13 @@ mod tests {
 
     #[test]
     /// parse the test config and see that the value parsed is correct
+    fn config_reads_replay_codes() {
+        let config = setup_config_test();
+        assert_eq!(config.replay_codes, vec![201, 301]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
     fn config_reads_threads() {
         let config = setup_config_test();
         assert_eq!(config.threads, 40);
@@ -713,6 +787,13 @@ mod tests {
     fn config_reads_proxy() {
         let config = setup_config_test();
         assert_eq!(config.proxy, "http://127.0.0.1:8080");
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_replay_proxy() {
+        let config = setup_config_test();
+        assert_eq!(config.replay_proxy, "http://127.0.0.1:8081");
     }
 
     #[test]
