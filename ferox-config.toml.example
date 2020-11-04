@@ -13,6 +13,8 @@
 # threads = 1
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
+# replay_proxy = "http://127.0.0.1:8081"
+# replay_codes = [200, 302]
 # verbosity = 1
 # scan_limit = 6
 # quiet = true
