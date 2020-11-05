@@ -68,6 +68,29 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("replay_proxy")
+                .short("P")
+                .long("replay-proxy")
+                .takes_value(true)
+                .value_name("REPLAY_PROXY")
+                .help(
+                    "Send only unfiltered requests through a Replay Proxy, instead of all requests",
+                ),
+        )
+        .arg(
+            Arg::with_name("replay_codes")
+                .short("R")
+                .long("replay-codes")
+                .value_name("REPLAY_CODE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .requires("replay_proxy")
+                .help(
+                    "Status Codes to send through a Replay Proxy when found (default: --status-codes value)",
+                ),
+        )
+        .arg(
             Arg::with_name("status_codes")
                 .short("s")
                 .long("status-codes")
@@ -204,7 +227,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "Filter out status codes (deny list) (ex: -C 200 -S 401)",
+                    "Filter out status codes (deny list) (ex: -C 200 -C 401)",
                 ),
         )
         .arg(
