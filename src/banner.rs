@@ -247,19 +247,17 @@ by Ben "epi" Risher {}                  ver: {}"#,
     }
 
     if !config.replay_proxy.is_empty() {
+        // i include replay codes logic here because in config.rs, replay codes are set to the
+        // value in status codes, meaning it's never empty
+
+        let mut replay_codes = vec![];
+
         writeln!(
             &mut writer,
             "{}",
             format_banner_entry!("\u{1f3a5}", "Replay Proxy", config.replay_proxy)
         )
         .unwrap_or_default(); // 🎥
-    }
-
-    if !config.replay_proxy.is_empty() {
-        // i check for replay proxy here to determine if replay codes should be printed because
-        // in config.rs, replay codes are set to the value in status codes, meaning it's never
-        // empty
-        let mut replay_codes = vec![];
 
         for code in &config.replay_codes {
             replay_codes.push(status_colorizer(&code.to_string()))
@@ -275,6 +273,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
             )
         )
         .unwrap_or_default(); // 🎞
+
     }
 
     if !config.headers.is_empty() {
