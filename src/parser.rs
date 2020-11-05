@@ -74,7 +74,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(true)
                 .value_name("REPLAY_PROXY")
                 .help(
-                    "Send only unfiltered requests through a Replay Proxy instead of all requests",
+                    "Send only unfiltered requests through a Replay Proxy, instead of all requests",
                 ),
         )
         .arg(
