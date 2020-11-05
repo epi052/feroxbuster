@@ -273,7 +273,6 @@ by Ben "epi" Risher {}                  ver: {}"#,
             )
         )
         .unwrap_or_default(); // 🎞
-
     }
 
     if !config.headers.is_empty() {
