@@ -472,6 +472,10 @@ The `--replay-proxy` and `--replay-codes` options were added as a way to only se
 
 Imagine you only care about proxying responses that have either the status code `200` or `302` (or you just don't want to clutter up your Burp history).  These two options will allow you to fine-tune what gets proxied and what doesn't.  
 
+```
+./feroxbuster -u http://127.1 --replay-proxy http://localhost:8080 --replay-codes 200 302 --insecure
+```
+
 Of note: this means that for every response that matches your replay criteria, you'll end up sending the request that generated that response a second time.  Depending on the target and your engagement terms (if any), it may not make sense from a traffic generated perspective.
 
 ![replay-proxy-demo](img/replay-proxy-demo.gif)
