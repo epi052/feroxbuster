@@ -272,7 +272,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
                 format!("[{}]", replay_codes.join(", "))
             )
         )
-        .unwrap_or_default(); // 🎞
+        .unwrap_or_default(); // 📼
     }
 
     if !config.headers.is_empty() {
