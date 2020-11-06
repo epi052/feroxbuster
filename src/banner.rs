@@ -467,7 +467,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     // ⏯
     writeln!(
         &mut writer,
-        " \u{23ef}  Press [{}] to {}|{} your scan",
+        " \u{23ef}   Press [{}] to {}|{} your scan",
         style("ENTER").yellow(),
         style("pause").red(),
         style("resume").green()
