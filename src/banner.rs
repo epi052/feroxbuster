@@ -267,7 +267,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
             &mut writer,
             "{}",
             format_banner_entry!(
-                "\u{1f39e}",
+                "\u{1f4fc}",
                 "Replay Proxy Codes",
                 format!("[{}]", replay_codes.join(", "))
             )

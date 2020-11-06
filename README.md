@@ -82,6 +82,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
     - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
     - [Filter Response by Status Code  (new in `v1.3.0`)](#filter-response-by-status-code--new-in-v130)
+    - [Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)](#replay-responses-to-a-proxy-based-on-status-code-new-in-v150)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -276,9 +277,11 @@ A pre-made configuration file with examples of all available settings can be fou
 # wordlist = "/wordlists/jhaddix/all.txt"
 # status_codes = [200, 500]
 # filter_status = [301]
+# replay_codes = [301]
 # threads = 1
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
+# replay_proxy = "http://127.0.0.1:8081"
 # verbosity = 1
 # scan_limit = 6
 # quiet = true
@@ -335,11 +338,15 @@ OPTIONS:
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
     -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
     -S, --filter-size <SIZE>...             Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
-    -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -S 401)
+    -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -C 401)
     -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                     Output file to write results to (default: stdout)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
+    -R, --replay-codes <REPLAY_CODE>...     Status Codes to send through a Replay Proxy when found (default: --status
+                                            -codes value)
+    -P, --replay-proxy <REPLAY_PROXY>       Send only unfiltered requests through a Replay Proxy, instead of all
+                                            requests
     -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 0, i.e. no limit)
     -s, --status-codes <STATUS_CODE>...     Status Codes to include (allow list) (default: 200 204 301 302 307 308 401
                                             403 405)
@@ -458,6 +465,16 @@ each one is checked against a list of known filters and either displayed or not 
 ```
 ./feroxbuster -u http://127.1 --filter-status 301
 ```
+
+### Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)
+
+The `--replay-proxy` and `--replay-codes` options were added as a way to only send a select few responses to a proxy.  This is in stark contrast to `--proxy` which proxies EVERY request.  
+
+Imagine you only care about proxying responses that have either the status code `200` or `302` (or you just don't want to clutter up your Burp history).  These two options will allow you to fine-tune what gets proxied and what doesn't.  
+
+Of note: this means that for every response that matches your replay criteria, you'll end up sending the request that generated that response a second time.  Depending on the target and your engagement terms (if any), it may not make sense from a traffic generated perspective.
+
+![replay-proxy-demo](img/replay-proxy-demo.gif)
 
 ## 🧐 Comparison w/ Similar Tools
 
