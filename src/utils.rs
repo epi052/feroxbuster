@@ -1,4 +1,4 @@
-use crate::FeroxResult;
+use crate::{FeroxResult, FeroxError};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
@@ -152,6 +152,24 @@ pub fn format_url(
         queries,
         extension
     );
+
+    if Url::parse(&word).is_ok() {
+        // when a full url is passed in as a word to be joined to a base url using
+        // reqwest::Url::join, the result is that the word (url) completely overwrites the base
+        // url, potentially resulting in requests to places that aren't actually the target
+        // specified.
+        //
+        // in order to resolve the issue, we check if the word from the wordlist is a parsable URL
+        // and if so, don't do any further processing
+        let message = format!("word ({}) from the wordlist is actually a URL, skipping...", word);
+        log::warn!("{}", message);
+
+        let mut err = FeroxError::default();
+        err.message = message;
+
+        log::trace!("exit: format_url -> {}", err);
+        return Err(Box::new(err));
+    }
 
     // from reqwest::Url::join
     //   Note: a trailing slash is significant. Without it, the last path component
@@ -350,6 +368,13 @@ mod tests {
             format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
         );
+    }
+
+    #[test]
+    /// word that is a fully formed url, should return an error
+    fn format_url_word_that_is_a_url() {
+        let url = format_url("http://localhost", "http://schmocalhost", false, &Vec::new(), None);
+        assert!(url.is_err());
     }
 
     #[test]
