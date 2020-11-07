@@ -3,6 +3,7 @@ use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use reqwest::{Client, Response};
+use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
 
 /// Helper function that determines the current depth of a given url
@@ -259,9 +260,87 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
     }
 }
 
+/// Attempts to set the soft limit for the RLIMIT_NOFILE resource
+///
+/// RLIMIT_NOFILE is the maximum number of file descriptors that can be opened by this process
+///
+/// The soft limit is the value that the kernel enforces for the corresponding resource.
+/// The hard limit acts as a ceiling for the soft limit: an unprivileged process may set only its
+/// soft limit to a value in the range from 0 up to the hard limit, and (irreversibly) lower its
+/// hard limit.
+///
+/// A child process created via fork(2) inherits its parent's resource limits. Resource limits are
+/// per-process attributes that are shared by all of the threads in a process.
+///
+/// Based on the above information, no attempt is made to restore the limit to its pre-scan value
+/// as the adjustment made here is only valid for the scan itself (and any child processes, of which
+/// there are none).
+pub fn set_open_file_limit(limit: usize) -> bool {
+    log::trace!("enter: set_open_file_limit");
+
+    if let Ok((soft, hard)) = getrlimit(Resource::NOFILE) {
+        if hard.as_usize() > limit {
+            // our default open file limit is less than the current hard limit, this means we can
+            // set the soft limit to our default
+            let new_soft_limit = Rlim::from_usize(limit);
+
+            if setrlimit(Resource::NOFILE, new_soft_limit, hard).is_ok() {
+                log::debug!("set open file descriptor limit to {}", limit);
+
+                log::trace!("exit: set_open_file_limit -> {}", true);
+                return true;
+            }
+        } else if soft != hard {
+            // hard limit is lower than our default, the next best option is to set the soft limit as
+            // high as the hard limit will allow
+            if setrlimit(Resource::NOFILE, hard, hard).is_ok() {
+                log::debug!("set open file descriptor limit to {}", limit);
+
+                log::trace!("exit: set_open_file_limit -> {}", true);
+                return true;
+            }
+        }
+    }
+
+    // failed to set a new limit, as limit adjustments are a 'nice to have', we'll just log
+    // and move along
+    log::warn!("could not set open file descriptor limit to {}", limit);
+
+    log::trace!("exit: set_open_file_limit -> {}", false);
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    /// set_open_file_limit with a low requested limit succeeds
+    fn utils_set_open_file_limit_with_low_requested_limit() {
+        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+        let lower_limit = hard.as_usize() - 1;
+        assert!(set_open_file_limit(lower_limit));
+    }
+
+    #[test]
+    /// set_open_file_limit with a high requested limit succeeds
+    fn utils_set_open_file_limit_with_high_requested_limit() {
+        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+        let higher_limit = hard.as_usize() + 1;
+        // calculate a new soft to ensure soft != hard and hit that logic branch
+        let new_soft = Rlim::from_usize(hard.as_usize() - 1);
+        setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
+        assert!(set_open_file_limit(higher_limit));
+    }
+
+    #[test]
+    /// set_open_file_limit should fail when hard == soft
+    fn utils_set_open_file_limit_with_fails_when_both_limits_are_equal() {
+        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+        // calculate a new soft to ensure soft == hard and hit the failure logic branch
+        setrlimit(Resource::NOFILE, hard, hard).unwrap();
+        assert!(!set_open_file_limit(hard.as_usize())); // returns false
+    }
 
     #[test]
     /// base url returns 1
