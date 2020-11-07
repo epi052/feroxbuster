@@ -42,6 +42,9 @@ pub type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
 /// Version pulled from Cargo.toml at compile time
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Maximum number of file descriptors that can be opened during a scan
+pub const DEFAULT_OPEN_FILE_LIMIT: usize = 8192;
+
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
 ///

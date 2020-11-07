@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "1.5.1"
+version = "1.5.2"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -33,6 +33,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 dirs = "3.0"
 regex = "1"
 crossterm = "0.18"
+rlimit = "0.5"
 
 [dev-dependencies]
 tempfile = "3.1"
