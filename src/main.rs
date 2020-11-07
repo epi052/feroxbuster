@@ -4,11 +4,11 @@ use feroxbuster::{
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger, reporter,
     scanner::{scan_url, PAUSE_SCAN},
-    utils::{
-        ferox_print, get_current_depth, module_colorizer, set_open_file_limit, status_colorizer,
-    },
-    FeroxError, FeroxResponse, FeroxResult, DEFAULT_OPEN_FILE_LIMIT, SLEEP_DURATION, VERSION,
+    utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
+    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };
+#[cfg(not(target_os = "windows"))]
+use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
 use std::{
     collections::HashSet,
