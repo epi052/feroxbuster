@@ -63,11 +63,6 @@ pub fn initialize(
         Ok(client) => client,
         Err(e) => {
             eprintln!(
-                "{} {} Could not create a Client with the given configuration, exiting.",
-                status_colorizer("ERROR"),
-                module_colorizer("Client::build")
-            );
-            eprintln!(
                 "{} {} {}",
                 status_colorizer("ERROR"),
                 module_colorizer("Client::build"),
