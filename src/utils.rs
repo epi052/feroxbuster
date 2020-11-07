@@ -3,6 +3,7 @@ use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use reqwest::{Client, Response};
+#[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
 
@@ -275,6 +276,7 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
 /// Based on the above information, no attempt is made to restore the limit to its pre-scan value
 /// as the adjustment made here is only valid for the scan itself (and any child processes, of which
 /// there are none).
+#[cfg(not(target_os = "windows"))]
 pub fn set_open_file_limit(limit: usize) -> bool {
     log::trace!("enter: set_open_file_limit");
 
