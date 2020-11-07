@@ -1,4 +1,4 @@
-use crate::{FeroxResult, FeroxError};
+use crate::{FeroxError, FeroxResult};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
@@ -161,7 +161,10 @@ pub fn format_url(
         //
         // in order to resolve the issue, we check if the word from the wordlist is a parsable URL
         // and if so, don't do any further processing
-        let message = format!("word ({}) from the wordlist is actually a URL, skipping...", word);
+        let message = format!(
+            "word ({}) from the wordlist is actually a URL, skipping...",
+            word
+        );
         log::warn!("{}", message);
 
         let mut err = FeroxError::default();
@@ -373,7 +376,13 @@ mod tests {
     #[test]
     /// word that is a fully formed url, should return an error
     fn format_url_word_that_is_a_url() {
-        let url = format_url("http://localhost", "http://schmocalhost", false, &Vec::new(), None);
+        let url = format_url(
+            "http://localhost",
+            "http://schmocalhost",
+            false,
+            &Vec::new(),
+            None,
+        );
         assert!(url.is_err());
     }
 
