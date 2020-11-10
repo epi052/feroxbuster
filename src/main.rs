@@ -3,7 +3,7 @@ use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger, reporter,
-    scanner::{scan_url, PAUSE_SCAN},
+    scanner::{self, scan_url, PAUSE_SCAN},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };
@@ -111,6 +111,8 @@ async fn scan(
         err.message = format!("Did not find any words in {}", CONFIGURATION.wordlist);
         return Err(Box::new(err));
     }
+
+    scanner::initialize(words.len(), CONFIGURATION.scan_limit, &CONFIGURATION.extensions, &CONFIGURATION.filter_status);
 
     let mut tasks = vec![];
 
