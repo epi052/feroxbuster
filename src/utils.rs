@@ -312,6 +312,22 @@ pub fn set_open_file_limit(limit: usize) -> bool {
     false
 }
 
+/// Simple helper to abstract away adding a forward-slash to a url if not present
+///
+/// used mostly for deduplication purposes and url state tracking
+pub fn normalize_url(url: &str) -> String {
+    log::trace!("enter: normalize_url({})", url);
+
+    let normalized = if url.ends_with('/') {
+        url.to_string()
+    } else {
+        format!("{}/", url)
+    };
+
+    log::trace!("exit: normalize_url -> {}", normalized);
+    normalized
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
