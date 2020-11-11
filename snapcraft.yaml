@@ -1,0 +1,41 @@
+name: feroxbuster
+version: git
+summary: A simple, fast, recursive content discovery tool written in Rust
+description: |
+  feroxbuster is a tool designed to perform Forced Browsing.
+
+  Forced browsing is an attack where the aim is to enumerate and access resources that are not referenced by the web application, but are still accessible by an attacker.
+
+  feroxbuster uses brute force combined with a wordlist to search for unlinked content in target directories. These resources may store sensitive information about web applications and operational systems, such as source code, credentials, internal network addressing, etc...
+
+  This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource Enumeration.
+
+
+base: core18
+
+plugs:
+  etc-feroxbuster:
+    interface: system-files
+    read:
+    - /etc/feroxbuster
+  dot-config-feroxbuster:
+    interface: personal-files
+    read:
+    - $HOME/.config/feroxbuster
+
+architectures:
+  - build-on: amd64
+  - build-on: i386
+
+parts:
+  feroxbuster:
+    plugin: rust
+    source: .
+
+apps:
+  feroxbuster:
+    command: bin/feroxbuster
+    plugs:
+      - etc-feroxbuster
+      - dot-config-feroxbuster
+      - network
