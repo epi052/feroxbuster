@@ -130,17 +130,9 @@ fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<Str
     match scanned_urls.write() {
         // check new url against what's already been scanned
         Ok(mut urls) => {
-            let normalized_url = if resp.ends_with('/') {
-                // append a / to the list of 'seen' urls, this is to prevent the case where
-                // 3xx and 2xx duplicate eachother
-                resp.to_string()
-            } else {
-                format!("{}/", resp)
-            };
-
             // If the set did not contain resp, true is returned.
             // If the set did contain resp, false is returned.
-            let response = urls.insert(normalized_url);
+            let response = urls.insert(resp.to_string());
 
             log::trace!("exit: add_url_to_list_of_scanned_urls -> {}", response);
             response
@@ -855,7 +847,7 @@ mod tests {
         assert_eq!(
             urls.write()
                 .unwrap()
-                .insert("http://unknown_url/".to_string()),
+                .insert("http://unknown_url".to_string()),
             true
         );
 
