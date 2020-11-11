@@ -8,25 +8,28 @@
 # Any setting used here can be overridden by the corresponding command line option/argument
 #
 # wordlist = "/wordlists/seclists/Discovery/Web-Content/raft-medium-directories.txt"
-# statuscodes = [200, 500]
+# status_codes = [200, 500]
+# filter_status = [301]
 # threads = 1
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
+# replay_proxy = "http://127.0.0.1:8081"
+# replay_codes = [200, 302]
 # verbosity = 1
 # scan_limit = 6
 # quiet = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
-# useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+# user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
 # redirects = true
 # insecure = true
 # extensions = ["php", "html"]
-# norecursion = true
-# addslash = true
+# no_recursion = true
+# add_slash = true
 # stdin = true
-# dontfilter = true
+# dont_filter = true
 # extract_links = true
 # depth = 1
-# sizefilters = [5174]
+# filter_size = [5174]
 # queries = [["name","value"], ["rick", "astley"]]
 
 # headers can be specified on multiple lines or as an inline table

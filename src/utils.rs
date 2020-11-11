@@ -1,8 +1,10 @@
-use crate::FeroxResult;
+use crate::{FeroxError, FeroxResult};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
 use reqwest::{Client, Response};
+#[cfg(not(target_os = "windows"))]
+use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
 
 /// Helper function that determines the current depth of a given url
@@ -140,7 +142,7 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 pub fn format_url(
     url: &str,
     word: &str,
-    addslash: bool,
+    add_slash: bool,
     queries: &[(String, String)],
     extension: Option<&str>,
 ) -> FeroxResult<Url> {
@@ -148,10 +150,31 @@ pub fn format_url(
         "enter: format_url({}, {}, {}, {:?} {:?})",
         url,
         word,
-        addslash,
+        add_slash,
         queries,
         extension
     );
+
+    if Url::parse(&word).is_ok() {
+        // when a full url is passed in as a word to be joined to a base url using
+        // reqwest::Url::join, the result is that the word (url) completely overwrites the base
+        // url, potentially resulting in requests to places that aren't actually the target
+        // specified.
+        //
+        // in order to resolve the issue, we check if the word from the wordlist is a parsable URL
+        // and if so, don't do any further processing
+        let message = format!(
+            "word ({}) from the wordlist is actually a URL, skipping...",
+            word
+        );
+        log::warn!("{}", message);
+
+        let mut err = FeroxError::default();
+        err.message = message;
+
+        log::trace!("exit: format_url -> {}", err);
+        return Err(Box::new(err));
+    }
 
     // from reqwest::Url::join
     //   Note: a trailing slash is significant. Without it, the last path component
@@ -175,7 +198,7 @@ pub fn format_url(
     // extensions and slashes are mutually exclusive cases
     let word = if extension.is_some() {
         format!("{}.{}", word, extension.unwrap())
-    } else if addslash && !word.ends_with('/') {
+    } else if add_slash && !word.ends_with('/') {
         // -f used, and word doesn't already end with a /
         format!("{}/", word)
     } else {
@@ -238,9 +261,88 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
     }
 }
 
+/// Attempts to set the soft limit for the RLIMIT_NOFILE resource
+///
+/// RLIMIT_NOFILE is the maximum number of file descriptors that can be opened by this process
+///
+/// The soft limit is the value that the kernel enforces for the corresponding resource.
+/// The hard limit acts as a ceiling for the soft limit: an unprivileged process may set only its
+/// soft limit to a value in the range from 0 up to the hard limit, and (irreversibly) lower its
+/// hard limit.
+///
+/// A child process created via fork(2) inherits its parent's resource limits. Resource limits are
+/// per-process attributes that are shared by all of the threads in a process.
+///
+/// Based on the above information, no attempt is made to restore the limit to its pre-scan value
+/// as the adjustment made here is only valid for the scan itself (and any child processes, of which
+/// there are none).
+#[cfg(not(target_os = "windows"))]
+pub fn set_open_file_limit(limit: usize) -> bool {
+    log::trace!("enter: set_open_file_limit");
+
+    if let Ok((soft, hard)) = getrlimit(Resource::NOFILE) {
+        if hard.as_usize() > limit {
+            // our default open file limit is less than the current hard limit, this means we can
+            // set the soft limit to our default
+            let new_soft_limit = Rlim::from_usize(limit);
+
+            if setrlimit(Resource::NOFILE, new_soft_limit, hard).is_ok() {
+                log::debug!("set open file descriptor limit to {}", limit);
+
+                log::trace!("exit: set_open_file_limit -> {}", true);
+                return true;
+            }
+        } else if soft != hard {
+            // hard limit is lower than our default, the next best option is to set the soft limit as
+            // high as the hard limit will allow
+            if setrlimit(Resource::NOFILE, hard, hard).is_ok() {
+                log::debug!("set open file descriptor limit to {}", limit);
+
+                log::trace!("exit: set_open_file_limit -> {}", true);
+                return true;
+            }
+        }
+    }
+
+    // failed to set a new limit, as limit adjustments are a 'nice to have', we'll just log
+    // and move along
+    log::warn!("could not set open file descriptor limit to {}", limit);
+
+    log::trace!("exit: set_open_file_limit -> {}", false);
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    /// set_open_file_limit with a low requested limit succeeds
+    fn utils_set_open_file_limit_with_low_requested_limit() {
+        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+        let lower_limit = hard.as_usize() - 1;
+        assert!(set_open_file_limit(lower_limit));
+    }
+
+    #[test]
+    /// set_open_file_limit with a high requested limit succeeds
+    fn utils_set_open_file_limit_with_high_requested_limit() {
+        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+        let higher_limit = hard.as_usize() + 1;
+        // calculate a new soft to ensure soft != hard and hit that logic branch
+        let new_soft = Rlim::from_usize(hard.as_usize() - 1);
+        setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
+        assert!(set_open_file_limit(higher_limit));
+    }
+
+    #[test]
+    /// set_open_file_limit should fail when hard == soft
+    fn utils_set_open_file_limit_with_fails_when_both_limits_are_equal() {
+        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+        // calculate a new soft to ensure soft == hard and hit the failure logic branch
+        setrlimit(Resource::NOFILE, hard, hard).unwrap();
+        assert!(!set_open_file_limit(hard.as_usize())); // returns false
+    }
 
     #[test]
     /// base url returns 1
@@ -350,6 +452,19 @@ mod tests {
             format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
         );
+    }
+
+    #[test]
+    /// word that is a fully formed url, should return an error
+    fn format_url_word_that_is_a_url() {
+        let url = format_url(
+            "http://localhost",
+            "http://schmocalhost",
+            false,
+            &Vec::new(),
+            None,
+        );
+        assert!(url.is_err());
     }
 
     #[test]

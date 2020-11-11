@@ -19,11 +19,9 @@ fn test_single_target_cannot_connect() -> Result<(), Box<dyn std::error::Error>>
         .arg("--wordlist")
         .arg(file.as_os_str())
         .assert()
-        .failure()
-        .stderr(
-            predicate::str::contains("Could not connect to any target provided")
-                .and(predicate::str::contains("ERROR"))
-                .and(predicate::str::contains("heuristics::connectivity_test")),
+        .success()
+        .stdout(
+            predicate::str::contains("Could not connect to http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk, skipping...", )
         );
 
     teardown_tmp_directory(tmp_dir);
@@ -47,11 +45,9 @@ fn test_two_targets_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
         .pipe_stdin(file)
         .unwrap()
         .assert()
-        .failure()
-        .stderr(
-            predicate::str::contains("Could not connect to any target provided")
-                .and(predicate::str::contains("ERROR"))
-                .and(predicate::str::contains("heuristics::connectivity_test")),
+        .success()
+        .stdout(
+            predicate::str::contains("Could not connect to http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk, skipping...", )
         );
 
     teardown_tmp_directory(tmp_dir);
@@ -115,7 +111,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--addslash")
+        .arg("--add-slash")
         .unwrap();
 
     teardown_tmp_directory(tmp_dir);
@@ -158,7 +154,7 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--addslash")
+        .arg("--add-slash")
         .arg("--output")
         .arg(outfile.as_os_str())
         .unwrap();
@@ -198,8 +194,8 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
 }
 
 #[test]
-/// uses dontfilter, so the normal wildcard test should never happen
-fn heuristics_static_wildcard_request_with_dontfilter() -> Result<(), Box<dyn std::error::Error>> {
+/// uses dont_filter, so the normal wildcard test should never happen
+fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
@@ -216,7 +212,7 @@ fn heuristics_static_wildcard_request_with_dontfilter() -> Result<(), Box<dyn st
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--dontfilter")
+        .arg("--dont-filter")
         .unwrap();
 
     teardown_tmp_directory(tmp_dir);
@@ -251,7 +247,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn st
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--addslash")
+        .arg("--add-slash")
         .unwrap();
 
     teardown_tmp_directory(tmp_dir);
@@ -299,7 +295,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--addslash")
+        .arg("--add-slash")
         .arg("-q")
         .unwrap();
 
@@ -340,7 +336,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--addslash")
+        .arg("--add-slash")
         .arg("--output")
         .arg(outfile.as_os_str())
         .unwrap();
@@ -406,7 +402,7 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--addslash")
+        .arg("--add-slash")
         .arg("--output")
         .arg(outfile.as_os_str())
         .unwrap();

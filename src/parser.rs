@@ -68,15 +68,38 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
-            Arg::with_name("statuscodes")
+            Arg::with_name("replay_proxy")
+                .short("P")
+                .long("replay-proxy")
+                .takes_value(true)
+                .value_name("REPLAY_PROXY")
+                .help(
+                    "Send only unfiltered requests through a Replay Proxy, instead of all requests",
+                ),
+        )
+        .arg(
+            Arg::with_name("replay_codes")
+                .short("R")
+                .long("replay-codes")
+                .value_name("REPLAY_CODE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .requires("replay_proxy")
+                .help(
+                    "Status Codes to send through a Replay Proxy when found (default: --status-codes value)",
+                ),
+        )
+        .arg(
+            Arg::with_name("status_codes")
                 .short("s")
-                .long("statuscodes")
+                .long("status-codes")
                 .value_name("STATUS_CODE")
                 .takes_value(true)
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)",
+                    "Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)",
                 ),
         )
         .arg(
@@ -87,9 +110,9 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Only print URLs; Don't print status codes, response size, running config, etc...")
         )
         .arg(
-            Arg::with_name("dontfilter")
+            Arg::with_name("dont_filter")
                 .short("D")
-                .long("dontfilter")
+                .long("dont-filter")
                 .takes_value(false)
                 .help("Don't auto-filter wildcard responses")
         )
@@ -102,9 +125,9 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("useragent")
+            Arg::with_name("user_agent")
                 .short("a")
-                .long("useragent")
+                .long("user-agent")
                 .value_name("USER_AGENT")
                 .takes_value(true)
                 .help(
@@ -162,16 +185,16 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
-            Arg::with_name("norecursion")
+            Arg::with_name("no_recursion")
                 .short("n")
-                .long("norecursion")
+                .long("no-recursion")
                 .takes_value(false)
                 .help("Do not scan recursively")
         )
         .arg(
-            Arg::with_name("addslash")
+            Arg::with_name("add_slash")
                 .short("f")
-                .long("addslash")
+                .long("add-slash")
                 .takes_value(false)
                 .conflicts_with("extensions")
                 .help("Append / to each request")
@@ -184,15 +207,27 @@ pub fn initialize() -> App<'static, 'static> {
                 .conflicts_with("url")
         )
         .arg(
-            Arg::with_name("sizefilters")
+            Arg::with_name("filter_size")
                 .short("S")
-                .long("sizefilter")
+                .long("filter-size")
                 .value_name("SIZE")
                 .takes_value(true)
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
                     "Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)",
+                ),
+        )
+        .arg(
+            Arg::with_name("filter_status")
+                .short("C")
+                .long("filter-status")
+                .value_name("STATUS_CODE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out status codes (deny list) (ex: -C 200 -C 401)",
                 ),
         )
         .arg(
@@ -225,7 +260,7 @@ EXAMPLES:
         ./feroxbuster -u http://127.1 -H Accept:application/json "Authorization: Bearer {token}"
 
     IPv6, non-recursive scan with INFO-level logging enabled:
-        ./feroxbuster -u http://[::1] --norecursion -vv
+        ./feroxbuster -u http://[::1] --no-recursion -vv
 
     Read urls from STDIN; pipe only resulting urls out to another tool
         cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files

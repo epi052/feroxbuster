@@ -1,33 +1,120 @@
-use crate::config::{CONFIGURATION, PROGRESS_BAR};
-use crate::extractor::get_links;
-use crate::heuristics::WildcardFilter;
-use crate::utils::{format_url, get_current_depth, get_url_path_length, make_request};
-use crate::{heuristics, progress, FeroxChannel, FeroxResponse};
-use futures::future::{BoxFuture, FutureExt};
-use futures::{stream, StreamExt};
+use crate::{
+    config::CONFIGURATION,
+    extractor::get_links,
+    filters::{FeroxFilter, StatusCodeFilter, WildcardFilter},
+    heuristics, progress,
+    utils::{format_url, get_current_depth, make_request},
+    FeroxChannel, FeroxResponse, SLEEP_DURATION,
+};
+use console::style;
+use futures::{
+    future::{BoxFuture, FutureExt},
+    stream, StreamExt,
+};
+use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
 use reqwest::Url;
-use std::collections::HashSet;
-use std::convert::TryInto;
-use std::ops::Deref;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Semaphore;
-use tokio::task::JoinHandle;
+use std::{
+    collections::HashSet,
+    convert::TryInto,
+    io::{stderr, Write},
+    ops::Deref,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::{Arc, RwLock},
+};
+use tokio::{
+    sync::{
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
+        Semaphore,
+    },
+    task::JoinHandle,
+    time,
+};
 
 /// Single atomic number that gets incremented once, used to track first scan vs. all others
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// Atomic boolean flag, used to determine whether or not a scan should pause or resume
+pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: RwLock<HashSet<String>> = RwLock::new(HashSet::new());
 
-    /// Vector of WildcardFilters that have been ID'd through heuristics
-    static ref WILDCARD_FILTERS: Arc<RwLock<Vec<Arc<WildcardFilter>>>> = Arc::new(RwLock::new(Vec::<Arc<WildcardFilter>>::new()));
+    /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
+    static ref SINGLE_SPINNER: RwLock<ProgressBar> = RwLock::new(get_single_spinner());
+
+    /// Vector of implementors of the FeroxFilter trait
+    static ref FILTERS: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>> = Arc::new(RwLock::new(Vec::<Box<dyn FeroxFilter>>::new()));
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
+}
+
+/// Return a clock spinner, used when scans are paused
+fn get_single_spinner() -> ProgressBar {
+    log::trace!("enter: get_single_spinner");
+
+    let spinner = ProgressBar::new_spinner().with_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&[
+                "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
+            ])
+            .template(&format!(
+                "\t-= All Scans {{spinner}} {} =-",
+                style("Paused").red()
+            )),
+    );
+
+    log::trace!("exit: get_single_spinner -> {:?}", spinner);
+    spinner
+}
+
+/// Forced the calling thread into a busy loop
+///
+/// Every `SLEEP_DURATION` milliseconds, the function examines the result stored in `PAUSE_SCAN`
+///
+/// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
+/// loop
+async fn pause_scan() {
+    log::trace!("enter: pause_scan");
+    // function uses tokio::time, not std
+
+    // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
+    // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
+    let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
+
+    // ignore any error returned
+    let _ = stderr().flush();
+
+    if SINGLE_SPINNER.read().unwrap().is_finished() {
+        // in order to not leave draw artifacts laying around in the terminal, we call
+        // finish_and_clear on the progress bar when resuming scans. For this reason, we need to
+        // check if the spinner is finished, and repopulate the RwLock with a new spinner if
+        // necessary
+        if let Ok(mut guard) = SINGLE_SPINNER.write() {
+            *guard = get_single_spinner();
+        }
+    }
+
+    if let Ok(spinner) = SINGLE_SPINNER.write() {
+        spinner.enable_steady_tick(120);
+    }
+
+    loop {
+        // first tick happens immediately, all others wait the specified duration
+        interval.tick().await;
+
+        if !PAUSE_SCAN.load(Ordering::Acquire) {
+            // PAUSE_SCAN is false, so we can exit the busy loop
+            if let Ok(spinner) = SINGLE_SPINNER.write() {
+                spinner.finish_and_clear();
+            }
+            let _ = stderr().flush();
+            log::trace!("exit: pause_scan");
+            return;
+        }
+    }
 }
 
 /// Adds the given url to `SCANNED_URLS`
@@ -67,37 +154,37 @@ fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<Str
     }
 }
 
-/// Adds the given WildcardFilter to `WILDCARD_FILTERS`
+/// Adds the given FeroxFilter to the given list of FeroxFilter implementors
 ///
-/// If `WILDCARD_FILTERS` did not already contain the filter, return true; otherwise return false
-fn add_filter_to_list_of_wildcard_filters(
-    filter: Arc<WildcardFilter>,
-    wildcard_filters: Arc<RwLock<Vec<Arc<WildcardFilter>>>>,
+/// If the given list did not already contain the filter, return true; otherwise return false
+fn add_filter_to_list_of_ferox_filters(
+    filter: Box<dyn FeroxFilter>,
+    ferox_filters: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>>,
 ) -> bool {
     log::trace!(
-        "enter: add_filter_to_list_of_wildcard_filters({:?}, {:?})",
+        "enter: add_filter_to_list_of_ferox_filters({:?}, {:?})",
         filter,
-        wildcard_filters
+        ferox_filters
     );
 
-    match wildcard_filters.write() {
+    match ferox_filters.write() {
         Ok(mut filters) => {
             // If the set did not contain the assigned filter, true is returned.
             // If the set did contain the assigned filter, false is returned.
             if filters.contains(&filter) {
-                log::trace!("exit: add_filter_to_list_of_wildcard_filters -> false");
+                log::trace!("exit: add_filter_to_list_of_ferox_filters -> false");
                 return false;
             }
 
             filters.push(filter);
 
-            log::trace!("exit: add_filter_to_list_of_wildcard_filters -> true");
+            log::trace!("exit: add_filter_to_list_of_ferox_filters -> true");
             true
         }
         Err(e) => {
             // poisoned lock
             log::error!("Set of wildcard filters poisoned: {}", e);
-            log::trace!("exit: add_filter_to_list_of_wildcard_filters -> false");
+            log::trace!("exit: add_filter_to_list_of_ferox_filters -> false");
             false
         }
     }
@@ -178,7 +265,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
     if let Ok(url) = format_url(
         &target_url,
         &word,
-        CONFIGURATION.addslash,
+        CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
     ) {
@@ -189,7 +276,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
         if let Ok(url) = format_url(
             &target_url,
             &word,
-            CONFIGURATION.addslash,
+            CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             Some(ext),
         ) {
@@ -242,6 +329,7 @@ fn response_is_directory(response: &FeroxResponse) -> bool {
         }
     } else if response.status().is_success() {
         // status code is 2xx, need to check if it ends in /
+
         if response.url().as_str().ends_with('/') {
             log::debug!("{} is directory suitable for recursion", response.url());
             log::trace!("exit: is_directory -> true");
@@ -337,42 +425,23 @@ async fn try_recursion(
 
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
 /// to the user or not.
-pub fn should_filter_response(content_len: &u64, url: &Url) -> bool {
-    if CONFIGURATION.sizefilters.contains(content_len) {
-        // filtered value from --sizefilters, move on to the next url
-        log::debug!("size filter: filtered out {}", url);
+pub fn should_filter_response(response: &FeroxResponse) -> bool {
+    if CONFIGURATION
+        .filter_size
+        .contains(&response.content_length())
+    {
+        // filtered value from --filter-size, size filters and wildcards are two separate filters
+        // and are applied independently
+        log::debug!("size filter: filtered out {}", response.url());
         return true;
     }
 
-    match WILDCARD_FILTERS.read() {
+    match FILTERS.read() {
         Ok(filters) => {
             for filter in filters.iter() {
-                if CONFIGURATION.dontfilter {
-                    // quick return if dontfilter is set
-                    return false;
-                }
-
-                if filter.size > 0 && filter.size == *content_len {
-                    // static wildcard size found during testing
-                    // size isn't default, size equals response length, and auto-filter is on
-                    log::debug!("static wildcard: filtered out {}", url);
+                // wildcard.should_filter goes here
+                if filter.should_filter_response(&response) {
                     return true;
-                }
-
-                if filter.dynamic > 0 {
-                    // dynamic wildcard offset found during testing
-
-                    // I'm about to manually split this url path instead of using reqwest::Url's
-                    // builtin parsing. The reason is that they call .split() on the url path
-                    // except that I don't want an empty string taking up the last index in the
-                    // event that the url ends with a forward slash.  It's ugly enough to be split
-                    // into its own function for readability.
-                    let url_len = get_url_path_length(&url);
-
-                    if url_len + filter.dynamic == *content_len {
-                        log::debug!("dynamic wildcard: filtered out {}", url);
-                        return true;
-                    }
                 }
             }
         }
@@ -412,16 +481,14 @@ async fn make_requests(
             let ferox_response = FeroxResponse::from(response, CONFIGURATION.extract_links).await;
 
             // do recursion if appropriate
-            if !CONFIGURATION.norecursion {
+            if !CONFIGURATION.no_recursion {
                 try_recursion(&ferox_response, base_depth, dir_chan.clone()).await;
             }
 
             // purposefully doing recursion before filtering. the thought process is that
             // even though this particular url is filtered, subsequent urls may not
 
-            let content_len = &ferox_response.content_length();
-
-            if should_filter_response(content_len, &ferox_response.url()) {
+            if should_filter_response(&ferox_response) {
                 continue;
             }
 
@@ -440,7 +507,7 @@ async fn make_requests(
                     let new_url = match format_url(
                         &new_link,
                         &"",
-                        CONFIGURATION.addslash,
+                        CONFIGURATION.add_slash,
                         &CONFIGURATION.queries,
                         None,
                     ) {
@@ -458,8 +525,7 @@ async fn make_requests(
                         FeroxResponse::from(new_response, CONFIGURATION.extract_links).await;
 
                     // filter if necessary
-                    let new_content_len = &new_ferox_response.content_length();
-                    if should_filter_response(new_content_len, &new_ferox_response.url()) {
+                    if should_filter_response(&new_ferox_response) {
                         continue;
                     }
 
@@ -476,7 +542,7 @@ async fn make_requests(
                         continue;
                     }
 
-                    if !CONFIGURATION.norecursion {
+                    if !CONFIGURATION.no_recursion {
                         log::debug!(
                             "Recursive extraction: {} ({})",
                             new_ferox_response.url(),
@@ -553,11 +619,9 @@ pub async fn scan_url(
     progress_bar.reset_elapsed();
 
     if CALL_COUNT.load(Ordering::Relaxed) == 0 {
-        // join can only be called once, otherwise it causes the thread to panic
-        tokio::task::spawn_blocking(move || PROGRESS_BAR.join().unwrap());
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
-        // this protection around join also allows us to add the first scanned url to SCANNED_URLS
+        // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
         add_url_to_list_of_scanned_urls(&target_url, &SCANNED_URLS);
 
@@ -594,13 +658,23 @@ pub async fn scan_url(
         .await
     });
 
+    // add any wildcard filters to `FILTERS`
     let filter =
         match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_file_clone).await {
-            Some(f) => Arc::new(f),
-            None => Arc::new(WildcardFilter::default()),
+            Some(f) => Box::new(f),
+            None => Box::new(WildcardFilter::default()),
         };
 
-    add_filter_to_list_of_wildcard_filters(filter.clone(), WILDCARD_FILTERS.clone());
+    add_filter_to_list_of_ferox_filters(filter, FILTERS.clone());
+
+    // add any status code filters to `FILTERS`
+    for code_filter in &CONFIGURATION.filter_status {
+        let filter = StatusCodeFilter {
+            filter_code: *code_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
@@ -610,7 +684,15 @@ pub async fn scan_url(
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             (
-                tokio::spawn(async move { make_requests(&tgt, &word, base_depth, txd, txr).await }),
+                tokio::spawn(async move {
+                    if PAUSE_SCAN.load(Ordering::Acquire) {
+                        // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
+                        // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
+                        // to false
+                        pause_scan().await;
+                    }
+                    make_requests(&tgt, &word, base_depth, txd, txr).await
+                }),
                 pb,
             )
         })
@@ -781,28 +863,31 @@ mod tests {
     }
 
     #[test]
-    /// add a wildcard filter with the `size` attribute set to WILDCARD_FILTERS and ensure that
-    /// should_filter_response correctly returns true
-    fn should_filter_response_filters_wildcard_size() {
-        let mut filter = WildcardFilter::default();
-        let url = Url::parse("http://localhost").unwrap();
-        filter.size = 18;
-        let filter = Arc::new(filter);
-        add_filter_to_list_of_wildcard_filters(filter, WILDCARD_FILTERS.clone());
-        let result = should_filter_response(&18, &url);
-        assert!(result);
+    /// test that get_single_spinner returns the correct spinner
+    fn scanner_get_single_spinner_returns_spinner() {
+        let spinner = get_single_spinner();
+        assert!(!spinner.is_finished());
     }
 
-    #[test]
-    /// add a wildcard filter with the `dynamic` attribute set to WILDCARD_FILTERS and ensure that
-    /// should_filter_response correctly returns true
-    fn should_filter_response_filters_wildcard_dynamic() {
-        let mut filter = WildcardFilter::default();
-        let url = Url::parse("http://localhost/some-path").unwrap();
-        filter.dynamic = 9;
-        let filter = Arc::new(filter);
-        add_filter_to_list_of_wildcard_filters(filter, WILDCARD_FILTERS.clone());
-        let result = should_filter_response(&18, &url);
-        assert!(result);
+    #[tokio::test(core_threads = 1)]
+    /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
+    /// the spinner used during the test has had .finish_and_clear called on it, meaning that
+    /// a new one will be created, taking the if branch within the function
+    async fn scanner_pause_scan_with_finished_spinner() {
+        let now = time::Instant::now();
+
+        PAUSE_SCAN.store(true, Ordering::Relaxed);
+        SINGLE_SPINNER.write().unwrap().finish_and_clear();
+
+        let expected = time::Duration::from_secs(2);
+
+        tokio::spawn(async move {
+            time::delay_for(expected).await;
+            PAUSE_SCAN.store(false, Ordering::Relaxed);
+        });
+
+        pause_scan().await;
+
+        assert!(now.elapsed() > expected);
     }
 }

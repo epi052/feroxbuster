@@ -72,6 +72,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
+    - [Pause and Resume Scans (new in `v1.4.0`)](#pause-and-resume-scans-new-in-v140)
     - [Multiple Values](#multiple-values)
     - [Extract Links from Response Body (new in `v1.1.0`)](#extract-links-from-response-body-new-in-v110)
     - [Include Headers](#include-headers)
@@ -81,6 +82,8 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
     - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
+    - [Filter Response by Status Code  (new in `v1.3.0`)](#filter-response-by-status-code--new-in-v130)
+    - [Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)](#replay-responses-to-a-proxy-based-on-status-code-new-in-v150)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -247,8 +250,8 @@ Configuration begins with with the following built-in default values baked into 
 - threads: `50`
 - verbosity: `0` (no logging enabled)
 - scan_limit: `0` (no limit imposed on concurrent scans)
-- statuscodes: `200 204 301 302 307 308 401 403 405`
-- useragent: `feroxbuster/VERSION`
+- status_codes: `200 204 301 302 307 308 401 403 405`
+- user_agent: `feroxbuster/VERSION`
 - recursion depth: `4`
 - auto-filter wildcards - `true`
 - output: `stdout`
@@ -298,25 +301,28 @@ A pre-made configuration file with examples of all available settings can be fou
 # Any setting used here can be overridden by the corresponding command line option/argument
 #
 # wordlist = "/wordlists/jhaddix/all.txt"
-# statuscodes = [200, 500]
+# status_codes = [200, 500]
+# filter_status = [301]
+# replay_codes = [301]
 # threads = 1
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
+# replay_proxy = "http://127.0.0.1:8081"
 # verbosity = 1
 # scan_limit = 6
 # quiet = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
-# useragent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+# user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
 # redirects = true
 # insecure = true
 # extensions = ["php", "html"]
-# norecursion = true
-# addslash = true
+# no_recursion = true
+# add_slash = true
 # stdin = true
-# dontfilter = true
+# dont_filter = true
 # extract_links = true
 # depth = 1
-# sizefilters = [5174]
+# filter_size = [5174]
 # queries = [["name","value"], ["rick", "astley"]]
 
 # headers can be specified on multiple lines or as an inline table
@@ -341,13 +347,13 @@ USAGE:
     feroxbuster [FLAGS] [OPTIONS] --url <URL>...
 
 FLAGS:
-    -f, --addslash         Append / to each request
-    -D, --dontfilter       Don't auto-filter wildcard responses
+    -f, --add-slash        Append / to each request
+    -D, --dont-filter      Don't auto-filter wildcard responses
     -e, --extract-links    Extract links from response body (html, javascript, etc...); make new requests based on
                            findings (default: false)
     -h, --help             Prints help information
     -k, --insecure         Disables TLS certificate validation
-    -n, --norecursion      Do not scan recursively
+    -n, --no-recursion     Do not scan recursively
     -q, --quiet            Only print URLs; Don't print status codes, response size, running config, etc...
     -r, --redirects        Follow redirects
         --stdin            Read url(s) from STDIN
@@ -357,21 +363,33 @@ FLAGS:
 OPTIONS:
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
     -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
+    -S, --filter-size <SIZE>...             Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
+    -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -C 401)
     -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                     Output file to write results to (default: stdout)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
-    -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 7)
-    -S, --sizefilter <SIZE>...              Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
-    -s, --statuscodes <STATUS_CODE>...      Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
+    -R, --replay-codes <REPLAY_CODE>...     Status Codes to send through a Replay Proxy when found (default: --status
+                                            -codes value)
+    -P, --replay-proxy <REPLAY_PROXY>       Send only unfiltered requests through a Replay Proxy, instead of all
+                                            requests
+    -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 0, i.e. no limit)
+    -s, --status-codes <STATUS_CODE>...     Status Codes to include (allow list) (default: 200 204 301 302 307 308 401
+                                            403 405)
     -t, --threads <THREADS>                 Number of concurrent threads (default: 50)
     -T, --timeout <SECONDS>                 Number of seconds before a request times out (default: 7)
     -u, --url <URL>...                      The target URL(s) (required, unless --stdin used)
-    -a, --useragent <USER_AGENT>            Sets the User-Agent (default: feroxbuster/VERSION)
+    -a, --user-agent <USER_AGENT>           Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                   Path to the wordlist
 ```
 
 ## 🧰 Example Usage
+
+### Pause and Resume Scans (new in `v1.4.0`)
+
+Scans can be paused and resumed by pressing the ENTER key (shown below)
+
+![pause-resume-demo](img/pause-resume-demo.gif)
 
 ### Multiple Values
 
@@ -425,7 +443,7 @@ With `--extract-links`
 ### IPv6, non-recursive scan with INFO-level logging enabled
 
 ```
-./feroxbuster -u http://[::1] --norecursion -vv
+./feroxbuster -u http://[::1] --no-recursion -vv
 ```
 
 ### Read urls from STDIN; pipe only resulting urls out to another tool
@@ -464,6 +482,30 @@ discovered directories can only begin scanning when the total number of active s
 
 ![limit-demo](img/limit-demo.gif)
 
+### Filter Response by Status Code  (new in `v1.3.0`)
+
+Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
+with minimal effort. The first such filter is a Status Code Filter. As responses come back from the scanned server,
+each one is checked against a list of known filters and either displayed or not according to which filters are set.
+
+```
+./feroxbuster -u http://127.1 --filter-status 301
+```
+
+### Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)
+
+The `--replay-proxy` and `--replay-codes` options were added as a way to only send a select few responses to a proxy.  This is in stark contrast to `--proxy` which proxies EVERY request.  
+
+Imagine you only care about proxying responses that have either the status code `200` or `302` (or you just don't want to clutter up your Burp history).  These two options will allow you to fine-tune what gets proxied and what doesn't.  
+
+```
+./feroxbuster -u http://127.1 --replay-proxy http://localhost:8080 --replay-codes 200 302 --insecure
+```
+
+Of note: this means that for every response that matches your replay criteria, you'll end up sending the request that generated that response a second time.  Depending on the target and your engagement terms (if any), it may not make sense from a traffic generated perspective.
+
+![replay-proxy-demo](img/replay-proxy-demo.gif)
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
@@ -486,7 +528,7 @@ a few of the use-cases in which feroxbuster may be a better fit:
 |------------------------------------------------------------------|---|---|---|
 | fast                                                             | ✔ | ✔ | ✔ |
 | easy to use                                                      | ✔ | ✔ |   |
-| blacklist status codes (in addition to whitelist)                |   | ✔ | ✔ |
+| filter out responses by status code (new in `v1.3.0`)            | ✔ | ✔ | ✔ |
 | allows recursion                                                 | ✔ |   | ✔ |
 | can specify query parameters                                     | ✔ |   | ✔ |
 | SOCKS proxy support                                              | ✔ |   |   |

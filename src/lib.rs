@@ -2,6 +2,7 @@ pub mod banner;
 pub mod client;
 pub mod config;
 pub mod extractor;
+pub mod filters;
 pub mod heuristics;
 pub mod logger;
 pub mod parser;
@@ -10,19 +11,39 @@ pub mod reporter;
 pub mod scanner;
 pub mod utils;
 
-use reqwest::header::HeaderMap;
-use reqwest::{Response, StatusCode, Url};
+use reqwest::{
+    header::HeaderMap,
+    {Response, StatusCode, Url},
+};
+use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
-pub type FeroxResult<T> =
-    std::result::Result<T, Box<dyn std::error::Error + Send + Sync + 'static>>;
+pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
+
+/// Simple Error implementation to allow for custom error returns
+#[derive(Debug, Default)]
+pub struct FeroxError {
+    /// fancy string that can be printed via Display
+    pub message: String,
+}
+
+impl error::Error for FeroxError {}
+
+impl fmt::Display for FeroxError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", &self.message)
+    }
+}
 
 /// Generic mpsc::unbounded_channel type to tidy up some code
 pub type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
 
 /// Version pulled from Cargo.toml at compile time
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Maximum number of file descriptors that can be opened during a scan
+pub const DEFAULT_OPEN_FILE_LIMIT: usize = 8192;
 
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
@@ -31,6 +52,9 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// - `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
 pub const DEFAULT_WORDLIST: &str =
     "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
+
+/// Number of milliseconds to wait between polls of `PAUSE_SCAN` when user pauses a scan
+pub static SLEEP_DURATION: u64 = 500;
 
 /// Default list of status codes to report
 ///
@@ -61,7 +85,7 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
 
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FeroxResponse {
     /// The final `Url` of this `FeroxResponse`
     url: Url,

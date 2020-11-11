@@ -1,5 +1,5 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::utils::{ferox_print, status_colorizer};
+use crate::utils::{ferox_print, make_request, status_colorizer};
 use crate::{FeroxChannel, FeroxResponse};
 use console::strip_ansi_codes;
 use std::io::Write;
@@ -92,9 +92,9 @@ async fn spawn_terminal_reporter(
     );
 
     while let Some(resp) = resp_chan.recv().await {
-        log::debug!("received {} on reporting channel", resp.url());
+        log::trace!("received {} on reporting channel", resp.url());
 
-        if CONFIGURATION.statuscodes.contains(&resp.status().as_u16()) {
+        if CONFIGURATION.status_codes.contains(&resp.status().as_u16()) {
             let report = if CONFIGURATION.quiet {
                 // -q used, just need the url
                 format!("{}\n", resp.url())
@@ -126,7 +126,20 @@ async fn spawn_terminal_reporter(
                 }
             }
         }
-        log::debug!("report complete: {}", resp.url());
+        log::trace!("report complete: {}", resp.url());
+
+        if CONFIGURATION.replay_client.is_some()
+            && CONFIGURATION.replay_codes.contains(&resp.status().as_u16())
+        {
+            // replay proxy specified/client created and this response's status code is one that
+            // should be replayed
+            match make_request(CONFIGURATION.replay_client.as_ref().unwrap(), &resp.url()).await {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("{}", e);
+                }
+            }
+        }
     }
     log::trace!("exit: spawn_terminal_reporter");
 }

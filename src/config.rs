@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::env::{current_dir, current_exe};
 use std::fs::read_to_string;
 use std::path::PathBuf;
+#[cfg(not(test))]
 use std::process::exit;
 
 lazy_static! {
@@ -21,6 +22,21 @@ lazy_static! {
 
     /// Global progress bar that is only used for printing messages that don't jack up other bars
     pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true);
+}
+
+/// simple helper to clean up some code reuse below; panics under test / exits in prod
+fn report_and_exit(err: &str) -> ! {
+    eprintln!(
+        "{} {}: {}",
+        status_colorizer("ERROR"),
+        module_colorizer("Configuration::new"),
+        err
+    );
+
+    #[cfg(test)]
+    panic!();
+    #[cfg(not(test))]
+    exit(1);
 }
 
 /// Represents the final, global configuration of the program.
@@ -47,17 +63,33 @@ pub struct Configuration {
     #[serde(default)]
     pub proxy: String,
 
+    /// Replay Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    #[serde(default)]
+    pub replay_proxy: String,
+
     /// The target URL
     #[serde(default)]
     pub target_url: String,
 
-    /// Status Codes of interest (default: 200 204 301 302 307 308 401 403 405)
-    #[serde(default = "statuscodes")]
-    pub statuscodes: Vec<u16>,
+    /// Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)
+    #[serde(default = "status_codes")]
+    pub status_codes: Vec<u16>,
+
+    /// Status Codes to replay to the Replay Proxy (default: whatever is passed to --status-code)
+    #[serde(default)]
+    pub replay_codes: Vec<u16>,
+
+    /// Status Codes to filter out (deny list)
+    #[serde(default)]
+    pub filter_status: Vec<u16>,
 
     /// Instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
     #[serde(skip)]
     pub client: Client,
+
+    /// Instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
+    #[serde(skip)]
+    pub replay_client: Option<Client>,
 
     /// Number of concurrent threads (default: 50)
     #[serde(default = "threads")]
@@ -80,8 +112,8 @@ pub struct Configuration {
     pub output: String,
 
     /// Sets the User-Agent (default: feroxbuster/VERSION)
-    #[serde(default = "useragent")]
-    pub useragent: String,
+    #[serde(default = "user_agent")]
+    pub user_agent: String,
 
     /// Follow redirects
     #[serde(default)]
@@ -105,7 +137,7 @@ pub struct Configuration {
 
     /// Do not scan recursively
     #[serde(default)]
-    pub norecursion: bool,
+    pub no_recursion: bool,
 
     /// Extract links from html/javscript
     #[serde(default)]
@@ -113,7 +145,7 @@ pub struct Configuration {
 
     /// Append / to each request
     #[serde(default)]
-    pub addslash: bool,
+    pub add_slash: bool,
 
     /// Read url(s) from STDIN
     #[serde(default)]
@@ -129,14 +161,14 @@ pub struct Configuration {
 
     /// Filter out messages of a particular size
     #[serde(default)]
-    pub sizefilters: Vec<u64>,
+    pub filter_size: Vec<u64>,
 
     /// Don't auto-filter wildcard responses
     #[serde(default)]
-    pub dontfilter: bool,
+    pub dont_filter: bool,
 }
 
-// functions timeout, threads, statuscodes, useragent, wordlist, and depth are used to provide
+// functions timeout, threads, status_codes, user_agent, wordlist, and depth are used to provide
 // defaults in the event that a ferox-config.toml is found but one or more of the values below
 // aren't listed in the config.  This way, we get the correct defaults upon Deserialization
 
@@ -151,7 +183,7 @@ fn threads() -> usize {
 }
 
 /// default status codes
-fn statuscodes() -> Vec<u16> {
+fn status_codes() -> Vec<u16> {
     DEFAULT_STATUS_CODES
         .iter()
         .map(|code| code.as_u16())
@@ -163,8 +195,8 @@ fn wordlist() -> String {
     String::from(DEFAULT_WORDLIST)
 }
 
-/// default useragent
-fn useragent() -> String {
+/// default user-agent
+fn user_agent() -> String {
     format!("feroxbuster/{}", VERSION)
 }
 
@@ -177,35 +209,42 @@ impl Default for Configuration {
     /// Builds the default Configuration for feroxbuster
     fn default() -> Self {
         let timeout = timeout();
-        let useragent = useragent();
-        let client = client::initialize(timeout, &useragent, false, false, &HashMap::new(), None);
+        let user_agent = user_agent();
+        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None);
+        let replay_client = None;
+        let status_codes = status_codes();
+        let replay_codes = status_codes.clone();
 
         Configuration {
             client,
             timeout,
-            useragent,
-            dontfilter: false,
+            user_agent,
+            replay_codes,
+            status_codes,
+            replay_client,
+            dont_filter: false,
             quiet: false,
             stdin: false,
             verbosity: 0,
             scan_limit: 0,
-            addslash: false,
+            add_slash: false,
             insecure: false,
             redirects: false,
-            norecursion: false,
+            no_recursion: false,
             extract_links: false,
             proxy: String::new(),
             config: String::new(),
             output: String::new(),
             target_url: String::new(),
+            replay_proxy: String::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
-            sizefilters: Vec::new(),
+            filter_size: Vec::new(),
+            filter_status: Vec::new(),
             headers: HashMap::new(),
-            threads: threads(),
             depth: depth(),
+            threads: threads(),
             wordlist: wordlist(),
-            statuscodes: statuscodes(),
         }
     }
 }
@@ -223,21 +262,24 @@ impl Configuration {
     /// - **timeout**: `7` seconds
     /// - **verbosity**: `0` (no logging enabled)
     /// - **proxy**: `None`
-    /// - **statuscodes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - **status_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - **filter_status**: `None`
     /// - **output**: `None` (print to stdout)
     /// - **quiet**: `false`
-    /// - **useragent**: `feroxer/VERSION`
+    /// - **user_agent**: `feroxer/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
-    /// - **sizefilters**: `None`
+    /// - **filter_size**: `None`
     /// - **headers**: `None`
     /// - **queries**: `None`
-    /// - **norecursion**: `false` (recursively scan enumerated sub-directories)
-    /// - **addslash**: `false`
+    /// - **no_recursion**: `false` (recursively scan enumerated sub-directories)
+    /// - **add_slash**: `false`
     /// - **stdin**: `false`
-    /// - **dontfilter**: `false` (auto filter wildcard responses)
+    /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
+    /// - **replay_proxy**: `None` (no limit on concurrent scans imposed)
+    /// - **replay_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -336,21 +378,41 @@ impl Configuration {
             config.output = String::from(args.value_of("output").unwrap());
         }
 
-        if args.values_of("statuscodes").is_some() {
-            config.statuscodes = args
-                .values_of("statuscodes")
+        if args.values_of("status_codes").is_some() {
+            config.status_codes = args
+                .values_of("status_codes")
                 .unwrap() // already known good
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
-                        .unwrap_or_else(|e| {
-                            eprintln!(
-                                "{} {}: {}",
-                                status_colorizer("ERROR"),
-                                module_colorizer("Configuration::new"),
-                                e
-                            );
-                            exit(1)
-                        })
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                        .as_u16()
+                })
+                .collect();
+        }
+
+        if args.values_of("replay_codes").is_some() {
+            // replay codes passed in by the user
+            config.replay_codes = args
+                .values_of("replay_codes")
+                .unwrap() // already known good
+                .map(|code| {
+                    StatusCode::from_bytes(code.as_bytes())
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                        .as_u16()
+                })
+                .collect();
+        } else {
+            // not passed in by the user, use whatever value is held in status_codes
+            config.replay_codes = config.status_codes.clone();
+        }
+
+        if args.values_of("filter_status").is_some() {
+            config.filter_status = args
+                .values_of("filter_status")
+                .unwrap() // already known good
+                .map(|code| {
+                    StatusCode::from_bytes(code.as_bytes())
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                         .as_u16()
                 })
                 .collect();
@@ -364,20 +426,13 @@ impl Configuration {
                 .collect();
         }
 
-        if args.values_of("sizefilters").is_some() {
-            config.sizefilters = args
-                .values_of("sizefilters")
+        if args.values_of("filter_size").is_some() {
+            config.filter_size = args
+                .values_of("filter_size")
                 .unwrap() // already known good
                 .map(|size| {
-                    size.parse::<u64>().unwrap_or_else(|e| {
-                        eprintln!(
-                            "{} {}: {}",
-                            status_colorizer("ERROR"),
-                            module_colorizer("Configuration::new"),
-                            e
-                        );
-                        exit(1)
-                    })
+                    size.parse::<u64>()
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                 })
                 .collect();
         }
@@ -390,8 +445,8 @@ impl Configuration {
             config.quiet = args.is_present("quiet");
         }
 
-        if args.is_present("dontfilter") {
-            config.dontfilter = args.is_present("dontfilter");
+        if args.is_present("dont_filter") {
+            config.dont_filter = args.is_present("dont_filter");
         }
 
         if args.occurrences_of("verbosity") > 0 {
@@ -400,12 +455,12 @@ impl Configuration {
             config.verbosity = args.occurrences_of("verbosity") as u8;
         }
 
-        if args.is_present("norecursion") {
-            config.norecursion = args.is_present("norecursion");
+        if args.is_present("no_recursion") {
+            config.no_recursion = args.is_present("no_recursion");
         }
 
-        if args.is_present("addslash") {
-            config.addslash = args.is_present("addslash");
+        if args.is_present("add_slash") {
+            config.add_slash = args.is_present("add_slash");
         }
 
         if args.is_present("extract_links") {
@@ -425,8 +480,12 @@ impl Configuration {
             config.proxy = String::from(args.value_of("proxy").unwrap());
         }
 
-        if args.value_of("useragent").is_some() {
-            config.useragent = String::from(args.value_of("useragent").unwrap());
+        if args.value_of("replay_proxy").is_some() {
+            config.replay_proxy = String::from(args.value_of("replay_proxy").unwrap());
+        }
+
+        if args.value_of("user_agent").is_some() {
+            config.user_agent = String::from(args.value_of("user_agent").unwrap());
         }
 
         if args.value_of("timeout").is_some() {
@@ -474,7 +533,7 @@ impl Configuration {
         // the client and store it in the config struct
         if !config.proxy.is_empty()
             || config.timeout != timeout()
-            || config.useragent != useragent()
+            || config.user_agent != user_agent()
             || config.redirects
             || config.insecure
             || !config.headers.is_empty()
@@ -482,7 +541,7 @@ impl Configuration {
             if config.proxy.is_empty() {
                 config.client = client::initialize(
                     config.timeout,
-                    &config.useragent,
+                    &config.user_agent,
                     config.redirects,
                     config.insecure,
                     &config.headers,
@@ -491,13 +550,25 @@ impl Configuration {
             } else {
                 config.client = client::initialize(
                     config.timeout,
-                    &config.useragent,
+                    &config.user_agent,
                     config.redirects,
                     config.insecure,
                     &config.headers,
                     Some(&config.proxy),
                 )
             }
+        }
+
+        if !config.replay_proxy.is_empty() {
+            // only set replay_client when replay_proxy is set
+            config.replay_client = Some(client::initialize(
+                config.timeout,
+                &config.user_agent,
+                config.redirects,
+                config.insecure,
+                &config.headers,
+                Some(&config.replay_proxy),
+            ));
         }
 
         config
@@ -527,26 +598,29 @@ impl Configuration {
     fn merge_config(settings: &mut Self, settings_to_merge: Self) {
         settings.threads = settings_to_merge.threads;
         settings.wordlist = settings_to_merge.wordlist;
-        settings.statuscodes = settings_to_merge.statuscodes;
+        settings.status_codes = settings_to_merge.status_codes;
         settings.proxy = settings_to_merge.proxy;
         settings.timeout = settings_to_merge.timeout;
         settings.verbosity = settings_to_merge.verbosity;
         settings.quiet = settings_to_merge.quiet;
         settings.output = settings_to_merge.output;
-        settings.useragent = settings_to_merge.useragent;
+        settings.user_agent = settings_to_merge.user_agent;
         settings.redirects = settings_to_merge.redirects;
         settings.insecure = settings_to_merge.insecure;
         settings.extract_links = settings_to_merge.extract_links;
         settings.extensions = settings_to_merge.extensions;
         settings.headers = settings_to_merge.headers;
         settings.queries = settings_to_merge.queries;
-        settings.norecursion = settings_to_merge.norecursion;
-        settings.addslash = settings_to_merge.addslash;
+        settings.no_recursion = settings_to_merge.no_recursion;
+        settings.add_slash = settings_to_merge.add_slash;
         settings.stdin = settings_to_merge.stdin;
         settings.depth = settings_to_merge.depth;
-        settings.sizefilters = settings_to_merge.sizefilters;
-        settings.dontfilter = settings_to_merge.dontfilter;
+        settings.filter_size = settings_to_merge.filter_size;
+        settings.filter_status = settings_to_merge.filter_status;
+        settings.dont_filter = settings_to_merge.dont_filter;
         settings.scan_limit = settings_to_merge.scan_limit;
+        settings.replay_proxy = settings_to_merge.replay_proxy;
+        settings.replay_codes = settings_to_merge.replay_codes;
     }
 
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
@@ -582,10 +656,12 @@ mod tests {
     fn setup_config_test() -> Configuration {
         let data = r#"
             wordlist = "/some/path"
-            statuscodes = [201, 301, 401]
+            status_codes = [201, 301, 401]
+            replay_codes = [201, 301]
             threads = 40
             timeout = 5
             proxy = "http://127.0.0.1:8080"
+            replay_proxy = "http://127.0.0.1:8081"
             quiet = true
             verbosity = 1
             scan_limit = 6
@@ -595,13 +671,14 @@ mod tests {
             extensions = ["html", "php", "js"]
             headers = {stuff = "things", mostuff = "mothings"}
             queries = [["name","value"], ["rick", "astley"]]
-            norecursion = true
-            addslash = true
+            no_recursion = true
+            add_slash = true
             stdin = true
-            dontfilter = true
+            dont_filter = true
             extract_links = true
             depth = 1
-            sizefilters = [4120]
+            filter_size = [4120]
+            filter_status = [201]
         "#;
         let tmp_dir = TempDir::new().unwrap();
         let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -617,23 +694,27 @@ mod tests {
         assert_eq!(config.proxy, String::new());
         assert_eq!(config.target_url, String::new());
         assert_eq!(config.config, String::new());
-        assert_eq!(config.statuscodes, statuscodes());
+        assert_eq!(config.replay_proxy, String::new());
+        assert_eq!(config.status_codes, status_codes());
+        assert_eq!(config.replay_codes, config.status_codes);
+        assert!(config.replay_client.is_none());
         assert_eq!(config.threads, threads());
         assert_eq!(config.depth, depth());
         assert_eq!(config.timeout, timeout());
         assert_eq!(config.verbosity, 0);
         assert_eq!(config.scan_limit, 0);
         assert_eq!(config.quiet, false);
-        assert_eq!(config.dontfilter, false);
-        assert_eq!(config.norecursion, false);
+        assert_eq!(config.dont_filter, false);
+        assert_eq!(config.no_recursion, false);
         assert_eq!(config.stdin, false);
-        assert_eq!(config.addslash, false);
+        assert_eq!(config.add_slash, false);
         assert_eq!(config.redirects, false);
         assert_eq!(config.extract_links, false);
         assert_eq!(config.insecure, false);
         assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
-        assert_eq!(config.sizefilters, Vec::<u64>::new());
+        assert_eq!(config.filter_size, Vec::<u64>::new());
+        assert_eq!(config.filter_status, Vec::<u16>::new());
         assert_eq!(config.headers, HashMap::new());
     }
 
@@ -646,9 +727,16 @@ mod tests {
 
     #[test]
     /// parse the test config and see that the value parsed is correct
-    fn config_reads_statuscodes() {
+    fn config_reads_status_codes() {
         let config = setup_config_test();
-        assert_eq!(config.statuscodes, vec![201, 301, 401]);
+        assert_eq!(config.status_codes, vec![201, 301, 401]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_replay_codes() {
+        let config = setup_config_test();
+        assert_eq!(config.replay_codes, vec![201, 301]);
     }
 
     #[test]
@@ -688,6 +776,13 @@ mod tests {
 
     #[test]
     /// parse the test config and see that the value parsed is correct
+    fn config_reads_replay_proxy() {
+        let config = setup_config_test();
+        assert_eq!(config.replay_proxy, "http://127.0.0.1:8081");
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
     fn config_reads_quiet() {
         let config = setup_config_test();
         assert_eq!(config.quiet, true);
@@ -723,9 +818,9 @@ mod tests {
 
     #[test]
     /// parse the test config and see that the value parsed is correct
-    fn config_reads_norecursion() {
+    fn config_reads_no_recursion() {
         let config = setup_config_test();
-        assert_eq!(config.norecursion, true);
+        assert_eq!(config.no_recursion, true);
     }
 
     #[test]
@@ -737,16 +832,16 @@ mod tests {
 
     #[test]
     /// parse the test config and see that the value parsed is correct
-    fn config_reads_dontfilter() {
+    fn config_reads_dont_filter() {
         let config = setup_config_test();
-        assert_eq!(config.dontfilter, true);
+        assert_eq!(config.dont_filter, true);
     }
 
     #[test]
     /// parse the test config and see that the value parsed is correct
-    fn config_reads_addslash() {
+    fn config_reads_add_slash() {
         let config = setup_config_test();
-        assert_eq!(config.addslash, true);
+        assert_eq!(config.add_slash, true);
     }
 
     #[test]
@@ -765,9 +860,16 @@ mod tests {
 
     #[test]
     /// parse the test config and see that the value parsed is correct
-    fn config_reads_sizefilters() {
+    fn config_reads_filter_size() {
         let config = setup_config_test();
-        assert_eq!(config.sizefilters, vec![4120]);
+        assert_eq!(config.filter_size, vec![4120]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_status() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_status, vec![201]);
     }
 
     #[test]
@@ -788,5 +890,12 @@ mod tests {
         queries.push(("name".to_string(), "value".to_string()));
         queries.push(("rick".to_string(), "astley".to_string()));
         assert_eq!(config.queries, queries);
+    }
+
+    #[test]
+    #[should_panic]
+    /// test that an error message is printed and panic is called when report_and_exit is called
+    fn config_report_and_exit_works() {
+        report_and_exit("some message");
     }
 }

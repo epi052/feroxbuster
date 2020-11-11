@@ -1,5 +1,6 @@
 use crate::config::{Configuration, CONFIGURATION};
 use crate::utils::{make_request, status_colorizer};
+use console::style;
 use reqwest::{Client, Url};
 use serde_json::Value;
 use std::io::Write;
@@ -144,6 +145,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     let status = needs_update(&CONFIGURATION.client, UPDATE_URL, version).await;
 
     let top = "───────────────────────────┬──────────────────────";
+    let addl_section = "──────────────────────────────────────────────────";
     let bottom = "───────────────────────────┴──────────────────────";
 
     writeln!(&mut writer, "{}", artwork).unwrap_or_default();
@@ -161,7 +163,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
 
     let mut codes = vec![];
 
-    for code in &config.statuscodes {
+    for code in &config.status_codes {
         codes.push(status_colorizer(&code.to_string()))
     }
 
@@ -190,6 +192,27 @@ by Ben "epi" Risher {}                  ver: {}"#,
     )
     .unwrap_or_default(); // 🆗
 
+    if !config.filter_status.is_empty() {
+        // exception here for optional print due to me wanting the allows and denys to be printed
+        // one after the other
+        let mut code_filters = vec![];
+
+        for code in &config.filter_status {
+            code_filters.push(status_colorizer(&code.to_string()))
+        }
+
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!(
+                "\u{1f5d1}",
+                "Status Code Filters",
+                format!("[{}]", code_filters.join(", "))
+            )
+        )
+        .unwrap_or_default(); // 🗑
+    }
+
     writeln!(
         &mut writer,
         "{}",
@@ -200,7 +223,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
     writeln!(
         &mut writer,
         "{}",
-        format_banner_entry!("\u{1F9a1}", "User-Agent", config.useragent)
+        format_banner_entry!("\u{1F9a1}", "User-Agent", config.user_agent)
     )
     .unwrap_or_default(); // 🦡
 
@@ -223,6 +246,35 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 💎
     }
 
+    if !config.replay_proxy.is_empty() {
+        // i include replay codes logic here because in config.rs, replay codes are set to the
+        // value in status codes, meaning it's never empty
+
+        let mut replay_codes = vec![];
+
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1f3a5}", "Replay Proxy", config.replay_proxy)
+        )
+        .unwrap_or_default(); // 🎥
+
+        for code in &config.replay_codes {
+            replay_codes.push(status_colorizer(&code.to_string()))
+        }
+
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!(
+                "\u{1f4fc}",
+                "Replay Proxy Codes",
+                format!("[{}]", replay_codes.join(", "))
+            )
+        )
+        .unwrap_or_default(); // 📼
+    }
+
     if !config.headers.is_empty() {
         for (name, value) in &config.headers {
             writeln!(
@@ -234,8 +286,8 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
-    if !config.sizefilters.is_empty() {
-        for filter in &config.sizefilters {
+    if !config.filter_size.is_empty() {
+        for filter in &config.filter_size {
             writeln!(
                 &mut writer,
                 "{}",
@@ -309,11 +361,11 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 📍
     }
 
-    if config.dontfilter {
+    if config.dont_filter {
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !config.dontfilter)
+            format_banner_entry!("\u{1f92a}", "Filter Wildcards", !config.dont_filter)
         )
         .unwrap_or_default(); // 🤪
     }
@@ -355,16 +407,16 @@ by Ben "epi" Risher {}                  ver: {}"#,
         _ => {}
     }
 
-    if config.addslash {
+    if config.add_slash {
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1fa93}", "Add Slash", config.addslash)
+            format_banner_entry!("\u{1fa93}", "Add Slash", config.add_slash)
         )
         .unwrap_or_default(); // 🪓
     }
 
-    if !config.norecursion {
+    if !config.no_recursion {
         if config.depth == 0 {
             writeln!(
                 &mut writer,
@@ -384,7 +436,7 @@ by Ben "epi" Risher {}                  ver: {}"#,
         writeln!(
             &mut writer,
             "{}",
-            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", config.norecursion)
+            format_banner_entry!("\u{1f6ab}", "Do Not Recurse", config.no_recursion)
         )
         .unwrap_or_default(); // 🚫
     }
@@ -412,6 +464,16 @@ by Ben "epi" Risher {}                  ver: {}"#,
     }
 
     writeln!(&mut writer, "{}", bottom).unwrap_or_default();
+    // ⏯
+    writeln!(
+        &mut writer,
+        " \u{23ef}   Press [{}] to {}|{} your scan",
+        style("ENTER").yellow(),
+        style("pause").red(),
+        style("resume").green()
+    )
+    .unwrap_or_default();
+    writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
 }
 
 #[cfg(test)]
@@ -436,7 +498,7 @@ mod tests {
     /// test to hit no execution of statuscode for loop in banner
     async fn banner_intialize_without_status_codes() {
         let mut config = Configuration::default();
-        config.statuscodes = vec![];
+        config.status_codes = vec![];
         initialize(
             &[String::from("http://localhost")],
             &config,

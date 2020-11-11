@@ -327,7 +327,8 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[test]
-/// send single valid request, get back a 301 without a Location header, expect false
+/// send single valid request, get back a 301 without a Location header
+/// expect response_is_directory to return false when called
 fn scanner_single_request_returns_301_without_location_header(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
@@ -336,6 +337,7 @@ fn scanner_single_request_returns_301_without_location_header(
     let mock = Mock::new()
         .expect_method(GET)
         .expect_path("/LICENSE")
+        .return_body("this is a test")
         .return_status(301)
         .create_on(&srv);
 
@@ -345,17 +347,16 @@ fn scanner_single_request_returns_301_without_location_header(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("-T")
+        .arg("--timeout")
         .arg("5")
-        .arg("-a")
+        .arg("--user-agent")
         .arg("some-user-agent-string")
         .unwrap();
 
     cmd.assert().success().stdout(
         predicate::str::contains(srv.url("/LICENSE"))
             .and(predicate::str::contains("301"))
-            .and(predicate::str::contains("14"))
-            .not(),
+            .and(predicate::str::contains("14")),
     );
 
     assert_eq!(mock.times_called(), 1);
@@ -401,12 +402,61 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
             .and(predicate::str::contains("20"))
             .and(predicate::str::contains("ignored"))
             .not()
-            .and(predicate::str::contains("14"))
+            .and(predicate::str::contains(" 14 "))
             .not(),
     );
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(filtered_mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}
+
+#[test]
+/// send a single valid request, expect a 200 response that then gets routed to the replay
+/// proxy
+fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let proxy = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    let mock_two = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&proxy);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--replay-proxy")
+        .arg(format!("http://{}", proxy.address().to_string()))
+        .arg("--replay-codes")
+        .arg("200")
+        .unwrap();
+
+    cmd.assert()
+        .success()
+        .stdout(
+            predicate::str::contains("/LICENSE")
+                .and(predicate::str::contains("200"))
+                .and(predicate::str::contains("14")),
+        )
+        .stderr(predicate::str::contains("Replay Proxy Codes"));
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock_two.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }

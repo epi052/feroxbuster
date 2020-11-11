@@ -1,16 +1,60 @@
-use feroxbuster::config::{CONFIGURATION, PROGRESS_PRINTER};
-use feroxbuster::scanner::scan_url;
-use feroxbuster::utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer};
-use feroxbuster::{banner, heuristics, logger, reporter, FeroxResponse, FeroxResult, VERSION};
+use crossterm::event::{self, Event, KeyCode};
+use feroxbuster::{
+    banner,
+    config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
+    heuristics, logger, reporter,
+    scanner::{scan_url, PAUSE_SCAN},
+    utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
+    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
+};
+#[cfg(not(target_os = "windows"))]
+use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
-use std::collections::HashSet;
-use std::fs::File;
-use std::io::{stderr, BufRead, BufReader};
-use std::process;
-use std::sync::Arc;
-use tokio::io;
-use tokio::sync::mpsc::UnboundedSender;
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::{stderr, BufRead, BufReader},
+    process,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
+use tokio::{io, sync::mpsc::UnboundedSender, task::JoinHandle};
 use tokio_util::codec::{FramedRead, LinesCodec};
+
+/// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
+pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
+
+/// Handles specific key events triggered by the user over stdin
+fn terminal_input_handler() {
+    log::trace!("enter: terminal_input_handler");
+
+    loop {
+        if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
+            // It's guaranteed that the `read()` won't block when the `poll()`
+            // function returns `true`
+
+            if let Ok(key_pressed) = event::read() {
+                if key_pressed == Event::Key(KeyCode::Enter.into()) {
+                    // if the user presses Enter, toggle the value stored in PAUSE_SCAN
+                    // ignore any other keys
+                    let current = PAUSE_SCAN.load(Ordering::Acquire);
+
+                    PAUSE_SCAN.store(!current, Ordering::Release);
+                }
+            }
+        } else {
+            // Timeout expired and no `Event` is available; use the timeout to check SCAN_COMPLETE
+            if SCAN_COMPLETE.load(Ordering::Relaxed) {
+                // scan has been marked complete by main, time to exit the loop
+                break;
+            }
+        }
+    }
+    log::trace!("exit: terminal_input_handler");
+}
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
@@ -19,12 +63,6 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     let file = match File::open(&path) {
         Ok(f) => f,
         Err(e) => {
-            eprintln!(
-                "{} {} {}",
-                status_colorizer("ERROR"),
-                module_colorizer("main::get_unique_words_from_wordlist"),
-                e
-            );
             log::error!("Could not open wordlist: {}", e);
             log::trace!("exit: get_unique_words_from_wordlist -> {}", e);
 
@@ -69,13 +107,9 @@ async fn scan(
             .await??;
 
     if words.len() == 0 {
-        eprintln!(
-            "{} {} Did not find any words in {}",
-            status_colorizer("ERROR"),
-            module_colorizer("main::scan"),
-            CONFIGURATION.wordlist
-        );
-        process::exit(1);
+        let mut err = FeroxError::default();
+        err.message = format!("Did not find any words in {}", CONFIGURATION.wordlist);
+        return Err(Box::new(err));
     }
 
     let mut tasks = vec![];
@@ -100,6 +134,7 @@ async fn scan(
     Ok(())
 }
 
+/// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
 async fn get_targets() -> FeroxResult<Vec<String>> {
     log::trace!("enter: get_targets");
 
@@ -123,14 +158,30 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
     Ok(targets)
 }
 
-#[tokio::main]
-async fn main() {
-    // setup logging based on the number of -v's used
-    logger::initialize(CONFIGURATION.verbosity);
+/// async main called from real main, broken out in this way to allow for some synchronous code
+/// to be executed before bringing the tokio runtime online
+async fn wrapped_main() {
+    // join can only be called once, otherwise it causes the thread to panic
+    tokio::task::spawn_blocking(move || {
+        // ok, lazy_static! uses (unsurprisingly in retrospect) a lazy loading model where the
+        // thing obtained through deref isn't actually created until it's used. This created a
+        // problem when initializing the logger as it relied on PROGRESS_PRINTER which may or may
+        // not have been created by the time it was needed for logging (really only occurred in
+        // heuristics / banner / main). In order to initialize logging properly, we need to ensure
+        // PROGRESS_PRINTER and PROGRESS_BAR have been used at least once.  This call satisfies
+        // that constraint
+        PROGRESS_PRINTER.println("");
+        PROGRESS_BAR.join().unwrap();
+    });
 
-    // can't trace main until after logger is initialized
+    // can't trace main until after logger is initialized and the above task is started
     log::trace!("enter: main");
     log::debug!("{:#?}", *CONFIGURATION);
+
+    // spawn a thread that listens for keyboard input on stdin, when a user presses enter
+    // the input handler will toggle PAUSE_SCAN, which in turn is used to pause and resume
+    // scans that are already running
+    tokio::task::spawn_blocking(terminal_input_handler);
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
@@ -142,17 +193,9 @@ async fn main() {
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
-            log::error!("{}", e);
-            ferox_print(
-                &format!(
-                    "{} {} {}",
-                    status_colorizer("ERROR"),
-                    module_colorizer("main::get_targets"),
-                    e
-                ),
-                &PROGRESS_PRINTER,
-            );
-            process::exit(1);
+            log::error!("{} {}", module_colorizer("main::get_targets"), e);
+            clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+            return;
         }
     };
 
@@ -165,15 +208,49 @@ async fn main() {
     // discard non-responsive targets
     let live_targets = heuristics::connectivity_test(&targets).await;
 
+    if live_targets.is_empty() {
+        clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+        return;
+    }
+
     // kick off a scan against any targets determined to be responsive
     match scan(live_targets, tx_term.clone(), tx_file.clone()).await {
         Ok(_) => {
             log::info!("All scans complete!");
         }
-        Err(e) => log::error!("An error occurred: {}", e),
+        Err(e) => {
+            ferox_print(
+                &format!("{} while scanning: {}", status_colorizer("Error"), e),
+                &PROGRESS_PRINTER,
+            );
+            clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+            process::exit(1);
+        }
     };
 
-    // manually drop tx in order for the rx task's while loops to eval to false
+    clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+
+    log::trace!("exit: main");
+}
+
+/// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
+/// shutdown the program
+async fn clean_up(
+    tx_term: UnboundedSender<FeroxResponse>,
+    term_handle: JoinHandle<()>,
+    tx_file: UnboundedSender<String>,
+    file_handle: Option<JoinHandle<()>>,
+    save_output: bool,
+) {
+    log::trace!(
+        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {}",
+        tx_term,
+        term_handle,
+        tx_file,
+        file_handle,
+        save_output
+    );
+
     drop(tx_term);
     log::trace!("dropped terminal output handler's transmitter");
 
@@ -205,9 +282,26 @@ async fn main() {
         log::trace!("done awaiting file output handler's receiver");
     }
 
-    log::trace!("exit: main");
+    // mark all scans complete so the terminal input handler will exit cleanly
+    SCAN_COMPLETE.store(true, Ordering::Relaxed);
 
     // clean-up function for the MultiProgress bar; must be called last in order to still see
-    // the final trace message above
+    // the final trace messages above
     PROGRESS_PRINTER.finish();
+
+    log::trace!("exit: clean_up");
+}
+
+fn main() {
+    // setup logging based on the number of -v's used
+    logger::initialize(CONFIGURATION.verbosity);
+
+    // this function uses rlimit, which is not supported on windows
+    #[cfg(not(target_os = "windows"))]
+    set_open_file_limit(DEFAULT_OPEN_FILE_LIMIT);
+
+    if let Ok(mut runtime) = tokio::runtime::Runtime::new() {
+        let future = wrapped_main();
+        runtime.block_on(future);
+    }
 }
