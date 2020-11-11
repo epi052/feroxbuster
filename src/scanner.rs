@@ -130,7 +130,6 @@ fn add_url_to_list_of_scanned_urls(resp: &str, scanned_urls: &RwLock<HashSet<Str
     match scanned_urls.write() {
         // check new url against what's already been scanned
         Ok(mut urls) => {
-
             // If the set did not contain resp, true is returned.
             // If the set did contain resp, false is returned.
             let response = urls.insert(resp.to_string());
