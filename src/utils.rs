@@ -21,13 +21,7 @@ use std::convert::TryInto;
 pub fn get_current_depth(target: &str) -> usize {
     log::trace!("enter: get_current_depth({})", target);
 
-    let target = if !target.ends_with('/') {
-        // target url doesn't end with a /, for the purposes of determining depth, we'll normalize
-        // all urls to end in a / and then calculate accordingly
-        format!("{}/", target)
-    } else {
-        String::from(target)
-    };
+    let target = normalize_url(target);
 
     match Url::parse(&target) {
         Ok(url) => {

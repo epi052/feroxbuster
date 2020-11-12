@@ -1,10 +1,11 @@
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::CONFIGURATION,
     extractor::get_links,
     filters::{FeroxFilter, StatusCodeFilter, WildcardFilter},
-    heuristics, progress,
+    heuristics,
+    scan_manager::{FeroxScans, PAUSE_SCAN},
     utils::{format_url, get_current_depth, make_request},
-    FeroxChannel, FeroxResponse, FeroxScan, FeroxScans, SLEEP_DURATION,
+    FeroxChannel, FeroxResponse,
 };
 use futures::{
     future::{BoxFuture, FutureExt},
@@ -12,14 +13,12 @@ use futures::{
 };
 use lazy_static::lazy_static;
 use reqwest::Url;
-use std::sync::atomic::AtomicU64;
 use std::{
     collections::HashSet,
     convert::TryInto,
-    io::{stderr, Write},
     ops::Deref,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
-    sync::{Arc, Mutex, RwLock},
+    sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+    sync::{Arc, RwLock},
 };
 use tokio::{
     sync::{
@@ -27,26 +26,19 @@ use tokio::{
         Semaphore,
     },
     task::JoinHandle,
-    time,
 };
 
 /// Single atomic number that gets incremented once, used to track first scan vs. all others
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Single atomic number that gets holds the number of requests to be sent per directory scanned
-static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0);
-
-/// Single atomic number that gets incremented once, used to track first thread to interact with
-/// when pausing a scan
-static INTERACTIVE_BARRIER: AtomicUsize = AtomicUsize::new(0);
-
-/// Atomic boolean flag, used to determine whether or not a scan should pause or resume
-pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
+pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     static ref SCANNED_URLS: FeroxScans = FeroxScans::default();
 
+    // todo remove if not needed
     // /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
     // static ref BARRIER: Arc<RwLock<bool>> = Arc::new(RwLock::new(true));
 
@@ -55,77 +47,6 @@ lazy_static! {
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
-}
-
-/// Forced the calling thread into a busy loop
-///
-/// Every `SLEEP_DURATION` milliseconds, the function examines the result stored in `PAUSE_SCAN`
-///
-/// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
-/// loop
-async fn pause_scan() {
-    log::trace!("enter: pause_scan");
-    // function uses tokio::time, not std
-
-    // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
-    // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
-    let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
-
-    // ignore any error returned
-    let _ = stderr().flush();
-
-    if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
-        INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
-
-        PROGRESS_PRINTER.println(format!("Here's your shit: {:?}", SCANNED_URLS.scans));
-    }
-
-    loop {
-        // first tick happens immediately, all others wait the specified duration
-        interval.tick().await;
-
-        if !PAUSE_SCAN.load(Ordering::Acquire) {
-            // PAUSE_SCAN is false, so we can exit the busy loop
-            let _ = stderr().flush();
-            if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 1 {
-                INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
-            }
-            log::trace!("exit: pause_scan");
-            return;
-        }
-    }
-}
-
-/// Given a url, create a new `FeroxScan` and add it to `FeroxScans`
-///
-/// If `FeroxScans` did not already contain the scan, return true; otherwise return false
-///
-/// Also return a reference to the new `FeroxScan`
-fn add_url_to_list_of_scanned_urls(
-    url: &str,
-    scanned_urls: &mut FeroxScans,
-) -> (bool, Arc<Mutex<FeroxScan>>) {
-    log::trace!(
-        "enter: add_url_to_list_of_scanned_urls({}, {:?})",
-        url,
-        scanned_urls
-    );
-
-    let progress_bar = progress::add_bar(&url, NUMBER_OF_REQUESTS.load(Ordering::Relaxed), false);
-    progress_bar.reset_elapsed();
-
-    let ferox_scan = FeroxScan::new(&url, progress_bar);
-
-    // If the set did not contain the scan, true is returned.
-    // If the set did contain the scan, false is returned.
-    let response = scanned_urls.insert(ferox_scan.clone());
-
-    log::trace!(
-        "exit: add_url_to_list_of_scanned_urls -> ({}, {:?})",
-        response,
-        ferox_scan
-    );
-    (response, ferox_scan)
 }
 
 /// Adds the given FeroxFilter to the given list of FeroxFilter implementors
@@ -187,7 +108,7 @@ fn spawn_recursion_handler(
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, _ferox_scan) = add_url_to_list_of_scanned_urls(&resp, &SCANNED_URLS);
+            let (unknown, _ferox_scan) = SCANNED_URLS.add_scan(&resp);
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -472,7 +393,7 @@ async fn make_requests(
                 let new_links = get_links(&ferox_response).await;
 
                 for new_link in new_links {
-                    let (unknown, _) = add_url_to_list_of_scanned_urls(&new_link, &SCANNED_URLS);
+                    let (unknown, _) = SCANNED_URLS.add_scan(&new_link);
 
                     if !unknown {
                         // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -589,7 +510,7 @@ pub async fn scan_url(
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
-        add_url_to_list_of_scanned_urls(&target_url, &SCANNED_URLS);
+        SCANNED_URLS.add_scan(&target_url);
     }
 
     let ferox_scan = SCANNED_URLS.get_scan_by_url(&target_url);
@@ -662,7 +583,7 @@ pub async fn scan_url(
                         // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
                         // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                         // to false
-                        pause_scan().await;
+                        SCANNED_URLS.pause().await;
                     }
                     make_requests(&tgt, &word, base_depth, txd, txr).await
                 }),
@@ -751,6 +672,7 @@ pub fn initialize(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use indicatif::ProgressBar;
 
     #[test]
     /// sending url + word without any extensions should get back one url with the joined word
@@ -844,69 +766,5 @@ mod tests {
         let url = Url::parse("http://localhost/one/two/three").unwrap();
         let result = reached_max_depth(&url, 0, 2);
         assert!(result);
-    }
-
-    #[test]
-    /// add an unknown url to the hashset, expect true
-    fn add_url_to_list_of_scanned_urls_with_unknown_url() {
-        let urls = RwLock::new(HashSet::<String>::new());
-        let url = "http://unknown_url";
-        assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), true);
-    }
-
-    #[test]
-    /// add a known url to the hashset, with a trailing slash, expect false
-    fn add_url_to_list_of_scanned_urls_with_known_url() {
-        let urls = RwLock::new(HashSet::<String>::new());
-        let url = "http://unknown_url/";
-
-        assert_eq!(urls.write().unwrap().insert(url.to_string()), true);
-
-        assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
-    }
-
-    #[test]
-    /// add a known url to the hashset, without a trailing slash, expect false
-    fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
-        let urls = RwLock::new(HashSet::<String>::new());
-        let url = "http://unknown_url";
-
-        assert_eq!(
-            urls.write()
-                .unwrap()
-                .insert("http://unknown_url".to_string()),
-            true
-        );
-
-        assert_eq!(add_url_to_list_of_scanned_urls(url, &urls), false);
-    }
-
-    #[test]
-    /// test that get_single_spinner returns the correct spinner
-    fn scanner_get_single_spinner_returns_spinner() {
-        let spinner = get_single_spinner();
-        assert!(!spinner.is_finished());
-    }
-
-    #[tokio::test(core_threads = 1)]
-    /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
-    /// the spinner used during the test has had .finish_and_clear called on it, meaning that
-    /// a new one will be created, taking the if branch within the function
-    async fn scanner_pause_scan_with_finished_spinner() {
-        let now = time::Instant::now();
-
-        PAUSE_SCAN.store(true, Ordering::Relaxed);
-        // BARRIER.write().unwrap().finish_and_clear();
-
-        let expected = time::Duration::from_secs(2);
-
-        tokio::spawn(async move {
-            time::delay_for(expected).await;
-            PAUSE_SCAN.store(false, Ordering::Relaxed);
-        });
-
-        pause_scan().await;
-
-        assert!(now.elapsed() > expected);
     }
 }
