@@ -11,12 +11,19 @@ pub mod reporter;
 pub mod scanner;
 pub mod utils;
 
+use indicatif::ProgressBar;
 use reqwest::{
     header::HeaderMap,
     {Response, StatusCode, Url},
 };
-use std::{error, fmt};
+use std::{
+    cmp::PartialEq,
+    error, fmt,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 /// Generic Result type to ease error handling in async contexts
 pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
@@ -193,6 +200,180 @@ impl FeroxResponse {
             text,
             headers,
         }
+    }
+}
+
+/// Struct to hold scan-related state
+///
+/// The purpose of this container is to open up the pathway to aborting currently running tasks and
+/// serialization of all scan state into a state file in order to resume scans that were cut short
+#[derive(Debug)]
+struct FeroxScan {
+    /// UUID that uniquely ID's the scan
+    pub id: String,
+
+    /// The URL that to be scanned
+    pub url: String,
+
+    /// Whether or not this scan has completed
+    pub complete: bool,
+
+    /// The spawned tokio task performing this scan
+    pub task: Option<JoinHandle<()>>,
+
+    /// The progress bar associated with this scan
+    pub progress_bar: Option<ProgressBar>,
+}
+
+/// Implementation of FeroxScan
+impl FeroxScan {
+    /// Stop a currently running scan
+    pub fn abort(&self) {
+        if let Some(_task) = &self.task {
+            // task.abort();  todo uncomment once upgraded to tokio 0.3
+        }
+        self.stop_progress_bar();
+    }
+
+    /// Create a default FeroxScan, populates ID with a new UUID
+    fn default() -> Self {
+        let new_id = Uuid::new_v4().to_simple().to_string();
+
+        FeroxScan {
+            id: new_id,
+            complete: false,
+            url: String::new(),
+            task: None,
+            progress_bar: None,
+        }
+    }
+
+    /// Simple helper to call .finish on the scan's progress bar
+    fn stop_progress_bar(&self) {
+        if let Some(pb) = &self.progress_bar {
+            pb.finish();
+        }
+    }
+
+    /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
+    pub fn new(url: &str, pb: ProgressBar) -> Arc<Mutex<Self>> {
+        let mut me = Self::default();
+
+        me.url = utils::normalize_url(url);
+        me.progress_bar = Some(pb);
+        Arc::new(Mutex::new(me))
+    }
+
+    /// Mark the scan as complete and stop the scan's progress bar
+    pub fn finish(&mut self) {
+        self.complete = true;
+        self.stop_progress_bar();
+    }
+}
+
+// /// Eq implementation
+// impl Eq for FeroxScan {}
+
+/// PartialEq implementation; uses FeroxScan.id for comparison
+impl PartialEq for FeroxScan {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+// /// Hash implementation; uses uses FeroxScan.id and uses FeroxScan.url for hashing
+// impl Hash for FeroxScan {
+//     /// Do the hashing with the hasher
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         self.id.hash(state);
+//         self.url.hash(state);
+//     }
+// }
+
+/// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
+#[derive(Debug, Default)]
+struct FeroxScans {
+    scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
+}
+
+/// Implementation of `FeroxScans`
+impl FeroxScans {
+    /// Add a `FeroxScan` to the internal container
+    ///
+    /// If the internal container did NOT contain the scan, true is returned; else false
+    pub fn insert(&mut self, scan: Arc<Mutex<FeroxScan>>) -> bool {
+        let sentry = match scan.lock() {
+            Ok(locked_scan) => {
+                // If the container did contain the scan, set sentry to false
+                // If the container did not contain the scan, set sentry to true
+                !self.contains(&locked_scan.url)
+            }
+            Err(e) => {
+                // poisoned lock
+                log::error!("FeroxScan's ({:?}) mutex is poisoned: {}", self, e);
+                false
+            }
+        };
+
+        if sentry {
+            // can't update the internal container while the scan itself is locked, so first
+            // lock the scan and check the container for the scan's presence, then add if
+            // not found
+            match self.scans.lock() {
+                Ok(mut scans) => {
+                    scans.push(scan);
+                }
+                Err(e) => {
+                    log::error!("FeroxScans' container's mutex is poisoned: {}", e);
+                    return false;
+                }
+            }
+        }
+
+        sentry
+    }
+
+    /// Simple check for whether or not a FeroxScan is contained within the inner container based
+    /// on the given URL
+    pub fn contains(&self, url: &str) -> bool {
+        let normalized_url = utils::normalize_url(url);
+
+        match self.scans.lock() {
+            Ok(scans) => {
+                for scan in scans.iter() {
+                    if let Ok(locked_scan) = scan.lock() {
+                        if locked_scan.url == normalized_url {
+                            return true;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("FeroxScans' container's mutex is poisoned: {}", e);
+            }
+        }
+        false
+    }
+
+    /// Find and return a `FeroxScan` based on the given URL
+    pub fn get_scan_by_url(&self, url: &str) -> Option<Arc<Mutex<FeroxScan>>> {
+        let normalized_url = utils::normalize_url(url);
+
+        match self.scans.lock() {
+            Ok(scans) => {
+                for scan in scans.iter() {
+                    if let Ok(locked_scan) = scan.lock() {
+                        if locked_scan.url == normalized_url {
+                            return Some(scan.clone());
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("FeroxScans' container's mutex is poisoned: {}", e);
+            }
+        }
+        None
     }
 }
 

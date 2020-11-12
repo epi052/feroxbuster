@@ -112,7 +112,12 @@ async fn scan(
         return Err(Box::new(err));
     }
 
-    scanner::initialize(words.len(), CONFIGURATION.scan_limit, &CONFIGURATION.extensions, &CONFIGURATION.filter_status);
+    scanner::initialize(
+        words.len(),
+        CONFIGURATION.scan_limit,
+        &CONFIGURATION.extensions,
+        &CONFIGURATION.filter_status,
+    );
 
     let mut tasks = vec![];
 
