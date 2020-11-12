@@ -874,7 +874,7 @@ mod tests {
         assert_eq!(
             urls.write()
                 .unwrap()
-                .insert("http://unknown_url/".to_string()),
+                .insert("http://unknown_url".to_string()),
             true
         );
 
