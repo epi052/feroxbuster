@@ -280,6 +280,8 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **filter_size**: `None`
+    /// - **filter_word_count**: `None`
+    /// - **filter_line_count**: `None`
     /// - **headers**: `None`
     /// - **queries**: `None`
     /// - **no_recursion**: `false` (recursively scan enumerated sub-directories)
@@ -616,6 +618,8 @@ impl Configuration {
         settings.stdin = settings_to_merge.stdin;
         settings.depth = settings_to_merge.depth;
         settings.filter_size = settings_to_merge.filter_size;
+        settings.filter_word_count = settings_to_merge.filter_word_count;
+        settings.filter_line_count = settings_to_merge.filter_line_count;
         settings.filter_status = settings_to_merge.filter_status;
         settings.dont_filter = settings_to_merge.dont_filter;
         settings.scan_limit = settings_to_merge.scan_limit;
@@ -678,6 +682,8 @@ mod tests {
             extract_links = true
             depth = 1
             filter_size = [4120]
+            filter_word_count = [994, 992]
+            filter_line_count = [34]
             filter_status = [201]
         "#;
         let tmp_dir = TempDir::new().unwrap();
@@ -714,6 +720,8 @@ mod tests {
         assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.filter_size, Vec::<u64>::new());
+        assert_eq!(config.filter_word_count, Vec::<usize>::new());
+        assert_eq!(config.filter_line_count, Vec::<usize>::new());
         assert_eq!(config.filter_status, Vec::<u16>::new());
         assert_eq!(config.headers, HashMap::new());
     }
@@ -863,6 +871,20 @@ mod tests {
     fn config_reads_filter_size() {
         let config = setup_config_test();
         assert_eq!(config.filter_size, vec![4120]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_word_count() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_word_count, vec![994, 992]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_line_count() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_line_count, vec![34]);
     }
 
     #[test]
