@@ -163,6 +163,14 @@ pub struct Configuration {
     #[serde(default)]
     pub filter_size: Vec<u64>,
 
+    /// Filter out messages of a particular line count
+    #[serde(default)]
+    pub filter_line_count: Vec<usize>,
+
+    /// Filter out messages of a particular word count
+    #[serde(default)]
+    pub filter_word_count: Vec<usize>,
+
     /// Don't auto-filter wildcard responses
     #[serde(default)]
     pub dont_filter: bool,
@@ -240,6 +248,8 @@ impl Default for Configuration {
             queries: Vec::new(),
             extensions: Vec::new(),
             filter_size: Vec::new(),
+            filter_line_count: Vec::new(),
+            filter_word_count: Vec::new(),
             filter_status: Vec::new(),
             headers: HashMap::new(),
             depth: depth(),
