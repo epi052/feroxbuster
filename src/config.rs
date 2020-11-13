@@ -362,36 +362,30 @@ impl Configuration {
 
         let args = parser::initialize().get_matches();
 
-        // the .is_some appears clunky, but it allows default values to be incrementally
-        // overwritten from Struct defaults, to file config, to command line args, soooo ¯\_(ツ)_/¯
-        if args.value_of("threads").is_some() {
-            let threads = value_t!(args.value_of("threads"), usize).unwrap_or_else(|e| e.exit());
-            config.threads = threads;
+        macro_rules! update_config_if_present {
+            ($c:expr, $m:ident, $v:expr, $t:ty) => {
+                match value_t!($m, $v, $t) {
+                    Ok(value) => *$c = value, // Update value
+                    Err(clap::Error {
+                        kind: clap::ErrorKind::ArgumentNotFound,
+                        message: _,
+                        info: _,
+                    }) => {
+                        // Do nothing if argument not found
+                    }
+                    Err(e) => e.exit(), // Exit with error on parse error
+                }
+            };
         }
 
-        if args.value_of("depth").is_some() {
-            let depth = value_t!(args.value_of("depth"), usize).unwrap_or_else(|e| e.exit());
-            config.depth = depth;
-        }
+        update_config_if_present!(&mut config.threads, args, "threads", usize);
+        update_config_if_present!(&mut config.depth, args, "depth", usize);
+        update_config_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
+        update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
+        update_config_if_present!(&mut config.output, args, "output", String);
 
-        if args.value_of("scan_limit").is_some() {
-            let scan_limit =
-                value_t!(args.value_of("scan_limit"), usize).unwrap_or_else(|e| e.exit());
-            config.scan_limit = scan_limit;
-        }
-
-        if args.value_of("wordlist").is_some() {
-            config.wordlist = String::from(args.value_of("wordlist").unwrap());
-        }
-
-        if args.value_of("output").is_some() {
-            config.output = String::from(args.value_of("output").unwrap());
-        }
-
-        if args.values_of("status_codes").is_some() {
-            config.status_codes = args
-                .values_of("status_codes")
-                .unwrap() // already known good
+        if let Some(arg) = args.values_of("status_codes") {
+            config.status_codes = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -400,11 +394,9 @@ impl Configuration {
                 .collect();
         }
 
-        if args.values_of("replay_codes").is_some() {
+        if let Some(arg) = args.values_of("replay_codes") {
             // replay codes passed in by the user
-            config.replay_codes = args
-                .values_of("replay_codes")
-                .unwrap() // already known good
+            config.replay_codes = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -416,10 +408,8 @@ impl Configuration {
             config.replay_codes = config.status_codes.clone();
         }
 
-        if args.values_of("filter_status").is_some() {
-            config.filter_status = args
-                .values_of("filter_status")
-                .unwrap() // already known good
+        if let Some(arg) = args.values_of("filter_status") {
+            config.filter_status = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -428,18 +418,12 @@ impl Configuration {
                 .collect();
         }
 
-        if args.values_of("extensions").is_some() {
-            config.extensions = args
-                .values_of("extensions")
-                .unwrap()
-                .map(|val| val.to_string())
-                .collect();
+        if let Some(arg) = args.values_of("extensions") {
+            config.extensions = arg.map(|val| val.to_string()).collect();
         }
 
-        if args.values_of("filter_size").is_some() {
-            config.filter_size = args
-                .values_of("filter_size")
-                .unwrap() // already known good
+        if let Some(arg) = args.values_of("filter_size") {
+            config.filter_size = arg
                 .map(|size| {
                     size.parse::<u64>()
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -470,11 +454,11 @@ impl Configuration {
             // consider a user specifying quiet = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
             // false if no -q is used on the command line
-            config.quiet = args.is_present("quiet");
+            config.quiet = true;
         }
 
         if args.is_present("dont_filter") {
-            config.dont_filter = args.is_present("dont_filter");
+            config.dont_filter = true;
         }
 
         if args.occurrences_of("verbosity") > 0 {
@@ -484,19 +468,19 @@ impl Configuration {
         }
 
         if args.is_present("no_recursion") {
-            config.no_recursion = args.is_present("no_recursion");
+            config.no_recursion = true;
         }
 
         if args.is_present("add_slash") {
-            config.add_slash = args.is_present("add_slash");
+            config.add_slash = true;
         }
 
         if args.is_present("extract_links") {
-            config.extract_links = args.is_present("extract_links");
+            config.extract_links = true;
         }
 
         if args.is_present("stdin") {
-            config.stdin = args.is_present("stdin");
+            config.stdin = true;
         } else {
             config.target_url = String::from(args.value_of("url").unwrap());
         }
@@ -504,33 +488,21 @@ impl Configuration {
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
-        if args.value_of("proxy").is_some() {
-            config.proxy = String::from(args.value_of("proxy").unwrap());
-        }
-
-        if args.value_of("replay_proxy").is_some() {
-            config.replay_proxy = String::from(args.value_of("replay_proxy").unwrap());
-        }
-
-        if args.value_of("user_agent").is_some() {
-            config.user_agent = String::from(args.value_of("user_agent").unwrap());
-        }
-
-        if args.value_of("timeout").is_some() {
-            let timeout = value_t!(args.value_of("timeout"), u64).unwrap_or_else(|e| e.exit());
-            config.timeout = timeout;
-        }
+        update_config_if_present!(&mut config.proxy, args, "proxy", String);
+        update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
+        update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
+        update_config_if_present!(&mut config.timeout, args, "timeout", u64);
 
         if args.is_present("redirects") {
-            config.redirects = args.is_present("redirects");
+            config.redirects = true;
         }
 
         if args.is_present("insecure") {
-            config.insecure = args.is_present("insecure");
+            config.insecure = true;
         }
 
-        if args.values_of("headers").is_some() {
-            for val in args.values_of("headers").unwrap() {
+        if let Some(headers) = args.values_of("headers") {
+            for val in headers {
                 let mut split_val = val.split(':');
 
                 // explicitly take first split value as header's name
@@ -543,8 +515,8 @@ impl Configuration {
             }
         }
 
-        if args.values_of("queries").is_some() {
-            for val in args.values_of("queries").unwrap() {
+        if let Some(queries) = args.values_of("queries") {
+            for val in queries {
                 // same basic logic used as reading in the headers HashMap above
                 let mut split_val = val.split('=');
 
