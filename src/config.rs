@@ -447,6 +447,24 @@ impl Configuration {
                 .collect();
         }
 
+        if let Some(arg) = args.values_of("filter_words") {
+            config.filter_word_count = arg
+                .map(|size| {
+                    size.parse::<usize>()
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                })
+                .collect();
+        }
+
+        if let Some(arg) = args.values_of("filter_lines") {
+            config.filter_line_count = arg
+                .map(|size| {
+                    size.parse::<usize>()
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                })
+                .collect();
+        }
+
         if args.is_present("quiet") {
             // the reason this is protected by an if statement:
             // consider a user specifying quiet = true in ferox-config.toml
