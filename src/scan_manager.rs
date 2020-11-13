@@ -1,6 +1,8 @@
 use crate::{config::PROGRESS_PRINTER, progress, SLEEP_DURATION, scanner::NUMBER_OF_REQUESTS};
+use console::style;
 use indicatif::ProgressBar;
 use std::{
+    fmt,
     cmp::PartialEq,
     sync::{Arc, Mutex},
 };
@@ -86,8 +88,19 @@ impl FeroxScan {
     }
 }
 
-// /// Eq implementation
-// impl Eq for FeroxScan {}
+/// Display implementation
+impl fmt::Display for FeroxScan {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let complete = if self.complete {
+            style("complete").green()
+        } else {
+            style("incomplete").red()
+        };
+
+        write!(f, "{:10} {}", complete, self.url)
+    }
+}
+
 
 /// PartialEq implementation; uses FeroxScan.id for comparison
 impl PartialEq for FeroxScan {
@@ -162,21 +175,30 @@ impl FeroxScans {
 
     /// Find and return a `FeroxScan` based on the given URL
     pub fn get_scan_by_url(&self, url: &str) -> Option<Arc<Mutex<FeroxScan>>> {
-        match self.scans.lock() {
-            Ok(scans) => {
-                for scan in scans.iter() {
-                    if let Ok(locked_scan) = scan.lock() {
-                        if locked_scan.url == url {
-                            return Some(scan.clone());
-                        }
+        if let Ok(scans) = self.scans.lock() {
+            for scan in scans.iter() {
+                if let Ok(locked_scan) = scan.lock() {
+                    if locked_scan.url == url {
+                        return Some(scan.clone());
                     }
                 }
             }
-            Err(e) => {
-                log::error!("FeroxScans' container's mutex is poisoned: {}", e);
-            }
         }
         None
+    }
+
+    /// todo doc
+    pub fn display_scans(&self) {
+        if let Ok(scans) = self.scans.lock() {
+            for (i, scan) in scans.iter().enumerate() {
+                let msg = format!(
+                    "{:3}: {}",
+                    i,
+                    scan.lock().unwrap()
+                );
+                PROGRESS_PRINTER.println(format!("{}", msg));
+            }
+        }
     }
 
     /// Forced the calling thread into a busy loop
@@ -199,7 +221,8 @@ impl FeroxScans {
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
-            PROGRESS_PRINTER.println(format!("Here's your shit: {:?}", self.scans));
+            self.display_scans();
+
             let mut s = String::new();
             std::io::stdin().read_line(&mut s).unwrap();
             PROGRESS_PRINTER.println(format!("Here's your shit: {}", s));
