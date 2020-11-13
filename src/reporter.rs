@@ -108,7 +108,7 @@ async fn spawn_terminal_reporter(
                     status,
                     resp.line_count(),
                     resp.word_count(),
-                    resp.char_count(),
+                    resp.content_length(),
                     resp.url()
                 )
             };

@@ -173,11 +173,6 @@ impl FeroxResponse {
         self.text().lines().map(|s| s.split_whitespace().count()).sum()
     }
 
-    /// Returns character count of the response text.
-    pub fn char_count(&self) -> usize {
-        self.text().len()
-    }
-
     /// Create a new `FeroxResponse` from the given `Response`
     pub async fn from(response: Response, read_body: bool) -> Self {
         let url = response.url().clone();
