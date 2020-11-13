@@ -323,6 +323,8 @@ A pre-made configuration file with examples of all available settings can be fou
 # extract_links = true
 # depth = 1
 # filter_size = [5174]
+# filter_word_count = [993]
+# filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
 
 # headers can be specified on multiple lines or as an inline table
@@ -363,8 +365,10 @@ FLAGS:
 OPTIONS:
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
     -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
+    -N, --filter-lines <LINES>...           Filter out messages of a particular line count (ex: -N 20 -N 31,30)
     -S, --filter-size <SIZE>...             Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
     -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -C 401)
+    -W, --filter-words <WORDS>...           Filter out messages of a particular word count (ex: -W 312 -W 91,82)
     -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                     Output file to write results to (default: stdout)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
@@ -537,7 +541,7 @@ a few of the use-cases in which feroxbuster may be a better fit:
 | configuration file for default value override                    | ✔ |   | ✔ |
 | can accept urls via STDIN as part of a pipeline                  | ✔ |   | ✔ |
 | can accept wordlists via STDIN                                   |   | ✔ | ✔ |
-| filter by response size                                          | ✔ |   | ✔ |
+| filter based on response size, wordcount, and linecount          | ✔ |   | ✔ |
 | auto-filter wildcard responses                                   | ✔ |   | ✔ |
 | performs other scans (vhost, dns, etc)                           |   | ✔ | ✔ |
 | time delay / rate limiting                                       |   | ✔ | ✔ |
