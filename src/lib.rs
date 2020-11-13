@@ -170,7 +170,10 @@ impl FeroxResponse {
 
     /// Returns word count of the response text.
     pub fn word_count(&self) -> usize {
-        self.text().lines().map(|s| s.split_whitespace().count()).sum()
+        self.text()
+            .lines()
+            .map(|s| s.split_whitespace().count())
+            .sum()
     }
 
     /// Create a new `FeroxResponse` from the given `Response`
