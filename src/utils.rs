@@ -244,7 +244,6 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
 
     match client.get(url.to_owned()).send().await {
         Ok(resp) => {
-            log::debug!("requested Url: {}", resp.url());
             log::trace!("exit: make_request -> {:?}", resp);
             Ok(resp)
         }
