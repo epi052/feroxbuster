@@ -1,4 +1,4 @@
-use crate::{FeroxError, FeroxResult};
+use crate::{config::{CONFIGURATION, PROGRESS_PRINTER}, FeroxError, FeroxResult};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::Url;
@@ -253,11 +253,35 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
             if e.to_string().contains("operation timed out") {
                 // only warn for timeouts, while actual errors are still left as errors
                 log::warn!("Error while making request: {}", e);
+            } else if e.is_redirect() {
+                let last_redirect = e.url().unwrap();
+                let fancy_message = format!("{} !=> {}", url, last_redirect);
+                let report = create_report_string(
+                    e.status().unwrap().as_str(),
+                    "-1",
+                    &fancy_message,
+                );
+                ferox_print(&report, &PROGRESS_PRINTER)
             } else {
                 log::error!("Error while making request: {}", e);
             }
             Err(Box::new(e))
         }
+    }
+}
+
+/// Helper to create the standard line for output to file/terminal
+///
+/// example output:
+/// 200       3280 https://localhost.com/FAQ
+pub fn create_report_string(status: &str, content_length: &str, url: &str) -> String {
+    if CONFIGURATION.quiet {
+        // -q used, just need the url
+        format!("{}\n", url)
+    } else {
+        // normal printing with status and size
+        let color_status = status_colorizer(status);
+        format!("{} {:>10} {}\n", color_status, content_length, url)
     }
 }
 

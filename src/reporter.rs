@@ -1,5 +1,5 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::utils::{ferox_print, make_request, status_colorizer};
+use crate::utils::{create_report_string, ferox_print, make_request, status_colorizer};
 use crate::{FeroxChannel, FeroxResponse};
 use console::strip_ansi_codes;
 use std::io::Write;
@@ -95,21 +95,11 @@ async fn spawn_terminal_reporter(
         log::trace!("received {} on reporting channel", resp.url());
 
         if CONFIGURATION.status_codes.contains(&resp.status().as_u16()) {
-            let report = if CONFIGURATION.quiet {
-                // -q used, just need the url
-                format!("{}\n", resp.url())
-            } else {
-                // normal printing with status and size
-                let status = status_colorizer(&resp.status().as_str());
-                format!(
-                    // example output
-                    // 200       3280 https://localhost.com/FAQ
-                    "{} {:>10} {}\n",
-                    status,
-                    resp.content_length(),
-                    resp.url()
-                )
-            };
+            let report = create_report_string(
+                resp.status().as_str(),
+                &resp.content_length().to_string(),
+                &resp.url().to_string(),
+            );
 
             // print to stdout
             ferox_print(&report, &PROGRESS_PRINTER);
