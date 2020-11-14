@@ -229,7 +229,7 @@ async fn make_wildcard_request(
                         }
                     }
                 }
-                log::trace!("exit: make_wildcard_request -> {:?}", ferox_response);
+                log::trace!("exit: make_wildcard_request -> {}", ferox_response);
                 return Some(ferox_response);
             }
         }
