@@ -69,7 +69,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Docker Install](#docker-install)
 - [Configuration](#%EF%B8%8F-configuration)
     - [Default Values](#default-values)
-    - [Threads and Connection Limits At A High-Level](#threads-and-connection-limits)
+    - [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
