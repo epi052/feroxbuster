@@ -272,7 +272,7 @@ This section explains how the `-t` and `-L` options work together to determine t
 
 #### Threads and Connection Limits: Examples
 
-To truly have only 30 active requests to a site at any given time, `-t 30 -L 1` is necessary. Using `-t 30 -L 2` will result in a maximum of 60 total requests being processed at any given time for that site. And so on. For a conversation on this, please see [Issue #126](https://github.com/epi052/feroxbuster/issues/126) which may provide more (or less) clarity ;)
+To truly have only 30 active requests to a site at any given time, `-t 30 -L 1` is necessary. Using `-t 30 -L 2` will result in a maximum of 60 total requests being processed at any given time for that site. And so on. For a conversation on this, please see [Issue #126](https://github.com/epi052/feroxbuster/issues/126) which may provide more (or less) clarity :wink:
 
 ### ferox-config.toml
 After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
