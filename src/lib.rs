@@ -106,7 +106,13 @@ pub struct FeroxResponse {
 /// Implement Display for FeroxResponse
 impl fmt::Display for FeroxResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "FeroxResponse {{ url: {}, status: {}, content-length: {} }}", self.url(), self.status(), self.content_length())
+        write!(
+            f,
+            "FeroxResponse {{ url: {}, status: {}, content-length: {} }}",
+            self.url(),
+            self.status(),
+            self.content_length()
+        )
     }
 }
 

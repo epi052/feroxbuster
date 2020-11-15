@@ -61,6 +61,7 @@ pub fn initialize(verbosity: u8) {
                 record.target(),
                 style(record.args()).dim(),
             );
+
             PROGRESS_PRINTER.println(&msg);
 
             if let Some(buffered_file) = locked_file.clone() {

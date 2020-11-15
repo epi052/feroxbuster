@@ -1,5 +1,5 @@
 use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::utils::{create_report_string, ferox_print, make_request, status_colorizer};
+use crate::utils::{create_report_string, ferox_print, make_request};
 use crate::{FeroxChannel, FeroxResponse};
 use console::strip_ansi_codes;
 use std::io::Write;

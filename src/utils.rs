@@ -1,8 +1,10 @@
-use crate::{config::{CONFIGURATION, PROGRESS_PRINTER}, FeroxError, FeroxResult};
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    FeroxError, FeroxResult,
+};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
-use reqwest::Url;
-use reqwest::{Client, Response};
+use reqwest::{Url, Client, Response};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
@@ -253,14 +255,18 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
                 // only warn for timeouts, while actual errors are still left as errors
                 log::warn!("Error while making request: {}", e);
             } else if e.is_redirect() {
-                let last_redirect = e.url().unwrap();
-                let fancy_message = format!("{} !=> {}", url, last_redirect);
-                let report = create_report_string(
-                    e.status().unwrap().as_str(),
-                    "-1",
-                    &fancy_message,
-                );
-                ferox_print(&report, &PROGRESS_PRINTER)
+                if let Some(last_redirect) = e.url() {
+                    // get where we were headed (last_redirect) and where we came from (url)
+                    let fancy_message = format!("{} !=> {}", url, last_redirect);
+
+                    let report = if let Some(msg_status) = e.status() {
+                         create_report_string(msg_status.as_str(), "-1", &fancy_message)
+                    } else {
+                        create_report_string("UNK", "-1", &fancy_message)
+                    };
+
+                    ferox_print(&report, &PROGRESS_PRINTER)
+                };
             } else {
                 log::error!("Error while making request: {}", e);
             }

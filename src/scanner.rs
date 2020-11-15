@@ -311,10 +311,7 @@ fn response_is_directory(response: &FeroxResponse) -> bool {
                 }
             }
             None => {
-                log::debug!(
-                    "expected Location header, but none was found: {}",
-                    response
-                );
+                log::debug!("expected Location header, but none was found: {}", response);
                 log::trace!("exit: is_directory -> false");
                 return false;
             }
