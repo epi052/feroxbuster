@@ -69,6 +69,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Docker Install](#docker-install)
 - [Configuration](#%EF%B8%8F-configuration)
     - [Default Values](#default-values)
+    - [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
@@ -255,6 +256,23 @@ Configuration begins with with the following built-in default values baked into 
 - recursion depth: `4`
 - auto-filter wildcards - `true`
 - output: `stdout`
+
+### Threads and Connection Limits At A High-Level
+
+This section explains how the `-t` and `-L` options work together to determine the overall aggressiveness of a scan. The combination of the two values set by these options determines how hard your target will get hit and to some extent also determines how many resources will be consumed on your local machine.
+
+#### A Note on Green Threads
+
+`feroxbuster` uses so-called [green threads](https://en.wikipedia.org/wiki/Green_threads) as opposed to traditional kernel/OS threads. This means (at a high-level) that the threads are implemented entirely in userspace, within a single running process. As a result, a scan with 30 green threads will appear to the OS to be a single process with no additional light-weight processes associated with it as far as the kernel is concerned. As such, there will not be any impact to process (`nproc`) limits when specifying larger values for `-t`. However, these threads will still consume file descriptors, so you will need to ensure that you have a suitable `nlimit` set when scaling up the amount of threads. More detailed documentation on setting appropriate `nlimit` values can be found in the [No File Descriptors Available](#no-file-descriptors-available) section of the FAQ
+
+#### Threads and Connection Limits: The Implementation
+
+* Threads: The `-t` option specifies the maximum amount of active threads *per-directory* during a scan
+* Connection Limits: The `-L` option specifies the maximum amount of active connections per thread
+
+#### Threads and Connection Limits: Examples
+
+To truly have only 30 active requests to a site at any given time, `-t 30 -L 1` is necessary. Using `-t 30 -L 2` will result in a maximum of 60 total requests being processed at any given time for that site. And so on. For a conversation on this, please see [Issue #126](https://github.com/epi052/feroxbuster/issues/126) which may provide more (or less) clarity :wink:
 
 ### ferox-config.toml
 After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
