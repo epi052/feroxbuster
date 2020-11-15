@@ -4,7 +4,7 @@ use crate::{
 };
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
-use reqwest::{Url, Client, Response};
+use reqwest::{Client, Response, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
@@ -260,7 +260,7 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
                     let fancy_message = format!("{} !=> {}", url, last_redirect);
 
                     let report = if let Some(msg_status) = e.status() {
-                         create_report_string(msg_status.as_str(), "-1", &fancy_message)
+                        create_report_string(msg_status.as_str(), "-1", &fancy_message)
                     } else {
                         create_report_string("UNK", "-1", &fancy_message)
                     };
