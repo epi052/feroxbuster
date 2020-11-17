@@ -30,6 +30,8 @@
 # extract_links = true
 # depth = 1
 # filter_size = [5174]
+# filter_word_count = [993]
+# filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
 
 # headers can be specified on multiple lines or as an inline table

@@ -297,6 +297,24 @@ by Ben "epi" Risher {}                  ver: {}"#,
         }
     }
 
+    for filter in &config.filter_word_count {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1f4a2}", "Word Count Filter", filter)
+        )
+        .unwrap_or_default(); // 💢
+    }
+
+    for filter in &config.filter_line_count {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1f4a2}", "Line Count Filter", filter)
+        )
+        .unwrap_or_default(); // 💢
+    }
+
     if config.extract_links {
         writeln!(
             &mut writer,

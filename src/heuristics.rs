@@ -183,14 +183,18 @@ async fn make_wildcard_request(
                 .contains(&response.status().as_u16())
             {
                 // found a wildcard response
-                let ferox_response = FeroxResponse::from(response, false).await;
+                let ferox_response = FeroxResponse::from(response, true).await;
                 let url_len = get_url_path_length(&ferox_response.url());
                 let content_len = ferox_response.content_length();
+                let content_words = ferox_response.word_count();
+                let content_lines = ferox_response.line_count();
 
                 if !CONFIGURATION.quiet && !should_filter_response(&ferox_response) {
                     let msg = format!(
-                        "{} {:>10} Got {} for {} (url length: {})\n",
+                        "{} {:>8}l {:>8}w {:>8}c Got {} for {} (url length: {})\n",
                         wildcard,
+                        content_lines,
+                        content_words,
                         content_len,
                         status_colorizer(&ferox_response.status().as_str()),
                         ferox_response.url(),
@@ -212,8 +216,10 @@ async fn make_wildcard_request(
                         let next_loc_str = next_loc.to_str().unwrap_or("Unknown");
                         if !CONFIGURATION.quiet && !should_filter_response(&ferox_response) {
                             let msg = format!(
-                                "{} {:>10} {} redirects to => {}\n",
+                                "{} {:>8}l {:>8}w {:>8}c {} redirects to => {}\n",
                                 wildcard,
+                                content_lines,
+                                content_words,
                                 content_len,
                                 ferox_response.url(),
                                 next_loc_str

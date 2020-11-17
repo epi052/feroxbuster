@@ -418,6 +418,12 @@ pub fn should_filter_response(response: &FeroxResponse) -> bool {
     if CONFIGURATION
         .filter_size
         .contains(&response.content_length())
+        || CONFIGURATION
+            .filter_line_count
+            .contains(&response.line_count())
+        || CONFIGURATION
+            .filter_word_count
+            .contains(&response.word_count())
     {
         // filtered value from --filter-size, size filters and wildcards are two separate filters
         // and are applied independently
@@ -467,7 +473,7 @@ async fn make_requests(
     for url in urls {
         if let Ok(response) = make_request(&CONFIGURATION.client, &url).await {
             // response came back without error, convert it to FeroxResponse
-            let ferox_response = FeroxResponse::from(response, CONFIGURATION.extract_links).await;
+            let ferox_response = FeroxResponse::from(response, true).await;
 
             // do recursion if appropriate
             if !CONFIGURATION.no_recursion {
@@ -510,8 +516,7 @@ async fn make_requests(
                         Err(_) => continue,
                     };
 
-                    let mut new_ferox_response =
-                        FeroxResponse::from(new_response, CONFIGURATION.extract_links).await;
+                    let mut new_ferox_response = FeroxResponse::from(new_response, true).await;
 
                     // filter if necessary
                     if should_filter_response(&new_ferox_response) {
