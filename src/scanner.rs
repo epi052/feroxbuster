@@ -519,8 +519,7 @@ async fn make_requests(
                         Err(_) => continue,
                     };
 
-                    let mut new_ferox_response =
-                        FeroxResponse::from(new_response, true).await;
+                    let mut new_ferox_response = FeroxResponse::from(new_response, true).await;
 
                     // filter if necessary
                     if should_filter_response(&new_ferox_response) {
