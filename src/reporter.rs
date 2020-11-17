@@ -104,8 +104,10 @@ async fn spawn_terminal_reporter(
                 format!(
                     // example output
                     // 200       3280 https://localhost.com/FAQ
-                    "{} {:>10} {}\n",
+                    "{} {:>8}l {:>8}w {:>8}c {}\n",
                     status,
+                    resp.line_count(),
+                    resp.word_count(),
                     resp.content_length(),
                     resp.url()
                 )

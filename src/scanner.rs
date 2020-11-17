@@ -421,6 +421,12 @@ pub fn should_filter_response(response: &FeroxResponse) -> bool {
     if CONFIGURATION
         .filter_size
         .contains(&response.content_length())
+        || CONFIGURATION
+            .filter_line_count
+            .contains(&response.line_count())
+        || CONFIGURATION
+            .filter_word_count
+            .contains(&response.word_count())
     {
         // filtered value from --filter-size, size filters and wildcards are two separate filters
         // and are applied independently

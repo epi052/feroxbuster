@@ -219,6 +219,30 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("filter_words")
+                .short("W")
+                .long("filter-words")
+                .value_name("WORDS")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out messages of a particular word count (ex: -W 312 -W 91,82)",
+                ),
+        )
+        .arg(
+            Arg::with_name("filter_lines")
+                .short("N")
+                .long("filter-lines")
+                .value_name("LINES")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out messages of a particular line count (ex: -N 20 -N 31,30)",
+                ),
+        )
+        .arg(
             Arg::with_name("filter_status")
                 .short("C")
                 .long("filter-status")
