@@ -260,9 +260,9 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
                     let fancy_message = format!("{} !=> {}", url, last_redirect);
 
                     let report = if let Some(msg_status) = e.status() {
-                        create_report_string(msg_status.as_str(), "-1", &fancy_message)
+                        create_report_string(msg_status.as_str(), "-1", "-1", "-1", &fancy_message)
                     } else {
-                        create_report_string("UNK", "-1", &fancy_message)
+                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message)
                     };
 
                     ferox_print(&report, &PROGRESS_PRINTER)
@@ -278,15 +278,24 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
 /// Helper to create the standard line for output to file/terminal
 ///
 /// example output:
-/// 200       3280 https://localhost.com/FAQ
-pub fn create_report_string(status: &str, content_length: &str, url: &str) -> String {
+/// 200      127l      283w     4134c http://localhost/faq
+pub fn create_report_string(
+    status: &str,
+    line_count: &str,
+    word_count: &str,
+    content_length: &str,
+    url: &str,
+) -> String {
     if CONFIGURATION.quiet {
         // -q used, just need the url
         format!("{}\n", url)
     } else {
-        // normal printing with status and size
+        // normal printing with status and sizes
         let color_status = status_colorizer(status);
-        format!("{} {:>10} {}\n", color_status, content_length, url)
+        format!(
+            "{} {:>8}l {:>8}w {:>8}c {}\n",
+            color_status, line_count, word_count, content_length, url
+        )
     }
 }
 

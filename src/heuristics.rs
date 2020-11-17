@@ -89,8 +89,10 @@ pub async fn wildcard_test(
 
                 if !CONFIGURATION.quiet {
                     let msg = format!(
-                            "{} {:>10} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
+                            "{} {:>8}l {:>8}w {:>8}c Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
                             status_colorizer("WLD"),
+                            ferox_response.line_count(),
+                            ferox_response.word_count(),
                             wildcard.dynamic,
                             style("auto-filtering").yellow(),
                             style(wc_length - url_len).cyan(),
@@ -110,8 +112,10 @@ pub async fn wildcard_test(
 
                 if !CONFIGURATION.quiet {
                     let msg = format!(
-                        "{} {:>10} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
+                        "{} {:>8}l {:>8}w {:>8}c Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
                         status_colorizer("WLD"),
+                        ferox_response.line_count(),
+                        ferox_response.word_count(),
                         wc_length,
                         style("auto-filtering").yellow(),
                         style(wc_length).cyan(),

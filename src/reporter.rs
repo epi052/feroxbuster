@@ -97,6 +97,8 @@ async fn spawn_terminal_reporter(
         if CONFIGURATION.status_codes.contains(&resp.status().as_u16()) {
             let report = create_report_string(
                 resp.status().as_str(),
+                &resp.line_count().to_string(),
+                &resp.word_count().to_string(),
                 &resp.content_length().to_string(),
                 &resp.url().to_string(),
             );

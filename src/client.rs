@@ -32,31 +32,32 @@ pub fn initialize(
         .default_headers(header_map)
         .redirect(policy);
 
-    let client = if proxy.is_some() && !proxy.unwrap().is_empty() {
-        match Proxy::all(proxy.unwrap()) {
-            Ok(proxy_obj) => client.proxy(proxy_obj),
-            Err(e) => {
-                eprintln!(
-                    "{} {} Could not add proxy ({:?}) to Client configuration",
-                    status_colorizer("ERROR"),
-                    module_colorizer("Client::initialize"),
-                    proxy
-                );
-                eprintln!(
-                    "{} {} {}",
-                    status_colorizer("ERROR"),
-                    module_colorizer("Client::initialize"),
-                    e
-                );
+    let client = match proxy {
+        Some(some_proxy) => {
+            if !some_proxy.is_empty() {
+                // it's not an empty string
+                match Proxy::all(some_proxy) {
+                    Ok(proxy_obj) => client.proxy(proxy_obj),
+                    Err(e) => {
+                        eprintln!(
+                            "{} {} {}",
+                            status_colorizer("ERROR"),
+                            module_colorizer("Client::initialize"),
+                            e
+                        );
 
-                #[cfg(test)]
-                panic!();
-                #[cfg(not(test))]
-                exit(1);
+                        #[cfg(test)]
+                        panic!();
+                        #[cfg(not(test))]
+                        exit(1);
+                    }
+                }
+            } else {
+                client // Some("") was used?
             }
         }
-    } else {
-        client
+        // a proxy is specified, just need to add it to the client
+        None => client,
     };
 
     match client.build() {
