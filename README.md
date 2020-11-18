@@ -69,6 +69,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Docker Install](#docker-install)
 - [Configuration](#%EF%B8%8F-configuration)
     - [Default Values](#default-values)
+    - [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
@@ -256,6 +257,23 @@ Configuration begins with with the following built-in default values baked into 
 - auto-filter wildcards - `true`
 - output: `stdout`
 
+### Threads and Connection Limits At A High-Level
+
+This section explains how the `-t` and `-L` options work together to determine the overall aggressiveness of a scan. The combination of the two values set by these options determines how hard your target will get hit and to some extent also determines how many resources will be consumed on your local machine.
+
+#### A Note on Green Threads
+
+`feroxbuster` uses so-called [green threads](https://en.wikipedia.org/wiki/Green_threads) as opposed to traditional kernel/OS threads. This means (at a high-level) that the threads are implemented entirely in userspace, within a single running process. As a result, a scan with 30 green threads will appear to the OS to be a single process with no additional light-weight processes associated with it as far as the kernel is concerned. As such, there will not be any impact to process (`nproc`) limits when specifying larger values for `-t`. However, these threads will still consume file descriptors, so you will need to ensure that you have a suitable `nlimit` set when scaling up the amount of threads. More detailed documentation on setting appropriate `nlimit` values can be found in the [No File Descriptors Available](#no-file-descriptors-available) section of the FAQ
+
+#### Threads and Connection Limits: The Implementation
+
+* Threads: The `-t` option specifies the maximum amount of active threads *per-directory* during a scan
+* Connection Limits: The `-L` option specifies the maximum amount of active connections per thread
+
+#### Threads and Connection Limits: Examples
+
+To truly have only 30 active requests to a site at any given time, `-t 30 -L 1` is necessary. Using `-t 30 -L 2` will result in a maximum of 60 total requests being processed at any given time for that site. And so on. For a conversation on this, please see [Issue #126](https://github.com/epi052/feroxbuster/issues/126) which may provide more (or less) clarity :wink:
+
 ### ferox-config.toml
 After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
 built-in defaults.  
@@ -323,6 +341,8 @@ A pre-made configuration file with examples of all available settings can be fou
 # extract_links = true
 # depth = 1
 # filter_size = [5174]
+# filter_word_count = [993]
+# filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
 
 # headers can be specified on multiple lines or as an inline table
@@ -363,8 +383,10 @@ FLAGS:
 OPTIONS:
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
     -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
+    -N, --filter-lines <LINES>...           Filter out messages of a particular line count (ex: -N 20 -N 31,30)
     -S, --filter-size <SIZE>...             Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
     -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -C 401)
+    -W, --filter-words <WORDS>...           Filter out messages of a particular word count (ex: -W 312 -W 91,82)
     -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                     Output file to write results to (default: stdout)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
@@ -537,7 +559,7 @@ a few of the use-cases in which feroxbuster may be a better fit:
 | configuration file for default value override                    | ✔ |   | ✔ |
 | can accept urls via STDIN as part of a pipeline                  | ✔ |   | ✔ |
 | can accept wordlists via STDIN                                   |   | ✔ | ✔ |
-| filter by response size                                          | ✔ |   | ✔ |
+| filter based on response size, wordcount, and linecount          | ✔ |   | ✔ |
 | auto-filter wildcard responses                                   | ✔ |   | ✔ |
 | performs other scans (vhost, dns, etc)                           |   | ✔ | ✔ |
 | time delay / rate limiting                                       |   | ✔ | ✔ |

@@ -190,7 +190,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
 /// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
 /// or if the Location header is present and matches the base url + / (3xx)
 fn response_is_directory(response: &FeroxResponse) -> bool {
-    log::trace!("enter: is_directory({:?})", response);
+    log::trace!("enter: is_directory({})", response);
 
     if response.status().is_redirection() {
         // status code is 3xx
@@ -216,10 +216,7 @@ fn response_is_directory(response: &FeroxResponse) -> bool {
                 }
             }
             None => {
-                log::debug!(
-                    "expected Location header, but none was found: {:?}",
-                    response
-                );
+                log::debug!("expected Location header, but none was found: {}", response);
                 log::trace!("exit: is_directory -> false");
                 return false;
             }
@@ -275,7 +272,7 @@ async fn try_recursion(
     transmitter: UnboundedSender<String>,
 ) {
     log::trace!(
-        "enter: try_recursion({:?}, {}, {:?})",
+        "enter: try_recursion({}, {}, {:?})",
         response,
         base_depth,
         transmitter
@@ -326,6 +323,12 @@ pub fn should_filter_response(response: &FeroxResponse) -> bool {
     if CONFIGURATION
         .filter_size
         .contains(&response.content_length())
+        || CONFIGURATION
+            .filter_line_count
+            .contains(&response.line_count())
+        || CONFIGURATION
+            .filter_word_count
+            .contains(&response.word_count())
     {
         // filtered value from --filter-size, size filters and wildcards are two separate filters
         // and are applied independently
@@ -375,7 +378,7 @@ async fn make_requests(
     for url in urls {
         if let Ok(response) = make_request(&CONFIGURATION.client, &url).await {
             // response came back without error, convert it to FeroxResponse
-            let ferox_response = FeroxResponse::from(response, CONFIGURATION.extract_links).await;
+            let ferox_response = FeroxResponse::from(response, true).await;
 
             // do recursion if appropriate
             if !CONFIGURATION.no_recursion {
@@ -418,8 +421,7 @@ async fn make_requests(
                         Err(_) => continue,
                     };
 
-                    let mut new_ferox_response =
-                        FeroxResponse::from(new_response, CONFIGURATION.extract_links).await;
+                    let mut new_ferox_response = FeroxResponse::from(new_response, true).await;
 
                     // filter if necessary
                     if should_filter_response(&new_ferox_response) {
@@ -428,11 +430,7 @@ async fn make_requests(
 
                     if new_ferox_response.is_file() {
                         // very likely a file, simply request and report
-                        log::debug!(
-                            "Singular extraction: {} ({})",
-                            new_ferox_response.url(),
-                            new_ferox_response.status().as_str(),
-                        );
+                        log::debug!("Singular extraction: {}", new_ferox_response);
 
                         send_report(report_chan.clone(), new_ferox_response);
 
@@ -440,11 +438,7 @@ async fn make_requests(
                     }
 
                     if !CONFIGURATION.no_recursion {
-                        log::debug!(
-                            "Recursive extraction: {} ({})",
-                            new_ferox_response.url(),
-                            new_ferox_response.status().as_str()
-                        );
+                        log::debug!("Recursive extraction: {}", new_ferox_response);
 
                         if new_ferox_response.status().is_success()
                             && !new_ferox_response.url().as_str().ends_with('/')
@@ -470,7 +464,7 @@ async fn make_requests(
 
 /// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
 fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: FeroxResponse) {
-    log::trace!("enter: send_report({:?}, {:?}", report_sender, response);
+    log::trace!("enter: send_report({:?}, {}", report_sender, response);
 
     match report_sender.send(response) {
         Ok(_) => {}

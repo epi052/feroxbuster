@@ -55,7 +55,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("verbosity")
                 .takes_value(false)
                 .multiple(true)
-                .help("Increase verbosity level (use -vv or more for greater effect)"),
+                .help("Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably too much)"),
         )
         .arg(
             Arg::with_name("proxy")
@@ -216,6 +216,30 @@ pub fn initialize() -> App<'static, 'static> {
                 .use_delimiter(true)
                 .help(
                     "Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)",
+                ),
+        )
+        .arg(
+            Arg::with_name("filter_words")
+                .short("W")
+                .long("filter-words")
+                .value_name("WORDS")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out messages of a particular word count (ex: -W 312 -W 91,82)",
+                ),
+        )
+        .arg(
+            Arg::with_name("filter_lines")
+                .short("N")
+                .long("filter-lines")
+                .value_name("LINES")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out messages of a particular line count (ex: -N 20 -N 31,30)",
                 ),
         )
         .arg(

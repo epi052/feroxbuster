@@ -1,6 +1,6 @@
 name: CI Pipeline
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
   check:
@@ -61,4 +61,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap
+          args: --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap -A clippy::deref_addrof

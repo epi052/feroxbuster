@@ -163,6 +163,14 @@ pub struct Configuration {
     #[serde(default)]
     pub filter_size: Vec<u64>,
 
+    /// Filter out messages of a particular line count
+    #[serde(default)]
+    pub filter_line_count: Vec<usize>,
+
+    /// Filter out messages of a particular word count
+    #[serde(default)]
+    pub filter_word_count: Vec<usize>,
+
     /// Don't auto-filter wildcard responses
     #[serde(default)]
     pub dont_filter: bool,
@@ -240,6 +248,8 @@ impl Default for Configuration {
             queries: Vec::new(),
             extensions: Vec::new(),
             filter_size: Vec::new(),
+            filter_line_count: Vec::new(),
+            filter_word_count: Vec::new(),
             filter_status: Vec::new(),
             headers: HashMap::new(),
             depth: depth(),
@@ -270,6 +280,8 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **filter_size**: `None`
+    /// - **filter_word_count**: `None`
+    /// - **filter_line_count**: `None`
     /// - **headers**: `None`
     /// - **queries**: `None`
     /// - **no_recursion**: `false` (recursively scan enumerated sub-directories)
@@ -352,36 +364,30 @@ impl Configuration {
 
         let args = parser::initialize().get_matches();
 
-        // the .is_some appears clunky, but it allows default values to be incrementally
-        // overwritten from Struct defaults, to file config, to command line args, soooo ¯\_(ツ)_/¯
-        if args.value_of("threads").is_some() {
-            let threads = value_t!(args.value_of("threads"), usize).unwrap_or_else(|e| e.exit());
-            config.threads = threads;
+        macro_rules! update_config_if_present {
+            ($c:expr, $m:ident, $v:expr, $t:ty) => {
+                match value_t!($m, $v, $t) {
+                    Ok(value) => *$c = value, // Update value
+                    Err(clap::Error {
+                        kind: clap::ErrorKind::ArgumentNotFound,
+                        message: _,
+                        info: _,
+                    }) => {
+                        // Do nothing if argument not found
+                    }
+                    Err(e) => e.exit(), // Exit with error on parse error
+                }
+            };
         }
 
-        if args.value_of("depth").is_some() {
-            let depth = value_t!(args.value_of("depth"), usize).unwrap_or_else(|e| e.exit());
-            config.depth = depth;
-        }
+        update_config_if_present!(&mut config.threads, args, "threads", usize);
+        update_config_if_present!(&mut config.depth, args, "depth", usize);
+        update_config_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
+        update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
+        update_config_if_present!(&mut config.output, args, "output", String);
 
-        if args.value_of("scan_limit").is_some() {
-            let scan_limit =
-                value_t!(args.value_of("scan_limit"), usize).unwrap_or_else(|e| e.exit());
-            config.scan_limit = scan_limit;
-        }
-
-        if args.value_of("wordlist").is_some() {
-            config.wordlist = String::from(args.value_of("wordlist").unwrap());
-        }
-
-        if args.value_of("output").is_some() {
-            config.output = String::from(args.value_of("output").unwrap());
-        }
-
-        if args.values_of("status_codes").is_some() {
-            config.status_codes = args
-                .values_of("status_codes")
-                .unwrap() // already known good
+        if let Some(arg) = args.values_of("status_codes") {
+            config.status_codes = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -390,11 +396,9 @@ impl Configuration {
                 .collect();
         }
 
-        if args.values_of("replay_codes").is_some() {
+        if let Some(arg) = args.values_of("replay_codes") {
             // replay codes passed in by the user
-            config.replay_codes = args
-                .values_of("replay_codes")
-                .unwrap() // already known good
+            config.replay_codes = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -406,10 +410,8 @@ impl Configuration {
             config.replay_codes = config.status_codes.clone();
         }
 
-        if args.values_of("filter_status").is_some() {
-            config.filter_status = args
-                .values_of("filter_status")
-                .unwrap() // already known good
+        if let Some(arg) = args.values_of("filter_status") {
+            config.filter_status = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
@@ -418,20 +420,32 @@ impl Configuration {
                 .collect();
         }
 
-        if args.values_of("extensions").is_some() {
-            config.extensions = args
-                .values_of("extensions")
-                .unwrap()
-                .map(|val| val.to_string())
+        if let Some(arg) = args.values_of("extensions") {
+            config.extensions = arg.map(|val| val.to_string()).collect();
+        }
+
+        if let Some(arg) = args.values_of("filter_size") {
+            config.filter_size = arg
+                .map(|size| {
+                    size.parse::<u64>()
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                })
                 .collect();
         }
 
-        if args.values_of("filter_size").is_some() {
-            config.filter_size = args
-                .values_of("filter_size")
-                .unwrap() // already known good
+        if let Some(arg) = args.values_of("filter_words") {
+            config.filter_word_count = arg
                 .map(|size| {
-                    size.parse::<u64>()
+                    size.parse::<usize>()
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                })
+                .collect();
+        }
+
+        if let Some(arg) = args.values_of("filter_lines") {
+            config.filter_line_count = arg
+                .map(|size| {
+                    size.parse::<usize>()
                         .unwrap_or_else(|e| report_and_exit(&e.to_string()))
                 })
                 .collect();
@@ -442,11 +456,11 @@ impl Configuration {
             // consider a user specifying quiet = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
             // false if no -q is used on the command line
-            config.quiet = args.is_present("quiet");
+            config.quiet = true;
         }
 
         if args.is_present("dont_filter") {
-            config.dont_filter = args.is_present("dont_filter");
+            config.dont_filter = true;
         }
 
         if args.occurrences_of("verbosity") > 0 {
@@ -456,19 +470,19 @@ impl Configuration {
         }
 
         if args.is_present("no_recursion") {
-            config.no_recursion = args.is_present("no_recursion");
+            config.no_recursion = true;
         }
 
         if args.is_present("add_slash") {
-            config.add_slash = args.is_present("add_slash");
+            config.add_slash = true;
         }
 
         if args.is_present("extract_links") {
-            config.extract_links = args.is_present("extract_links");
+            config.extract_links = true;
         }
 
         if args.is_present("stdin") {
-            config.stdin = args.is_present("stdin");
+            config.stdin = true;
         } else {
             config.target_url = String::from(args.value_of("url").unwrap());
         }
@@ -476,33 +490,21 @@ impl Configuration {
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
-        if args.value_of("proxy").is_some() {
-            config.proxy = String::from(args.value_of("proxy").unwrap());
-        }
-
-        if args.value_of("replay_proxy").is_some() {
-            config.replay_proxy = String::from(args.value_of("replay_proxy").unwrap());
-        }
-
-        if args.value_of("user_agent").is_some() {
-            config.user_agent = String::from(args.value_of("user_agent").unwrap());
-        }
-
-        if args.value_of("timeout").is_some() {
-            let timeout = value_t!(args.value_of("timeout"), u64).unwrap_or_else(|e| e.exit());
-            config.timeout = timeout;
-        }
+        update_config_if_present!(&mut config.proxy, args, "proxy", String);
+        update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
+        update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
+        update_config_if_present!(&mut config.timeout, args, "timeout", u64);
 
         if args.is_present("redirects") {
-            config.redirects = args.is_present("redirects");
+            config.redirects = true;
         }
 
         if args.is_present("insecure") {
-            config.insecure = args.is_present("insecure");
+            config.insecure = true;
         }
 
-        if args.values_of("headers").is_some() {
-            for val in args.values_of("headers").unwrap() {
+        if let Some(headers) = args.values_of("headers") {
+            for val in headers {
                 let mut split_val = val.split(':');
 
                 // explicitly take first split value as header's name
@@ -515,8 +517,8 @@ impl Configuration {
             }
         }
 
-        if args.values_of("queries").is_some() {
-            for val in args.values_of("queries").unwrap() {
+        if let Some(queries) = args.values_of("queries") {
+            for val in queries {
                 // same basic logic used as reading in the headers HashMap above
                 let mut split_val = val.split('=');
 
@@ -616,6 +618,8 @@ impl Configuration {
         settings.stdin = settings_to_merge.stdin;
         settings.depth = settings_to_merge.depth;
         settings.filter_size = settings_to_merge.filter_size;
+        settings.filter_word_count = settings_to_merge.filter_word_count;
+        settings.filter_line_count = settings_to_merge.filter_line_count;
         settings.filter_status = settings_to_merge.filter_status;
         settings.dont_filter = settings_to_merge.dont_filter;
         settings.scan_limit = settings_to_merge.scan_limit;
@@ -678,6 +682,8 @@ mod tests {
             extract_links = true
             depth = 1
             filter_size = [4120]
+            filter_word_count = [994, 992]
+            filter_line_count = [34]
             filter_status = [201]
         "#;
         let tmp_dir = TempDir::new().unwrap();
@@ -714,6 +720,8 @@ mod tests {
         assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.filter_size, Vec::<u64>::new());
+        assert_eq!(config.filter_word_count, Vec::<usize>::new());
+        assert_eq!(config.filter_line_count, Vec::<usize>::new());
         assert_eq!(config.filter_status, Vec::<u16>::new());
         assert_eq!(config.headers, HashMap::new());
     }
@@ -863,6 +871,20 @@ mod tests {
     fn config_reads_filter_size() {
         let config = setup_config_test();
         assert_eq!(config.filter_size, vec![4120]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_word_count() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_word_count, vec![994, 992]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_line_count() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_line_count, vec![34]);
     }
 
     #[test]

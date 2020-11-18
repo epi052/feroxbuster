@@ -1,8 +1,10 @@
-use crate::{FeroxError, FeroxResult};
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    FeroxError, FeroxResult,
+};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
-use reqwest::Url;
-use reqwest::{Client, Response};
+use reqwest::{Client, Response, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
@@ -238,7 +240,6 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
 
     match client.get(url.to_owned()).send().await {
         Ok(resp) => {
-            log::debug!("requested Url: {}", resp.url());
             log::trace!("exit: make_request -> {:?}", resp);
             Ok(resp)
         }
@@ -247,11 +248,48 @@ pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
             if e.to_string().contains("operation timed out") {
                 // only warn for timeouts, while actual errors are still left as errors
                 log::warn!("Error while making request: {}", e);
+            } else if e.is_redirect() {
+                if let Some(last_redirect) = e.url() {
+                    // get where we were headed (last_redirect) and where we came from (url)
+                    let fancy_message = format!("{} !=> {}", url, last_redirect);
+
+                    let report = if let Some(msg_status) = e.status() {
+                        create_report_string(msg_status.as_str(), "-1", "-1", "-1", &fancy_message)
+                    } else {
+                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message)
+                    };
+
+                    ferox_print(&report, &PROGRESS_PRINTER)
+                };
             } else {
                 log::error!("Error while making request: {}", e);
             }
             Err(Box::new(e))
         }
+    }
+}
+
+/// Helper to create the standard line for output to file/terminal
+///
+/// example output:
+/// 200      127l      283w     4134c http://localhost/faq
+pub fn create_report_string(
+    status: &str,
+    line_count: &str,
+    word_count: &str,
+    content_length: &str,
+    url: &str,
+) -> String {
+    if CONFIGURATION.quiet {
+        // -q used, just need the url
+        format!("{}\n", url)
+    } else {
+        // normal printing with status and sizes
+        let color_status = status_colorizer(status);
+        format!(
+            "{} {:>8}l {:>8}w {:>8}c {}\n",
+            color_status, line_count, word_count, content_length, url
+        )
     }
 }
 

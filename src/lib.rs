@@ -101,6 +101,19 @@ pub struct FeroxResponse {
     headers: HeaderMap,
 }
 
+/// Implement Display for FeroxResponse
+impl fmt::Display for FeroxResponse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "FeroxResponse {{ url: {}, status: {}, content-length: {} }}",
+            self.url(),
+            self.status(),
+            self.content_length()
+        )
+    }
+}
+
 /// `FeroxResponse` implementation
 impl FeroxResponse {
     /// Get the `StatusCode` of this `FeroxResponse`
@@ -159,6 +172,19 @@ impl FeroxResponse {
         };
 
         self.url.query_pairs().count() > 0 || has_extension
+    }
+
+    /// Returns line count of the response text.
+    pub fn line_count(&self) -> usize {
+        self.text().lines().count()
+    }
+
+    /// Returns word count of the response text.
+    pub fn word_count(&self) -> usize {
+        self.text()
+            .lines()
+            .map(|s| s.split_whitespace().count())
+            .sum()
     }
 
     /// Create a new `FeroxResponse` from the given `Response`

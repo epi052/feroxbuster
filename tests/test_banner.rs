@@ -117,7 +117,7 @@ fn banner_prints_headers() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple size filters
-fn banner_prints_filter_sizes() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_filter_sizes() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -126,6 +126,14 @@ fn banner_prints_filter_sizes() -> Result<(), Box<dyn std::error::Error>> {
         .arg("789456123")
         .arg("--filter-size")
         .arg("44444444")
+        .arg("-N")
+        .arg("678")
+        .arg("--filter-lines")
+        .arg("679")
+        .arg("-W")
+        .arg("93")
+        .arg("--filter-words")
+        .arg("94")
         .assert()
         .success()
         .stderr(
@@ -138,11 +146,16 @@ fn banner_prints_filter_sizes() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Size Filter"))
+                .and(predicate::str::contains("Word Count Filter"))
+                .and(predicate::str::contains("Line Count Filter"))
                 .and(predicate::str::contains("789456123"))
                 .and(predicate::str::contains("44444444"))
+                .and(predicate::str::contains("93"))
+                .and(predicate::str::contains("94"))
+                .and(predicate::str::contains("678"))
+                .and(predicate::str::contains("679"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
