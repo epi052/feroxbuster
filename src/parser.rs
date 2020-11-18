@@ -55,7 +55,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("verbosity")
                 .takes_value(false)
                 .multiple(true)
-                .help("Increase verbosity level (use -vv or more for greater effect)"),
+                .help("Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably too much)"),
         )
         .arg(
             Arg::with_name("proxy")

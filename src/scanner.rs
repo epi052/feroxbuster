@@ -285,7 +285,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
 /// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
 /// or if the Location header is present and matches the base url + / (3xx)
 fn response_is_directory(response: &FeroxResponse) -> bool {
-    log::trace!("enter: is_directory({:?})", response);
+    log::trace!("enter: is_directory({})", response);
 
     if response.status().is_redirection() {
         // status code is 3xx
@@ -311,10 +311,7 @@ fn response_is_directory(response: &FeroxResponse) -> bool {
                 }
             }
             None => {
-                log::debug!(
-                    "expected Location header, but none was found: {:?}",
-                    response
-                );
+                log::debug!("expected Location header, but none was found: {}", response);
                 log::trace!("exit: is_directory -> false");
                 return false;
             }
@@ -370,7 +367,7 @@ async fn try_recursion(
     transmitter: UnboundedSender<String>,
 ) {
     log::trace!(
-        "enter: try_recursion({:?}, {}, {:?})",
+        "enter: try_recursion({}, {}, {:?})",
         response,
         base_depth,
         transmitter
@@ -528,11 +525,7 @@ async fn make_requests(
 
                     if new_ferox_response.is_file() {
                         // very likely a file, simply request and report
-                        log::debug!(
-                            "Singular extraction: {} ({})",
-                            new_ferox_response.url(),
-                            new_ferox_response.status().as_str(),
-                        );
+                        log::debug!("Singular extraction: {}", new_ferox_response);
 
                         send_report(report_chan.clone(), new_ferox_response);
 
@@ -540,11 +533,7 @@ async fn make_requests(
                     }
 
                     if !CONFIGURATION.no_recursion {
-                        log::debug!(
-                            "Recursive extraction: {} ({})",
-                            new_ferox_response.url(),
-                            new_ferox_response.status().as_str()
-                        );
+                        log::debug!("Recursive extraction: {}", new_ferox_response);
 
                         if new_ferox_response.status().is_success()
                             && !new_ferox_response.url().as_str().ends_with('/')
@@ -570,7 +559,7 @@ async fn make_requests(
 
 /// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
 fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: FeroxResponse) {
-    log::trace!("enter: send_report({:?}, {:?}", report_sender, response);
+    log::trace!("enter: send_report({:?}, {}", report_sender, response);
 
     match report_sender.send(response) {
         Ok(_) => {}

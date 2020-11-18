@@ -19,8 +19,8 @@ pub fn initialize(verbosity: u8) {
                 0 => (),
                 1 => env::set_var("RUST_LOG", "warn"),
                 2 => env::set_var("RUST_LOG", "info"),
-                3 => env::set_var("RUST_LOG", "debug,hyper=info,reqwest=info"),
-                _ => env::set_var("RUST_LOG", "trace,hyper=info,reqwest=info"),
+                3 => env::set_var("RUST_LOG", "feroxbuster=debug,info"),
+                _ => env::set_var("RUST_LOG", "feroxbuster=trace,info"),
             }
         }
     }
@@ -55,9 +55,10 @@ pub fn initialize(verbosity: u8) {
             };
 
             let msg = format!(
-                "{} {:10.03} {}\n",
+                "{} {:10.03} {} {}\n",
                 style(level_name).bg(level_color).black(),
                 style(t).dim(),
+                record.target(),
                 style(record.args()).dim(),
             );
 

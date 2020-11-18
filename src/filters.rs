@@ -53,7 +53,7 @@ impl FeroxFilter for WildcardFilter {
     /// Examine size, dynamic, and content_len to determine whether or not the response received
     /// is a wildcard response and therefore should be filtered out
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {:?})", self, response);
+        log::trace!("enter: should_filter_response({:?} {})", self, response);
 
         // quick return if dont_filter is set
         if CONFIGURATION.dont_filter {
@@ -114,7 +114,7 @@ pub struct StatusCodeFilter {
 impl FeroxFilter for StatusCodeFilter {
     /// Check `filter_code` against what was passed in via -C|--filter-status
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {:?})", self, response);
+        log::trace!("enter: should_filter_response({:?} {})", self, response);
 
         if response.status().as_u16() == self.filter_code {
             log::debug!(
