@@ -33,6 +33,7 @@ pub fn initialize(
         .redirect(policy);
 
     let client = match proxy {
+        // a proxy is specified, need to add it to the client
         Some(some_proxy) => {
             if !some_proxy.is_empty() {
                 // it's not an empty string
@@ -56,7 +57,7 @@ pub fn initialize(
                 client // Some("") was used?
             }
         }
-        // a proxy is specified, just need to add it to the client
+        // no proxy specified
         None => client,
     };
 
