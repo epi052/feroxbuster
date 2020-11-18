@@ -1,9 +1,9 @@
-use crate::{config::PROGRESS_PRINTER, progress, SLEEP_DURATION, scanner::NUMBER_OF_REQUESTS};
+use crate::{config::PROGRESS_PRINTER, progress, scanner::NUMBER_OF_REQUESTS, SLEEP_DURATION};
 use console::style;
 use indicatif::ProgressBar;
 use std::{
-    fmt,
     cmp::PartialEq,
+    fmt,
     sync::{Arc, Mutex},
 };
 use std::{
@@ -101,7 +101,6 @@ impl fmt::Display for FeroxScan {
     }
 }
 
-
 /// PartialEq implementation; uses FeroxScan.id for comparison
 impl PartialEq for FeroxScan {
     fn eq(&self, other: &Self) -> bool {
@@ -191,12 +190,8 @@ impl FeroxScans {
     pub fn display_scans(&self) {
         if let Ok(scans) = self.scans.lock() {
             for (i, scan) in scans.iter().enumerate() {
-                let msg = format!(
-                    "{:3}: {}",
-                    i,
-                    scan.lock().unwrap()
-                );
-                PROGRESS_PRINTER.println(format!("{}", msg));
+                let msg = format!("{:3}: {}", i, scan.lock().unwrap());
+                PROGRESS_PRINTER.println(msg);
             }
         }
     }
@@ -225,7 +220,8 @@ impl FeroxScans {
 
             let mut s = String::new();
             std::io::stdin().read_line(&mut s).unwrap();
-            PROGRESS_PRINTER.println(format!("Here's your shit: {}", s));
+            // todo actual logic for the scanning
+            PROGRESS_PRINTER.println(format!("Got {} from stdin", s.strip_suffix('\n').unwrap()));
         }
 
         loop {
@@ -277,9 +273,9 @@ mod tests {
     /// a new one will be created, taking the if branch within the function
     async fn scanner_pause_scan_with_finished_spinner() {
         let now = time::Instant::now();
+        let urls = FeroxScans::default();
 
         PAUSE_SCAN.store(true, Ordering::Relaxed);
-        // BARRIER.write().unwrap().finish_and_clear();
 
         let expected = time::Duration::from_secs(2);
 
@@ -288,7 +284,7 @@ mod tests {
             PAUSE_SCAN.store(false, Ordering::Relaxed);
         });
 
-        pause_scan().await;
+        urls.pause().await;
 
         assert!(now.elapsed() > expected);
     }
@@ -298,7 +294,7 @@ mod tests {
     fn add_url_to_list_of_scanned_urls_with_unknown_url() {
         let urls = FeroxScans::default();
         let url = "http://unknown_url";
-        let (result, _scan) = add_url_to_list_of_scanned_urls(url, &urls);
+        let (result, _scan) = urls.add_scan(url);
         assert_eq!(result, true);
     }
 
@@ -308,11 +304,11 @@ mod tests {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let mut scan = FeroxScan::new(url, pb);
+        let scan = FeroxScan::new(url, pb);
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = add_url_to_list_of_scanned_urls(url, &urls);
+        let (result, _scan) = urls.add_scan(url);
 
         assert_eq!(result, false);
     }
@@ -323,13 +319,12 @@ mod tests {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url";
-        let mut scan = FeroxScan::new(url, pb);
+        let scan = FeroxScan::new(url, pb);
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = add_url_to_list_of_scanned_urls(url, &urls);
+        let (result, _scan) = urls.add_scan(url);
 
         assert_eq!(result, false);
     }
-
 }

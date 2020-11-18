@@ -3,8 +3,8 @@ use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger, reporter,
-    scanner::{self, scan_url},
     scan_manager::PAUSE_SCAN,
+    scanner::{self, scan_url},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };

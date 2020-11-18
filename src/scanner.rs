@@ -666,7 +666,6 @@ pub fn initialize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use indicatif::ProgressBar;
 
     #[test]
     /// sending url + word without any extensions should get back one url with the joined word
