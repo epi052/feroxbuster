@@ -396,7 +396,7 @@ async fn make_requests(
                 let new_links = get_links(&ferox_response).await;
 
                 for new_link in new_links {
-                    let (unknown, _) = SCANNED_URLS.add_scan(&new_link);
+                    let (unknown, new_scan) = SCANNED_URLS.add_scan(&new_link);
 
                     if !unknown {
                         // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -615,7 +615,7 @@ pub async fn scan_url(
     futures::future::join_all(recurser.await.unwrap()).await;
     log::trace!("done awaiting recursive scan receiver/scans");
 
-    log::trace!("exit: scan_url");
+    log::error!("exit: scan_url");
 }
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the

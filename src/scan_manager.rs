@@ -83,6 +83,7 @@ impl FeroxScan {
 
     /// Mark the scan as complete and stop the scan's progress bar
     pub fn finish(&mut self) {
+        PROGRESS_PRINTER.println(format!("{:?} complete? {}", self, self.complete));
         self.complete = true;
         self.stop_progress_bar();
     }
@@ -265,7 +266,7 @@ impl FeroxScans {
 mod tests {
     use super::*;
 
-    // todo add_url_* and pause_scan tests need to be redone
+    // todo scanner_pause_scan_with_finished_spinner test need to be redone
 
     #[tokio::test(core_threads = 1)]
     /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled

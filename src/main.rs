@@ -251,7 +251,7 @@ async fn clean_up(
     save_output: bool,
 ) {
     log::trace!(
-        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {}",
+        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {})",
         tx_term,
         term_handle,
         tx_file,
