@@ -140,3 +140,152 @@ impl FeroxFilter for StatusCodeFilter {
         self
     }
 }
+
+/// Simple implementor of FeroxFilter; used to filter out responses based on the number of lines
+/// in a Response body; specified using -N|--filter-lines
+#[derive(Default, Debug, PartialEq)]
+pub struct LinesFilter {
+    /// Number of lines in a Response's body that should be filtered
+    pub line_count: usize,
+}
+
+/// implementation of FeroxFilter for LinesFilter
+impl FeroxFilter for LinesFilter {
+    /// Check `line_count` against what was passed in via -N|--filter-lines
+    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+        log::trace!("enter: should_filter_response({:?} {})", self, response);
+
+        let result = response.line_count() == self.line_count;
+
+        log::trace!("exit: should_filter_response -> {}", result);
+
+        result
+    }
+
+    /// Compare one LinesFilter to another
+    fn box_eq(&self, other: &dyn Any) -> bool {
+        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+    }
+
+    /// Return self as Any for dynamic dispatch purposes
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Simple implementor of FeroxFilter; used to filter out responses based on the number of words
+/// in a Response body; specified using -W|--filter-words
+#[derive(Default, Debug, PartialEq)]
+pub struct WordsFilter {
+    /// Number of words in a Response's body that should be filtered
+    pub word_count: usize,
+}
+
+/// implementation of FeroxFilter for WordsFilter
+impl FeroxFilter for WordsFilter {
+    /// Check `word_count` against what was passed in via -W|--filter-words
+    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+        log::trace!("enter: should_filter_response({:?} {})", self, response);
+
+        let result = response.word_count() == self.word_count;
+
+        log::trace!("exit: should_filter_response -> {}", result);
+
+        result
+    }
+
+    /// Compare one WordsFilter to another
+    fn box_eq(&self, other: &dyn Any) -> bool {
+        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+    }
+
+    /// Return self as Any for dynamic dispatch purposes
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Simple implementor of FeroxFilter; used to filter out responses based on the length of a
+/// Response body; specified using -S|--filter-size
+#[derive(Default, Debug, PartialEq)]
+pub struct SizeFilter {
+    /// Overall length of a Response's body that should be filtered
+    pub content_length: u64,
+}
+
+/// implementation of FeroxFilter for SizeFilter
+impl FeroxFilter for SizeFilter {
+    /// Check `content_length` against what was passed in via -S|--filter-size
+    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+        log::trace!("enter: should_filter_response({:?} {})", self, response);
+
+        let result = response.content_length() == self.content_length;
+
+        log::trace!("exit: should_filter_response -> {}", result);
+
+        result
+    }
+
+    /// Compare one SizeFilter to another
+    fn box_eq(&self, other: &dyn Any) -> bool {
+        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+    }
+
+    /// Return self as Any for dynamic dispatch purposes
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn lines_filter_as_any() {
+        let filter = LinesFilter { line_count: 1 };
+
+        assert_eq!(filter.line_count, 1);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<LinesFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn words_filter_as_any() {
+        let filter = WordsFilter { word_count: 1 };
+
+        assert_eq!(filter.word_count, 1);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<WordsFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn size_filter_as_any() {
+        let filter = SizeFilter { content_length: 1 };
+
+        assert_eq!(filter.content_length, 1);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<SizeFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn status_code_filter_as_any() {
+        let filter = StatusCodeFilter { filter_code: 200 };
+
+        assert_eq!(filter.filter_code, 200);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<StatusCodeFilter>().unwrap(),
+            filter
+        );
+    }
+}
