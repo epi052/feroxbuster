@@ -11,7 +11,7 @@ Long form explanations of most of the items below can be found in the [CONTRIBUT
 
 ## Static analysis checks
 - [ ] All rust files are formatted using `cargo fmt`
-- [ ] All `clippy` checks pass when running `cargo clippy --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap`
+- [ ] All `clippy` checks pass when running `cargo clippy --all-targets --all-features -- -D warnings -A clippy::deref_addrof`
 - [ ] All existing tests pass
 
 ## Documentation
