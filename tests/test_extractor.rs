@@ -156,10 +156,6 @@ fn extractor_finds_same_relative_url_twice() -> Result<(), Box<dyn std::error::E
         .return_status(200)
         .create_on(&srv);
 
-    println!("{}", mock.server_address());
-    println!("{}", mock_two.server_address());
-    println!("{}", mock_three.server_address());
-
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
