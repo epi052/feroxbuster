@@ -1,7 +1,9 @@
 use crate::{
     config::CONFIGURATION,
     extractor::get_links,
-    filters::{FeroxFilter, StatusCodeFilter, WildcardFilter},
+    filters::{
+        FeroxFilter, LinesFilter, SizeFilter, StatusCodeFilter, WildcardFilter, WordsFilter,
+    },
     heuristics, progress,
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SLEEP_DURATION,
@@ -19,7 +21,7 @@ use std::{
     convert::TryInto,
     io::{stderr, Write},
     ops::Deref,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     sync::{Arc, RwLock},
 };
 use tokio::{
@@ -33,6 +35,9 @@ use tokio::{
 
 /// Single atomic number that gets incremented once, used to track first scan vs. all others
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// Single atomic number that gets holds the number of requests to be sent per directory scanned
+pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0);
 
 /// Atomic boolean flag, used to determine whether or not a scan should pause or resume
 pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
@@ -415,22 +420,6 @@ async fn try_recursion(
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
 /// to the user or not.
 pub fn should_filter_response(response: &FeroxResponse) -> bool {
-    if CONFIGURATION
-        .filter_size
-        .contains(&response.content_length())
-        || CONFIGURATION
-            .filter_line_count
-            .contains(&response.line_count())
-        || CONFIGURATION
-            .filter_word_count
-            .contains(&response.word_count())
-    {
-        // filtered value from --filter-size, size filters and wildcards are two separate filters
-        // and are applied independently
-        log::debug!("size filter: filtered out {}", response.url());
-        return true;
-    }
-
     match FILTERS.read() {
         Ok(filters) => {
             for filter in filters.iter() {
@@ -594,14 +583,11 @@ pub async fn scan_url(
 
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
-    let num_reqs_expected: u64 = if CONFIGURATION.extensions.is_empty() {
-        wordlist.len().try_into().unwrap()
-    } else {
-        let total = wordlist.len() * (CONFIGURATION.extensions.len() + 1);
-        total.try_into().unwrap()
-    };
-
-    let progress_bar = progress::add_bar(&target_url, num_reqs_expected, false);
+    let progress_bar = progress::add_bar(
+        &target_url,
+        NUMBER_OF_REQUESTS.load(Ordering::Relaxed),
+        false,
+    );
     progress_bar.reset_elapsed();
 
     if CALL_COUNT.load(Ordering::Relaxed) == 0 {
@@ -610,13 +596,6 @@ pub async fn scan_url(
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
         add_url_to_list_of_scanned_urls(&target_url, &SCANNED_URLS);
-
-        if CONFIGURATION.scan_limit == 0 {
-            // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
-            // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
-            // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
-            SCAN_LIMITER.add_permits(usize::MAX >> 4);
-        }
     }
 
     // When acquire is called and the semaphore has remaining permits, the function immediately
@@ -652,15 +631,6 @@ pub async fn scan_url(
         };
 
     add_filter_to_list_of_ferox_filters(filter, FILTERS.clone());
-
-    // add any status code filters to `FILTERS`
-    for code_filter in &CONFIGURATION.filter_status {
-        let filter = StatusCodeFilter {
-            filter_code: *code_filter,
-        };
-        let boxed_filter = Box::new(filter);
-        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
-    }
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
@@ -713,6 +683,84 @@ pub async fn scan_url(
     log::trace!("done awaiting recursive scan receiver/scans");
 
     log::trace!("exit: scan_url");
+}
+
+/// Perform steps necessary to run scans that only need to be performed once (warming up the
+/// engine, as it were)
+pub fn initialize(
+    num_words: usize,
+    scan_limit: usize,
+    extensions: &[String],
+    status_code_filters: &[u16],
+    lines_filters: &[usize],
+    words_filters: &[usize],
+    size_filters: &[u64],
+) {
+    log::trace!(
+        "enter: initialize({}, {}, {:?}, {:?}, {:?}, {:?}, {:?})",
+        num_words,
+        scan_limit,
+        extensions,
+        status_code_filters,
+        lines_filters,
+        words_filters,
+        size_filters,
+    );
+
+    // number of requests only needs to be calculated once, and then can be reused
+    let num_reqs_expected: u64 = if extensions.is_empty() {
+        num_words.try_into().unwrap()
+    } else {
+        let total = num_words * (extensions.len() + 1);
+        total.try_into().unwrap()
+    };
+
+    NUMBER_OF_REQUESTS.store(num_reqs_expected, Ordering::Relaxed);
+
+    // add any status code filters to `FILTERS` (-C|--filter-status)
+    for code_filter in status_code_filters {
+        let filter = StatusCodeFilter {
+            filter_code: *code_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any line count filters to `FILTERS` (-N|--filter-lines)
+    for lines_filter in lines_filters {
+        let filter = LinesFilter {
+            line_count: *lines_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any line count filters to `FILTERS` (-W|--filter-words)
+    for words_filter in words_filters {
+        let filter = WordsFilter {
+            word_count: *words_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any line count filters to `FILTERS` (-S|--filter-size)
+    for size_filter in size_filters {
+        let filter = SizeFilter {
+            content_length: *size_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    if scan_limit == 0 {
+        // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
+        // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
+        // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
+        SCAN_LIMITER.add_permits(usize::MAX >> 4);
+    }
+
+    log::trace!("exit: initialize");
 }
 
 #[cfg(test)]
