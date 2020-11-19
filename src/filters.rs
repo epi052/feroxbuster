@@ -236,3 +236,56 @@ impl FeroxFilter for SizeFilter {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn lines_filter_as_any() {
+        let filter = LinesFilter { line_count: 1 };
+
+        assert_eq!(filter.line_count, 1);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<LinesFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn words_filter_as_any() {
+        let filter = WordsFilter { word_count: 1 };
+
+        assert_eq!(filter.word_count, 1);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<WordsFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn size_filter_as_any() {
+        let filter = SizeFilter { content_length: 1 };
+
+        assert_eq!(filter.content_length, 1);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<SizeFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn status_code_filter_as_any() {
+        let filter = StatusCodeFilter { filter_code: 200 };
+
+        assert_eq!(filter.filter_code, 200);
+        assert_eq!(
+            *filter.as_any().downcast_ref::<StatusCodeFilter>().unwrap(),
+            filter
+        );
+    }
+}
