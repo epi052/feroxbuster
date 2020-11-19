@@ -202,4 +202,3 @@ fn filters_size_should_filter_response() {
     assert_eq!(mock_two.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
 }
-
