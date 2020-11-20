@@ -1,7 +1,9 @@
 use crate::{
     config::CONFIGURATION,
     extractor::get_links,
-    filters::{FeroxFilter, StatusCodeFilter, WildcardFilter},
+    filters::{
+        FeroxFilter, LinesFilter, SizeFilter, StatusCodeFilter, WildcardFilter, WordsFilter,
+    },
     heuristics,
     scan_manager::{FeroxScans, PAUSE_SCAN},
     utils::{format_url, get_current_depth, make_request},
@@ -320,22 +322,6 @@ async fn try_recursion(
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
 /// to the user or not.
 pub fn should_filter_response(response: &FeroxResponse) -> bool {
-    if CONFIGURATION
-        .filter_size
-        .contains(&response.content_length())
-        || CONFIGURATION
-            .filter_line_count
-            .contains(&response.line_count())
-        || CONFIGURATION
-            .filter_word_count
-            .contains(&response.word_count())
-    {
-        // filtered value from --filter-size, size filters and wildcards are two separate filters
-        // and are applied independently
-        log::debug!("size filter: filtered out {}", response.url());
-        return true;
-    }
-
     match FILTERS.read() {
         Ok(filters) => {
             for filter in filters.iter() {
@@ -396,7 +382,7 @@ async fn make_requests(
                 let new_links = get_links(&ferox_response).await;
 
                 for new_link in new_links {
-                    let (unknown, new_scan) = SCANNED_URLS.add_scan(&new_link);
+                    let (unknown, _) = SCANNED_URLS.add_scan(&new_link);
 
                     if !unknown {
                         // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -615,7 +601,7 @@ pub async fn scan_url(
     futures::future::join_all(recurser.await.unwrap()).await;
     log::trace!("done awaiting recursive scan receiver/scans");
 
-    log::error!("exit: scan_url");
+    log::trace!("exit: scan_url");
 }
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
@@ -625,13 +611,19 @@ pub fn initialize(
     scan_limit: usize,
     extensions: &[String],
     status_code_filters: &[u16],
+    lines_filters: &[usize],
+    words_filters: &[usize],
+    size_filters: &[u64],
 ) {
     log::trace!(
-        "enter: initialize({}, {}, {:?}, {:?})",
+        "enter: initialize({}, {}, {:?}, {:?}, {:?}, {:?}, {:?})",
         num_words,
         scan_limit,
         extensions,
-        status_code_filters
+        status_code_filters,
+        lines_filters,
+        words_filters,
+        size_filters,
     );
 
     // number of requests only needs to be calculated once, and then can be reused
@@ -644,10 +636,37 @@ pub fn initialize(
 
     NUMBER_OF_REQUESTS.store(num_reqs_expected, Ordering::Relaxed);
 
-    // add any status code filters to `FILTERS`
+    // add any status code filters to `FILTERS` (-C|--filter-status)
     for code_filter in status_code_filters {
         let filter = StatusCodeFilter {
             filter_code: *code_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any line count filters to `FILTERS` (-N|--filter-lines)
+    for lines_filter in lines_filters {
+        let filter = LinesFilter {
+            line_count: *lines_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any line count filters to `FILTERS` (-W|--filter-words)
+    for words_filter in words_filters {
+        let filter = WordsFilter {
+            word_count: *words_filter,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any line count filters to `FILTERS` (-S|--filter-size)
+    for size_filter in size_filters {
+        let filter = SizeFilter {
+            content_length: *size_filter,
         };
         let boxed_filter = Box::new(filter);
         add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());

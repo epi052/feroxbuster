@@ -118,6 +118,9 @@ async fn scan(
         CONFIGURATION.scan_limit,
         &CONFIGURATION.extensions,
         &CONFIGURATION.filter_status,
+        &CONFIGURATION.filter_line_count,
+        &CONFIGURATION.filter_word_count,
+        &CONFIGURATION.filter_size,
     );
 
     let mut tasks = vec![];

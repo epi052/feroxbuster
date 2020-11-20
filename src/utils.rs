@@ -86,8 +86,8 @@ pub fn get_url_path_length(url: &Url) -> u64 {
 
     let path = url.path();
 
-    let segments = if path.starts_with('/') {
-        path[1..].split_terminator('/')
+    let segments = if let Some(split) = path.strip_prefix('/') {
+        split.split_terminator('/')
     } else {
         log::trace!("exit: get_url_path_length -> 0");
         return 0;
