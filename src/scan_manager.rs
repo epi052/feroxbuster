@@ -248,7 +248,8 @@ impl FeroxScans {
                 let mut s = String::new();
                 std::io::stdin().read_line(&mut s).unwrap();
                 // todo actual logic for the scanning
-                PROGRESS_PRINTER.println(format!("Got {} from stdin", s.strip_suffix('\n').unwrap()));
+                PROGRESS_PRINTER
+                    .println(format!("Got {} from stdin", s.strip_suffix('\n').unwrap()));
             }
         }
 
@@ -389,5 +390,4 @@ mod tests {
 
         urls.display_scans();
     }
-
 }
