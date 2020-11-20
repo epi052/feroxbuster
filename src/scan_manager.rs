@@ -378,4 +378,17 @@ mod tests {
 
         assert_eq!(result, false);
     }
+
+    #[test]
+    /// just increasing coverage, no real expectations
+    fn call_display_scans() {
+        let urls = FeroxScans::default();
+        let pb = ProgressBar::new(1);
+        let url = "http://unknown_url/";
+        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+        assert_eq!(urls.insert(scan), true);
+
+        urls.display_scans();
+    }
+
 }
