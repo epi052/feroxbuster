@@ -229,8 +229,7 @@ impl FeroxScans {
     ///
     /// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
     /// loop
-    pub async fn pause(&self) {
-        log::trace!("enter: pause_scan");
+    pub async fn pause(&self, get_user_input: bool) {
         // function uses tokio::time, not std
 
         // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
@@ -243,12 +242,14 @@ impl FeroxScans {
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
-            self.display_scans();
+            if get_user_input {
+                self.display_scans();
 
-            let mut s = String::new();
-            std::io::stdin().read_line(&mut s).unwrap();
-            // todo actual logic for the scanning
-            PROGRESS_PRINTER.println(format!("Got {} from stdin", s.strip_suffix('\n').unwrap()));
+                let mut s = String::new();
+                std::io::stdin().read_line(&mut s).unwrap();
+                // todo actual logic for the scanning
+                PROGRESS_PRINTER.println(format!("Got {} from stdin", s.strip_suffix('\n').unwrap()));
+            }
         }
 
         loop {
@@ -317,29 +318,27 @@ impl FeroxScans {
 mod tests {
     use super::*;
 
-    // todo scanner_pause_scan_with_finished_spinner test need to be redone
+    #[tokio::test(core_threads = 1)]
+    /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
+    /// the spinner used during the test has had .finish_and_clear called on it, meaning that
+    /// a new one will be created, taking the if branch within the function
+    async fn scanner_pause_scan_with_finished_spinner() {
+        let now = time::Instant::now();
+        let urls = FeroxScans::default();
 
-    // #[tokio::test(core_threads = 1)]
-    // /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
-    // /// the spinner used during the test has had .finish_and_clear called on it, meaning that
-    // /// a new one will be created, taking the if branch within the function
-    // async fn scanner_pause_scan_with_finished_spinner() {
-    //     let now = time::Instant::now();
-    //     let urls = FeroxScans::default();
-    //
-    //     PAUSE_SCAN.store(true, Ordering::Relaxed);
-    //
-    //     let expected = time::Duration::from_secs(2);
-    //
-    //     tokio::spawn(async move {
-    //         time::delay_for(expected).await;
-    //         PAUSE_SCAN.store(false, Ordering::Relaxed);
-    //     });
-    //
-    //     urls.pause().await;
-    //
-    //     assert!(now.elapsed() > expected);
-    // }
+        PAUSE_SCAN.store(true, Ordering::Relaxed);
+
+        let expected = time::Duration::from_secs(2);
+
+        tokio::spawn(async move {
+            time::delay_for(expected).await;
+            PAUSE_SCAN.store(false, Ordering::Relaxed);
+        });
+
+        urls.pause(false).await;
+
+        assert!(now.elapsed() > expected);
+    }
 
     #[test]
     /// add an unknown url to the hashset, expect true
