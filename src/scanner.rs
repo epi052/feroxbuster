@@ -38,11 +38,7 @@ pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
-    static ref SCANNED_URLS: FeroxScans = FeroxScans::default();
-
-    // todo remove if not needed
-    // /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
-    // static ref BARRIER: Arc<RwLock<bool>> = Arc::new(RwLock::new(true));
+    pub static ref SCANNED_URLS: FeroxScans = FeroxScans::default();
 
     /// Vector of implementors of the FeroxFilter trait
     static ref FILTERS: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>> = Arc::new(RwLock::new(Vec::<Box<dyn FeroxFilter>>::new()));
@@ -110,7 +106,7 @@ fn spawn_recursion_handler(
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, _ferox_scan) = SCANNED_URLS.add_scan(&resp);
+            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp);
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -382,13 +378,6 @@ async fn make_requests(
                 let new_links = get_links(&ferox_response).await;
 
                 for new_link in new_links {
-                    let (unknown, _) = SCANNED_URLS.add_scan(&new_link);
-
-                    if !unknown {
-                        // not unknown, i.e. we've seen the url before and don't need to scan again
-                        continue;
-                    }
-
                     // create a url based on the given command line options, continue on error
                     let new_url = match format_url(
                         &new_link,
@@ -400,6 +389,11 @@ async fn make_requests(
                         Ok(url) => url,
                         Err(_) => continue,
                     };
+
+                    if SCANNED_URLS.get_scan_by_url(&new_url.to_string()).is_some() {
+                        //we've seen the url before and don't need to scan again
+                        continue;
+                    }
 
                     // make the request and store the response
                     let new_response = match make_request(&CONFIGURATION.client, &new_url).await {
@@ -417,6 +411,8 @@ async fn make_requests(
                     if new_ferox_response.is_file() {
                         // very likely a file, simply request and report
                         log::debug!("Singular extraction: {}", new_ferox_response);
+
+                        SCANNED_URLS.add_file_scan(&new_url.to_string());
 
                         send_report(report_chan.clone(), new_ferox_response);
 
@@ -490,23 +486,21 @@ pub async fn scan_url(
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
-        SCANNED_URLS.add_scan(&target_url);
+        SCANNED_URLS.add_directory_scan(&target_url);
     }
 
-    let ferox_scan = SCANNED_URLS.get_scan_by_url(&target_url);
+    let ferox_scan = match SCANNED_URLS.get_scan_by_url(&target_url) {
+        Some(scan) => scan,
+        None => {
+            log::error!(
+                "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
+                target_url
+            );
+            return;
+        }
+    };
 
-    if ferox_scan.is_none() {
-        // todo probably remove this, fine for testing for now
-        log::error!(
-            "Could not find FeroxScan associated with {}; exiting scan",
-            target_url
-        );
-        return;
-    }
-
-    let ferox_scan = ferox_scan.unwrap();
-
-    // todo unwrap
+    // todo unwrap, maybe move into the scan impl itself and just manipulate progress bars that way
     let progress_bar = ferox_scan
         .lock()
         .unwrap()
@@ -589,8 +583,9 @@ pub async fn scan_url(
     // drop the current permit so the semaphore will allow another scan to proceed
     drop(permit);
 
-    // todo unwrap
-    ferox_scan.lock().unwrap().finish();
+    if let Ok(mut scan) = ferox_scan.lock() {
+        scan.finish();
+    }
 
     // manually drop tx in order for the rx task's while loops to eval to false
     log::trace!("dropped recursion handler's transmitter");

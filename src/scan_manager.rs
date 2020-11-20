@@ -20,6 +20,13 @@ static INTERACTIVE_BARRIER: AtomicUsize = AtomicUsize::new(0);
 /// Atomic boolean flag, used to determine whether or not a scan should pause or resume
 pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
 
+/// Simple enum used to flag a `FeroxScan` as likely a directory or file
+#[derive(Debug)]
+pub enum ScanType {
+    File,
+    Directory,
+}
+
 /// Struct to hold scan-related state
 ///
 /// The purpose of this container is to open up the pathway to aborting currently running tasks and
@@ -31,6 +38,9 @@ pub struct FeroxScan {
 
     /// The URL that to be scanned
     pub url: String,
+
+    /// The type of scan
+    pub scan_type: ScanType,
 
     /// Whether or not this scan has completed
     pub complete: bool,
@@ -58,10 +68,11 @@ impl FeroxScan {
 
         FeroxScan {
             id: new_id,
+            task: None,
             complete: false,
             url: String::new(),
-            task: None,
             progress_bar: None,
+            scan_type: ScanType::File,
         }
     }
 
@@ -73,17 +84,18 @@ impl FeroxScan {
     }
 
     /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
-    pub fn new(url: &str, pb: ProgressBar) -> Arc<Mutex<Self>> {
+    pub fn new(url: &str, scan_type: ScanType, pb: Option<ProgressBar>) -> Arc<Mutex<Self>> {
         let mut me = Self::default();
 
         me.url = url.to_string();
-        me.progress_bar = Some(pb);
+        me.scan_type = scan_type;
+        me.progress_bar = pb;
+
         Arc::new(Mutex::new(me))
     }
 
     /// Mark the scan as complete and stop the scan's progress bar
     pub fn finish(&mut self) {
-        PROGRESS_PRINTER.println(format!("{:?} complete? {}", self, self.complete));
         self.complete = true;
         self.stop_progress_bar();
     }
@@ -187,12 +199,26 @@ impl FeroxScans {
         None
     }
 
-    /// todo doc
+    /// Print all FeroxScans of type Directory
+    ///
+    /// Example:
+    ///   0: complete   https://10.129.45.20
+    ///   9: complete   https://10.129.45.20/images
+    ///  10: complete   https://10.129.45.20/assets
     pub fn display_scans(&self) {
         if let Ok(scans) = self.scans.lock() {
             for (i, scan) in scans.iter().enumerate() {
-                let msg = format!("{:3}: {}", i, scan.lock().unwrap());
-                PROGRESS_PRINTER.println(msg);
+                if let Ok(unlocked_scan) = scan.lock() {
+                    match unlocked_scan.scan_type {
+                        ScanType::Directory => {
+                            PROGRESS_PRINTER.println(format!("{:3}: {}", i, unlocked_scan));
+                        }
+                        ScanType::File => {
+                            // we're only interested in displaying directory scans, as those are
+                            // the only ones that make sense to be stopped
+                        }
+                    }
+                }
             }
         }
     }
@@ -246,19 +272,44 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
-        let progress_bar =
-            progress::add_bar(&url, NUMBER_OF_REQUESTS.load(Ordering::Relaxed), false);
+    fn add_scan(&self, url: &str, scan_type: ScanType) -> (bool, Arc<Mutex<FeroxScan>>) {
+        let bar = match scan_type {
+            ScanType::Directory => {
+                let progress_bar =
+                    progress::add_bar(&url, NUMBER_OF_REQUESTS.load(Ordering::Relaxed), false);
 
-        progress_bar.reset_elapsed();
+                progress_bar.reset_elapsed();
 
-        let ferox_scan = FeroxScan::new(&url, progress_bar);
+                Some(progress_bar)
+            }
+            ScanType::File => None,
+        };
+
+        let ferox_scan = FeroxScan::new(&url, scan_type, bar);
 
         // If the set did not contain the scan, true is returned.
         // If the set did contain the scan, false is returned.
         let response = self.insert(ferox_scan.clone());
 
         (response, ferox_scan)
+    }
+
+    /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a Directory Scan
+    ///
+    /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
+    ///
+    /// Also return a reference to the new `FeroxScan`
+    pub fn add_directory_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
+        self.add_scan(&url, ScanType::Directory)
+    }
+
+    /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
+    ///
+    /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
+    ///
+    /// Also return a reference to the new `FeroxScan`
+    pub fn add_file_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
+        self.add_scan(&url, ScanType::File)
     }
 }
 
@@ -268,34 +319,34 @@ mod tests {
 
     // todo scanner_pause_scan_with_finished_spinner test need to be redone
 
-    #[tokio::test(core_threads = 1)]
-    /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
-    /// the spinner used during the test has had .finish_and_clear called on it, meaning that
-    /// a new one will be created, taking the if branch within the function
-    async fn scanner_pause_scan_with_finished_spinner() {
-        let now = time::Instant::now();
-        let urls = FeroxScans::default();
-
-        PAUSE_SCAN.store(true, Ordering::Relaxed);
-
-        let expected = time::Duration::from_secs(2);
-
-        tokio::spawn(async move {
-            time::delay_for(expected).await;
-            PAUSE_SCAN.store(false, Ordering::Relaxed);
-        });
-
-        urls.pause().await;
-
-        assert!(now.elapsed() > expected);
-    }
+    // #[tokio::test(core_threads = 1)]
+    // /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
+    // /// the spinner used during the test has had .finish_and_clear called on it, meaning that
+    // /// a new one will be created, taking the if branch within the function
+    // async fn scanner_pause_scan_with_finished_spinner() {
+    //     let now = time::Instant::now();
+    //     let urls = FeroxScans::default();
+    //
+    //     PAUSE_SCAN.store(true, Ordering::Relaxed);
+    //
+    //     let expected = time::Duration::from_secs(2);
+    //
+    //     tokio::spawn(async move {
+    //         time::delay_for(expected).await;
+    //         PAUSE_SCAN.store(false, Ordering::Relaxed);
+    //     });
+    //
+    //     urls.pause().await;
+    //
+    //     assert!(now.elapsed() > expected);
+    // }
 
     #[test]
     /// add an unknown url to the hashset, expect true
     fn add_url_to_list_of_scanned_urls_with_unknown_url() {
         let urls = FeroxScans::default();
         let url = "http://unknown_url";
-        let (result, _scan) = urls.add_scan(url);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory);
         assert_eq!(result, true);
     }
 
@@ -305,11 +356,11 @@ mod tests {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, pb);
+        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory);
 
         assert_eq!(result, false);
     }
@@ -318,13 +369,12 @@ mod tests {
     /// add a known url to the hashset, without a trailing slash, expect false
     fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         let urls = FeroxScans::default();
-        let pb = ProgressBar::new(1);
         let url = "http://unknown_url";
-        let scan = FeroxScan::new(url, pb);
+        let scan = FeroxScan::new(url, ScanType::File, None);
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url);
+        let (result, _scan) = urls.add_scan(url, ScanType::File);
 
         assert_eq!(result, false);
     }
