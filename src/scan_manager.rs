@@ -1,10 +1,11 @@
 use crate::{config::PROGRESS_PRINTER, progress, scanner::NUMBER_OF_REQUESTS, SLEEP_DURATION};
 use console::style;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
+use lazy_static::lazy_static;
 use std::{
     cmp::PartialEq,
     fmt,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, RwLock},
 };
 use std::{
     io::{stderr, Write},
@@ -12,6 +13,12 @@ use std::{
 };
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
+
+lazy_static! {
+    /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
+    // todo remove this when issue #107 is resolved
+    static ref SINGLE_SPINNER: RwLock<ProgressBar> = RwLock::new(get_single_spinner());
+}
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
 /// when pausing a scan
@@ -246,12 +253,27 @@ impl FeroxScans {
             if get_user_input {
                 self.display_scans();
 
-                let mut s = String::new();
-                std::io::stdin().read_line(&mut s).unwrap();
-                // todo actual logic for the scanning
-                PROGRESS_PRINTER
-                    .println(format!("Got {} from stdin", s.strip_suffix('\n').unwrap()));
+                let mut user_input = String::new();
+                std::io::stdin().read_line(&mut user_input).unwrap();
+                // todo actual logic for parsing user input in a way that allows for
+                // calling .abort on the scan retrieved based on the input (issue #107)
             }
+        }
+
+        if SINGLE_SPINNER.read().unwrap().is_finished() {
+            // todo remove this when issue #107 is resolved
+
+            // in order to not leave draw artifacts laying around in the terminal, we call
+            // finish_and_clear on the progress bar when resuming scans. For this reason, we need to
+            // check if the spinner is finished, and repopulate the RwLock with a new spinner if
+            // necessary
+            if let Ok(mut guard) = SINGLE_SPINNER.write() {
+                *guard = get_single_spinner();
+            }
+        }
+
+        if let Ok(spinner) = SINGLE_SPINNER.write() {
+            spinner.enable_steady_tick(120);
         }
 
         loop {
@@ -260,10 +282,18 @@ impl FeroxScans {
 
             if !PAUSE_SCAN.load(Ordering::Acquire) {
                 // PAUSE_SCAN is false, so we can exit the busy loop
-                let _ = stderr().flush();
+
                 if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 1 {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
                 }
+
+                if let Ok(spinner) = SINGLE_SPINNER.write() {
+                    // todo remove this when issue #107 is resolved
+                    spinner.finish_and_clear();
+                }
+
+                let _ = stderr().flush();
+
                 log::trace!("exit: pause_scan");
                 return;
             }
@@ -316,9 +346,37 @@ impl FeroxScans {
     }
 }
 
+/// Return a clock spinner, used when scans are paused
+// todo remove this when issue #107 is resolved
+fn get_single_spinner() -> ProgressBar {
+    log::trace!("enter: get_single_spinner");
+
+    let spinner = ProgressBar::new_spinner().with_style(
+        ProgressStyle::default_spinner()
+            .tick_strings(&[
+                "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
+            ])
+            .template(&format!(
+                "\t-= All Scans {{spinner}} {} =-",
+                style("Paused").red()
+            )),
+    );
+
+    log::trace!("exit: get_single_spinner -> {:?}", spinner);
+    spinner
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    /// test that get_single_spinner returns the correct spinner
+    // todo remove this when issue #107 is resolved
+    fn scanner_get_single_spinner_returns_spinner() {
+        let spinner = get_single_spinner();
+        assert!(!spinner.is_finished());
+    }
 
     #[tokio::test(core_threads = 1)]
     /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
