@@ -500,15 +500,13 @@ pub async fn scan_url(
         }
     };
 
-    // todo unwrap, maybe move into the scan impl itself and just manipulate progress bars that way
-    let progress_bar = ferox_scan
-        .lock()
-        .unwrap()
-        .progress_bar
-        .as_ref()
-        .unwrap()
-        .clone();
-    progress_bar.reset_elapsed();
+    let progress_bar = match ferox_scan.lock() {
+        Ok(mut scan) => scan.progress_bar(),
+        Err(e) => {
+            log::error!("FeroxScan's ({:?}) mutex is poisoned: {}", ferox_scan, e);
+            return;
+        }
+    };
 
     // When acquire is called and the semaphore has remaining permits, the function immediately
     // returns a permit. However, if no remaining permits are available, acquire (asynchronously)

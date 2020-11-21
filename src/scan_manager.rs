@@ -91,6 +91,22 @@ impl FeroxScan {
         }
     }
 
+    /// Simple helper get a progress bar
+    pub fn progress_bar(&mut self) -> ProgressBar {
+        if let Some(pb) = &self.progress_bar {
+            pb.clone()
+        } else {
+            let num_requests = NUMBER_OF_REQUESTS.load(Ordering::Relaxed);
+            let pb = progress::add_bar(&self.url, num_requests, false);
+
+            pb.reset_elapsed();
+
+            self.progress_bar = Some(pb.clone());
+
+            pb
+        }
+    }
+
     /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
     pub fn new(url: &str, scan_type: ScanType, pb: Option<ProgressBar>) -> Arc<Mutex<Self>> {
         let mut me = Self::default();
@@ -515,5 +531,18 @@ mod tests {
         }
         assert!(scan.task.is_none());
         assert_eq!(scan.complete, false);
+    }
+
+    #[test]
+    /// show that a new progress bar is created if one doesn't exist
+    fn ferox_scan_get_progress_bar_when_none_is_set() {
+        let mut scan = FeroxScan::default();
+
+        assert!(scan.progress_bar.is_none()); // no pb exists
+
+        let pb = scan.progress_bar();
+
+        assert!(scan.progress_bar.is_some()); // new pb created
+        assert!(!pb.is_finished()) // not finished
     }
 }
