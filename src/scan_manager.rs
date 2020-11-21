@@ -517,23 +517,6 @@ mod tests {
     }
 
     #[test]
-    /// test struct defaults
-    fn ferox_scan_defaults_are_correct() {
-        let scan = FeroxScan::default();
-        assert!(scan.progress_bar.is_none());
-        assert!(Uuid::parse_str(&scan.id).is_ok());
-        assert_eq!(scan.url, String::new());
-        match scan.scan_type {
-            ScanType::File => {
-                // do nothing, i.e. this is what we expect to see
-            }
-            ScanType::Directory => panic!(),
-        }
-        assert!(scan.task.is_none());
-        assert_eq!(scan.complete, false);
-    }
-
-    #[test]
     /// show that a new progress bar is created if one doesn't exist
     fn ferox_scan_get_progress_bar_when_none_is_set() {
         let mut scan = FeroxScan::default();
