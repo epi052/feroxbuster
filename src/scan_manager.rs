@@ -56,10 +56,11 @@ pub struct FeroxScan {
 impl FeroxScan {
     /// Stop a currently running scan
     pub fn abort(&self) {
+        self.stop_progress_bar();
+
         if let Some(_task) = &self.task {
             // task.abort();  todo uncomment once upgraded to tokio 0.3
         }
-        self.stop_progress_bar();
     }
 
     /// Create a default FeroxScan, populates ID with a new UUID
@@ -366,6 +367,36 @@ mod tests {
     }
 
     #[test]
+    /// abort should call stop_progress_bar, marking it as finished
+    fn abort_stops_progress_bar() {
+        let pb = ProgressBar::new(1);
+        let url = "http://unknown_url/";
+        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+
+        assert_eq!(
+            scan.lock()
+                .unwrap()
+                .progress_bar
+                .as_ref()
+                .unwrap()
+                .is_finished(),
+            false
+        );
+
+        scan.lock().unwrap().finish();
+
+        assert_eq!(
+            scan.lock()
+                .unwrap()
+                .progress_bar
+                .as_ref()
+                .unwrap()
+                .is_finished(),
+            true
+        );
+    }
+
+    #[test]
     /// add a known url to the hashset, without a trailing slash, expect false
     fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         let urls = FeroxScans::default();
@@ -384,10 +415,30 @@ mod tests {
     fn call_display_scans() {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
+        let pb_two = ProgressBar::new(2);
         let url = "http://unknown_url/";
+        let url_two = "http://unknown_url/fa";
         let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+        let scan_two = FeroxScan::new(url_two, ScanType::Directory, Some(pb_two));
+
+        scan_two.lock().unwrap().finish(); // one complete, one incomplete
+
         assert_eq!(urls.insert(scan), true);
 
         urls.display_scans();
+    }
+
+    #[test]
+    /// ensure that PartialEq compares FeroxScan.id fields
+    fn partial_eq_compares_the_id_field() {
+        let url = "http://unknown_url/";
+        let scan = FeroxScan::new(url, ScanType::Directory, None);
+        let scan_two = FeroxScan::new(url, ScanType::Directory, None);
+
+        assert!(!scan.lock().unwrap().eq(&scan_two.lock().unwrap()));
+
+        scan_two.lock().unwrap().id = scan.lock().unwrap().id.clone();
+
+        assert!(scan.lock().unwrap().eq(&scan_two.lock().unwrap()));
     }
 }
