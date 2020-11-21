@@ -167,9 +167,9 @@ brew install feroxbuster
 cargo install feroxbuster
 ```
 
-#### Peculiarities When Redirecting https:// => ssh:// via `git` Configuration
+### Cargo Build: Peculiarities When Redirecting https:// => ssh:// via `git` Configuration
 
-When performing a `cargo` build under some user `git` configurations, particularly those redirecting from https:// to ssh://, you may need to set `CARGO_NET_GIT_FETCH_WITH_CLI=true` in your environment, per the documentation [here](https://doc.rust-lang.org/cargo/reference/config.html#netgit-fetch-with-cli) or you will receive an error along the lines of `Failed to retrieve list of SSH authentication methods: Failed getting response; class=Ssh (23)`
+When performing a `cargo build` under some `git` configurations, particularly those redirecting from https:// to ssh://, you may need to set `CARGO_NET_GIT_FETCH_WITH_CLI=true` in your environment, per the documentation [here](https://doc.rust-lang.org/cargo/reference/config.html#netgit-fetch-with-cli) or you will receive an error along the lines of `Failed to retrieve list of SSH authentication methods: Failed getting response; class=Ssh (23)`
 
 ### apt Install
 
