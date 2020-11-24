@@ -39,13 +39,13 @@ fn unique_string(length: usize) -> String {
 pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
-    tx_file: UnboundedSender<FeroxResponse>,
+    tx_term: UnboundedSender<FeroxResponse>,
 ) -> Option<WildcardFilter> {
     log::trace!(
         "enter: wildcard_test({:?}, {:?}, {:?})",
         target_url,
         bar,
-        tx_file
+        tx_term
     );
 
     if CONFIGURATION.dont_filter {
@@ -54,10 +54,10 @@ pub async fn wildcard_test(
         return None;
     }
 
-    let clone_req_one = tx_file.clone();
-    let clone_req_two = tx_file.clone();
+    let tx_clone_one = tx_term.clone();
+    let tx_clone_two = tx_term.clone();
 
-    if let Some(ferox_response) = make_wildcard_request(&target_url, 1, clone_req_one).await {
+    if let Some(ferox_response) = make_wildcard_request(&target_url, 1, tx_clone_one).await {
         bar.inc(1);
 
         // found a wildcard response
@@ -72,7 +72,7 @@ pub async fn wildcard_test(
 
         // content length of wildcard is non-zero, perform additional tests:
         //   make a second request, with a known-sized (64) longer request
-        if let Some(resp_two) = make_wildcard_request(&target_url, 3, clone_req_two).await {
+        if let Some(resp_two) = make_wildcard_request(&target_url, 3, tx_clone_two).await {
             bar.inc(1);
 
             let wc2_length = resp_two.content_length();
