@@ -1010,4 +1010,32 @@ mod tests {
     fn config_report_and_exit_works() {
         report_and_exit("some message");
     }
+
+    #[test]
+    /// test as_str method of Configuration
+    fn as_str_returns_string_with_newline() {
+        let config = Configuration::new();
+        let config_str = config.as_str();
+        println!("{}", config_str);
+        assert!(config_str.starts_with("Configuration {"));
+        assert!(config_str.ends_with("}\n"));
+        assert!(config_str.contains("replay_codes:"));
+        assert!(config_str.contains("client: Client {"));
+        assert!(config_str.contains("user_agent: \"feroxbuster"));
+    }
+
+    #[test]
+    /// test as_json method of Configuration
+    fn as_json_returns_json_representation_of_configuration_with_newline() {
+        let mut config = Configuration::new();
+        config.timeout = 12;
+        config.depth = 2;
+        let config_str = config.as_json();
+        let json: Configuration = serde_json::from_str(&config_str).unwrap();
+        assert_eq!(json.config, config.config);
+        assert_eq!(json.wordlist, config.wordlist);
+        assert_eq!(json.replay_codes, config.replay_codes);
+        assert_eq!(json.timeout, config.timeout);
+        assert_eq!(json.depth, config.depth);
+    }
 }
