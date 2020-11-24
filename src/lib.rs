@@ -12,7 +12,11 @@ pub mod scan_manager;
 pub mod scanner;
 pub mod utils;
 
+use crate::utils::{get_url_path_length, status_colorizer};
+use console::{style, Color};
 use reqwest::{header::HeaderMap, Response, StatusCode, Url};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
+use std::collections::HashMap;
 use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -82,6 +86,30 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
 /// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
 
+/// FeroxSerialize trait; represents different types that are Serialize and also implement
+/// as_str / as_json methods
+pub trait FeroxSerialize: Serialize {
+    /// Return a String representation of the object, generally the human readable version of the
+    /// implementor
+    fn as_str(&self) -> String;
+
+    /// Return an NDJSON representation of the object
+    fn as_json(&self) -> String;
+}
+
+// todo remove if unused
+/// Simple enum for determining wildcard response type
+pub enum WildcardType {
+    /// Wildcard response that is always the same size
+    Static,
+
+    /// Wildcard response that changes based on input from the client (i.e. url changes)
+    Dynamic,
+
+    /// Not a wildcard response
+    None,
+}
+
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
 #[derive(Debug, Clone)]
 pub struct FeroxResponse {
@@ -99,6 +127,9 @@ pub struct FeroxResponse {
 
     /// The `Headers` of this `FeroxResponse`
     headers: HeaderMap,
+
+    /// Wildcard response status
+    wildcard: bool,
 }
 
 /// Implement Display for FeroxResponse
@@ -216,7 +247,203 @@ impl FeroxResponse {
             content_length,
             text,
             headers,
+            wildcard: false,
         }
+    }
+}
+
+/// Implement FeroxSerialize for FeroxResponse
+impl FeroxSerialize for FeroxResponse {
+    /// Simple wrapper around create_report_string
+    fn as_str(&self) -> String {
+        let lines = self.line_count().to_string();
+        let words = self.word_count().to_string();
+        let chars = self.content_length().to_string();
+        let status = self.status().as_str();
+        let wild_status = status_colorizer("WLD");
+
+        if self.wildcard {
+            // response is a wildcard, special messages abound when this is the case...
+
+            // create the base message
+            let mut message = format!(
+                "{} {:>8}l {:>8}w {:>8}c Got {} for {} (url length: {})\n",
+                wild_status,
+                lines,
+                words,
+                chars,
+                status_colorizer(&status),
+                self.url(),
+                get_url_path_length(&self.url())
+            );
+
+            if self.status().is_redirection() {
+                // when it's a redirect, show where it goes, if possible
+                if let Some(next_loc) = self.headers().get("Location") {
+                    let next_loc_str = next_loc.to_str().unwrap_or("Unknown");
+
+                    let redirect_msg = format!(
+                        "{} {:>9} {:>9} {:>9} {} redirects to => {}\n",
+                        wild_status,
+                        "-",
+                        "-",
+                        "-",
+                        self.url(),
+                        next_loc_str
+                    );
+
+                    message.push_str(&redirect_msg);
+                }
+            }
+
+            // base message + redirection message (if appropriate)
+            message
+        } else {
+            // not a wildcard, just create a normal entry
+            utils::create_report_string(
+                self.status.as_str(),
+                &lines,
+                &words,
+                &chars,
+                self.url().as_str(),
+            )
+        }
+    }
+
+    /// Create an NDJSON representation of the FeroxResponse
+    ///
+    /// (expanded for clarity)
+    /// ex:
+    /// {
+    ///    "type":"response",
+    ///    "url":"https://localhost.com/images",
+    ///    "path":"/images",
+    ///    "status":301,
+    ///    "content_length":179,
+    ///    "line_count":10,
+    ///    "word_count":16,
+    ///    "headers":{
+    ///       "x-content-type-options":"nosniff",
+    ///       "strict-transport-security":"max-age=31536000; includeSubDomains",
+    ///       "x-frame-options":"SAMEORIGIN",
+    ///       "connection":"keep-alive",
+    ///       "server":"nginx/1.16.1",
+    ///       "content-type":"text/html; charset=UTF-8",
+    ///       "referrer-policy":"origin-when-cross-origin",
+    ///       "content-security-policy":"default-src 'none'",
+    ///       "access-control-allow-headers":"X-Requested-With",
+    ///       "x-xss-protection":"1; mode=block",
+    ///       "content-length":"179",
+    ///       "date":"Mon, 23 Nov 2020 15:33:24 GMT",
+    ///       "location":"/images/",
+    ///       "access-control-allow-origin":"https://localhost.com"
+    ///    }
+    /// }\n
+    fn as_json(&self) -> String {
+        if let Ok(mut json) = serde_json::to_string(&self) {
+            json.push('\n');
+            json
+        } else {
+            format!("{{\"error\":\"could not convert {} to json\"}}", self.url())
+        }
+    }
+}
+
+/// Serialize implementation for FeroxResponse
+impl Serialize for FeroxResponse {
+    /// Function that handles serialization of a FeroxResponse to NDJSON
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut headers = HashMap::new();
+        let mut state = serializer.serialize_struct("FeroxResponse", 7)?;
+
+        // need to convert the HeaderMap to a HashMap in order to pass it to the serializer
+        for (key, value) in &self.headers {
+            let k = key.as_str().to_owned();
+            let v = String::from_utf8_lossy(value.as_bytes());
+            headers.insert(k, v);
+        }
+
+        state.serialize_field("type", "response")?;
+        state.serialize_field("url", self.url.as_str())?;
+        state.serialize_field("path", self.url.path())?;
+        state.serialize_field("wildcard", &self.wildcard)?;
+        state.serialize_field("status", &self.status.as_u16())?;
+        state.serialize_field("content_length", &self.content_length)?;
+        state.serialize_field("line_count", &self.line_count())?;
+        state.serialize_field("word_count", &self.word_count())?;
+        state.serialize_field("headers", &headers)?;
+
+        state.end()
+    }
+}
+
+#[derive(Serialize, Default)]
+/// Representation of a log entry, can be represented as a human readable string or JSON
+pub struct FeroxMessage {
+    // todo probably move to lib
+    #[serde(rename = "type")]
+    /// Name of this type of struct, used for serialization, i.e. `{"type":"log"}`
+    kind: String,
+
+    /// The log message
+    pub message: String,
+
+    /// The log level
+    pub level: String,
+
+    /// The number of seconds elapsed since the scan started
+    pub time_offset: f32,
+
+    /// The module from which log::* was called
+    pub module: String,
+}
+
+/// Implementation of FeroxMessage
+impl FeroxSerialize for FeroxMessage {
+    /// Create an NDJSON representation of the log message
+    ///
+    /// (expanded for clarity)
+    /// ex:
+    /// {
+    ///   "type": "log",
+    ///   "message": "Sent https://localhost/api to file handler",
+    ///   "level": "DEBUG",
+    ///   "time_offset": 0.86333454,
+    ///   "module": "feroxbuster::reporter"
+    /// }\n
+    fn as_json(&self) -> String {
+        if let Ok(mut json) = serde_json::to_string(&self) {
+            json.push('\n');
+            json
+        } else {
+            String::from("{\"error\":\"could not convert to json\"}")
+        }
+    }
+
+    /// Create a string representation of the log message
+    ///
+    /// ex:  301       10l       16w      173c https://localhost/api
+    fn as_str(&self) -> String {
+        let (level_name, level_color) = match self.level.as_str() {
+            "ERROR" => ("ERR", Color::Red),
+            "WARN" => ("WRN", Color::Red),
+            "INFO" => ("INF", Color::Cyan),
+            "DEBUG" => ("DBG", Color::Yellow),
+            "TRACE" => ("TRC", Color::Magenta),
+            "WILDCARD" => ("WLD", Color::Cyan),
+            _ => ("UNK", Color::White),
+        };
+
+        format!(
+            "{} {:10.03} {} {}\n",
+            style(level_name).bg(level_color).black(),
+            style(self.time_offset).dim(),
+            self.module,
+            style(&self.message).dim(),
+        )
     }
 }
 

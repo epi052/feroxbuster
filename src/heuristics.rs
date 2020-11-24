@@ -2,10 +2,7 @@ use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     filters::WildcardFilter,
     scanner::should_filter_response,
-    utils::{
-        ferox_print, format_url, get_url_path_length, make_request, module_colorizer,
-        status_colorizer,
-    },
+    utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
 };
 use console::style;
@@ -42,7 +39,7 @@ fn unique_string(length: usize) -> String {
 pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
-    tx_file: UnboundedSender<String>,
+    tx_file: UnboundedSender<FeroxResponse>,
 ) -> Option<WildcardFilter> {
     log::trace!(
         "enter: wildcard_test({:?}, {:?}, {:?})",
@@ -89,46 +86,45 @@ pub async fn wildcard_test(
 
                 if !CONFIGURATION.quiet {
                     let msg = format!(
-                            "{} {:>8}l {:>8}w {:>8}c Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
+                            "{:<33} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
                             status_colorizer("WLD"),
-                            ferox_response.line_count(),
-                            ferox_response.word_count(),
-                            wildcard.dynamic,
                             style("auto-filtering").yellow(),
                             style(wc_length - url_len).cyan(),
                             style("--dont-filter").yellow()
-                        );
+                    );
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
 
-                    try_send_message_to_file(
-                        &msg,
-                        tx_file.clone(),
-                        !CONFIGURATION.output.is_empty(),
-                    );
+                    // tx_file.send(resp_two);
+
+                    // try_send_message_to_file(
+                    //     &msg,
+                    //     tx_file.clone(),
+                    //     !CONFIGURATION.output.is_empty(),
+                    // );
                 }
             } else if wc_length == wc2_length {
                 wildcard.size = wc_length;
 
                 if !CONFIGURATION.quiet {
                     let msg = format!(
-                        "{} {:>8}l {:>8}w {:>8}c Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
+                        "{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n",
                         status_colorizer("WLD"),
-                        ferox_response.line_count(),
-                        ferox_response.word_count(),
-                        wc_length,
+                        "-",
+                        "-",
+                        "-",
                         style("auto-filtering").yellow(),
                         style(wc_length).cyan(),
                         style("--dont-filter").yellow()
                     );
+                    // tx_file.send(resp_two);
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
-
-                    try_send_message_to_file(
-                        &msg,
-                        tx_file.clone(),
-                        !CONFIGURATION.output.is_empty(),
-                    );
+                    // try_send_message_to_file(
+                    //     &msg,
+                    //     tx_file.clone(),
+                    //     !CONFIGURATION.output.is_empty(),
+                    // );
                 }
             }
         } else {
@@ -152,7 +148,7 @@ pub async fn wildcard_test(
 async fn make_wildcard_request(
     target_url: &str,
     length: usize,
-    tx_file: UnboundedSender<String>,
+    tx_file: UnboundedSender<FeroxResponse>,
 ) -> Option<FeroxResponse> {
     log::trace!(
         "enter: make_wildcard_request({}, {}, {:?})",
@@ -178,8 +174,6 @@ async fn make_wildcard_request(
         }
     };
 
-    let wildcard = status_colorizer("WLD");
-
     match make_request(&CONFIGURATION.client, &nonexistent.to_owned()).await {
         Ok(response) => {
             if CONFIGURATION
@@ -187,58 +181,16 @@ async fn make_wildcard_request(
                 .contains(&response.status().as_u16())
             {
                 // found a wildcard response
-                let ferox_response = FeroxResponse::from(response, true).await;
-                let url_len = get_url_path_length(&ferox_response.url());
-                let content_len = ferox_response.content_length();
-                let content_words = ferox_response.word_count();
-                let content_lines = ferox_response.line_count();
+                let mut ferox_response = FeroxResponse::from(response, true).await;
+                ferox_response.wildcard = true;
 
                 if !CONFIGURATION.quiet && !should_filter_response(&ferox_response) {
-                    let msg = format!(
-                        "{} {:>8}l {:>8}w {:>8}c Got {} for {} (url length: {})\n",
-                        wildcard,
-                        content_lines,
-                        content_words,
-                        content_len,
-                        status_colorizer(&ferox_response.status().as_str()),
-                        ferox_response.url(),
-                        url_len
-                    );
-
-                    ferox_print(&msg, &PROGRESS_PRINTER);
-
-                    try_send_message_to_file(
-                        &msg,
-                        tx_file.clone(),
-                        !CONFIGURATION.output.is_empty(),
-                    );
+                    // todo unwrap
+                    if tx_file.send(ferox_response.clone()).is_err() {
+                        return None;
+                    };
                 }
 
-                if ferox_response.status().is_redirection() {
-                    // show where it goes, if possible
-                    if let Some(next_loc) = ferox_response.headers().get("Location") {
-                        let next_loc_str = next_loc.to_str().unwrap_or("Unknown");
-                        if !CONFIGURATION.quiet && !should_filter_response(&ferox_response) {
-                            let msg = format!(
-                                "{} {:>8}l {:>8}w {:>8}c {} redirects to => {}\n",
-                                wildcard,
-                                content_lines,
-                                content_words,
-                                content_len,
-                                ferox_response.url(),
-                                next_loc_str
-                            );
-
-                            ferox_print(&msg, &PROGRESS_PRINTER);
-
-                            try_send_message_to_file(
-                                &msg,
-                                tx_file.clone(),
-                                !CONFIGURATION.output.is_empty(),
-                            );
-                        }
-                    }
-                }
                 log::trace!("exit: make_wildcard_request -> {}", ferox_response);
                 return Some(ferox_response);
             }
@@ -303,35 +255,9 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
     good_urls
 }
 
-/// simple helper to keep DRY; sends a message using the transmitter side of the given mpsc channel
-/// the receiver is expected to be the side that saves the message to CONFIGURATION.output.
-fn try_send_message_to_file(msg: &str, tx_file: UnboundedSender<String>, save_output: bool) {
-    log::trace!("enter: try_send_message_to_file({}, {:?})", msg, tx_file);
-
-    if save_output {
-        match tx_file.send(msg.to_string()) {
-            Ok(_) => {
-                log::trace!(
-                    "sent message from heuristics::try_send_message_to_file to file handler"
-                );
-            }
-            Err(e) => {
-                log::error!(
-                    "{} {}",
-                    module_colorizer("heuristics::try_send_message_to_file"),
-                    e
-                );
-            }
-        }
-    }
-    log::trace!("exit: try_send_message_to_file");
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::FeroxChannel;
-    use tokio::sync::mpsc;
 
     #[test]
     /// request a unique string of 32bytes * a value returns correct result
@@ -347,42 +273,5 @@ mod tests {
         let wcf = WildcardFilter::default();
         assert_eq!(wcf.size, 0);
         assert_eq!(wcf.dynamic, 0);
-    }
-
-    #[tokio::test(core_threads = 1)]
-    /// tests that given a message and transmitter, the function sends the message across the
-    /// channel
-    async fn heuristics_try_send_message_to_file_sends_when_true() {
-        let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
-        let msg = "It really tied the room together.";
-        let should_save = true;
-        try_send_message_to_file(&msg, tx, should_save);
-
-        assert_eq!(rx.recv().await.unwrap(), msg);
-    }
-
-    #[tokio::test(core_threads = 1)]
-    #[should_panic]
-    /// tests that when save_output is false, nothing is sent to the receiver
-    async fn heuristics_try_send_message_to_file_sends_when_false() {
-        let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
-        let msg = "I'm the Dude, so that's what you call me.";
-        let should_save = false;
-        try_send_message_to_file(&msg, tx, should_save);
-
-        assert_ne!(rx.recv().await.unwrap(), msg);
-    }
-
-    #[tokio::test(core_threads = 1)]
-    /// tests that when save_output is true, but the receiver is closed, nothing is sent to the receiver
-    /// this test doesn't assert anything, but reaches the error block of the given function and
-    /// can be verified with --nocapture and RUST_LOG being set
-    async fn heuristics_try_send_message_to_file_sends_with_closed_receiver() {
-        env_logger::init();
-        let (tx, mut rx): FeroxChannel<String> = mpsc::unbounded_channel();
-        let msg = "Hey, nice marmot.";
-        let should_save = true;
-        rx.close();
-        try_send_message_to_file(&msg, tx, should_save);
     }
 }

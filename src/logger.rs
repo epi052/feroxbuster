@@ -1,6 +1,9 @@
-use crate::config::{CONFIGURATION, PROGRESS_PRINTER};
-use crate::reporter::{get_cached_file_handle, safe_file_write};
-use console::{style, Color};
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    reporter::safe_file_write,
+    utils::open_file,
+    FeroxMessage, FeroxSerialize,
+};
 use env_logger::Builder;
 use std::env;
 use std::time::Instant;
@@ -28,44 +31,27 @@ pub fn initialize(verbosity: u8) {
     let start = Instant::now();
     let mut builder = Builder::from_default_env();
 
-    // I REALLY wanted the logger to also use the reporting channels found in the `reporter`
-    // module. However, in order to properly clean up the channels, all references to the
-    // transmitter side of a channel need to go out of scope, then you can await the future into
-    // which the receiver was moved.
-    //
-    // The problem was that putting a transmitter reference in this closure, which gets initialized
-    // as part of the global logger, made it so that I couldn't destroy/leak/take/swap the last
-    // reference to allow the channels to gracefully close.
-    //
-    // The workaround was to have a RwLock around the file and allow both the logger and the
-    // file handler to both write independent of each other.
-    let locked_file = get_cached_file_handle(&CONFIGURATION.output);
+    let debug_file = open_file(&CONFIGURATION.debug_log);
+
+    if let Some(buffered_file) = debug_file.clone() {
+        // write out the configuration to the debug file if it exists
+        safe_file_write(&*CONFIGURATION, buffered_file, CONFIGURATION.json);
+    }
 
     builder
         .format(move |_, record| {
-            let t = start.elapsed().as_secs_f32();
-            let level = record.level();
-
-            let (level_name, level_color) = match level {
-                log::Level::Error => ("ERR", Color::Red),
-                log::Level::Warn => ("WRN", Color::Red),
-                log::Level::Info => ("INF", Color::Cyan),
-                log::Level::Debug => ("DBG", Color::Yellow),
-                log::Level::Trace => ("TRC", Color::Magenta),
+            let log_entry = FeroxMessage {
+                message: record.args().to_string(),
+                level: record.level().to_string(),
+                time_offset: start.elapsed().as_secs_f32(),
+                module: record.target().to_string(),
+                kind: "log".to_string(),
             };
 
-            let msg = format!(
-                "{} {:10.03} {} {}\n",
-                style(level_name).bg(level_color).black(),
-                style(t).dim(),
-                record.target(),
-                style(record.args()).dim(),
-            );
+            PROGRESS_PRINTER.println(&log_entry.as_str());
 
-            PROGRESS_PRINTER.println(&msg);
-
-            if let Some(buffered_file) = locked_file.clone() {
-                safe_file_write(&msg, buffered_file);
+            if let Some(buffered_file) = debug_file.clone() {
+                safe_file_write(&log_entry, buffered_file, CONFIGURATION.json);
             }
 
             Ok(())
