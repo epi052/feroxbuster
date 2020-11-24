@@ -15,7 +15,7 @@ pub mod utils;
 use crate::utils::{get_url_path_length, status_colorizer};
 use console::{style, Color};
 use reqwest::{header::HeaderMap, Response, StatusCode, Url};
-use serde::{ser::SerializeStruct, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use std::collections::HashMap;
 use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -380,7 +380,7 @@ impl Serialize for FeroxResponse {
     }
 }
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Deserialize, Default)]
 /// Representation of a log entry, can be represented as a human readable string or JSON
 pub struct FeroxMessage {
     // todo probably move to lib
@@ -470,5 +470,47 @@ mod tests {
     /// asserts default version is correct
     fn default_version() {
         assert_eq!(VERSION, env!("CARGO_PKG_VERSION"));
+    }
+
+    #[test]
+    /// test as_str method of FeroxMessage
+    fn ferox_message_as_str_returns_string_with_newline() {
+        let message = FeroxMessage {
+            message: "message".to_string(),
+            module: "utils".to_string(),
+            time_offset: 1.0,
+            level: "INFO".to_string(),
+            kind: "log".to_string(),
+        };
+        let message_str = message.as_str();
+
+        assert!(message_str.contains("INF"));
+        assert!(message_str.contains("1.000"));
+        assert!(message_str.contains("utils"));
+        assert!(message_str.contains("message"));
+        assert!(message_str.ends_with('\n'));
+    }
+
+    #[test]
+    /// test as_json method of FeroxMessage
+    fn ferox_message_as_json_returns_json_representation_of_ferox_message_with_newline() {
+        let message = FeroxMessage {
+            message: "message".to_string(),
+            module: "utils".to_string(),
+            time_offset: 1.0,
+            level: "INFO".to_string(),
+            kind: "log".to_string(),
+        };
+
+        let message_str = message.as_json();
+
+        let error_margin = f32::EPSILON;
+
+        let json: FeroxMessage = serde_json::from_str(&message_str).unwrap();
+        assert_eq!(json.module, message.module);
+        assert_eq!(json.message, message.message);
+        assert!((json.time_offset - message.time_offset).abs() < error_margin);
+        assert_eq!(json.level, message.level);
+        assert_eq!(json.kind, message.kind);
     }
 }
