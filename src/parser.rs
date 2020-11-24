@@ -127,7 +127,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("o")
                 .long("output")
                 .value_name("FILE")
-                .help("Output file to write results to (default: stdout; use w/ --json for JSON entries)")
+                .help("Output file to write results to (use w/ --json for JSON entries)")
                 .takes_value(true),
         )
         .arg(
