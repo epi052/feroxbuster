@@ -86,22 +86,17 @@ pub async fn wildcard_test(
 
                 if !CONFIGURATION.quiet {
                     let msg = format!(
-                            "{:<33} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
+                            "{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n",
                             status_colorizer("WLD"),
+                            "-",
+                            "-",
+                            "-",
                             style("auto-filtering").yellow(),
                             style(wc_length - url_len).cyan(),
                             style("--dont-filter").yellow()
                     );
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
-
-                    // tx_file.send(resp_two);
-
-                    // try_send_message_to_file(
-                    //     &msg,
-                    //     tx_file.clone(),
-                    //     !CONFIGURATION.output.is_empty(),
-                    // );
                 }
             } else if wc_length == wc2_length {
                 wildcard.size = wc_length;
@@ -117,14 +112,8 @@ pub async fn wildcard_test(
                         style(wc_length).cyan(),
                         style("--dont-filter").yellow()
                     );
-                    // tx_file.send(resp_two);
 
                     ferox_print(&msg, &PROGRESS_PRINTER);
-                    // try_send_message_to_file(
-                    //     &msg,
-                    //     tx_file.clone(),
-                    //     !CONFIGURATION.output.is_empty(),
-                    // );
                 }
             }
         } else {
@@ -185,7 +174,6 @@ async fn make_wildcard_request(
                 ferox_response.wildcard = true;
 
                 if !CONFIGURATION.quiet && !should_filter_response(&ferox_response) {
-                    // todo unwrap
                     if tx_file.send(ferox_response.clone()).is_err() {
                         return None;
                     };
