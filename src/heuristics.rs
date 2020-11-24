@@ -173,10 +173,11 @@ async fn make_wildcard_request(
                 let mut ferox_response = FeroxResponse::from(response, true).await;
                 ferox_response.wildcard = true;
 
-                if !CONFIGURATION.quiet && !should_filter_response(&ferox_response) {
-                    if tx_file.send(ferox_response.clone()).is_err() {
-                        return None;
-                    };
+                if !CONFIGURATION.quiet
+                    && !should_filter_response(&ferox_response)
+                    && tx_file.send(ferox_response.clone()).is_err()
+                {
+                    return None;
                 }
 
                 log::trace!("exit: make_wildcard_request -> {}", ferox_response);
