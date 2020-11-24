@@ -297,10 +297,9 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
 
 #[test]
 /// test finds a static wildcard and reports as much to stdout and a file
-fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
-) -> Result<(), Box<dyn std::error::Error>> {
+fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
     let outfile = tmp_dir.path().join("outfile");
 
     let mock = Mock::new()
@@ -337,10 +336,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
     assert_eq!(contents.contains("200"), true);
     assert_eq!(contents.contains("(url length: 32)"), true);
     assert_eq!(contents.contains("(url length: 96)"), true);
-    assert_eq!(
-        contents.contains("Wildcard response is static; auto-filtering 46"),
-        true
-    );
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
@@ -355,8 +350,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(mock2.times_called(), 1);
-
-    Ok(())
 }
 
 #[test]
