@@ -324,6 +324,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 🔎
     }
 
+    if config.json {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1F9d4}", "JSON Output", config.json)
+        )
+        .unwrap_or_default(); // 🧔
+    }
+
     if !config.queries.is_empty() {
         for query in &config.queries {
             writeln!(
@@ -346,6 +355,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
             format_banner_entry!("\u{1f4be}", "Output File", config.output)
         )
         .unwrap_or_default(); // 💾
+    }
+
+    if !config.debug_log.is_empty() {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1fab2}", "Debugging Log", config.debug_log)
+        )
+        .unwrap_or_default(); // 🪲
     }
 
     if !config.extensions.is_empty() {
