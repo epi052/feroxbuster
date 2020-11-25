@@ -318,7 +318,7 @@ A pre-made configuration file with examples of all available settings can be fou
 #
 # Any setting used here can be overridden by the corresponding command line option/argument
 #
-# wordlist = "/wordlists/seclists/Discovery/Web-Content/raft-medium-directories.txt"
+# wordlist = "/wordlists/jhaddix/all.txt"
 # status_codes = [200, 500]
 # filter_status = [301]
 # threads = 1
