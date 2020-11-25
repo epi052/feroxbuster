@@ -110,6 +110,12 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Only print URLs; Don't print status codes, response size, running config, etc...")
         )
         .arg(
+            Arg::with_name("json")
+                .long("json")
+                .takes_value(false)
+                .help("Emit JSON logs to --output and --debug-log instead of normal text")
+        )
+        .arg(
             Arg::with_name("dont_filter")
                 .short("D")
                 .long("dont-filter")
@@ -121,7 +127,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("o")
                 .long("output")
                 .value_name("FILE")
-                .help("Output file to write results to (default: stdout)")
+                .help("Output file to write results to (use w/ --json for JSON entries)")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("debug_log")
+                .long("debug-log")
+                .value_name("FILE")
+                .help("Output file to write log entries (use w/ --json for JSON entries)")
                 .takes_value(true),
         )
         .arg(

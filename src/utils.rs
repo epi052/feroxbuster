@@ -8,6 +8,34 @@ use reqwest::{Client, Response, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
+use std::sync::{Arc, RwLock};
+use std::{fs, io};
+
+/// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
+/// return a reference to the file that is buffered and locked
+pub fn open_file(filename: &str) -> Option<Arc<RwLock<io::BufWriter<fs::File>>>> {
+    log::trace!("enter: open_file({})", filename);
+
+    match fs::OpenOptions::new() // std fs
+        .create(true)
+        .append(true)
+        .open(filename)
+    {
+        Ok(file) => {
+            let writer = io::BufWriter::new(file); // std io
+
+            let locked_file = Some(Arc::new(RwLock::new(writer)));
+
+            log::trace!("exit: open_file -> {:?}", locked_file);
+            locked_file
+        }
+        Err(e) => {
+            log::error!("{}", e);
+            log::trace!("exit: open_file -> None");
+            None
+        }
+    }
+}
 
 /// Helper function that determines the current depth of a given url
 ///

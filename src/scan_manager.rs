@@ -66,7 +66,7 @@ impl FeroxScan {
         self.stop_progress_bar();
 
         if let Some(_task) = &self.task {
-            // task.abort();  todo uncomment once upgraded to tokio 0.3
+            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
         }
     }
 
@@ -271,8 +271,8 @@ impl FeroxScans {
 
                 let mut user_input = String::new();
                 std::io::stdin().read_line(&mut user_input).unwrap();
-                // todo actual logic for parsing user input in a way that allows for
-                // calling .abort on the scan retrieved based on the input (issue #107)
+                // todo (issue #107) actual logic for parsing user input in a way that allows for
+                // calling .abort on the scan retrieved based on the input
             }
         }
 

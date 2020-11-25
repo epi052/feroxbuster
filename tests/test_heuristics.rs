@@ -129,9 +129,9 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
 
 #[test]
 /// test finds a dynamic wildcard and reports as much to stdout and a file
-fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
+fn test_dynamic_wildcard_request_found() {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
     let outfile = tmp_dir.path().join("outfile");
 
     let mock = Mock::new()
@@ -166,31 +166,19 @@ fn test_dynamic_wildcard_request_found() -> Result<(), Box<dyn std::error::Error
     assert_eq!(contents.contains("WLD"), true);
     assert_eq!(contents.contains("Got"), true);
     assert_eq!(contents.contains("200"), true);
-    assert_eq!(contents.contains("auto-filtering"), true);
     assert_eq!(contents.contains("(url length: 32)"), true);
     assert_eq!(contents.contains("(url length: 96)"), true);
-    assert_eq!(contents.contains("Wildcard response is dynamic"), true);
-    assert_eq!(
-        contents.contains("(14 + url length) responses; toggle this behavior by using"),
-        true
-    );
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
             .and(predicate::str::contains("Got"))
             .and(predicate::str::contains("200"))
             .and(predicate::str::contains("(url length: 32)"))
-            .and(predicate::str::contains("(url length: 96)"))
-            .and(predicate::str::contains("Wildcard response is dynamic;"))
-            .and(predicate::str::contains("auto-filtering"))
-            .and(predicate::str::contains(
-                "(14 + url length) responses; toggle this behavior by using",
-            )),
+            .and(predicate::str::contains("(url length: 96)")),
     );
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(mock2.times_called(), 1);
-    Ok(())
 }
 
 #[test]
@@ -223,9 +211,9 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
 
 #[test]
 /// test finds a static wildcard and reports as much to stdout
-fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn std::error::Error>> {
+fn heuristics_wildcard_test_with_two_static_wildcards() {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -265,7 +253,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards() -> Result<(), Box<dyn st
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(mock2.times_called(), 1);
-    Ok(())
 }
 
 #[test]
@@ -310,10 +297,9 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
 
 #[test]
 /// test finds a static wildcard and reports as much to stdout and a file
-fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
-) -> Result<(), Box<dyn std::error::Error>> {
+fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
     let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
     let outfile = tmp_dir.path().join("outfile");
 
     let mock = Mock::new()
@@ -350,10 +336,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
     assert_eq!(contents.contains("200"), true);
     assert_eq!(contents.contains("(url length: 32)"), true);
     assert_eq!(contents.contains("(url length: 96)"), true);
-    assert_eq!(
-        contents.contains("Wildcard response is static; auto-filtering 46"),
-        true
-    );
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
@@ -368,8 +350,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file(
 
     assert_eq!(mock.times_called(), 1);
     assert_eq!(mock2.times_called(), 1);
-
-    Ok(())
 }
 
 #[test]

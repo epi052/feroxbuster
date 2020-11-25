@@ -460,3 +460,84 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
+
+#[test]
+/// send a single valid request, get a response, and write the logging messages to disk
+fn scanner_single_request_scan_with_debug_logging() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    let outfile = tmp_dir.path().join("debug.log");
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-vvvv")
+        .arg("--debug-log")
+        .arg(outfile.as_os_str())
+        .unwrap();
+
+    let contents = std::fs::read_to_string(outfile).unwrap();
+    println!("{}", contents);
+    assert!(contents.starts_with("Configuration {"));
+    assert!(contents.contains("TRC"));
+    assert!(contents.contains("DBG"));
+    assert!(contents.contains("INF"));
+    assert!(contents.contains("feroxbuster All scans complete!"));
+    assert!(contents.contains("feroxbuster exit: terminal_input_handler"));
+
+    assert_eq!(mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
+/// send a single valid request, get a response, and write the logging messages to disk as NDJSON
+fn scanner_single_request_scan_with_debug_logging_as_json() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a test")
+        .create_on(&srv);
+
+    let outfile = tmp_dir.path().join("debug.log");
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("-vvvv")
+        .arg("--debug-log")
+        .arg(outfile.as_os_str())
+        .arg("--json")
+        .unwrap();
+
+    let contents = std::fs::read_to_string(outfile).unwrap();
+    println!("{}", contents);
+    assert!(contents.starts_with("{\"type\":\"configuration\""));
+    assert!(contents.contains("\"level\":\"TRACE\""));
+    assert!(contents.contains("\"level\":\"DEBUG\""));
+    assert!(contents.contains("\"level\":\"INFO\""));
+    assert!(contents.contains("time_offset"));
+    assert!(contents.contains("\"module\":\"feroxbuster::scanner\""));
+    assert!(contents.contains("All scans complete!"));
+    assert!(contents.contains("exit: terminal_input_handler"));
+
+    assert_eq!(mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+}

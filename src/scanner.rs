@@ -91,7 +91,7 @@ fn spawn_recursion_handler(
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
     tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<String>,
+    tx_file: UnboundedSender<FeroxResponse>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?})",
@@ -466,7 +466,7 @@ pub async fn scan_url(
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
     tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<String>,
+    tx_file: UnboundedSender<FeroxResponse>,
 ) {
     log::trace!(
         "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?})",
@@ -516,7 +516,7 @@ pub async fn scan_url(
 
     // Arc clones to be passed around to the various scans
     let wildcard_bar = progress_bar.clone();
-    let heuristics_file_clone = tx_file.clone();
+    let heuristics_term_clone = tx_term.clone();
     let recurser_term_clone = tx_term.clone();
     let recurser_file_clone = tx_file.clone();
     let recurser_words = wordlist.clone();
@@ -535,7 +535,7 @@ pub async fn scan_url(
 
     // add any wildcard filters to `FILTERS`
     let filter =
-        match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_file_clone).await {
+        match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_term_clone).await {
             Some(f) => Box::new(f),
             None => Box::new(WildcardFilter::default()),
         };

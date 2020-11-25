@@ -97,7 +97,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 async fn scan(
     targets: Vec<String>,
     tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<String>,
+    tx_file: UnboundedSender<FeroxResponse>,
 ) -> FeroxResult<()> {
     log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
@@ -187,7 +187,6 @@ async fn wrapped_main() {
 
     // can't trace main until after logger is initialized and the above task is started
     log::trace!("enter: main");
-    log::debug!("{:#?}", *CONFIGURATION);
 
     // spawn a thread that listens for keyboard input on stdin, when a user presses enter
     // the input handler will toggle PAUSE_SCAN, which in turn is used to pause and resume
@@ -249,7 +248,7 @@ async fn wrapped_main() {
 async fn clean_up(
     tx_term: UnboundedSender<FeroxResponse>,
     term_handle: JoinHandle<()>,
-    tx_file: UnboundedSender<String>,
+    tx_file: UnboundedSender<FeroxResponse>,
     file_handle: Option<JoinHandle<()>>,
     save_output: bool,
 ) {

@@ -44,11 +44,11 @@ fn filters_status_code_should_filter_response() {
             .not()
             .and(predicate::str::contains("302"))
             .not()
-            .and(predicate::str::contains("14"))
+            .and(predicate::str::contains("14c"))
             .not()
             .and(predicate::str::contains("/file.js"))
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("34")),
+            .and(predicate::str::contains("34c")),
     );
 
     assert_eq!(mock.times_called(), 1);

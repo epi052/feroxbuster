@@ -131,10 +131,10 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 /// send a request to a page that contains an relative link, follow it, and find the same link again
 /// should follow then filter
-fn extractor_finds_same_relative_url_twice() -> Result<(), Box<dyn std::error::Error>> {
+fn extractor_finds_same_relative_url_twice() {
     let srv = MockServer::start();
     let (tmp_dir, file) =
-        setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;
+        setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist").unwrap();
 
     let mock = Mock::new()
         .expect_method(GET)
@@ -177,7 +177,6 @@ fn extractor_finds_same_relative_url_twice() -> Result<(), Box<dyn std::error::E
     assert_eq!(mock_two.times_called(), 1);
     assert_eq!(mock_three.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
-    Ok(())
 }
 
 #[test]
