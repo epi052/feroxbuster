@@ -1,6 +1,7 @@
 use crate::config::CONFIGURATION;
 use crate::utils::get_url_path_length;
 use crate::FeroxResponse;
+use regex::Regex;
 use std::any::Any;
 use std::fmt::Debug;
 
@@ -237,9 +238,54 @@ impl FeroxFilter for SizeFilter {
     }
 }
 
+/// Simple implementor of FeroxFilter; used to filter out responses based on a given regular
+/// expression; specified using -X|--filter-regex
+#[derive(Debug)]
+pub struct RegexFilter {
+    /// Regular expression to be applied to the response body for filtering, compiled
+    pub compiled: Regex,
+
+    /// Regular expression as passed in on the command line, not compiled
+    pub raw_string: String,
+}
+
+/// implementation of FeroxFilter for RegexFilter
+impl FeroxFilter for RegexFilter {
+    /// Check `expression` against the response body, if the expression matches, the response
+    /// should be filtered out
+    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+        log::trace!("enter: should_filter_response({:?} {})", self, response);
+
+        let result = self.compiled.is_match(response.text());
+
+        log::trace!("exit: should_filter_response -> {}", result);
+
+        result
+    }
+
+    /// Compare one SizeFilter to another
+    fn box_eq(&self, other: &dyn Any) -> bool {
+        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+    }
+
+    /// Return self as Any for dynamic dispatch purposes
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// PartialEq implementation for RegexFilter
+impl PartialEq for RegexFilter {
+    /// Simple comparison of the raw string passed in via the command line
+    fn eq(&self, other: &RegexFilter) -> bool {
+        self.raw_string == other.raw_string
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reqwest::Url;
 
     #[test]
     /// just a simple test to increase code coverage by hitting as_any and the inner value
@@ -287,5 +333,84 @@ mod tests {
             *filter.as_any().downcast_ref::<StatusCodeFilter>().unwrap(),
             filter
         );
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn regex_filter_as_any() {
+        let raw = r".*\.txt$";
+        let compiled = Regex::new(raw).unwrap();
+        let filter = RegexFilter {
+            compiled,
+            raw_string: raw.to_string(),
+        };
+
+        assert_eq!(filter.raw_string, r".*\.txt$");
+        assert_eq!(
+            *filter.as_any().downcast_ref::<RegexFilter>().unwrap(),
+            filter
+        );
+    }
+
+    #[test]
+    /// test should_filter on WilcardFilter where static logic matches
+    fn wildcard_should_filter_when_static_wildcard_found() {
+        let resp = FeroxResponse {
+            text: String::new(),
+            wildcard: true,
+            url: Url::parse("http://localhost").unwrap(),
+            content_length: 100,
+            headers: reqwest::header::HeaderMap::new(),
+            status: reqwest::StatusCode::OK,
+        };
+
+        let filter = WildcardFilter {
+            size: 100,
+            dynamic: 0,
+        };
+
+        assert!(filter.should_filter_response(&resp));
+    }
+
+    #[test]
+    /// test should_filter on WilcardFilter where dynamic logic matches
+    fn wildcard_should_filter_when_dynamic_wildcard_found() {
+        let resp = FeroxResponse {
+            text: String::new(),
+            wildcard: true,
+            url: Url::parse("http://localhost/stuff").unwrap(),
+            content_length: 100,
+            headers: reqwest::header::HeaderMap::new(),
+            status: reqwest::StatusCode::OK,
+        };
+
+        let filter = WildcardFilter {
+            size: 0,
+            dynamic: 95,
+        };
+
+        assert!(filter.should_filter_response(&resp));
+    }
+
+    #[test]
+    /// test should_filter on RegexFilter where regex matches body
+    fn regexfilter_should_filter_when_regex_matches_on_response_body() {
+        let resp = FeroxResponse {
+            text: String::from("im a body response hurr durr!"),
+            wildcard: false,
+            url: Url::parse("http://localhost/stuff").unwrap(),
+            content_length: 100,
+            headers: reqwest::header::HeaderMap::new(),
+            status: reqwest::StatusCode::OK,
+        };
+
+        let raw = r"response...rr";
+
+        let filter = RegexFilter {
+            raw_string: raw.to_string(),
+            compiled: Regex::new(raw).unwrap(),
+        };
+
+        assert!(filter.should_filter_response(&resp));
     }
 }
