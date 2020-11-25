@@ -318,18 +318,20 @@ A pre-made configuration file with examples of all available settings can be fou
 #
 # Any setting used here can be overridden by the corresponding command line option/argument
 #
-# wordlist = "/wordlists/jhaddix/all.txt"
+# wordlist = "/wordlists/seclists/Discovery/Web-Content/raft-medium-directories.txt"
 # status_codes = [200, 500]
 # filter_status = [301]
-# replay_codes = [301]
 # threads = 1
 # timeout = 5
 # proxy = "http://127.0.0.1:8080"
 # replay_proxy = "http://127.0.0.1:8081"
+# replay_codes = [200, 302]
 # verbosity = 1
 # scan_limit = 6
 # quiet = true
+# json = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
+# debug_log = "/var/log/find-the-derp.log"
 # user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
 # redirects = true
 # insecure = true
@@ -373,14 +375,17 @@ FLAGS:
                            findings (default: false)
     -h, --help             Prints help information
     -k, --insecure         Disables TLS certificate validation
+        --json             Emit JSON logs to --output and --debug-log instead of normal text
     -n, --no-recursion     Do not scan recursively
     -q, --quiet            Only print URLs; Don't print status codes, response size, running config, etc...
     -r, --redirects        Follow redirects
         --stdin            Read url(s) from STDIN
     -V, --version          Prints version information
-    -v, --verbosity        Increase verbosity level (use -vv or more for greater effect)
+    -v, --verbosity        Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably
+                           too much)
 
 OPTIONS:
+        --debug-log <FILE>                  Output file to write log entries (use w/ --json for JSON entries)
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
     -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
     -N, --filter-lines <LINES>...           Filter out messages of a particular line count (ex: -N 20 -N 31,30)
@@ -388,7 +393,7 @@ OPTIONS:
     -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -C 401)
     -W, --filter-words <WORDS>...           Filter out messages of a particular word count (ex: -W 312 -W 91,82)
     -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
-    -o, --output <FILE>                     Output file to write results to (default: stdout)
+    -o, --output <FILE>                     Output file to write results to (use w/ --json for JSON entries)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
     -R, --replay-codes <REPLAY_CODE>...     Status Codes to send through a Replay Proxy when found (default: --status
