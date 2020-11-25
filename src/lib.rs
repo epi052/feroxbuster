@@ -97,19 +97,6 @@ pub trait FeroxSerialize: Serialize {
     fn as_json(&self) -> String;
 }
 
-// todo remove if unused
-/// Simple enum for determining wildcard response type
-pub enum WildcardType {
-    /// Wildcard response that is always the same size
-    Static,
-
-    /// Wildcard response that changes based on input from the client (i.e. url changes)
-    Dynamic,
-
-    /// Not a wildcard response
-    None,
-}
-
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
 #[derive(Debug, Clone)]
 pub struct FeroxResponse {
