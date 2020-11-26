@@ -737,7 +737,7 @@ fn banner_prints_debug_log() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--debug-log")
-        .arg("im-a-debug-log.hurr-durr")
+        .arg("/dev/null")
         .assert()
         .success()
         .stderr(
@@ -750,7 +750,7 @@ fn banner_prints_debug_log() {
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Debugging Log"))
-                .and(predicate::str::contains("│ im-a-debug-log.hurr-durr"))
+                .and(predicate::str::contains("│ /dev/null"))
                 .and(predicate::str::contains("─┴─")),
         );
 }

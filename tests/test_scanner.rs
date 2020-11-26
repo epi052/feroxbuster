@@ -541,3 +541,49 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     assert_eq!(mock.times_called(), 1);
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// send a single valid request, filter the response by regex, expect one out of 2 urls
+fn scanner_single_request_scan_with_regex_filtered_result() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) =
+        setup_tmp_directory(&["LICENSE".to_string(), "ignored".to_string()], "wordlist").unwrap();
+
+    let mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/LICENSE")
+        .return_status(200)
+        .return_body("this is a not a test")
+        .create_on(&srv);
+
+    let filtered_mock = Mock::new()
+        .expect_method(GET)
+        .expect_path("/ignored")
+        .return_status(200)
+        .return_body("this is a test\nThat rug really tied the room together")
+        .create_on(&srv);
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--filter-regex")
+        .arg("'That rug.*together$'")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("20"))
+            .and(predicate::str::contains("ignored"))
+            .not()
+            .and(predicate::str::contains(" 14 "))
+            .not(),
+    );
+
+    assert_eq!(mock.times_called(), 1);
+    assert_eq!(filtered_mock.times_called(), 1);
+    teardown_tmp_directory(tmp_dir);
+}
