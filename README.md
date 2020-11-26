@@ -84,6 +84,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
     - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
     - [Filter Response by Status Code  (new in `v1.3.0`)](#filter-response-by-status-code--new-in-v130)
+    - [Filter Response Using a Regular Expression (new in `v1.8.0`)](#filter-response-using-a-regular-expression-new-in-v180)
     - [Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)](#replay-responses-to-a-proxy-based-on-status-code-new-in-v150)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
@@ -343,6 +344,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # extract_links = true
 # depth = 1
 # filter_size = [5174]
+# filter_regex = ["^ignore me$"]
 # filter_word_count = [993]
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
@@ -389,6 +391,8 @@ OPTIONS:
     -d, --depth <RECURSION_DEPTH>           Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)
     -x, --extensions <FILE_EXTENSION>...    File extension(s) to search for (ex: -x php -x pdf js)
     -N, --filter-lines <LINES>...           Filter out messages of a particular line count (ex: -N 20 -N 31,30)
+    -X, --filter-regex <REGEX>...           Filter out messages via regular expression matching on the response's body
+                                            (ex: -X '^ignore me$')
     -S, --filter-size <SIZE>...             Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)
     -C, --filter-status <STATUS_CODE>...    Filter out status codes (deny list) (ex: -C 200 -C 401)
     -W, --filter-words <WORDS>...           Filter out messages of a particular word count (ex: -W 312 -W 91,82)
@@ -517,6 +521,19 @@ each one is checked against a list of known filters and either displayed or not 
 
 ```
 ./feroxbuster -u http://127.1 --filter-status 301
+```
+
+### Filter Response Using a Regular Expression (new in `v1.8.0`) 
+
+Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
+with minimal effort. The latest addition is a Regular Expression Filter. As responses come back from the scanned server,
+the **body** of the response is checked against the filter's regular expression.  If the expression is found in the 
+body, then that response is filtered out.  
+
+**NOTE: Using regular expressions to filter large responses or many regular expressions may negatively impact performance.**  
+
+```
+./feroxbuster -u http://127.1 --filter-regex '[aA]ccess [dD]enied.?' --output results.txt --json
 ```
 
 ### Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)
