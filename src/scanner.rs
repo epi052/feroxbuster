@@ -1,8 +1,9 @@
 use crate::{
-    config::CONFIGURATION,
+    config::{Configuration, CONFIGURATION},
     extractor::get_links,
     filters::{
-        FeroxFilter, LinesFilter, SizeFilter, StatusCodeFilter, WildcardFilter, WordsFilter,
+        FeroxFilter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
+        WordsFilter,
     },
     heuristics,
     scan_manager::{FeroxScans, PAUSE_SCAN},
@@ -14,7 +15,10 @@ use futures::{
     stream, StreamExt,
 };
 use lazy_static::lazy_static;
+use regex::Regex;
 use reqwest::Url;
+#[cfg(not(test))]
+use std::process::exit;
 use std::{
     collections::HashSet,
     convert::TryInto,
@@ -601,38 +605,21 @@ pub async fn scan_url(
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
 /// engine, as it were)
-pub fn initialize(
-    num_words: usize,
-    scan_limit: usize,
-    extensions: &[String],
-    status_code_filters: &[u16],
-    lines_filters: &[usize],
-    words_filters: &[usize],
-    size_filters: &[u64],
-) {
-    log::trace!(
-        "enter: initialize({}, {}, {:?}, {:?}, {:?}, {:?}, {:?})",
-        num_words,
-        scan_limit,
-        extensions,
-        status_code_filters,
-        lines_filters,
-        words_filters,
-        size_filters,
-    );
+pub fn initialize(num_words: usize, config: &Configuration) {
+    log::trace!("enter: initialize({}, {:?})", num_words, config,);
 
     // number of requests only needs to be calculated once, and then can be reused
-    let num_reqs_expected: u64 = if extensions.is_empty() {
+    let num_reqs_expected: u64 = if config.extensions.is_empty() {
         num_words.try_into().unwrap()
     } else {
-        let total = num_words * (extensions.len() + 1);
+        let total = num_words * (config.extensions.len() + 1);
         total.try_into().unwrap()
     };
 
     NUMBER_OF_REQUESTS.store(num_reqs_expected, Ordering::Relaxed);
 
     // add any status code filters to `FILTERS` (-C|--filter-status)
-    for code_filter in status_code_filters {
+    for code_filter in &config.filter_status {
         let filter = StatusCodeFilter {
             filter_code: *code_filter,
         };
@@ -641,7 +628,7 @@ pub fn initialize(
     }
 
     // add any line count filters to `FILTERS` (-N|--filter-lines)
-    for lines_filter in lines_filters {
+    for lines_filter in &config.filter_line_count {
         let filter = LinesFilter {
             line_count: *lines_filter,
         };
@@ -650,7 +637,7 @@ pub fn initialize(
     }
 
     // add any line count filters to `FILTERS` (-W|--filter-words)
-    for words_filter in words_filters {
+    for words_filter in &config.filter_word_count {
         let filter = WordsFilter {
             word_count: *words_filter,
         };
@@ -659,7 +646,7 @@ pub fn initialize(
     }
 
     // add any line count filters to `FILTERS` (-S|--filter-size)
-    for size_filter in size_filters {
+    for size_filter in &config.filter_size {
         let filter = SizeFilter {
             content_length: *size_filter,
         };
@@ -667,7 +654,29 @@ pub fn initialize(
         add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
     }
 
-    if scan_limit == 0 {
+    // add any regex filters to `FILTERS` (-X|--filter-regex)
+    for regex_filter in &config.filter_regex {
+        let raw = regex_filter;
+        let compiled = match Regex::new(&raw) {
+            Ok(regex) => regex,
+            Err(e) => {
+                log::error!("Invalid regular expression: {}", e);
+                #[cfg(test)]
+                panic!();
+                #[cfg(not(test))]
+                exit(1);
+            }
+        };
+
+        let filter = RegexFilter {
+            raw_string: raw.to_owned(),
+            compiled,
+        };
+        let boxed_filter = Box::new(filter);
+        add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    if config.scan_limit == 0 {
         // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
         // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
         // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
@@ -773,5 +782,14 @@ mod tests {
         let url = Url::parse("http://localhost/one/two/three").unwrap();
         let result = reached_max_depth(&url, 0, 2);
         assert!(result);
+    }
+
+    #[test]
+    #[should_panic]
+    /// call initialize with a bad regex, triggering a panic
+    fn initialize_panics_on_bad_regex() {
+        let mut config = Configuration::default();
+        config.filter_regex = vec![r"(".to_string()];
+        initialize(1, &config);
     }
 }

@@ -315,6 +315,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 💢
     }
 
+    for filter in &config.filter_regex {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1f4a2}", "Regex Filter", filter)
+        )
+        .unwrap_or_default(); // 💢
+    }
+
     if config.extract_links {
         writeln!(
             &mut writer,

@@ -232,6 +232,18 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("filter_regex")
+                .short("X")
+                .long("filter-regex")
+                .value_name("REGEX")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out messages via regular expression matching on the response's body (ex: -X '^ignore me$')",
+                ),
+        )
+        .arg(
             Arg::with_name("filter_words")
                 .short("W")
                 .long("filter-words")
