@@ -113,15 +113,7 @@ async fn scan(
         return Err(Box::new(err));
     }
 
-    scanner::initialize(
-        words.len(),
-        CONFIGURATION.scan_limit,
-        &CONFIGURATION.extensions,
-        &CONFIGURATION.filter_status,
-        &CONFIGURATION.filter_line_count,
-        &CONFIGURATION.filter_word_count,
-        &CONFIGURATION.filter_size,
-    );
+    scanner::initialize(words.len(), &CONFIGURATION);
 
     let mut tasks = vec![];
 
