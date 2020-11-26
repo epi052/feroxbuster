@@ -184,6 +184,10 @@ pub struct Configuration {
     #[serde(default)]
     pub filter_word_count: Vec<usize>,
 
+    /// Filter out messages by regular expression
+    #[serde(default)]
+    pub filter_regex: Vec<String>,
+
     /// Don't auto-filter wildcard responses
     #[serde(default)]
     pub dont_filter: bool,
@@ -270,6 +274,7 @@ impl Default for Configuration {
             queries: Vec::new(),
             extensions: Vec::new(),
             filter_size: Vec::new(),
+            filter_regex: Vec::new(),
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
             filter_status: Vec::new(),
@@ -303,6 +308,7 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **filter_size**: `None`
+    /// - **filter_regex**: `None`
     /// - **filter_word_count**: `None`
     /// - **filter_line_count**: `None`
     /// - **headers**: `None`
@@ -447,6 +453,10 @@ impl Configuration {
 
         if let Some(arg) = args.values_of("extensions") {
             config.extensions = arg.map(|val| val.to_string()).collect();
+        }
+
+        if let Some(arg) = args.values_of("filter_regex") {
+            config.filter_regex = arg.map(|val| val.to_string()).collect();
         }
 
         if let Some(arg) = args.values_of("filter_size") {
@@ -647,6 +657,7 @@ impl Configuration {
         settings.stdin = settings_to_merge.stdin;
         settings.depth = settings_to_merge.depth;
         settings.filter_size = settings_to_merge.filter_size;
+        settings.filter_regex = settings_to_merge.filter_regex;
         settings.filter_word_count = settings_to_merge.filter_word_count;
         settings.filter_line_count = settings_to_merge.filter_line_count;
         settings.filter_status = settings_to_merge.filter_status;
@@ -756,6 +767,7 @@ mod tests {
             json = true
             depth = 1
             filter_size = [4120]
+            filter_regex = ["^ignore me$"]
             filter_word_count = [994, 992]
             filter_line_count = [34]
             filter_status = [201]
@@ -796,6 +808,7 @@ mod tests {
         assert_eq!(config.queries, Vec::new());
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.filter_size, Vec::<u64>::new());
+        assert_eq!(config.filter_regex, Vec::<String>::new());
         assert_eq!(config.filter_word_count, Vec::<usize>::new());
         assert_eq!(config.filter_line_count, Vec::<usize>::new());
         assert_eq!(config.filter_status, Vec::<u16>::new());
@@ -954,6 +967,13 @@ mod tests {
     fn config_reads_extensions() {
         let config = setup_config_test();
         assert_eq!(config.extensions, vec!["html", "php", "js"]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_regex() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_regex, vec!["^ignore me$"]);
     }
 
     #[test]
