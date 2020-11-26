@@ -783,4 +783,13 @@ mod tests {
         let result = reached_max_depth(&url, 0, 2);
         assert!(result);
     }
+
+    #[test]
+    #[should_panic]
+    /// call initialize with a bad regex, triggering a panic
+    fn initialize_panics_on_bad_regex() {
+        let mut config = Configuration::default();
+        config.filter_regex = vec![r"(".to_string()];
+        initialize(1, &config);
+    }
 }
