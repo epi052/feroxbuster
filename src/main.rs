@@ -204,6 +204,7 @@ async fn wrapped_main() {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
+        log::error!("WTF {:?}", *CONFIGURATION);  // todo remove after banner fixed
         banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
     }
 

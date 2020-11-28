@@ -10,8 +10,7 @@ use crate::{
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
-use serde::ser::SerializeSeq;
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{ser::{SerializeStruct, SerializeSeq}, Deserialize, Serialize, Serializer, Deserializer};
 use std::{
     cmp::PartialEq,
     fmt,
@@ -26,6 +25,9 @@ use std::{
 };
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
+use std::error::Error;
+use std::collections::HashMap;
+use serde_json::Value;
 
 lazy_static! {
     /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
@@ -175,6 +177,52 @@ impl Serialize for FeroxScan {
         state.end()
     }
 }
+
+impl<'de> Deserialize<'de> for FeroxScan {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+
+        let mut scan = Self::default();
+
+
+        let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
+
+        for (key, value) in &map {
+            match key.as_str() {
+                "id" => {
+                    if let Some(id) = value.as_str() {
+                        scan.id = id.to_string();
+                    }
+                }
+                "scan_type" => {
+                    if let Some(scan_type) = value.as_str() {
+                        scan.scan_type = match scan_type {
+                            "File" => ScanType::File,
+                            "Directory" => ScanType::Directory,
+                            _ => ScanType::File
+                        }
+                    }
+                }
+                "complete" => {
+                    if let Some(complete) = value.as_bool() {
+                        scan.complete = complete;
+                    }
+                }
+                "url" => {
+                    if let Some(url) = value.as_str() {
+                        scan.url = url.to_string();
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(scan)
+    }
+}
+
 
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
@@ -569,6 +617,15 @@ pub fn initialize() {
     log::trace!("exit: initialize");
 }
 
+/// Cant load a config, just log and exit
+fn config_error_bail(error: Option<&dyn Error>) {
+    if let Some(err) = error {
+        log::error!("{}", err);
+    }
+    log::error!("Could not load configuration from state file, exiting");
+    std::process::exit(1);
+}
+
 /// todo doc
 pub fn resume_scan(filename: &str) -> Configuration {
     log::trace!("enter: resume_scan({})", filename);
@@ -577,23 +634,36 @@ pub fn resume_scan(filename: &str) -> Configuration {
     let reader = BufReader::new(file);
     let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
 
-    // todo unwrap
-    let config: Configuration =
-        serde_json::from_value(state.get("config").unwrap().clone()).unwrap();
-    // let scans: FeroxScans = serde_json::from_value(state.get("scans").unwrap().clone()).unwrap();
-    let responses = state.get("responses").unwrap().as_array().unwrap();
+    let conf = state.get("config").unwrap_or_else(|| {
+        log::error!("Could not load configuration from state file, exiting");
+        std::process::exit(1);
+    });
 
-    for response in responses {
-        let response: FeroxResponse = serde_json::from_value(response.clone()).unwrap();
-        RESPONSES.insert(response);
+    let config = serde_json::from_value(conf.clone()).unwrap_or_else(|e| {
+        log::error!("{}", e);
+        log::error!("Could not load configuration from state file, exiting");
+        std::process::exit(1);
+    });
+
+    // let scans: FeroxScans = serde_json::from_value(state.get("scans").unwrap().clone()).unwrap();
+    if let Some(responses) = state.get("responses") {
+        if let Some(arr_responses) = responses.as_array() {
+            for response in arr_responses {
+                if let Ok(deser_resp) = serde_json::from_value(response.clone()) {
+                    RESPONSES.insert(deser_resp);
+                }
+            }
+        }
     }
 
-    println!("STATE CONFIGURATION: {:?}\n", config);
-    println!("STATE RESPONSES: {:?}\n", *RESPONSES);
-
-    // println!("STATE: {:?}", state.get("config").unwrap().get("add_slash").unwrap().as_bool().unwrap());
-    // println!("STATE: {:?}\n\n", scans);
-    // println!("STATE: {:?}", state.get("responses"));
+    if let Some(scans) = state.get("scans") {
+        if let Some(arr_scans) = scans.as_array() {
+            for scan in arr_scans {
+                let deser_scan: FeroxScan = serde_json::from_value(scan.clone()).unwrap();
+                SCANNED_URLS.insert(Arc::new(Mutex::new(deser_scan)));
+            }
+        }
+    }
 
     log::trace!("exit: resume_scan -> {:?}", config);
     config
