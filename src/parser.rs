@@ -305,6 +305,7 @@ pub fn initialize() -> App<'static, 'static> {
         )
         .group(ArgGroup::with_name("output_files")
             .args(&["debug_log", "output"])
+            .multiple(true)
         )
         .after_help(r#"NOTE:
     Options that take multiple values are very flexible.  Consider the following ways of specifying
