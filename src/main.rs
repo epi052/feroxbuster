@@ -3,7 +3,7 @@ use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger, reporter,
-    scan_manager::PAUSE_SCAN,
+    scan_manager::{self, PAUSE_SCAN},
     scanner::{self, scan_url},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
@@ -297,6 +297,9 @@ async fn clean_up(
 fn main() {
     // setup logging based on the number of -v's used
     logger::initialize(CONFIGURATION.verbosity);
+
+    // start the ctrl+c handler
+    scan_manager::initialize();
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]
