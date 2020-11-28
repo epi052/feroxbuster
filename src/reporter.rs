@@ -1,5 +1,6 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
+    scanner::RESPONSES,
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
@@ -96,7 +97,11 @@ async fn spawn_terminal_reporter(
     while let Some(resp) = resp_chan.recv().await {
         log::trace!("received {} on reporting channel", resp.url());
 
-        if CONFIGURATION.status_codes.contains(&resp.status().as_u16()) {
+        let contains_sentry = CONFIGURATION.status_codes.contains(&resp.status().as_u16());
+        let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
+        let should_process_response = contains_sentry && unknown_sentry;
+
+        if should_process_response {
             // print to stdout
             ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
 
@@ -114,9 +119,7 @@ async fn spawn_terminal_reporter(
         }
         log::trace!("report complete: {}", resp.url());
 
-        if CONFIGURATION.replay_client.is_some()
-            && CONFIGURATION.replay_codes.contains(&resp.status().as_u16())
-        {
+        if CONFIGURATION.replay_client.is_some() && should_process_response {
             // replay proxy specified/client created and this response's status code is one that
             // should be replayed
             match make_request(CONFIGURATION.replay_client.as_ref().unwrap(), &resp.url()).await {
@@ -125,6 +128,13 @@ async fn spawn_terminal_reporter(
                     log::error!("{}", e);
                 }
             }
+        }
+
+        if should_process_response {
+            // add response to RESPONSES for serialization in case of ctrl+c
+            // placed all by its lonesome like this so that RESPONSES can take ownership
+            // of the FeroxResponse
+            RESPONSES.insert(resp);
         }
     }
     log::trace!("exit: spawn_terminal_reporter");
