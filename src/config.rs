@@ -1,3 +1,4 @@
+use crate::scan_manager::resume_scan;
 use crate::utils::{module_colorizer, status_colorizer};
 use crate::{client, parser, progress};
 use crate::{FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
@@ -346,6 +347,19 @@ impl Configuration {
             return Configuration::default();
         }
 
+        let args = parser::initialize().get_matches();
+
+        if let Some(filename) = args.value_of("resume_from") {
+            // when resuming a scan, instead of normal configuration loading, we just
+            // load the config from disk by calling resume_scan
+            let mut previous_config = resume_scan(filename);
+
+            // clients aren't serialized, have to remake them from the previous config
+            Self::try_rebuild_clients(&mut previous_config);
+
+            return previous_config;
+        }
+
         // Get the default configuration, this is what will apply if nothing
         // else is specified.
         let mut config = Configuration::default();
@@ -391,8 +405,6 @@ impl Configuration {
             let config_file = cwd.join(DEFAULT_CONFIG_NAME);
             Self::parse_and_merge_config(config_file, &mut config);
         }
-
-        let args = parser::initialize().get_matches();
 
         macro_rules! update_config_if_present {
             ($c:expr, $m:ident, $v:expr, $t:ty) => {
@@ -569,50 +581,54 @@ impl Configuration {
             }
         }
 
-        // this if statement determines if we've gotten a Client configuration change from
-        // either the config file or command line arguments; if we have, we need to rebuild
-        // the client and store it in the config struct
-        if !config.proxy.is_empty()
-            || config.timeout != timeout()
-            || config.user_agent != user_agent()
-            || config.redirects
-            || config.insecure
-            || !config.headers.is_empty()
+        Self::try_rebuild_clients(&mut config);
+
+        config
+    }
+
+    /// this function determines if we've gotten a Client configuration change from
+    /// either the config file or command line arguments; if we have, we need to rebuild
+    /// the client and store it in the config struct
+    fn try_rebuild_clients(configuration: &mut Configuration) {
+        if !configuration.proxy.is_empty()
+            || configuration.timeout != timeout()
+            || configuration.user_agent != user_agent()
+            || configuration.redirects
+            || configuration.insecure
+            || !configuration.headers.is_empty()
         {
-            if config.proxy.is_empty() {
-                config.client = client::initialize(
-                    config.timeout,
-                    &config.user_agent,
-                    config.redirects,
-                    config.insecure,
-                    &config.headers,
+            if configuration.proxy.is_empty() {
+                configuration.client = client::initialize(
+                    configuration.timeout,
+                    &configuration.user_agent,
+                    configuration.redirects,
+                    configuration.insecure,
+                    &configuration.headers,
                     None,
                 )
             } else {
-                config.client = client::initialize(
-                    config.timeout,
-                    &config.user_agent,
-                    config.redirects,
-                    config.insecure,
-                    &config.headers,
-                    Some(&config.proxy),
+                configuration.client = client::initialize(
+                    configuration.timeout,
+                    &configuration.user_agent,
+                    configuration.redirects,
+                    configuration.insecure,
+                    &configuration.headers,
+                    Some(&configuration.proxy),
                 )
             }
         }
 
-        if !config.replay_proxy.is_empty() {
+        if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
-            config.replay_client = Some(client::initialize(
-                config.timeout,
-                &config.user_agent,
-                config.redirects,
-                config.insecure,
-                &config.headers,
-                Some(&config.replay_proxy),
+            configuration.replay_client = Some(client::initialize(
+                configuration.timeout,
+                &configuration.user_agent,
+                configuration.redirects,
+                configuration.insecure,
+                &configuration.headers,
+                Some(&configuration.replay_proxy),
             ));
         }
-
-        config
     }
 
     /// Given a configuration file's location and an instance of `Configuration`, read in
