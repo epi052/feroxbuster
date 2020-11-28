@@ -14,9 +14,12 @@ pub mod utils;
 
 use crate::utils::{get_url_path_length, status_colorizer};
 use console::{style, Color};
+use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::{header::HeaderMap, Response, StatusCode, Url};
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -364,6 +367,74 @@ impl Serialize for FeroxResponse {
         state.serialize_field("headers", &headers)?;
 
         state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for FeroxResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut response = Self {
+            url: Url::parse("http://localhost").unwrap(),
+            status: StatusCode::OK,
+            text: String::new(),
+            content_length: 0,
+            headers: HeaderMap::new(),
+            wildcard: false,
+        };
+
+        let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
+
+        for (key, value) in &map {
+            match key.as_str() {
+                "url" => {
+                    if let Some(url) = value.as_str() {
+                        if let Ok(parsed) = Url::parse(url) {
+                            response.url = parsed;
+                        }
+                    }
+                }
+                "status" => {
+                    if let Some(num) = value.as_str() {
+                        if let Ok(smaller) = u16::from_str(num) {
+                            if let Ok(status) = StatusCode::from_u16(smaller) {
+                                response.status = status;
+                            }
+                        }
+                    }
+                }
+                "content_length" => {
+                    if let Some(num) = value.as_u64() {
+                        response.content_length = num;
+                    }
+                }
+                "headers" => {
+                    let mut headers = HeaderMap::<HeaderValue>::default();
+
+                    if let Some(map_headers) = value.as_object() {
+                        for (h_key, h_value) in map_headers {
+                            let h_value_str = h_value.as_str().unwrap_or("");
+                            let h_name = HeaderName::from_str(h_key)
+                                .unwrap_or_else(|_| HeaderName::from_str("Unknown").unwrap());
+                            let h_value_parsed = HeaderValue::from_str(h_value_str)
+                                .unwrap_or_else(|_| HeaderValue::from_str("Unknown").unwrap());
+                            headers.insert(h_name, h_value_parsed);
+                        }
+                    }
+
+                    response.headers = headers;
+                }
+                "wildcard" => {
+                    if let Some(result) = value.as_bool() {
+                        response.wildcard = result;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(response)
     }
 }
 

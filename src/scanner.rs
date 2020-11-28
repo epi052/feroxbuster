@@ -6,7 +6,7 @@ use crate::{
         WordsFilter,
     },
     heuristics,
-    scan_manager::{FeroxScans, PAUSE_SCAN},
+    scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse,
 };
@@ -46,6 +46,9 @@ lazy_static! {
 
     /// Vector of implementors of the FeroxFilter trait
     static ref FILTERS: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>> = Arc::new(RwLock::new(Vec::<Box<dyn FeroxFilter>>::new()));
+
+    /// Vector of FeroxResponse objects
+    pub static ref RESPONSES: FeroxResponses = FeroxResponses::default();
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);

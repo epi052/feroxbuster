@@ -1,11 +1,24 @@
-use crate::{config::PROGRESS_PRINTER, progress, scanner::NUMBER_OF_REQUESTS, SLEEP_DURATION};
+use crate::config::Configuration;
+use crate::reporter::safe_file_write;
+use crate::utils::open_file;
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    progress,
+    scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
+    FeroxResponse, FeroxSerialize, SLEEP_DURATION,
+};
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
+use serde::ser::SerializeSeq;
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use std::{
     cmp::PartialEq,
     fmt,
+    fs::File,
+    io::BufReader,
     sync::{Arc, Mutex, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use std::{
     io::{stderr, Write},
@@ -28,7 +41,7 @@ static INTERACTIVE_BARRIER: AtomicUsize = AtomicUsize::new(0);
 pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
 
 /// Simple enum used to flag a `FeroxScan` as likely a directory or file
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ScanType {
     File,
     Directory,
@@ -145,11 +158,54 @@ impl PartialEq for FeroxScan {
     }
 }
 
+/// Serialize implementation for FeroxScan
+impl Serialize for FeroxScan {
+    /// Function that handles serialization of a FeroxScan
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FeroxScan", 4)?;
+
+        state.serialize_field("id", &self.id)?;
+        state.serialize_field("url", &self.url)?;
+        state.serialize_field("scan_type", &self.scan_type)?;
+        state.serialize_field("complete", &self.complete)?;
+
+        state.end()
+    }
+}
+
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
 pub struct FeroxScans {
     /// Internal structure: locked hashset of `FeroxScan`s
     pub scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
+}
+
+/// Serialize implementation for FeroxScans
+impl Serialize for FeroxScans {
+    /// Function that handles serialization of FeroxScans
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Ok(scans) = self.scans.lock() {
+            let mut seq = serializer.serialize_seq(Some(scans.len()))?;
+
+            for scan in scans.iter() {
+                if let Ok(unlocked) = scan.lock() {
+                    seq.serialize_element(&*unlocked)?;
+                }
+            }
+
+            seq.end()
+        } else {
+            // if for some reason we can't unlock the mutex, just write an empty list
+            let seq = serializer.serialize_seq(Some(0))?;
+            seq.end()
+        }
+    }
 }
 
 /// Implementation of `FeroxScans`
@@ -380,6 +436,167 @@ fn get_single_spinner() -> ProgressBar {
 
     log::trace!("exit: get_single_spinner -> {:?}", spinner);
     spinner
+}
+
+/// Container around a locked vector of `FeroxResponse`s, adds wrappers for insertion and search
+#[derive(Debug, Default)]
+pub struct FeroxResponses {
+    /// Internal structure: locked hashset of `FeroxScan`s
+    pub responses: Arc<RwLock<Vec<FeroxResponse>>>,
+}
+
+/// Serialize implementation for FeroxResponses
+impl Serialize for FeroxResponses {
+    /// Function that handles serialization of FeroxResponses
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Ok(responses) = self.responses.read() {
+            let mut seq = serializer.serialize_seq(Some(responses.len()))?;
+
+            for response in responses.iter() {
+                seq.serialize_element(response)?;
+            }
+
+            seq.end()
+        } else {
+            // if for some reason we can't unlock the mutex, just write an empty list
+            let seq = serializer.serialize_seq(Some(0))?;
+            seq.end()
+        }
+    }
+}
+
+/// Implementation of `FeroxResponses`
+impl FeroxResponses {
+    /// Add a `FeroxResponse` to the internal container
+    pub fn insert(&self, response: FeroxResponse) {
+        match self.responses.write() {
+            Ok(mut responses) => {
+                responses.push(response);
+            }
+            Err(e) => {
+                log::error!("FeroxResponses' container's mutex is poisoned: {}", e);
+            }
+        }
+    }
+
+    /// Simple check for whether or not a FeroxResponse is contained within the inner container
+    pub fn contains(&self, other: &FeroxResponse) -> bool {
+        match self.responses.read() {
+            Ok(responses) => {
+                for response in responses.iter() {
+                    if response.url == other.url {
+                        return true;
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("FeroxResponses' container's mutex is poisoned: {}", e);
+            }
+        }
+        false
+    }
+}
+/// Data container for (de)?serialization of multiple items
+#[derive(Serialize, Debug)]
+pub struct FeroxState {
+    /// Known scans
+    scans: &'static FeroxScans,
+
+    /// Current running config
+    config: &'static Configuration,
+
+    /// Known responses
+    responses: &'static FeroxResponses,
+}
+
+/// todo doc
+impl FeroxSerialize for FeroxState {
+    /// todo doc
+    fn as_str(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    /// todo doc
+    fn as_json(&self) -> String {
+        // todo unwrap
+        serde_json::to_string(&self).unwrap()
+    }
+}
+
+/// Initialize the ctrl+c handler that saves scan state to disk
+pub fn initialize() {
+    log::trace!("enter: initialize");
+
+    let result = ctrlc::set_handler(move || {
+        let filename = format!(
+            "ferox-{}.state",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+        let warning = format!(
+            "🚨 Caught {} 🚨 saving scan state to {} ...",
+            style("ctrl+c").yellow(),
+            filename
+        );
+
+        PROGRESS_PRINTER.println(warning);
+
+        let state = FeroxState {
+            config: &CONFIGURATION,
+            scans: &SCANNED_URLS,
+            responses: &RESPONSES,
+        };
+
+        let state_file = open_file(&filename);
+
+        if let Some(buffered_file) = state_file {
+            safe_file_write(&state, buffered_file, true);
+        }
+
+        std::process::exit(1);
+    });
+
+    if result.is_err() {
+        log::error!("Could not set Ctrl+c handler");
+        std::process::exit(1);
+    }
+
+    log::trace!("exit: initialize");
+}
+
+/// todo doc
+pub fn resume_scan(filename: &str) -> Configuration {
+    log::trace!("enter: resume_scan({})", filename);
+
+    let file = File::open(filename).unwrap();
+    let reader = BufReader::new(file);
+    let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+    // todo unwrap
+    let config: Configuration =
+        serde_json::from_value(state.get("config").unwrap().clone()).unwrap();
+    // let scans: FeroxScans = serde_json::from_value(state.get("scans").unwrap().clone()).unwrap();
+    let responses = state.get("responses").unwrap().as_array().unwrap();
+
+    for response in responses {
+        let response: FeroxResponse = serde_json::from_value(response.clone()).unwrap();
+        RESPONSES.insert(response);
+    }
+
+    println!("STATE CONFIGURATION: {:?}\n", config);
+    println!("STATE RESPONSES: {:?}\n", *RESPONSES);
+
+    // println!("STATE: {:?}", state.get("config").unwrap().get("add_slash").unwrap().as_bool().unwrap());
+    // println!("STATE: {:?}\n\n", scans);
+    // println!("STATE: {:?}", state.get("responses"));
+
+    log::trace!("exit: resume_scan -> {:?}", config);
+    config
 }
 
 #[cfg(test)]
