@@ -10,7 +10,12 @@ use crate::{
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
-use serde::{ser::{SerializeStruct, SerializeSeq}, Deserialize, Serialize, Serializer, Deserializer};
+use serde::{
+    ser::{SerializeSeq, SerializeStruct},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::{
     cmp::PartialEq,
     fmt,
@@ -25,9 +30,6 @@ use std::{
 };
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
-use std::error::Error;
-use std::collections::HashMap;
-use serde_json::Value;
 
 lazy_static! {
     /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
@@ -47,6 +49,14 @@ pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
 pub enum ScanType {
     File,
     Directory,
+}
+
+/// Default implementation for ScanType
+impl Default for ScanType {
+    /// Return ScanType::File as default
+    fn default() -> Self {
+        Self::File
+    }
 }
 
 /// Struct to hold scan-related state
@@ -74,17 +84,8 @@ pub struct FeroxScan {
     pub progress_bar: Option<ProgressBar>,
 }
 
-/// Implementation of FeroxScan
-impl FeroxScan {
-    /// Stop a currently running scan
-    pub fn abort(&self) {
-        self.stop_progress_bar();
-
-        if let Some(_task) = &self.task {
-            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
-        }
-    }
-
+/// Default implementation for FeroxScan
+impl Default for FeroxScan {
     /// Create a default FeroxScan, populates ID with a new UUID
     fn default() -> Self {
         let new_id = Uuid::new_v4().to_simple().to_string();
@@ -96,6 +97,18 @@ impl FeroxScan {
             url: String::new(),
             progress_bar: None,
             scan_type: ScanType::File,
+        }
+    }
+}
+
+/// Implementation of FeroxScan
+impl FeroxScan {
+    /// Stop a currently running scan
+    pub fn abort(&self) {
+        self.stop_progress_bar();
+
+        if let Some(_task) = &self.task {
+            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
         }
     }
 
@@ -178,14 +191,14 @@ impl Serialize for FeroxScan {
     }
 }
 
+/// todo doc (check other Deserialize as well)
 impl<'de> Deserialize<'de> for FeroxScan {
+    /// todo doc (check other Deserialize as well)
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-
         let mut scan = Self::default();
-
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
 
@@ -201,7 +214,7 @@ impl<'de> Deserialize<'de> for FeroxScan {
                         scan.scan_type = match scan_type {
                             "File" => ScanType::File,
                             "Directory" => ScanType::Directory,
-                            _ => ScanType::File
+                            _ => ScanType::File,
                         }
                     }
                 }
@@ -222,7 +235,6 @@ impl<'de> Deserialize<'de> for FeroxScan {
         Ok(scan)
     }
 }
-
 
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
@@ -617,15 +629,6 @@ pub fn initialize() {
     log::trace!("exit: initialize");
 }
 
-/// Cant load a config, just log and exit
-fn config_error_bail(error: Option<&dyn Error>) {
-    if let Some(err) = error {
-        log::error!("{}", err);
-    }
-    log::error!("Could not load configuration from state file, exiting");
-    std::process::exit(1);
-}
-
 /// todo doc
 pub fn resume_scan(filename: &str) -> Configuration {
     log::trace!("enter: resume_scan({})", filename);
@@ -659,7 +662,10 @@ pub fn resume_scan(filename: &str) -> Configuration {
     if let Some(scans) = state.get("scans") {
         if let Some(arr_scans) = scans.as_array() {
             for scan in arr_scans {
-                let deser_scan: FeroxScan = serde_json::from_value(scan.clone()).unwrap();
+                let deser_scan: FeroxScan =
+                    serde_json::from_value(scan.clone()).unwrap_or_default();
+                // need to determine if it's complete and based on that create a progress bar
+                // populate it accordingly based on completion
                 SCANNED_URLS.insert(Arc::new(Mutex::new(deser_scan)));
             }
         }

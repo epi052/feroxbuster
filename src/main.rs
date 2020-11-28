@@ -192,6 +192,7 @@ async fn wrapped_main() {
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
+        // todo when resuming a scan, this probably doesnt make sense (need to alter get_targets?)
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
@@ -204,8 +205,9 @@ async fn wrapped_main() {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
-        log::error!("WTF {:?}", *CONFIGURATION);  // todo remove after banner fixed
+        log::error!("WTF {:?}", *CONFIGURATION); // todo remove after banner fixed
         banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
+        // todo probably print RESPONSES here
     }
 
     // discard non-responsive targets
