@@ -131,6 +131,13 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("resume_from")
+                .long("resume-from")
+                .value_name("FILE")
+                .help("State file from which to resume a partially complete scan")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("debug_log")
                 .long("debug-log")
                 .value_name("FILE")
