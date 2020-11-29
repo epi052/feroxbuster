@@ -841,4 +841,30 @@ mod tests {
         assert!(scan.progress_bar.is_some()); // new pb created
         assert!(!pb.is_finished()) // not finished
     }
+
+    #[test]
+    /// given a JSON entry representing a FeroxScan, test that it deserializes into the proper type
+    /// with the right attributes
+    fn ferox_scan_deserialize() {
+        // let fs = FeroxScan::new("http://spiritanimal.com", ScanType::Directory, None);
+        let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","complete":true}"#;
+
+        let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
+        assert_eq!(fs.url, "https://spiritanimal.com");
+
+        match fs.scan_type {
+            ScanType::Directory => {}
+            ScanType::File => {
+                panic!();
+            }
+        }
+        match fs.progress_bar {
+            None => {}
+            Some(_) => {
+                panic!();
+            }
+        }
+        assert_eq!(fs.complete, true);
+        assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
+    }
 }
