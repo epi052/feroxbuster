@@ -601,7 +601,11 @@ pub fn initialize() {
 
         let slug = if !CONFIGURATION.target_url.is_empty() {
             // target url populated
-            CONFIGURATION.target_url.replace("://", "_").replace("/", "_").replace(".", "_")
+            CONFIGURATION
+                .target_url
+                .replace("://", "_")
+                .replace("/", "_")
+                .replace(".", "_")
         } else {
             // stdin used
             "stdin".to_string()
