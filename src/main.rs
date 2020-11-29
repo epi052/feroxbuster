@@ -1,16 +1,18 @@
 use crossterm::event::{self, Event, KeyCode};
+use feroxbuster::progress::add_bar;
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger, reporter,
     scan_manager::{self, PAUSE_SCAN},
-    scanner::{self, scan_url},
+    scanner::{self, scan_url, RESPONSES, SCANNED_URLS},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
+    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
+use std::convert::TryInto;
 use std::{
     collections::HashSet,
     fs::File,
@@ -115,6 +117,31 @@ async fn scan(
 
     scanner::initialize(words.len(), &CONFIGURATION);
 
+    if CONFIGURATION.resumed {
+        if let Ok(scans) = SCANNED_URLS.scans.lock() {
+            for scan in scans.iter() {
+                if let Ok(locked_scan) = scan.lock() {
+                    if locked_scan.complete {
+                        // these scans are complete, and just need to be shown to the user
+                        let pb = add_bar(
+                            &locked_scan.url,
+                            words.len().try_into().unwrap_or_default(),
+                            false,
+                            true,
+                        );
+                        pb.finish();
+                    }
+                }
+            }
+        }
+
+        if let Ok(responses) = RESPONSES.responses.read() {
+            for response in responses.iter() {
+                PROGRESS_PRINTER.println(response.as_str());
+            }
+        }
+    }
+
     let mut tasks = vec![];
 
     for target in targets {
@@ -151,6 +178,22 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
 
         while let Some(line) = reader.next().await {
             targets.push(line?);
+        }
+    } else if CONFIGURATION.resumed {
+        // resume-from can't be used with any other flag, making it mutually exclusive from either
+        // of the other two options
+        if let Ok(scans) = SCANNED_URLS.scans.lock() {
+            for scan in scans.iter() {
+                // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
+                // is used, so scans that aren't marked complete still need to be scanned
+                if let Ok(locked_scan) = scan.lock() {
+                    if locked_scan.complete {
+                        // this one's already done, ignore it
+                        continue;
+                    }
+                    targets.push(locked_scan.url.to_owned());
+                }
+            }
         }
     } else {
         targets.push(CONFIGURATION.target_url.clone());
@@ -192,7 +235,6 @@ async fn wrapped_main() {
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
-        // todo when resuming a scan, this probably doesnt make sense (need to alter get_targets?)
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
@@ -205,9 +247,7 @@ async fn wrapped_main() {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
-        log::error!("WTF {:?}", *CONFIGURATION); // todo remove after banner fixed
         banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
-        // todo probably print RESPONSES here
     }
 
     // discard non-responsive targets
@@ -301,8 +341,10 @@ fn main() {
     // setup logging based on the number of -v's used
     logger::initialize(CONFIGURATION.verbosity);
 
-    // start the ctrl+c handler
-    scan_manager::initialize();
+    if CONFIGURATION.save_state {
+        // start the ctrl+c handler
+        scan_manager::initialize();
+    }
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]

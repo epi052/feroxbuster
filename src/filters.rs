@@ -360,6 +360,8 @@ mod tests {
             wildcard: true,
             url: Url::parse("http://localhost").unwrap(),
             content_length: 100,
+            word_count: 50,
+            line_count: 25,
             headers: reqwest::header::HeaderMap::new(),
             status: reqwest::StatusCode::OK,
         };
@@ -380,6 +382,8 @@ mod tests {
             wildcard: true,
             url: Url::parse("http://localhost/stuff").unwrap(),
             content_length: 100,
+            word_count: 50,
+            line_count: 25,
             headers: reqwest::header::HeaderMap::new(),
             status: reqwest::StatusCode::OK,
         };
@@ -400,6 +404,8 @@ mod tests {
             wildcard: false,
             url: Url::parse("http://localhost/stuff").unwrap(),
             content_length: 100,
+            word_count: 50,
+            line_count: 25,
             headers: reqwest::header::HeaderMap::new(),
             status: reqwest::StatusCode::OK,
         };

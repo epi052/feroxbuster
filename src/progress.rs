@@ -3,9 +3,16 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 /// Add an [indicatif::ProgressBar](https://docs.rs/indicatif/latest/indicatif/struct.ProgressBar.html)
 /// to the global [PROGRESS_BAR](../config/struct.PROGRESS_BAR.html)
-pub fn add_bar(prefix: &str, length: u64, hidden: bool) -> ProgressBar {
+pub fn add_bar(prefix: &str, length: u64, hidden: bool, hide_per_sec: bool) -> ProgressBar {
     let style = if hidden || CONFIGURATION.quiet {
         ProgressStyle::default_bar().template("")
+    } else if hide_per_sec {
+        ProgressStyle::default_bar()
+            .template(&format!(
+                "[{{bar:.cyan/blue}}] - {{elapsed:<4}} {{pos:>7}}/{{len:7}} {:7} {{prefix}}",
+                "-"
+            ))
+            .progress_chars("#>-")
     } else {
         ProgressStyle::default_bar()
             .template("[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {per_sec:7} {prefix}")

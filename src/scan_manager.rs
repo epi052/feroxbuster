@@ -125,7 +125,7 @@ impl FeroxScan {
             pb.clone()
         } else {
             let num_requests = NUMBER_OF_REQUESTS.load(Ordering::Relaxed);
-            let pb = progress::add_bar(&self.url, num_requests, false);
+            let pb = progress::add_bar(&self.url, num_requests, false, false);
 
             pb.reset_elapsed();
 
@@ -191,9 +191,9 @@ impl Serialize for FeroxScan {
     }
 }
 
-/// todo doc (check other Deserialize as well)
+/// Deserialize implementation for FeroxScan
 impl<'de> Deserialize<'de> for FeroxScan {
-    /// todo doc (check other Deserialize as well)
+    /// Deserialize a FeroxScan from a serde_json::Value
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -440,8 +440,12 @@ impl FeroxScans {
     fn add_scan(&self, url: &str, scan_type: ScanType) -> (bool, Arc<Mutex<FeroxScan>>) {
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar =
-                    progress::add_bar(&url, NUMBER_OF_REQUESTS.load(Ordering::Relaxed), false);
+                let progress_bar = progress::add_bar(
+                    &url,
+                    NUMBER_OF_REQUESTS.load(Ordering::Relaxed),
+                    false,
+                    false,
+                );
 
                 progress_bar.reset_elapsed();
 
@@ -572,17 +576,16 @@ pub struct FeroxState {
     responses: &'static FeroxResponses,
 }
 
-/// todo doc
+/// FeroxSerialize implementation for FeroxState
 impl FeroxSerialize for FeroxState {
-    /// todo doc
+    /// Simply return debug format of FeroxState to satisfy as_str
     fn as_str(&self) -> String {
         format!("{:?}", self)
     }
 
-    /// todo doc
+    /// Simple call to produce a JSON string using the given FeroxState
     fn as_json(&self) -> String {
-        // todo unwrap
-        serde_json::to_string(&self).unwrap()
+        serde_json::to_string(&self).unwrap_or_default()
     }
 }
 
@@ -591,13 +594,20 @@ pub fn initialize() {
     log::trace!("enter: initialize");
 
     let result = ctrlc::set_handler(move || {
-        let filename = format!(
-            "ferox-{}.state",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        );
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let slug = if !CONFIGURATION.target_url.is_empty() {
+            // target url populated
+            CONFIGURATION.target_url.replace("://", "_").replace("/", "_").replace(".", "_")
+        } else {
+            // stdin used
+            "stdin".to_string()
+        };
+
+        let filename = format!("ferox-{}-{}.state", slug, ts);
         let warning = format!(
             "🚨 Caught {} 🚨 saving scan state to {} ...",
             style("ctrl+c").yellow(),
@@ -629,11 +639,17 @@ pub fn initialize() {
     log::trace!("exit: initialize");
 }
 
-/// todo doc
+/// Primary logic used to load a Configuration from disk and populate the appropriate data
+/// structures
 pub fn resume_scan(filename: &str) -> Configuration {
     log::trace!("enter: resume_scan({})", filename);
 
-    let file = File::open(filename).unwrap();
+    let file = File::open(filename).unwrap_or_else(|e| {
+        log::error!("{}", e);
+        log::error!("Could not open state file, exiting");
+        std::process::exit(1);
+    });
+
     let reader = BufReader::new(file);
     let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
 
@@ -644,7 +660,7 @@ pub fn resume_scan(filename: &str) -> Configuration {
 
     let config = serde_json::from_value(conf.clone()).unwrap_or_else(|e| {
         log::error!("{}", e);
-        log::error!("Could not load configuration from state file, exiting");
+        log::error!("Could not deserialize configuration found in state file, exiting");
         std::process::exit(1);
     });
 
