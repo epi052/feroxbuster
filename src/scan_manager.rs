@@ -846,10 +846,11 @@ mod tests {
     /// given a JSON entry representing a FeroxScan, test that it deserializes into the proper type
     /// with the right attributes
     fn ferox_scan_deserialize() {
-        // let fs = FeroxScan::new("http://spiritanimal.com", ScanType::Directory, None);
         let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","complete":true}"#;
+        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","complete":true}"#;
 
         let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
+        let fs_two: FeroxScan = serde_json::from_str(fs_json_two).unwrap();
         assert_eq!(fs.url, "https://spiritanimal.com");
 
         match fs.scan_type {
@@ -858,6 +859,13 @@ mod tests {
                 panic!();
             }
         }
+        match fs_two.scan_type {
+            ScanType::Directory => {
+                panic!();
+            }
+            ScanType::File => {}
+        }
+
         match fs.progress_bar {
             None => {}
             Some(_) => {
@@ -866,5 +874,35 @@ mod tests {
         }
         assert_eq!(fs.complete, true);
         assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
+    }
+
+    #[test]
+    /// given a FeroxScan, test that it serializes into the proper JSON entry
+    fn ferox_scan_serialize() {
+        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let fs_json = format!(
+            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}"#,
+            fs.lock().unwrap().id
+        );
+        assert_eq!(
+            fs_json,
+            serde_json::to_string(&*fs.lock().unwrap()).unwrap()
+        );
+    }
+
+    #[test]
+    /// given a FeroxScans, test that it serializes into the proper JSON entry
+    fn ferox_scans_serialize() {
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let ferox_scans = FeroxScans::default();
+        let ferox_scans_json = format!(
+            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}]"#,
+            ferox_scan.lock().unwrap().id
+        );
+        ferox_scans.scans.lock().unwrap().push(ferox_scan);
+        assert_eq!(
+            ferox_scans_json,
+            serde_json::to_string(&ferox_scans).unwrap()
+        );
     }
 }
