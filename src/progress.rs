@@ -27,3 +27,20 @@ pub fn add_bar(prefix: &str, length: u64, hidden: bool, hide_per_sec: bool) -> P
 
     progress_bar
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// hit all code branches for add_bar
+    fn add_bar_with_all_configurations() {
+        let p1 = add_bar("prefix", 2, true, false); // hidden
+        let p2 = add_bar("prefix", 2, false, true); // no per second field
+        let p3 = add_bar("prefix", 2, false, false); // normal bar
+
+        assert!(p1.is_hidden());
+        assert!(!p2.is_hidden());
+        assert!(!p3.is_hidden());
+    }
+}
