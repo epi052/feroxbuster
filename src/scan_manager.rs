@@ -971,15 +971,14 @@ mod tests {
             config: &CONFIGURATION,
         };
 
-        let expected_strs = predicates::str::contains("scans:").and(
+        let expected_strs = predicates::str::contains("scans: FeroxScans").and(
             predicate::str::contains("config: Configuration")
-                .and(predicate::str::contains("https://nerdcore.com/css"))
-                .and(predicate::str::contains("https://spiritanimal.com"))
-                .and(predicate::str::contains("scans: FeroxScans"))
-                .and(predicate::str::contains("responses: FeroxResponses")),
+                .and(predicate::str::contains("responses: FeroxResponses"))
+                .and(predicate::str::contains("nerdcore.com"))
+                .and(predicate::str::contains("/css"))
+                .and(predicate::str::contains("https://spiritanimal.com")),
         );
 
-        println!("{}", ferox_state.as_str());
         assert!(expected_strs.eval(&ferox_state.as_str()));
 
         let json_state = ferox_state.as_json();
