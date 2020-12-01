@@ -972,18 +972,14 @@ mod tests {
         };
 
         let expected_strs = predicates::str::contains("scans:").and(
-            predicate::str::contains(saved_id.to_string())
+            predicate::str::contains("config: Configuration")
                 .and(predicate::str::contains("https://nerdcore.com/css"))
-                .and(predicate::str::contains("scan_type: Directory"))
-                .and(predicate::str::contains("https://nerdcore.com/css"))
-                .and(predicate::str::contains("content_length: 173"))
-                .and(predicate::str::contains("line_count: 10"))
-                .and(predicate::str::contains(r#"{"server": "nginx/1.16.1"}"#))
-                .and(predicate::str::contains(
-                    r#"config: Configuration { kind: "configuration""#,
-                )),
+                .and(predicate::str::contains("https://spiritanimal.com"))
+                .and(predicate::str::contains("scans: FeroxScans"))
+                .and(predicate::str::contains("responses: FeroxResponses")),
         );
 
+        println!("{}", ferox_state.as_str());
         assert!(expected_strs.eval(&ferox_state.as_str()));
 
         let json_state = ferox_state.as_json();
