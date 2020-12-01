@@ -698,6 +698,16 @@ pub fn resume_scan(filename: &str) -> Configuration {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use predicates::prelude::*;
+
+    #[test]
+    /// test that ScanType's default is File
+    fn default_scantype_is_file() {
+        match ScanType::default() {
+            ScanType::File => {}
+            ScanType::Directory => panic!(),
+        }
+    }
 
     #[test]
     /// test that get_single_spinner returns the correct spinner
@@ -907,6 +917,23 @@ mod tests {
     }
 
     #[test]
+    /// given a FeroxResponses, test that it serializes into the proper JSON entry
+    fn ferox_responses_serialize() {
+        let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+        let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
+
+        let responses = FeroxResponses::default();
+        responses.insert(response);
+        // responses has a response now
+
+        // serialized should be a list of responses
+        let expected = format!("[{}]", json_response);
+
+        let serialized = serde_json::to_string(&responses).unwrap();
+        assert_eq!(expected, serialized);
+    }
+
+    #[test]
     /// given a FeroxResponse, test that it serializes into the proper JSON entry
     fn ferox_response_serialize_and_deserialize() {
         // deserialize
@@ -925,5 +952,46 @@ mod tests {
         // serialize, however, this can fail when headers are out of order
         let new_json = serde_json::to_string(&response).unwrap();
         assert_eq!(json_response, new_json);
+    }
+
+    #[test]
+    /// test FeroxSerialize implementation of FeroxState
+    fn feroxstates_feroxserialize_implementation() {
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let saved_id = ferox_scan.lock().unwrap().id.clone();
+        SCANNED_URLS.insert(ferox_scan);
+
+        let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+        let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
+        RESPONSES.insert(response);
+
+        let ferox_state = FeroxState {
+            scans: &SCANNED_URLS,
+            responses: &RESPONSES,
+            config: &CONFIGURATION,
+        };
+
+        let expected_strs = predicates::str::contains("scans:").and(
+            predicate::str::contains(saved_id.to_string())
+                .and(predicate::str::contains("https://nerdcore.com/css"))
+                .and(predicate::str::contains("scan_type: Directory"))
+                .and(predicate::str::contains("https://nerdcore.com/css"))
+                .and(predicate::str::contains("content_length: 173"))
+                .and(predicate::str::contains("line_count: 10"))
+                .and(predicate::str::contains(r#"{"server": "nginx/1.16.1"}"#))
+                .and(predicate::str::contains(
+                    r#"config: Configuration { kind: "configuration""#,
+                )),
+        );
+
+        assert!(expected_strs.eval(&ferox_state.as_str()));
+
+        let json_state = ferox_state.as_json();
+        let expected = format!(
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/1.9.0","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"save_state":true}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]}}"#,
+            saved_id
+        );
+
+        assert!(predicates::str::similar(expected).eval(&json_state));
     }
 }
