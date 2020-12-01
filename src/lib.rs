@@ -19,7 +19,7 @@ use reqwest::{header::HeaderMap, Response, StatusCode, Url};
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -409,8 +409,8 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                     }
                 }
                 "status" => {
-                    if let Some(num) = value.as_str() {
-                        if let Ok(smaller) = u16::from_str(num) {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(smaller) = u16::try_from(num) {
                             if let Ok(status) = StatusCode::from_u16(smaller) {
                                 response.status = status;
                             }
