@@ -39,8 +39,12 @@ mod tests {
         let p2 = add_bar("prefix", 2, false, true); // no per second field
         let p3 = add_bar("prefix", 2, false, false); // normal bar
 
-        assert!(p1.is_hidden());
-        assert!(!p2.is_hidden());
-        assert!(!p3.is_hidden());
+        p1.finish();
+        p2.finish();
+        p3.finish();
+
+        assert!(p1.is_finished());
+        assert!(p2.is_finished());
+        assert!(p3.is_finished());
     }
 }
