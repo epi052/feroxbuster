@@ -556,7 +556,7 @@ body, then that response is filtered out.
 
 ### Stop and Resume Scans (`--resume-from FILE`) (new in `v1.9.0`)
 
-Version 1.9.0 adds a few features that allows for completely stopping a scan, and resuming that same scan from a file on disk. 
+Version 1.9.0 adds a few features that allow for completely stopping a scan, and resuming that same scan from a file on disk. 
 
 A simple `Ctrl+C` during a scan will create a file that contains information about the scan that was cancelled.
 
