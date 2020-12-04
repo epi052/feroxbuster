@@ -1,10 +1,9 @@
-use crate::VERSION;
 use clap::{App, Arg, ArgGroup};
 
 /// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
 pub fn initialize() -> App<'static, 'static> {
     App::new("feroxbuster")
-        .version(VERSION)
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Ben 'epi' Risher (@epi052)")
         .about("A fast, simple, recursive content discovery tool written in Rust")
         .arg(

@@ -10,9 +10,13 @@ description = "A fast, simple, recursive content discovery tool."
 categories = ["command-line-utilities"]
 keywords = ["pentest", "enumeration", "url-bruteforce", "content-discovery", "web"]
 exclude = [".github/*", "img/*", "check-coverage.sh"]
+build = "build.rs"
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[build-dependencies]
+clap = "2"
 
 [dependencies]
 futures = { version = "0.3"}
