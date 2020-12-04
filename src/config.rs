@@ -1,3 +1,4 @@
+use crate::scan_manager::resume_scan;
 use crate::utils::{module_colorizer, status_colorizer};
 use crate::{client, parser, progress};
 use crate::{FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
@@ -21,7 +22,7 @@ lazy_static! {
     pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
 
     /// Global progress bar that is only used for printing messages that don't jack up other bars
-    pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true);
+    pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true, false);
 }
 
 /// simple helper to clean up some code reuse below; panics under test / exits in prod
@@ -191,9 +192,19 @@ pub struct Configuration {
     /// Don't auto-filter wildcard responses
     #[serde(default)]
     pub dont_filter: bool,
+
+    /// Scan started from a state file, not from CLI args
+    #[serde(default)]
+    pub resumed: bool,
+
+    /// Whether or not a scan's current state should be saved when user presses Ctrl+C
+    ///
+    /// Not configurable from CLI; can only be set from a config file
+    #[serde(default = "save_state")]
+    pub save_state: bool,
 }
 
-// functions timeout, threads, status_codes, user_agent, wordlist, and depth are used to provide
+// functions timeout, threads, status_codes, user_agent, wordlist, save_state, and depth are used to provide
 // defaults in the event that a ferox-config.toml is found but one or more of the values below
 // aren't listed in the config.  This way, we get the correct defaults upon Deserialization
 
@@ -205,6 +216,11 @@ fn serialized_type() -> String {
 /// default timeout value
 fn timeout() -> u64 {
     7
+}
+
+/// default save_state value
+fn save_state() -> bool {
+    true
 }
 
 /// default threads value
@@ -256,6 +272,7 @@ impl Default for Configuration {
             replay_client,
             dont_filter: false,
             quiet: false,
+            resumed: false,
             stdin: false,
             json: false,
             verbosity: 0,
@@ -265,6 +282,7 @@ impl Default for Configuration {
             redirects: false,
             no_recursion: false,
             extract_links: false,
+            save_state: true,
             proxy: String::new(),
             config: String::new(),
             output: String::new(),
@@ -304,6 +322,7 @@ impl Configuration {
     /// - **output**: `None` (print to stdout)
     /// - **debug_log**: `None`
     /// - **quiet**: `false`
+    /// - **save_state**: `true`
     /// - **user_agent**: `feroxbuster/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
@@ -344,6 +363,29 @@ impl Configuration {
         // when compiling for test, we want to eliminate the runtime dependency of the parser
         if cfg!(test) {
             return Configuration::default();
+        }
+
+        let args = parser::initialize().get_matches();
+
+        if let Some(filename) = args.value_of("resume_from") {
+            // when resuming a scan, instead of normal configuration loading, we just
+            // load the config from disk by calling resume_scan
+            let mut previous_config = resume_scan(filename);
+
+            // the resumed flag isn't printed in the banner and really has no business being
+            // serialized or included in much of the usual config logic; simply setting it to true
+            // here and being done with it
+            previous_config.resumed = true;
+
+            // if the user used --stdin, we already have all the scans started (or complete), we
+            // need to flip stdin to false so that the 'read from stdin' logic doesn't fire (if
+            // not flipped to false, the program hangs waiting for input from stdin again)
+            previous_config.stdin = false;
+
+            // clients aren't serialized, have to remake them from the previous config
+            Self::try_rebuild_clients(&mut previous_config);
+
+            return previous_config;
         }
 
         // Get the default configuration, this is what will apply if nothing
@@ -391,8 +433,6 @@ impl Configuration {
             let config_file = cwd.join(DEFAULT_CONFIG_NAME);
             Self::parse_and_merge_config(config_file, &mut config);
         }
-
-        let args = parser::initialize().get_matches();
 
         macro_rules! update_config_if_present {
             ($c:expr, $m:ident, $v:expr, $t:ty) => {
@@ -569,50 +609,55 @@ impl Configuration {
             }
         }
 
-        // this if statement determines if we've gotten a Client configuration change from
-        // either the config file or command line arguments; if we have, we need to rebuild
-        // the client and store it in the config struct
-        if !config.proxy.is_empty()
-            || config.timeout != timeout()
-            || config.user_agent != user_agent()
-            || config.redirects
-            || config.insecure
-            || !config.headers.is_empty()
+        Self::try_rebuild_clients(&mut config);
+
+        config
+    }
+
+    /// this function determines if we've gotten a Client configuration change from
+    /// either the config file or command line arguments; if we have, we need to rebuild
+    /// the client and store it in the config struct
+    fn try_rebuild_clients(configuration: &mut Configuration) {
+        if !configuration.proxy.is_empty()
+            || configuration.timeout != timeout()
+            || configuration.user_agent != user_agent()
+            || configuration.redirects
+            || configuration.insecure
+            || !configuration.headers.is_empty()
+            || configuration.resumed
         {
-            if config.proxy.is_empty() {
-                config.client = client::initialize(
-                    config.timeout,
-                    &config.user_agent,
-                    config.redirects,
-                    config.insecure,
-                    &config.headers,
+            if configuration.proxy.is_empty() {
+                configuration.client = client::initialize(
+                    configuration.timeout,
+                    &configuration.user_agent,
+                    configuration.redirects,
+                    configuration.insecure,
+                    &configuration.headers,
                     None,
                 )
             } else {
-                config.client = client::initialize(
-                    config.timeout,
-                    &config.user_agent,
-                    config.redirects,
-                    config.insecure,
-                    &config.headers,
-                    Some(&config.proxy),
+                configuration.client = client::initialize(
+                    configuration.timeout,
+                    &configuration.user_agent,
+                    configuration.redirects,
+                    configuration.insecure,
+                    &configuration.headers,
+                    Some(&configuration.proxy),
                 )
             }
         }
 
-        if !config.replay_proxy.is_empty() {
+        if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
-            config.replay_client = Some(client::initialize(
-                config.timeout,
-                &config.user_agent,
-                config.redirects,
-                config.insecure,
-                &config.headers,
-                Some(&config.replay_proxy),
+            configuration.replay_client = Some(client::initialize(
+                configuration.timeout,
+                &configuration.user_agent,
+                configuration.redirects,
+                configuration.insecure,
+                &configuration.headers,
+                Some(&configuration.replay_proxy),
             ));
         }
-
-        config
     }
 
     /// Given a configuration file's location and an instance of `Configuration`, read in
@@ -665,6 +710,7 @@ impl Configuration {
         settings.scan_limit = settings_to_merge.scan_limit;
         settings.replay_proxy = settings_to_merge.replay_proxy;
         settings.replay_codes = settings_to_merge.replay_codes;
+        settings.save_state = settings_to_merge.save_state;
         settings.debug_log = settings_to_merge.debug_log;
         settings.json = settings_to_merge.json;
     }
@@ -765,6 +811,7 @@ mod tests {
             dont_filter = true
             extract_links = true
             json = true
+            save_state = false
             depth = 1
             filter_size = [4120]
             filter_regex = ["^ignore me$"]
@@ -800,6 +847,7 @@ mod tests {
         assert_eq!(config.dont_filter, false);
         assert_eq!(config.no_recursion, false);
         assert_eq!(config.json, false);
+        assert_eq!(config.save_state, true);
         assert_eq!(config.stdin, false);
         assert_eq!(config.add_slash, false);
         assert_eq!(config.redirects, false);
@@ -1002,6 +1050,13 @@ mod tests {
     fn config_reads_filter_status() {
         let config = setup_config_test();
         assert_eq!(config.filter_status, vec![201]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_save_state() {
+        let config = setup_config_test();
+        assert_eq!(config.save_state, false);
     }
 
     #[test]

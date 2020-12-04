@@ -36,6 +36,7 @@
 # filter_word_count = [993]
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
+# save_state = false
 
 # headers can be specified on multiple lines or as an inline table
 #

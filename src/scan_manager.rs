@@ -1,11 +1,28 @@
-use crate::{config::PROGRESS_PRINTER, progress, scanner::NUMBER_OF_REQUESTS, SLEEP_DURATION};
+use crate::config::Configuration;
+use crate::reporter::safe_file_write;
+use crate::utils::open_file;
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    progress,
+    scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
+    FeroxResponse, FeroxSerialize, SLEEP_DURATION,
+};
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use lazy_static::lazy_static;
+use serde::{
+    ser::{SerializeSeq, SerializeStruct},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+use serde_json::Value;
+use std::collections::HashMap;
 use std::{
     cmp::PartialEq,
     fmt,
+    fs::File,
+    io::BufReader,
     sync::{Arc, Mutex, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use std::{
     io::{stderr, Write},
@@ -28,10 +45,18 @@ static INTERACTIVE_BARRIER: AtomicUsize = AtomicUsize::new(0);
 pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
 
 /// Simple enum used to flag a `FeroxScan` as likely a directory or file
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ScanType {
     File,
     Directory,
+}
+
+/// Default implementation for ScanType
+impl Default for ScanType {
+    /// Return ScanType::File as default
+    fn default() -> Self {
+        Self::File
+    }
 }
 
 /// Struct to hold scan-related state
@@ -59,17 +84,8 @@ pub struct FeroxScan {
     pub progress_bar: Option<ProgressBar>,
 }
 
-/// Implementation of FeroxScan
-impl FeroxScan {
-    /// Stop a currently running scan
-    pub fn abort(&self) {
-        self.stop_progress_bar();
-
-        if let Some(_task) = &self.task {
-            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
-        }
-    }
-
+/// Default implementation for FeroxScan
+impl Default for FeroxScan {
     /// Create a default FeroxScan, populates ID with a new UUID
     fn default() -> Self {
         let new_id = Uuid::new_v4().to_simple().to_string();
@@ -81,6 +97,18 @@ impl FeroxScan {
             url: String::new(),
             progress_bar: None,
             scan_type: ScanType::File,
+        }
+    }
+}
+
+/// Implementation of FeroxScan
+impl FeroxScan {
+    /// Stop a currently running scan
+    pub fn abort(&self) {
+        self.stop_progress_bar();
+
+        if let Some(_task) = &self.task {
+            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
         }
     }
 
@@ -97,7 +125,7 @@ impl FeroxScan {
             pb.clone()
         } else {
             let num_requests = NUMBER_OF_REQUESTS.load(Ordering::Relaxed);
-            let pb = progress::add_bar(&self.url, num_requests, false);
+            let pb = progress::add_bar(&self.url, num_requests, false, false);
 
             pb.reset_elapsed();
 
@@ -145,11 +173,99 @@ impl PartialEq for FeroxScan {
     }
 }
 
+/// Serialize implementation for FeroxScan
+impl Serialize for FeroxScan {
+    /// Function that handles serialization of a FeroxScan
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FeroxScan", 4)?;
+
+        state.serialize_field("id", &self.id)?;
+        state.serialize_field("url", &self.url)?;
+        state.serialize_field("scan_type", &self.scan_type)?;
+        state.serialize_field("complete", &self.complete)?;
+
+        state.end()
+    }
+}
+
+/// Deserialize implementation for FeroxScan
+impl<'de> Deserialize<'de> for FeroxScan {
+    /// Deserialize a FeroxScan from a serde_json::Value
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut scan = Self::default();
+
+        let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
+
+        for (key, value) in &map {
+            match key.as_str() {
+                "id" => {
+                    if let Some(id) = value.as_str() {
+                        scan.id = id.to_string();
+                    }
+                }
+                "scan_type" => {
+                    if let Some(scan_type) = value.as_str() {
+                        scan.scan_type = match scan_type {
+                            "File" => ScanType::File,
+                            "Directory" => ScanType::Directory,
+                            _ => ScanType::File,
+                        }
+                    }
+                }
+                "complete" => {
+                    if let Some(complete) = value.as_bool() {
+                        scan.complete = complete;
+                    }
+                }
+                "url" => {
+                    if let Some(url) = value.as_str() {
+                        scan.url = url.to_string();
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(scan)
+    }
+}
+
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
 pub struct FeroxScans {
     /// Internal structure: locked hashset of `FeroxScan`s
     pub scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
+}
+
+/// Serialize implementation for FeroxScans
+impl Serialize for FeroxScans {
+    /// Function that handles serialization of FeroxScans
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Ok(scans) = self.scans.lock() {
+            let mut seq = serializer.serialize_seq(Some(scans.len()))?;
+
+            for scan in scans.iter() {
+                if let Ok(unlocked) = scan.lock() {
+                    seq.serialize_element(&*unlocked)?;
+                }
+            }
+
+            seq.end()
+        } else {
+            // if for some reason we can't unlock the mutex, just write an empty list
+            let seq = serializer.serialize_seq(Some(0))?;
+            seq.end()
+        }
+    }
 }
 
 /// Implementation of `FeroxScans`
@@ -324,8 +440,12 @@ impl FeroxScans {
     fn add_scan(&self, url: &str, scan_type: ScanType) -> (bool, Arc<Mutex<FeroxScan>>) {
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar =
-                    progress::add_bar(&url, NUMBER_OF_REQUESTS.load(Ordering::Relaxed), false);
+                let progress_bar = progress::add_bar(
+                    &url,
+                    NUMBER_OF_REQUESTS.load(Ordering::Relaxed),
+                    false,
+                    false,
+                );
 
                 progress_bar.reset_elapsed();
 
@@ -382,9 +502,212 @@ fn get_single_spinner() -> ProgressBar {
     spinner
 }
 
+/// Container around a locked vector of `FeroxResponse`s, adds wrappers for insertion and search
+#[derive(Debug, Default)]
+pub struct FeroxResponses {
+    /// Internal structure: locked hashset of `FeroxScan`s
+    pub responses: Arc<RwLock<Vec<FeroxResponse>>>,
+}
+
+/// Serialize implementation for FeroxResponses
+impl Serialize for FeroxResponses {
+    /// Function that handles serialization of FeroxResponses
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Ok(responses) = self.responses.read() {
+            let mut seq = serializer.serialize_seq(Some(responses.len()))?;
+
+            for response in responses.iter() {
+                seq.serialize_element(response)?;
+            }
+
+            seq.end()
+        } else {
+            // if for some reason we can't unlock the mutex, just write an empty list
+            let seq = serializer.serialize_seq(Some(0))?;
+            seq.end()
+        }
+    }
+}
+
+/// Implementation of `FeroxResponses`
+impl FeroxResponses {
+    /// Add a `FeroxResponse` to the internal container
+    pub fn insert(&self, response: FeroxResponse) {
+        match self.responses.write() {
+            Ok(mut responses) => {
+                responses.push(response);
+            }
+            Err(e) => {
+                log::error!("FeroxResponses' container's mutex is poisoned: {}", e);
+            }
+        }
+    }
+
+    /// Simple check for whether or not a FeroxResponse is contained within the inner container
+    pub fn contains(&self, other: &FeroxResponse) -> bool {
+        match self.responses.read() {
+            Ok(responses) => {
+                for response in responses.iter() {
+                    if response.url == other.url {
+                        return true;
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("FeroxResponses' container's mutex is poisoned: {}", e);
+            }
+        }
+        false
+    }
+}
+/// Data container for (de)?serialization of multiple items
+#[derive(Serialize, Debug)]
+pub struct FeroxState {
+    /// Known scans
+    scans: &'static FeroxScans,
+
+    /// Current running config
+    config: &'static Configuration,
+
+    /// Known responses
+    responses: &'static FeroxResponses,
+}
+
+/// FeroxSerialize implementation for FeroxState
+impl FeroxSerialize for FeroxState {
+    /// Simply return debug format of FeroxState to satisfy as_str
+    fn as_str(&self) -> String {
+        format!("{:?}", self)
+    }
+
+    /// Simple call to produce a JSON string using the given FeroxState
+    fn as_json(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}
+
+/// Initialize the ctrl+c handler that saves scan state to disk
+pub fn initialize() {
+    log::trace!("enter: initialize");
+
+    let result = ctrlc::set_handler(move || {
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let slug = if !CONFIGURATION.target_url.is_empty() {
+            // target url populated
+            CONFIGURATION
+                .target_url
+                .replace("://", "_")
+                .replace("/", "_")
+                .replace(".", "_")
+        } else {
+            // stdin used
+            "stdin".to_string()
+        };
+
+        let filename = format!("ferox-{}-{}.state", slug, ts);
+        let warning = format!(
+            "🚨 Caught {} 🚨 saving scan state to {} ...",
+            style("ctrl+c").yellow(),
+            filename
+        );
+
+        PROGRESS_PRINTER.println(warning);
+
+        let state = FeroxState {
+            config: &CONFIGURATION,
+            scans: &SCANNED_URLS,
+            responses: &RESPONSES,
+        };
+
+        let state_file = open_file(&filename);
+
+        if let Some(buffered_file) = state_file {
+            safe_file_write(&state, buffered_file, true);
+        }
+
+        std::process::exit(1);
+    });
+
+    if result.is_err() {
+        log::error!("Could not set Ctrl+c handler");
+        std::process::exit(1);
+    }
+
+    log::trace!("exit: initialize");
+}
+
+/// Primary logic used to load a Configuration from disk and populate the appropriate data
+/// structures
+pub fn resume_scan(filename: &str) -> Configuration {
+    log::trace!("enter: resume_scan({})", filename);
+
+    let file = File::open(filename).unwrap_or_else(|e| {
+        log::error!("{}", e);
+        log::error!("Could not open state file, exiting");
+        std::process::exit(1);
+    });
+
+    let reader = BufReader::new(file);
+    let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+    let conf = state.get("config").unwrap_or_else(|| {
+        log::error!("Could not load configuration from state file, exiting");
+        std::process::exit(1);
+    });
+
+    let config = serde_json::from_value(conf.clone()).unwrap_or_else(|e| {
+        log::error!("{}", e);
+        log::error!("Could not deserialize configuration found in state file, exiting");
+        std::process::exit(1);
+    });
+
+    // let scans: FeroxScans = serde_json::from_value(state.get("scans").unwrap().clone()).unwrap();
+    if let Some(responses) = state.get("responses") {
+        if let Some(arr_responses) = responses.as_array() {
+            for response in arr_responses {
+                if let Ok(deser_resp) = serde_json::from_value(response.clone()) {
+                    RESPONSES.insert(deser_resp);
+                }
+            }
+        }
+    }
+
+    if let Some(scans) = state.get("scans") {
+        if let Some(arr_scans) = scans.as_array() {
+            for scan in arr_scans {
+                let deser_scan: FeroxScan =
+                    serde_json::from_value(scan.clone()).unwrap_or_default();
+                // need to determine if it's complete and based on that create a progress bar
+                // populate it accordingly based on completion
+                SCANNED_URLS.insert(Arc::new(Mutex::new(deser_scan)));
+            }
+        }
+    }
+
+    log::trace!("exit: resume_scan -> {:?}", config);
+    config
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use predicates::prelude::*;
+
+    #[test]
+    /// test that ScanType's default is File
+    fn default_scantype_is_file() {
+        match ScanType::default() {
+            ScanType::File => {}
+            ScanType::Directory => panic!(),
+        }
+    }
 
     #[test]
     /// test that get_single_spinner returns the correct spinner
@@ -527,5 +850,143 @@ mod tests {
 
         assert!(scan.progress_bar.is_some()); // new pb created
         assert!(!pb.is_finished()) // not finished
+    }
+
+    #[test]
+    /// given a JSON entry representing a FeroxScan, test that it deserializes into the proper type
+    /// with the right attributes
+    fn ferox_scan_deserialize() {
+        let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","complete":true}"#;
+        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","complete":true}"#;
+
+        let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
+        let fs_two: FeroxScan = serde_json::from_str(fs_json_two).unwrap();
+        assert_eq!(fs.url, "https://spiritanimal.com");
+
+        match fs.scan_type {
+            ScanType::Directory => {}
+            ScanType::File => {
+                panic!();
+            }
+        }
+        match fs_two.scan_type {
+            ScanType::Directory => {
+                panic!();
+            }
+            ScanType::File => {}
+        }
+
+        match fs.progress_bar {
+            None => {}
+            Some(_) => {
+                panic!();
+            }
+        }
+        assert_eq!(fs.complete, true);
+        assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
+    }
+
+    #[test]
+    /// given a FeroxScan, test that it serializes into the proper JSON entry
+    fn ferox_scan_serialize() {
+        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let fs_json = format!(
+            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}"#,
+            fs.lock().unwrap().id
+        );
+        assert_eq!(
+            fs_json,
+            serde_json::to_string(&*fs.lock().unwrap()).unwrap()
+        );
+    }
+
+    #[test]
+    /// given a FeroxScans, test that it serializes into the proper JSON entry
+    fn ferox_scans_serialize() {
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let ferox_scans = FeroxScans::default();
+        let ferox_scans_json = format!(
+            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}]"#,
+            ferox_scan.lock().unwrap().id
+        );
+        ferox_scans.scans.lock().unwrap().push(ferox_scan);
+        assert_eq!(
+            ferox_scans_json,
+            serde_json::to_string(&ferox_scans).unwrap()
+        );
+    }
+
+    #[test]
+    /// given a FeroxResponses, test that it serializes into the proper JSON entry
+    fn ferox_responses_serialize() {
+        let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+        let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
+
+        let responses = FeroxResponses::default();
+        responses.insert(response);
+        // responses has a response now
+
+        // serialized should be a list of responses
+        let expected = format!("[{}]", json_response);
+
+        let serialized = serde_json::to_string(&responses).unwrap();
+        assert_eq!(expected, serialized);
+    }
+
+    #[test]
+    /// given a FeroxResponse, test that it serializes into the proper JSON entry
+    fn ferox_response_serialize_and_deserialize() {
+        // deserialize
+        let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+        let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
+
+        assert_eq!(response.url.as_str(), "https://nerdcore.com/css");
+        assert_eq!(response.url.path(), "/css");
+        assert_eq!(response.wildcard, true);
+        assert_eq!(response.status.as_u16(), 301);
+        assert_eq!(response.content_length, 173);
+        assert_eq!(response.line_count, 10);
+        assert_eq!(response.word_count, 16);
+        assert_eq!(response.headers.get("server").unwrap(), "nginx/1.16.1");
+
+        // serialize, however, this can fail when headers are out of order
+        let new_json = serde_json::to_string(&response).unwrap();
+        assert_eq!(json_response, new_json);
+    }
+
+    #[test]
+    /// test FeroxSerialize implementation of FeroxState
+    fn feroxstates_feroxserialize_implementation() {
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let saved_id = ferox_scan.lock().unwrap().id.clone();
+        SCANNED_URLS.insert(ferox_scan);
+
+        let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+        let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
+        RESPONSES.insert(response);
+
+        let ferox_state = FeroxState {
+            scans: &SCANNED_URLS,
+            responses: &RESPONSES,
+            config: &CONFIGURATION,
+        };
+
+        let expected_strs = predicates::str::contains("scans: FeroxScans").and(
+            predicate::str::contains("config: Configuration")
+                .and(predicate::str::contains("responses: FeroxResponses"))
+                .and(predicate::str::contains("nerdcore.com"))
+                .and(predicate::str::contains("/css"))
+                .and(predicate::str::contains("https://spiritanimal.com")),
+        );
+
+        assert!(expected_strs.eval(&ferox_state.as_str()));
+
+        let json_state = ferox_state.as_json();
+        let expected = format!(
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/1.9.0","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"save_state":true}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]}}"#,
+            saved_id
+        );
+
+        assert!(predicates::str::similar(expected).eval(&json_state));
     }
 }

@@ -73,19 +73,20 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
 - [Example Usage](#-example-usage)
-    - [Pause and Resume Scans (new in `v1.4.0`)](#pause-and-resume-scans-new-in-v140)
     - [Multiple Values](#multiple-values)
-    - [Extract Links from Response Body (new in `v1.1.0`)](#extract-links-from-response-body-new-in-v110)
     - [Include Headers](#include-headers)
     - [IPv6, Non-recursive scan with INFO logging enabled](#ipv6-non-recursive-scan-with-info-level-logging-enabled)
     - [Read urls from STDIN; pipe only resulting urls out to another tool](#read-urls-from-stdin-pipe-only-resulting-urls-out-to-another-tool)
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
     - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
+    - [Extract Links from Response Body (new in `v1.1.0`)](#extract-links-from-response-body-new-in-v110)
     - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
     - [Filter Response by Status Code  (new in `v1.3.0`)](#filter-response-by-status-code--new-in-v130)
-    - [Filter Response Using a Regular Expression (new in `v1.8.0`)](#filter-response-using-a-regular-expression-new-in-v180)
+    - [Pause an Active Scan (new in `v1.4.0`)](#pause-an-active-scan-new-in-v140)
     - [Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)](#replay-responses-to-a-proxy-based-on-status-code-new-in-v150)
+    - [Filter Response Using a Regular Expression (new in `v1.8.0`)](#filter-response-using-a-regular-expression-new-in-v180)
+    - [Stop and Resume Scans (save scan's state to disk) (new in `v1.9.0`)](#stop-and-resume-scans---resume-from-file-new-in-v190)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -257,6 +258,7 @@ Configuration begins with with the following built-in default values baked into 
 - recursion depth: `4`
 - auto-filter wildcards - `true`
 - output: `stdout`
+- save_state: `true` (create a state file in cwd when `Ctrl+C` is received)
 
 ### Threads and Connection Limits At A High-Level
 
@@ -348,6 +350,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # filter_word_count = [993]
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
+# save_state = false
 
 # headers can be specified on multiple lines or as an inline table
 #
@@ -404,6 +407,8 @@ OPTIONS:
                                             -codes value)
     -P, --replay-proxy <REPLAY_PROXY>       Send only unfiltered requests through a Replay Proxy, instead of all
                                             requests
+        --resume-from <STATE_FILE>          State file from which to resume a partially complete scan (ex. --resume-from
+                                            ferox-1606586780.state)
     -L, --scan-limit <SCAN_LIMIT>           Limit total number of concurrent scans (default: 0, i.e. no limit)
     -s, --status-codes <STATUS_CODE>...     Status Codes to include (allow list) (default: 200 204 301 302 307 308 401
                                             403 405)
@@ -415,12 +420,6 @@ OPTIONS:
 ```
 
 ## 🧰 Example Usage
-
-### Pause and Resume Scans (new in `v1.4.0`)
-
-Scans can be paused and resumed by pressing the ENTER key (shown below)
-
-![pause-resume-demo](img/pause-resume-demo.gif)
 
 ### Multiple Values
 
@@ -438,6 +437,36 @@ All of the methods above (multiple flags, space separated, comma separated, etc.
 
 ```
 ./feroxbuster -u http://127.1 -H Accept:application/json "Authorization: Bearer {token}"
+```
+
+### IPv6, non-recursive scan with INFO-level logging enabled
+
+```
+./feroxbuster -u http://[::1] --no-recursion -vv
+```
+
+### Read urls from STDIN; pipe only resulting urls out to another tool
+
+```
+cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+```
+
+### Proxy traffic through Burp
+
+```
+./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080
+```
+
+### Proxy traffic through a SOCKS proxy
+
+```
+./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
+```
+
+### Pass auth token via query parameter 
+
+```
+./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
 ### Extract Links from Response Body (New in `v1.1.0`) 
@@ -470,37 +499,6 @@ With `--extract-links`
 
 ![extract-scan-cmp-normal](img/extract-scan-cmp-normal.gif)
 
-
-### IPv6, non-recursive scan with INFO-level logging enabled
-
-```
-./feroxbuster -u http://[::1] --no-recursion -vv
-```
-
-### Read urls from STDIN; pipe only resulting urls out to another tool
-
-```
-cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
-```
-
-### Proxy traffic through Burp
-
-```
-./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080
-```
-
-### Proxy traffic through a SOCKS proxy
-
-```
-./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
-```
-
-### Pass auth token via query parameter 
-
-```
-./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
-```
-
 ### Limit Total Number of Concurrent Scans (new in `v1.2.0`)
 
 Limit the number of scans permitted to run at any given time.  Recursion will still identify new directories, but newly
@@ -523,18 +521,11 @@ each one is checked against a list of known filters and either displayed or not 
 ./feroxbuster -u http://127.1 --filter-status 301
 ```
 
-### Filter Response Using a Regular Expression (new in `v1.8.0`) 
+### Pause an Active Scan (new in `v1.4.0`)
 
-Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
-with minimal effort. The latest addition is a Regular Expression Filter. As responses come back from the scanned server,
-the **body** of the response is checked against the filter's regular expression.  If the expression is found in the 
-body, then that response is filtered out.  
+Scans can be paused and resumed by pressing the ENTER key (shown below)
 
-**NOTE: Using regular expressions to filter large responses or many regular expressions may negatively impact performance.**  
-
-```
-./feroxbuster -u http://127.1 --filter-regex '[aA]ccess [dD]enied.?' --output results.txt --json
-```
+![pause-resume-demo](img/pause-resume-demo.gif)
 
 ### Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)
 
@@ -549,6 +540,80 @@ Imagine you only care about proxying responses that have either the status code 
 Of note: this means that for every response that matches your replay criteria, you'll end up sending the request that generated that response a second time.  Depending on the target and your engagement terms (if any), it may not make sense from a traffic generated perspective.
 
 ![replay-proxy-demo](img/replay-proxy-demo.gif)
+
+### Filter Response Using a Regular Expression (new in `v1.8.0`) 
+
+Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
+with minimal effort. The latest addition is a Regular Expression Filter. As responses come back from the scanned server,
+the **body** of the response is checked against the filter's regular expression.  If the expression is found in the 
+body, then that response is filtered out.  
+
+**NOTE: Using regular expressions to filter large responses or many regular expressions may negatively impact performance.**  
+
+```
+./feroxbuster -u http://127.1 --filter-regex '[aA]ccess [dD]enied.?' --output results.txt --json
+```
+
+### Stop and Resume Scans (`--resume-from FILE`) (new in `v1.9.0`)
+
+Version 1.9.0 adds a few features that allows for completely stopping a scan, and resuming that same scan from a file on disk. 
+
+A simple `Ctrl+C` during a scan will create a file that contains information about the scan that was cancelled.
+
+![save-state](img/save-state.png)
+
+```json
+// example snippet of state file
+
+{
+   "scans":[
+      {
+         "id":"057016a14769414aac9a7a62707598cb",
+         "url":"https://localhost.com",
+         "scan_type":"Directory",
+         "complete":true
+      },
+      {
+         "id":"400b2323a16f43468a04ffcbbeba34c6",
+         "url":"https://localhost.com/css",
+         "scan_type":"Directory",
+         "complete":false
+      }
+   ],
+   "config":{
+      "wordlist":"/wordlists/seclists/Discovery/Web-Content/common.txt",
+      "...":"..."
+   },
+   "responses":[
+      {
+         "type":"response",
+         "url":"https://localhost.com/Login",
+         "path":"/Login",
+         "wildcard":false,
+         "status":302,
+         "content_length":0,
+         "line_count":0,
+         "word_count":0,
+         "headers":{
+            "content-length":"0",
+            "server":"nginx/1.16.1"
+         }
+      }
+   ]
+},
+```
+
+Based on the example image above, the same scan can be resumed by using `feroxbuster --resume-from ferox-http_localhost-1606947491.state`.  Directories that were already complete are not rescanned, however partially complete scans are started from the beginning.  
+
+![resumed-scan](img/resumed-scan.gif)
+
+In order to prevent state file creation when `Ctrl+C` is pressed, you can simply add the entry below to your `ferox-config.toml`.
+
+```toml
+# ferox-config.toml
+
+save_state = false
+```
 
 ## 🧐 Comparison w/ Similar Tools
 

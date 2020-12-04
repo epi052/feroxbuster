@@ -14,9 +14,13 @@ pub mod utils;
 
 use crate::utils::{get_url_path_length, status_colorizer};
 use console::{style, Color};
+use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::{header::HeaderMap, Response, StatusCode, Url};
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
 use std::{error, fmt};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -112,6 +116,12 @@ pub struct FeroxResponse {
     /// The content-length of this response, if known
     content_length: u64,
 
+    /// The number of lines contained in the body of this response, if known
+    line_count: usize,
+
+    /// The number of words contained in the body of this response, if known
+    word_count: usize,
+
     /// The `Headers` of this `FeroxResponse`
     headers: HeaderMap,
 
@@ -194,15 +204,12 @@ impl FeroxResponse {
 
     /// Returns line count of the response text.
     pub fn line_count(&self) -> usize {
-        self.text().lines().count()
+        self.line_count
     }
 
     /// Returns word count of the response text.
     pub fn word_count(&self) -> usize {
-        self.text()
-            .lines()
-            .map(|s| s.split_whitespace().count())
-            .sum()
+        self.word_count
     }
 
     /// Create a new `FeroxResponse` from the given `Response`
@@ -228,18 +235,23 @@ impl FeroxResponse {
             String::new()
         };
 
+        let line_count = text.lines().count();
+        let word_count = text.lines().map(|s| s.split_whitespace().count()).sum();
+
         FeroxResponse {
             url,
             status,
             content_length,
             text,
             headers,
+            line_count,
+            word_count,
             wildcard: false,
         }
     }
 }
 
-/// Implement FeroxSerialize for FeroxResponse
+/// Implement FeroxSerialusize::from(ize for FeroxRespons)e
 impl FeroxSerialize for FeroxResponse {
     /// Simple wrapper around create_report_string
     fn as_str(&self) -> String {
@@ -359,18 +371,99 @@ impl Serialize for FeroxResponse {
         state.serialize_field("wildcard", &self.wildcard)?;
         state.serialize_field("status", &self.status.as_u16())?;
         state.serialize_field("content_length", &self.content_length)?;
-        state.serialize_field("line_count", &self.line_count())?;
-        state.serialize_field("word_count", &self.word_count())?;
+        state.serialize_field("line_count", &self.line_count)?;
+        state.serialize_field("word_count", &self.word_count)?;
         state.serialize_field("headers", &headers)?;
 
         state.end()
     }
 }
 
+/// Deserialize implementation for FeroxResponse
+impl<'de> Deserialize<'de> for FeroxResponse {
+    /// Deserialize a FeroxResponse from a serde_json::Value
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut response = Self {
+            url: Url::parse("http://localhost").unwrap(),
+            status: StatusCode::OK,
+            text: String::new(),
+            content_length: 0,
+            headers: HeaderMap::new(),
+            wildcard: false,
+            line_count: 0,
+            word_count: 0,
+        };
+
+        let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
+
+        for (key, value) in &map {
+            match key.as_str() {
+                "url" => {
+                    if let Some(url) = value.as_str() {
+                        if let Ok(parsed) = Url::parse(url) {
+                            response.url = parsed;
+                        }
+                    }
+                }
+                "status" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(smaller) = u16::try_from(num) {
+                            if let Ok(status) = StatusCode::from_u16(smaller) {
+                                response.status = status;
+                            }
+                        }
+                    }
+                }
+                "content_length" => {
+                    if let Some(num) = value.as_u64() {
+                        response.content_length = num;
+                    }
+                }
+                "line_count" => {
+                    if let Some(num) = value.as_u64() {
+                        response.line_count = num.try_into().unwrap_or_default();
+                    }
+                }
+                "word_count" => {
+                    if let Some(num) = value.as_u64() {
+                        response.word_count = num.try_into().unwrap_or_default();
+                    }
+                }
+                "headers" => {
+                    let mut headers = HeaderMap::<HeaderValue>::default();
+
+                    if let Some(map_headers) = value.as_object() {
+                        for (h_key, h_value) in map_headers {
+                            let h_value_str = h_value.as_str().unwrap_or("");
+                            let h_name = HeaderName::from_str(h_key)
+                                .unwrap_or_else(|_| HeaderName::from_str("Unknown").unwrap());
+                            let h_value_parsed = HeaderValue::from_str(h_value_str)
+                                .unwrap_or_else(|_| HeaderValue::from_str("Unknown").unwrap());
+                            headers.insert(h_name, h_value_parsed);
+                        }
+                    }
+
+                    response.headers = headers;
+                }
+                "wildcard" => {
+                    if let Some(result) = value.as_bool() {
+                        response.wildcard = result;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(response)
+    }
+}
+
 #[derive(Serialize, Deserialize, Default)]
 /// Representation of a log entry, can be represented as a human readable string or JSON
 pub struct FeroxMessage {
-    // todo probably move to lib
     #[serde(rename = "type")]
     /// Name of this type of struct, used for serialization, i.e. `{"type":"log"}`
     kind: String,

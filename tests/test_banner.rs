@@ -711,6 +711,8 @@ fn banner_prints_json() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--json")
+        .arg("--output")
+        .arg("/dev/null")
         .assert()
         .success()
         .stderr(
