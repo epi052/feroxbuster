@@ -1,8 +1,10 @@
 FROM alpine:latest
 LABEL maintainer="wfnintr@null.net"
 
+RUN sed -i -e 's/v[[:digit:]]\..*\//edge\//g' /etc/apk/repositories && apk upgrade --update-cache --available
+
 # download default wordlists 
-RUN apk add --no-cache --virtual .depends subversion && \
+RUN apk add --no-cache --virtual .depends subversion font-noto-emoji && \
 	svn export https://github.com/danielmiessler/SecLists/trunk/Discovery/Web-Content /usr/share/seclists/Discovery/Web-Content && \
 	apk del .depends
 
