@@ -2,7 +2,7 @@ use crate::scan_manager::resume_scan;
 use crate::utils::{module_colorizer, status_colorizer};
 use crate::{client, parser, progress};
 use crate::{FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
-use clap::value_t;
+use clap::{value_t, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
@@ -23,6 +23,32 @@ lazy_static! {
 
     /// Global progress bar that is only used for printing messages that don't jack up other bars
     pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true, false);
+}
+
+/// macro helper to abstract away repetitive configuration updates
+macro_rules! update_config_if_present {
+    ($c:expr, $m:ident, $v:expr, $t:ty) => {
+        match value_t!($m, $v, $t) {
+            Ok(value) => *$c = value, // Update value
+            Err(clap::Error {
+                kind: clap::ErrorKind::ArgumentNotFound,
+                message: _,
+                info: _,
+            }) => {
+                // Do nothing if argument not found
+            }
+            Err(e) => e.exit(), // Exit with error on parse error
+        }
+    };
+}
+
+/// macro helper to abstract away repetitive if not default: update checks
+macro_rules! update_if_not_default {
+    ($old:expr, $new:expr, $default:expr) => {
+        if $new != $default {
+            *$old = $new;
+        }
+    };
 }
 
 /// simple helper to clean up some code reuse below; panics under test / exits in prod
@@ -81,7 +107,7 @@ pub struct Configuration {
     pub status_codes: Vec<u16>,
 
     /// Status Codes to replay to the Replay Proxy (default: whatever is passed to --status-code)
-    #[serde(default)]
+    #[serde(default = "status_codes")]
     pub replay_codes: Vec<u16>,
 
     /// Status Codes to filter out (deny list)
@@ -367,10 +393,28 @@ impl Configuration {
 
         let args = parser::initialize().get_matches();
 
+        // Get the default configuration, this is what will apply if nothing
+        // else is specified.
+        let mut config = Configuration::default();
+
+        // read in all config files
+        Self::parse_config_files(&mut config);
+
+        // read in the user provided options, this produces a separate instance of Configuration
+        // in order to allow for potentially merging into a --resume-from Configuration
+        let cli_config = Self::parse_cli_args(&args);
+
+        // --resume-from used, need to first read the Configuration from disk, and then
+        // merge the cli_config into the resumed config
         if let Some(filename) = args.value_of("resume_from") {
             // when resuming a scan, instead of normal configuration loading, we just
             // load the config from disk by calling resume_scan
             let mut previous_config = resume_scan(filename);
+
+            // if any other arguments were passed on the command line, the theory is that the
+            // user meant to modify the previously cancelled/saved scan in some way that we
+            // should take into account
+            Self::merge_config(&mut previous_config, cli_config);
 
             // the resumed flag isn't printed in the banner and really has no business being
             // serialized or included in much of the usual config logic; simply setting it to true
@@ -388,10 +432,16 @@ impl Configuration {
             return previous_config;
         }
 
-        // Get the default configuration, this is what will apply if nothing
-        // else is specified.
-        let mut config = Configuration::default();
+        // if we've gotten to this point in the code, --resume-from was not used, so we need to
+        // merge the cli options into the config file options and return the result
+        Self::merge_config(&mut config, cli_config);
 
+        config
+    }
+
+    /// Parse all possible versions of the ferox-config.toml file, adhering to the order of
+    /// precedence outlined above
+    fn parse_config_files(mut config: &mut Self) {
         // Next, we parse the ferox-config.toml file, if present and set the values
         // therein to overwrite our default values. Deserialized defaults are specified
         // in the Configuration struct so that we don't change anything that isn't
@@ -433,22 +483,12 @@ impl Configuration {
             let config_file = cwd.join(DEFAULT_CONFIG_NAME);
             Self::parse_and_merge_config(config_file, &mut config);
         }
+    }
 
-        macro_rules! update_config_if_present {
-            ($c:expr, $m:ident, $v:expr, $t:ty) => {
-                match value_t!($m, $v, $t) {
-                    Ok(value) => *$c = value, // Update value
-                    Err(clap::Error {
-                        kind: clap::ErrorKind::ArgumentNotFound,
-                        message: _,
-                        info: _,
-                    }) => {
-                        // Do nothing if argument not found
-                    }
-                    Err(e) => e.exit(), // Exit with error on parse error
-                }
-            };
-        }
+    /// Given a set of ArgMatches read from the CLI, update and return the default Configuration
+    /// settings
+    fn parse_cli_args(args: &ArgMatches) -> Self {
+        let mut config = Configuration::default();
 
         update_config_if_present!(&mut config.threads, args, "threads", usize);
         update_config_if_present!(&mut config.depth, args, "depth", usize);
@@ -562,8 +602,8 @@ impl Configuration {
 
         if args.is_present("stdin") {
             config.stdin = true;
-        } else {
-            config.target_url = String::from(args.value_of("url").unwrap());
+        } else if let Some(url) = args.value_of("url") {
+            config.target_url = String::from(url);
         }
 
         ////
@@ -681,38 +721,63 @@ impl Configuration {
     }
 
     /// Given two Configurations, overwrite `settings` with the fields found in `settings_to_merge`
-    fn merge_config(settings: &mut Self, settings_to_merge: Self) {
-        settings.threads = settings_to_merge.threads;
-        settings.wordlist = settings_to_merge.wordlist;
-        settings.status_codes = settings_to_merge.status_codes;
-        settings.proxy = settings_to_merge.proxy;
-        settings.timeout = settings_to_merge.timeout;
-        settings.verbosity = settings_to_merge.verbosity;
-        settings.quiet = settings_to_merge.quiet;
-        settings.output = settings_to_merge.output;
-        settings.user_agent = settings_to_merge.user_agent;
-        settings.redirects = settings_to_merge.redirects;
-        settings.insecure = settings_to_merge.insecure;
-        settings.extract_links = settings_to_merge.extract_links;
-        settings.extensions = settings_to_merge.extensions;
-        settings.headers = settings_to_merge.headers;
-        settings.queries = settings_to_merge.queries;
-        settings.no_recursion = settings_to_merge.no_recursion;
-        settings.add_slash = settings_to_merge.add_slash;
-        settings.stdin = settings_to_merge.stdin;
-        settings.depth = settings_to_merge.depth;
-        settings.filter_size = settings_to_merge.filter_size;
-        settings.filter_regex = settings_to_merge.filter_regex;
-        settings.filter_word_count = settings_to_merge.filter_word_count;
-        settings.filter_line_count = settings_to_merge.filter_line_count;
-        settings.filter_status = settings_to_merge.filter_status;
-        settings.dont_filter = settings_to_merge.dont_filter;
-        settings.scan_limit = settings_to_merge.scan_limit;
-        settings.replay_proxy = settings_to_merge.replay_proxy;
-        settings.replay_codes = settings_to_merge.replay_codes;
-        settings.save_state = settings_to_merge.save_state;
-        settings.debug_log = settings_to_merge.debug_log;
-        settings.json = settings_to_merge.json;
+    fn merge_config(conf: &mut Self, new: Self) {
+        // does not include the following Configuration fields, as they don't make sense here
+        //  - kind
+        //  - client
+        //  - replay_client
+        //  - resumed
+        //  - config
+        update_if_not_default!(&mut conf.target_url, new.target_url, "");
+        update_if_not_default!(&mut conf.proxy, new.proxy, "");
+        update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
+        update_if_not_default!(&mut conf.quiet, new.quiet, false);
+        update_if_not_default!(&mut conf.output, new.output, "");
+        update_if_not_default!(&mut conf.redirects, new.redirects, false);
+        update_if_not_default!(&mut conf.insecure, new.insecure, false);
+        update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
+        update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
+        update_if_not_default!(&mut conf.headers, new.headers, HashMap::new());
+        update_if_not_default!(&mut conf.queries, new.queries, Vec::new());
+        update_if_not_default!(&mut conf.no_recursion, new.no_recursion, false);
+        update_if_not_default!(&mut conf.add_slash, new.add_slash, false);
+        update_if_not_default!(&mut conf.stdin, new.stdin, false);
+        update_if_not_default!(&mut conf.filter_size, new.filter_size, Vec::<u64>::new());
+        update_if_not_default!(
+            &mut conf.filter_regex,
+            new.filter_regex,
+            Vec::<String>::new()
+        );
+        update_if_not_default!(
+            &mut conf.filter_word_count,
+            new.filter_word_count,
+            Vec::<usize>::new()
+        );
+        update_if_not_default!(
+            &mut conf.filter_line_count,
+            new.filter_line_count,
+            Vec::<usize>::new()
+        );
+        update_if_not_default!(
+            &mut conf.filter_status,
+            new.filter_status,
+            Vec::<u16>::new()
+        );
+        update_if_not_default!(&mut conf.dont_filter, new.dont_filter, false);
+        update_if_not_default!(&mut conf.scan_limit, new.scan_limit, 0);
+        update_if_not_default!(&mut conf.replay_proxy, new.replay_proxy, "");
+        update_if_not_default!(&mut conf.debug_log, new.debug_log, "");
+        update_if_not_default!(&mut conf.json, new.json, false);
+
+        update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
+        update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
+        update_if_not_default!(&mut conf.threads, new.threads, threads());
+        update_if_not_default!(&mut conf.depth, new.depth, depth());
+        update_if_not_default!(&mut conf.wordlist, new.wordlist, wordlist());
+        update_if_not_default!(&mut conf.status_codes, new.status_codes, status_codes());
+        // status_codes() is the default for replay_codes, if they're not provided
+        update_if_not_default!(&mut conf.replay_codes, new.replay_codes, status_codes());
+        update_if_not_default!(&mut conf.save_state, new.save_state, save_state());
     }
 
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values

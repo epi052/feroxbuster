@@ -135,7 +135,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("resume-from")
                 .value_name("STATE_FILE")
                 .help("State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)")
-                .conflicts_with_all(&["wordlist", "url", "threads", "depth", "timeout", "verbosity", "proxy", "replay_proxy", "replay_codes", "status_codes", "quiet", "json", "dont_filter", "output", "debug_log", "user_agent", "redirects", "insecure", "extensions", "headers", "queries", "no_recursion", "add_slash", "stdin", "filter_size", "filter_regex", "filter_words", "filter_lines", "filter_status", "extract_links", "scan_limit"])
+                .conflicts_with("url")
                 .takes_value(true),
         )
         .arg(
