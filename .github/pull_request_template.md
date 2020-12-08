@@ -4,7 +4,7 @@ Long form explanations of most of the items below can be found in the [CONTRIBUT
 
 ## Branching checklist
 - [ ] There is an issue associated with your PR (bug, feature, etc.. if not, create one)
-- [ ] Your PR description references the associated issue (i.e. fixes #123)
+- [ ] Your PR description references the associated issue (i.e. fixes #123456)
 - [ ] Code is in its own branch
 - [ ] Branch name is related to the PR contents
 - [ ] PR targets master
