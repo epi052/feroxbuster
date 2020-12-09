@@ -180,8 +180,8 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
             targets.push(line?);
         }
     } else if CONFIGURATION.resumed {
-        // resume-from can't be used with any other flag, making it mutually exclusive from either
-        // of the other two options
+        // resume-from can't be used with --url, and --stdin is marked false for every resumed
+        // scan, making it mutually exclusive from either of the other two options
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from

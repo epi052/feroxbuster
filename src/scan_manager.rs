@@ -668,7 +668,6 @@ pub fn resume_scan(filename: &str) -> Configuration {
         std::process::exit(1);
     });
 
-    // let scans: FeroxScans = serde_json::from_value(state.get("scans").unwrap().clone()).unwrap();
     if let Some(responses) = state.get("responses") {
         if let Some(arr_responses) = responses.as_array() {
             for response in arr_responses {
