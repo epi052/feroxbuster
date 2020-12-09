@@ -396,8 +396,6 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
         .arg(format!("http://{}", proxy.address().to_string()))
         .arg("--replay-codes")
         .arg("200")
-        .arg("--debug-log")
-        .arg("stuff")
         .unwrap();
 
     cmd.assert()

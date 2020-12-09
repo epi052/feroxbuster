@@ -436,6 +436,9 @@ impl Configuration {
         // merge the cli options into the config file options and return the result
         Self::merge_config(&mut config, cli_config);
 
+        // rebuild clients is the last step in either code branch
+        Self::try_rebuild_clients(&mut config);
+
         config
     }
 
@@ -648,8 +651,6 @@ impl Configuration {
                 config.queries.push((name.to_string(), value.to_string()));
             }
         }
-
-        Self::try_rebuild_clients(&mut config);
 
         config
     }
