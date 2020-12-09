@@ -26,7 +26,7 @@ _feroxbuster() {
 '*--status-codes+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]' \
 '--output+[Output file to write results to (use w/ --json for JSON entries)]' \
-'(-w --wordlist -u --url -t --threads -d --depth -T --timeout -v --verbosity -p --proxy -P --replay-proxy -R --replay-codes -s --status-codes -q --quiet --json -D --dont-filter -o --output --debug-log -a --user-agent -r --redirects -k --insecure -x --extensions -H --headers -Q --query -n --no-recursion -f --add-slash --stdin -S --filter-size -X --filter-regex -W --filter-words -N --filter-lines -C --filter-status -e --extract-links -L --scan-limit)--resume-from+[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]' \
+'(-u --url)--resume-from+[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]' \
 '--debug-log+[Output file to write log entries (use w/ --json for JSON entries)]' \
 '-a+[Sets the User-Agent (default: feroxbuster/VERSION)]' \
 '--user-agent+[Sets the User-Agent (default: feroxbuster/VERSION)]' \
