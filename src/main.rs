@@ -220,6 +220,12 @@ async fn wrapped_main() {
         PROGRESS_BAR.join().unwrap();
     });
 
+    // if CONFIG...max time todo
+    tokio::spawn(async move {
+        // todo remove hard code seconds
+        scan_manager::start_max_time_thread(4).await;
+    });
+
     // can't trace main until after logger is initialized and the above task is started
     log::trace!("enter: main");
 

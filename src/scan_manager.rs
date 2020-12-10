@@ -16,6 +16,7 @@ use serde::{
 };
 use serde_json::Value;
 use std::collections::HashMap;
+use std::process::exit;
 use std::{
     cmp::PartialEq,
     fmt,
@@ -589,51 +590,62 @@ impl FeroxSerialize for FeroxState {
     }
 }
 
+/// todo doc
+pub async fn start_max_time_thread(seconds: u64) {
+    // todo trace
+    time::delay_for(time::Duration::new(seconds, 0)).await;
+    kill_self();
+}
+
+/// todo doc
+fn kill_self() {
+    // todo trace
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    let slug = if !CONFIGURATION.target_url.is_empty() {
+        // target url populated
+        CONFIGURATION
+            .target_url
+            .replace("://", "_")
+            .replace("/", "_")
+            .replace(".", "_")
+    } else {
+        // stdin used
+        "stdin".to_string()
+    };
+
+    let filename = format!("ferox-{}-{}.state", slug, ts);
+    let warning = format!(
+        "🚨 Caught {} 🚨 saving scan state to {} ...",
+        style("ctrl+c").yellow(),
+        filename
+    );
+
+    PROGRESS_PRINTER.println(warning);
+
+    let state = FeroxState {
+        config: &CONFIGURATION,
+        scans: &SCANNED_URLS,
+        responses: &RESPONSES,
+    };
+
+    let state_file = open_file(&filename);
+
+    if let Some(buffered_file) = state_file {
+        safe_file_write(&state, buffered_file, true);
+    }
+
+    std::process::exit(1);
+}
+
 /// Initialize the ctrl+c handler that saves scan state to disk
 pub fn initialize() {
     log::trace!("enter: initialize");
 
-    let result = ctrlc::set_handler(move || {
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-
-        let slug = if !CONFIGURATION.target_url.is_empty() {
-            // target url populated
-            CONFIGURATION
-                .target_url
-                .replace("://", "_")
-                .replace("/", "_")
-                .replace(".", "_")
-        } else {
-            // stdin used
-            "stdin".to_string()
-        };
-
-        let filename = format!("ferox-{}-{}.state", slug, ts);
-        let warning = format!(
-            "🚨 Caught {} 🚨 saving scan state to {} ...",
-            style("ctrl+c").yellow(),
-            filename
-        );
-
-        PROGRESS_PRINTER.println(warning);
-
-        let state = FeroxState {
-            config: &CONFIGURATION,
-            scans: &SCANNED_URLS,
-            responses: &RESPONSES,
-        };
-
-        let state_file = open_file(&filename);
-
-        if let Some(buffered_file) = state_file {
-            safe_file_write(&state, buffered_file, true);
-        }
-
-        std::process::exit(1);
-    });
+    let result = ctrlc::set_handler(kill_self);
 
     if result.is_err() {
         log::error!("Could not set Ctrl+c handler");
