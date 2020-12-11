@@ -103,7 +103,7 @@ fn time_limit_enforced_when_specified() {
         setup_tmp_directory(&["css".to_string(), "stuff".to_string()], "wordlist").unwrap();
 
     // ensure the command will run long enough by adding crap to the wordlist
-    let more_words = read_to_string(Path::new("/etc/dictionaries-common/words")).unwrap();
+    let more_words = read_to_string(Path::new("tests/extra-words")).unwrap();
     write(&file, more_words).unwrap();
 
     assert!(file.metadata().unwrap().len() > 100); // sanity check on wordlist size

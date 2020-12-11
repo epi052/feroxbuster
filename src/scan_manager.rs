@@ -623,6 +623,9 @@ pub async fn start_max_time_thread(time_spec: &str) {
 
         log::trace!("exit: start_max_time_thread");
 
+        #[cfg(test)]
+        panic!();
+        #[cfg(not(test))]
         sigint_handler();
     }
 
@@ -1037,5 +1040,31 @@ mod tests {
         );
 
         assert!(predicates::str::similar(expected).eval(&json_state));
+    }
+
+    #[should_panic]
+    #[tokio::test(core_threads = 1)]
+    /// call start_max_time_thread with a valid timespec, expect a panic, but only after a certain
+    /// number of seconds
+    async fn start_max_time_thread_panics_after_delay() {
+        let now = time::Instant::now();
+        let delay = time::Duration::new(3, 0);
+
+        start_max_time_thread("3s").await;
+
+        assert!(now.elapsed() > delay);
+    }
+
+    #[tokio::test(core_threads = 1)]
+    /// call start_max_time_thread with a timespec that's too large to be parsed correctly, expect
+    /// immediate return and no panic, as the sigint handler is never called
+    async fn start_max_time_thread_returns_immediately_with_too_large_input() {
+        let now = time::Instant::now();
+        let delay = time::Duration::new(1, 0);
+
+        // pub const MAX: usize = usize::MAX; // 18_446_744_073_709_551_615usize
+        start_max_time_thread("18446744073709551616m").await; // can't fit in dest u64
+
+        assert!(now.elapsed() < delay); // assuming function call will take less than 1second
     }
 }
