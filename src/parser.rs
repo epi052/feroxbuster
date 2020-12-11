@@ -1,4 +1,18 @@
 use clap::{App, Arg, ArgGroup};
+use lazy_static::lazy_static;
+use regex::Regex;
+
+lazy_static! {
+    /// Regex used to validate values passed to --time-limit
+    ///
+    /// Examples of expected values that will this regex will match:
+    /// - 30s
+    /// - 20m
+    /// - 1h
+    /// - 1d
+    pub static ref TIMESPEC_REGEX: Regex =
+        Regex::new(r"^(?i)(?P<n>\d+)(?P<m>[smdh])$").expect("Could not compile regex");
+}
 
 /// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
 pub fn initialize() -> App<'static, 'static> {
@@ -302,6 +316,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(true)
                 .help("Limit total number of concurrent scans (default: 0, i.e. no limit)")
         )
+        .arg(
+            Arg::with_name("time_limit")
+                .long("time-limit")
+                .value_name("TIME_SPEC")
+                .takes_value(true)
+                .validator(valid_time_spec)
+                .help("Limit total run time of all scans (ex: --time-limit 10m)")
+        )
         .group(ArgGroup::with_name("output_files")
             .args(&["debug_log", "output"])
             .multiple(true)
@@ -343,6 +365,20 @@ EXAMPLES:
     "#)
 }
 
+/// Validate that a string is formatted as a number followed by s, m, h, or d (10d, 30s, etc...)
+fn valid_time_spec(time_spec: String) -> Result<(), String> {
+    match TIMESPEC_REGEX.is_match(&time_spec) {
+        true => Ok(()),
+        false => {
+            let msg = format!(
+                "Expected a non-negative, whole number followed by s, m, h, or d (case insensitive); received {}",
+                time_spec
+            );
+            Err(msg)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,5 +388,38 @@ mod tests {
     fn parser_initialize_gives_defaults() {
         let app = initialize();
         assert_eq!(app.get_name(), "feroxbuster");
+    }
+
+    #[test]
+    /// sanity checks that valid_time_spec correctly checks and rejects a given string
+    ///
+    /// instead of having a bunch of single tests here, they're all quick and are mostly checking
+    /// that i didn't hose up the regex.  Going to consolidate them into a single test
+    fn validate_valid_time_spec_validation() {
+        let float_rejected = "1.4m";
+        assert!(valid_time_spec(float_rejected.into()).is_err());
+
+        let negative_rejected = "-1m";
+        assert!(valid_time_spec(negative_rejected.into()).is_err());
+
+        let only_number_rejected = "1";
+        assert!(valid_time_spec(only_number_rejected.into()).is_err());
+
+        let only_measurement_rejected = "m";
+        assert!(valid_time_spec(only_measurement_rejected.into()).is_err());
+
+        for accepted_measurement in &["s", "m", "h", "d", "S", "M", "H", "D"] {
+            // all upper/lowercase should be good
+            assert!(valid_time_spec(format!("1{}", *accepted_measurement)).is_ok());
+        }
+
+        let leading_space_rejected = " 14m";
+        assert!(valid_time_spec(leading_space_rejected.into()).is_err());
+
+        let trailing_space_rejected = "14m ";
+        assert!(valid_time_spec(trailing_space_rejected.into()).is_err());
+
+        let space_between_rejected = "1 4m";
+        assert!(valid_time_spec(space_between_rejected.into()).is_err());
     }
 }

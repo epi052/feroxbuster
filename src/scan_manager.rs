@@ -3,6 +3,7 @@ use crate::reporter::safe_file_write;
 use crate::utils::open_file;
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
+    parser::TIMESPEC_REGEX,
     progress,
     scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
@@ -16,7 +17,6 @@ use serde::{
 };
 use serde_json::Value;
 use std::collections::HashMap;
-use std::process::exit;
 use std::{
     cmp::PartialEq,
     fmt,
@@ -590,16 +590,52 @@ impl FeroxSerialize for FeroxState {
     }
 }
 
-/// todo doc
-pub async fn start_max_time_thread(seconds: u64) {
-    // todo trace
-    time::delay_for(time::Duration::new(seconds, 0)).await;
-    kill_self();
+/// Given a string representing some number of seconds, minutes, hours, or days, convert
+/// that representation to seconds and then wait for those seconds to elapse.  Once that period
+/// of time has elapsed, kill all currently running scans and dump a state file to disk that can
+/// be used to resume any unfinished scan.
+pub async fn start_max_time_thread(time_spec: &str) {
+    log::trace!("enter: start_max_time_thread({})", time_spec);
+
+    // as this function has already made it through the parser, which calls is_match on
+    // the value passed to --time-limit using TIMESPEC_REGEX; we can safely assume that
+    // the capture groups are populated; can expect something like 10m, 30s, 1h, etc...
+    let captures = TIMESPEC_REGEX.captures(&time_spec).unwrap();
+    let length_match = captures.get(1).unwrap();
+    let measurement_match = captures.get(2).unwrap();
+
+    if let Ok(length) = length_match.as_str().parse::<u64>() {
+        let length_in_secs = match measurement_match.as_str().to_ascii_lowercase().as_str() {
+            "s" => length,
+            "m" => length * 60,           // minutes
+            "h" => length * 60 * 60,      // hours
+            "d" => length * 60 * 60 * 24, // days
+            _ => length,
+        };
+
+        log::debug!(
+            "max time limit as string: {} and as seconds: {}",
+            time_spec,
+            length_in_secs
+        );
+
+        time::delay_for(time::Duration::new(length_in_secs, 0)).await;
+
+        log::trace!("exit: start_max_time_thread");
+
+        sigint_handler();
+    }
+
+    log::error!(
+        "Could not parse the value provided ({}), can't enforce time limit",
+        length_match.as_str()
+    );
 }
 
-/// todo doc
-fn kill_self() {
-    // todo trace
+/// Writes the current state of the program to disk (if save_state is true) and then exits
+fn sigint_handler() {
+    log::trace!("enter: sigint_handler");
+
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -638,6 +674,7 @@ fn kill_self() {
         safe_file_write(&state, buffered_file, true);
     }
 
+    log::trace!("exit: sigint_handler (end of program)");
     std::process::exit(1);
 }
 
@@ -645,7 +682,7 @@ fn kill_self() {
 pub fn initialize() {
     log::trace!("enter: initialize");
 
-    let result = ctrlc::set_handler(kill_self);
+    let result = ctrlc::set_handler(sigint_handler);
 
     if result.is_err() {
         log::error!("Could not set Ctrl+c handler");
@@ -995,7 +1032,7 @@ mod tests {
 
         let json_state = ferox_state.as_json();
         let expected = format!(
-            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"save_state":true}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]}}"#,
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"save_state":true,"time_limit":""}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]}}"#,
             saved_id, VERSION
         );
 

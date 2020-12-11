@@ -1,53 +1,63 @@
 #compdef feroxbuster
 
+autoload -U is-at-least
+
 _feroxbuster() {
     typeset -A opt_args
+    typeset -a _arguments_options
     local ret=1
 
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
     local context curcontext="$curcontext" state line
-    _arguments -s -S -C \
+    _arguments "${_arguments_options[@]}" \
 '-w+[Path to the wordlist]' \
-'--wordlist+[Path to the wordlist]' \
+'--wordlist=[Path to the wordlist]' \
 '*-u+[The target URL(s) (required, unless --stdin used)]' \
-'*--url+[The target URL(s) (required, unless --stdin used)]' \
+'*--url=[The target URL(s) (required, unless --stdin used)]' \
 '-t+[Number of concurrent threads (default: 50)]' \
-'--threads+[Number of concurrent threads (default: 50)]' \
+'--threads=[Number of concurrent threads (default: 50)]' \
 '-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]' \
-'--depth+[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]' \
+'--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]' \
 '-T+[Number of seconds before a request times out (default: 7)]' \
-'--timeout+[Number of seconds before a request times out (default: 7)]' \
+'--timeout=[Number of seconds before a request times out (default: 7)]' \
 '-p+[Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)]' \
-'--proxy+[Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)]' \
+'--proxy=[Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)]' \
 '-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
-'--replay-proxy+[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
+'--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
-'*--replay-codes+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
+'*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
 '*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
-'*--status-codes+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
+'*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]' \
-'--output+[Output file to write results to (use w/ --json for JSON entries)]' \
-'(-u --url)--resume-from+[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]' \
-'--debug-log+[Output file to write log entries (use w/ --json for JSON entries)]' \
+'--output=[Output file to write results to (use w/ --json for JSON entries)]' \
+'(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]' \
+'--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]' \
 '-a+[Sets the User-Agent (default: feroxbuster/VERSION)]' \
-'--user-agent+[Sets the User-Agent (default: feroxbuster/VERSION)]' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/VERSION)]' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]' \
-'*--extensions+[File extension(s) to search for (ex: -x php -x pdf js)]' \
+'*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]' \
 '*-H+[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
-'*--headers+[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
+'*--headers=[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
 '*-Q+[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
-'*--query+[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
+'*--query=[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
 '*-S+[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]' \
-'*--filter-size+[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]' \
+'*--filter-size=[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]' \
 '*-X+[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]' \
-'*--filter-regex+[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]' \
+'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]' \
 '*-W+[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]' \
-'*--filter-words+[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]' \
+'*--filter-words=[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]' \
 '*-N+[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]' \
-'*--filter-lines+[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]' \
+'*--filter-lines=[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]' \
 '*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
-'*--filter-status+[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
+'*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
 '-L+[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
-'--scan-limit+[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
+'--scan-limit=[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
+'--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]' \
 '*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '-q[Only print URLs; Don'\''t print status codes, response size, running config, etc...]' \
@@ -74,13 +84,6 @@ _feroxbuster() {
     
 }
 
-(( $+functions[_feroxbuster_commands] )) ||
-_feroxbuster_commands() {
-    local commands; commands=(
-        
-    )
-    _describe -t commands 'feroxbuster commands' commands "$@"
-}
 (( $+functions[_feroxbuster_commands] )) ||
 _feroxbuster_commands() {
     local commands; commands=(
