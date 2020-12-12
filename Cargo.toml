@@ -44,7 +44,7 @@ ctrlc = "3.1"
 
 [dev-dependencies]
 tempfile = "3.1"
-httpmock = "0.4.5"
+httpmock = "0.5.2"
 assert_cmd = "1.0.1"
 predicates = "1.0.5"
 
