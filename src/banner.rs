@@ -495,6 +495,15 @@ by Ben "epi" Risher {}                  ver: {}"#,
         .unwrap_or_default(); // 🦥
     }
 
+    if !CONFIGURATION.time_limit.is_empty() {
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!("\u{1f556}", "Time Limit", config.time_limit)
+        )
+        .unwrap_or_default(); // 🕖
+    }
+
     if matches!(status, UpdateStatus::OutOfDate) {
         writeln!(
             &mut writer,

@@ -85,8 +85,10 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Filter Response by Status Code  (new in `v1.3.0`)](#filter-response-by-status-code--new-in-v130)
     - [Pause an Active Scan (new in `v1.4.0`)](#pause-an-active-scan-new-in-v140)
     - [Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)](#replay-responses-to-a-proxy-based-on-status-code-new-in-v150)
+    - [Filter Response by Word Count & Line Count  (new in `v1.6.0`)](#filter-response-by-word-count--line-count--new-in-v160)
     - [Filter Response Using a Regular Expression (new in `v1.8.0`)](#filter-response-using-a-regular-expression-new-in-v180)
     - [Stop and Resume Scans (save scan's state to disk) (new in `v1.9.0`)](#stop-and-resume-scans---resume-from-file-new-in-v190)
+    - [Enforce a Time Limit on Your Scan (new in `v1.10.0`)](#enforce-a-time-limit-on-your-scan-new-in-v1100)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -351,6 +353,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
 # save_state = false
+# time_limit = 10m
 
 # headers can be specified on multiple lines or as an inline table
 #
@@ -403,8 +406,8 @@ OPTIONS:
     -o, --output <FILE>                     Output file to write results to (use w/ --json for JSON entries)
     -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
-    -R, --replay-codes <REPLAY_CODE>...     Status Codes to send through a Replay Proxy when found (default: --status
-                                            -codes value)
+    -R, --replay-codes <REPLAY_CODE>...     Status Codes to send through a Replay Proxy when found (default: --status-
+                                            codes value)
     -P, --replay-proxy <REPLAY_PROXY>       Send only unfiltered requests through a Replay Proxy, instead of all
                                             requests
         --resume-from <STATE_FILE>          State file from which to resume a partially complete scan (ex. --resume-from
@@ -413,6 +416,7 @@ OPTIONS:
     -s, --status-codes <STATUS_CODE>...     Status Codes to include (allow list) (default: 200 204 301 302 307 308 401
                                             403 405)
     -t, --threads <THREADS>                 Number of concurrent threads (default: 50)
+        --time-limit <TIME_SPEC>            Limit total run time of all scans (ex: --time-limit 10m)
     -T, --timeout <SECONDS>                 Number of seconds before a request times out (default: 7)
     -u, --url <URL>...                      The target URL(s) (required, unless --stdin used)
     -a, --user-agent <USER_AGENT>           Sets the User-Agent (default: feroxbuster/VERSION)
@@ -541,6 +545,22 @@ Of note: this means that for every response that matches your replay criteria, y
 
 ![replay-proxy-demo](img/replay-proxy-demo.gif)
 
+### Filter Response by Word Count & Line Count  (new in `v1.6.0`)
+
+In addition to filtering on the size of a response, version 1.6.0 added the ability to filter out responses based on the number of lines and/or words contained within the response body.  This change drove a change to the information displayed to the user as well. This section will detail the new information and how to make use of it with the new filters provided.
+
+Example output:
+```
+200        10l        212w       38437c https://example-site.com/index.html
+```
+
+There are five columns of output above:
+- column 1: status code - can be filtered with `-C|--filter-status`
+- column 2: number of lines - can be filtered with `-N|--filter-lines`
+- column 3: number of words - can be filtered with `-W|--filter-words`
+- column 4: number of bytes (overall size) - can be filtered with `-S|--filter-size`
+- column 5: url to discovered resource
+
 ### Filter Response Using a Regular Expression (new in `v1.8.0`) 
 
 Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
@@ -615,6 +635,20 @@ In order to prevent state file creation when `Ctrl+C` is pressed, you can simply
 save_state = false
 ```
 
+### Enforce a Time Limit on Your Scan (new in `v1.10.0`)
+
+Version 1.10.0 adds the ability to set a maximum runtime, or time limit, on your scan.  The usage is pretty simple: a number followed directly by a single character representing seconds, minutes, hours, or days.  `feroxbuster` refers to this combination as a time_spec.  
+
+Examples of possible time_specs:
+- `30s` - 30 seconds
+- `20m` - 20 minutes
+- `1h`  - 1 hour
+- `1d`  - 1 day (why??)
+
+A valid time_spec can be passed to `--time-limit` in order to force a shutdown after the given time has elapsed.
+
+![time-limit](img/time-limit.gif)
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
@@ -633,24 +667,32 @@ a few of the use-cases in which feroxbuster may be a better fit:
 - You want **recursion** along with some other thing mentioned above (ffuf also does recursion)
 - You want a **configuration file** option for overriding built-in default values for your scans
 
-|                                                                  | feroxbuster | gobuster | ffuf |
-|------------------------------------------------------------------|---|---|---|
-| fast                                                             | ✔ | ✔ | ✔ |
-| easy to use                                                      | ✔ | ✔ |   |
-| filter out responses by status code (new in `v1.3.0`)            | ✔ | ✔ | ✔ |
-| allows recursion                                                 | ✔ |   | ✔ |
-| can specify query parameters                                     | ✔ |   | ✔ |
-| SOCKS proxy support                                              | ✔ |   |   |
-| extracts links from response body to increase scan coverage      | ✔ |   |   |
-| multiple target scan (via stdin or multiple -u)                  | ✔ |   | ✔ |
-| configuration file for default value override                    | ✔ |   | ✔ |
-| can accept urls via STDIN as part of a pipeline                  | ✔ |   | ✔ |
-| can accept wordlists via STDIN                                   |   | ✔ | ✔ |
-| filter based on response size, wordcount, and linecount          | ✔ |   | ✔ |
-| auto-filter wildcard responses                                   | ✔ |   | ✔ |
-| performs other scans (vhost, dns, etc)                           |   | ✔ | ✔ |
-| time delay / rate limiting                                       |   | ✔ | ✔ |
-| **huge** number of other options                                 |   |   | ✔ |
+|                                                          | feroxbuster | gobuster | ffuf |
+|------------------------------------------------------------------------------|---|---|---|
+| fast                                                                         | ✔ | ✔ | ✔ |
+| easy to use                                                                  | ✔ | ✔ |   |
+| allows recursion                                                             | ✔ |   | ✔ |
+| can specify query parameters                                                 | ✔ |   | ✔ |
+| SOCKS proxy support                                                          | ✔ |   |   |
+| multiple target scan (via stdin or multiple -u)                              | ✔ |   | ✔ |
+| configuration file for default value override                                | ✔ |   | ✔ |
+| can accept urls via STDIN as part of a pipeline                              | ✔ |   | ✔ |
+| can accept wordlists via STDIN                                               |   | ✔ | ✔ |
+| filter based on response size, wordcount, and linecount                      | ✔ |   | ✔ |
+| auto-filter wildcard responses                                               | ✔ |   | ✔ |
+| performs other scans (vhost, dns, etc)                                       |   | ✔ | ✔ |
+| time delay / rate limiting                                                   |   | ✔ | ✔ |
+| extracts links from response body to increase scan coverage (`v1.1.0`)       | ✔ |   |   |
+| limit number of concurrent recursive scans (`v1.2.0`)                        | ✔ |   |   |
+| filter out responses by status code (`v1.3.0`)                               | ✔ | ✔ | ✔ |
+| interactive pause and resume of active scan (`v1.4.0`)                       | ✔ |   |   |
+| replay only matched requests to a proxy (`v1.5.0`)                           | ✔ |   | ✔ |
+| filter out responses by line & word count (`v1.6.0`)                         | ✔ |   | ✔ |
+| json output (ffuf supports other formats as well) (`v1.7.0`)                 | ✔ |   | ✔ |
+| filter out responses by regular expression (`v1.8.0`)                        | ✔ |   | ✔ |
+| save scan's state to disk (can pick up where it left off) (`v1.9.0`)         | ✔ |   |   |
+| maximum run time limit (`v1.10.0`)                                           | ✔ |   | ✔ |
+| **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
 came across rustbuster when I was naming my tool (😢). I don't have any experience using it, but it appears to 
@@ -737,3 +779,7 @@ sudo sysctl net.ipv4.tcp_tw_reuse=1
 
 If you can, simply make the terminal wider and rerun.  If you're unable to make your terminal wider
 consider using `-q` to suppress the progress bars.
+
+### What do each of the numbers beside the URL mean?
+
+Please refer to [this section](#filter-response-by-word-count--line-count--new-in-v160) where each number's meaning and how to use it to filter responses is discussed.

@@ -228,6 +228,11 @@ pub struct Configuration {
     /// Not configurable from CLI; can only be set from a config file
     #[serde(default = "save_state")]
     pub save_state: bool,
+
+    /// The maximum runtime for a scan, expressed as N[smdh] where N can be parsed into a
+    /// non-negative integer and the next character is either s, m, h, or d (case insensitive)
+    #[serde(default)]
+    pub time_limit: String,
 }
 
 // functions timeout, threads, status_codes, user_agent, wordlist, save_state, and depth are used to provide
@@ -314,6 +319,7 @@ impl Default for Configuration {
             output: String::new(),
             debug_log: String::new(),
             target_url: String::new(),
+            time_limit: String::new(),
             replay_proxy: String::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
@@ -365,6 +371,7 @@ impl Configuration {
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
+    /// - **time_limit**: `None` (no limit on length of scan imposed)
     /// - **replay_proxy**: `None` (no limit on concurrent scans imposed)
     /// - **replay_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
     ///
@@ -388,7 +395,9 @@ impl Configuration {
     pub fn new() -> Self {
         // when compiling for test, we want to eliminate the runtime dependency of the parser
         if cfg!(test) {
-            return Configuration::default();
+            let mut test_config = Configuration::default();
+            test_config.save_state = false; // don't clutter up junk when testing
+            return test_config;
         }
 
         let args = parser::initialize().get_matches();
@@ -499,6 +508,7 @@ impl Configuration {
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
+        update_config_if_present!(&mut config.time_limit, args, "time_limit", String);
 
         if let Some(arg) = args.values_of("status_codes") {
             config.status_codes = arg
@@ -730,6 +740,7 @@ impl Configuration {
         //  - resumed
         //  - config
         update_if_not_default!(&mut conf.target_url, new.target_url, "");
+        update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
@@ -864,6 +875,7 @@ mod tests {
             quiet = true
             verbosity = 1
             scan_limit = 6
+            time_limit = "10m"
             output = "/some/otherpath"
             debug_log = "/yet/anotherpath"
             redirects = true
@@ -898,6 +910,7 @@ mod tests {
         assert_eq!(config.wordlist, wordlist());
         assert_eq!(config.proxy, String::new());
         assert_eq!(config.target_url, String::new());
+        assert_eq!(config.time_limit, String::new());
         assert_eq!(config.debug_log, String::new());
         assert_eq!(config.config, String::new());
         assert_eq!(config.replay_proxy, String::new());
@@ -1123,6 +1136,13 @@ mod tests {
     fn config_reads_save_state() {
         let config = setup_config_test();
         assert_eq!(config.save_state, false);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_time_limit() {
+        let config = setup_config_test();
+        assert_eq!(config.time_limit, "10m");
     }
 
     #[test]

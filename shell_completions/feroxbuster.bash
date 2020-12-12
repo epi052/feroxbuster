@@ -13,9 +13,6 @@ _feroxbuster() {
                 cmd="feroxbuster"
                 ;;
             
-            feroxbuster)
-                cmd+="__feroxbuster"
-                ;;
             *)
                 ;;
         esac
@@ -23,186 +20,190 @@ _feroxbuster() {
 
     case "${cmd}" in
         feroxbuster)
-            opts=" -v -q -D -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -o -a -x -H -Q -S -X -W -N -C -L  --verbosity --quiet --json --dont-filter --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --output --resume-from --debug-log --user-agent --extensions --headers --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --scan-limit  "
+            opts=" -v -q -D -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -o -a -x -H -Q -S -X -W -N -C -L  --verbosity --quiet --json --dont-filter --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --output --resume-from --debug-log --user-agent --extensions --headers --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --scan-limit --time-limit  "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
                 
                 --wordlist)
-                    COMPREPLY=("<FILE>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -w)
-                    COMPREPLY=("<FILE>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --url)
-                    COMPREPLY=("<URL>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -u)
-                    COMPREPLY=("<URL>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --threads)
-                    COMPREPLY=("<THREADS>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -t)
-                    COMPREPLY=("<THREADS>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --depth)
-                    COMPREPLY=("<RECURSION_DEPTH>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -d)
-                    COMPREPLY=("<RECURSION_DEPTH>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --timeout)
-                    COMPREPLY=("<SECONDS>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -T)
-                    COMPREPLY=("<SECONDS>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --proxy)
-                    COMPREPLY=("<PROXY>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -p)
-                    COMPREPLY=("<PROXY>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --replay-proxy)
-                    COMPREPLY=("<REPLAY_PROXY>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -P)
-                    COMPREPLY=("<REPLAY_PROXY>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --replay-codes)
-                    COMPREPLY=("<REPLAY_CODE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -R)
-                    COMPREPLY=("<REPLAY_CODE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --status-codes)
-                    COMPREPLY=("<STATUS_CODE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -s)
-                    COMPREPLY=("<STATUS_CODE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --output)
-                    COMPREPLY=("<FILE>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -o)
-                    COMPREPLY=("<FILE>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --resume-from)
-                    COMPREPLY=("<STATE_FILE>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --debug-log)
-                    COMPREPLY=("<FILE>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --user-agent)
-                    COMPREPLY=("<USER_AGENT>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -a)
-                    COMPREPLY=("<USER_AGENT>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --extensions)
-                    COMPREPLY=("<FILE_EXTENSION>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -x)
-                    COMPREPLY=("<FILE_EXTENSION>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --headers)
-                    COMPREPLY=("<HEADER>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -H)
-                    COMPREPLY=("<HEADER>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --query)
-                    COMPREPLY=("<QUERY>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -Q)
-                    COMPREPLY=("<QUERY>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --filter-size)
-                    COMPREPLY=("<SIZE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -S)
-                    COMPREPLY=("<SIZE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --filter-regex)
-                    COMPREPLY=("<REGEX>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -X)
-                    COMPREPLY=("<REGEX>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --filter-words)
-                    COMPREPLY=("<WORDS>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -W)
-                    COMPREPLY=("<WORDS>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --filter-lines)
-                    COMPREPLY=("<LINES>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -N)
-                    COMPREPLY=("<LINES>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --filter-status)
-                    COMPREPLY=("<STATUS_CODE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -C)
-                    COMPREPLY=("<STATUS_CODE>...")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --scan-limit)
-                    COMPREPLY=("<SCAN_LIMIT>")
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                     -L)
-                    COMPREPLY=("<SCAN_LIMIT>")
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --time-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 *)
                     COMPREPLY=()
                     ;;
             esac
-            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
         

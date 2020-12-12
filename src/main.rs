@@ -220,6 +220,14 @@ async fn wrapped_main() {
         PROGRESS_BAR.join().unwrap();
     });
 
+    if !CONFIGURATION.time_limit.is_empty() {
+        // --time-limit value not an empty string, need to kick off the thread that enforces
+        // the limit
+        tokio::spawn(async move {
+            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit).await
+        });
+    }
+
     // can't trace main until after logger is initialized and the above task is started
     log::trace!("enter: main");
 

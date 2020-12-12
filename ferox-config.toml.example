@@ -37,6 +37,7 @@
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
 # save_state = false
+# time_limit = "10m"
 
 # headers can be specified on multiple lines or as an inline table
 #

@@ -94,7 +94,7 @@ async fn spawn_terminal_reporter(
         save_output
     );
 
-    while let Some(resp) = resp_chan.recv().await {
+    while let Some(mut resp) = resp_chan.recv().await {
         log::trace!("received {} on reporting channel", resp.url());
 
         let contains_sentry = CONFIGURATION.status_codes.contains(&resp.status().as_u16());
@@ -134,6 +134,11 @@ async fn spawn_terminal_reporter(
             // add response to RESPONSES for serialization in case of ctrl+c
             // placed all by its lonesome like this so that RESPONSES can take ownership
             // of the FeroxResponse
+
+            // before ownership is transferred, there's no real reason to keep the body anymore
+            // so we can free that piece of data, reducing memory usage
+            resp.text = String::new();
+
             RESPONSES.insert(resp);
         }
     }
