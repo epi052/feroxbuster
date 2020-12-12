@@ -1,7 +1,7 @@
 mod utils;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
-use httpmock::{Mock, MockServer};
+use httpmock::MockServer;
 use predicates::prelude::*;
 use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
@@ -12,12 +12,10 @@ fn scanner_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -34,7 +32,7 @@ fn scanner_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .and(predicate::str::contains("14")),
     );
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -51,33 +49,26 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
     ];
     let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
-    let js_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js")
-        .return_status(301)
-        .return_header("Location", &srv.url("/js/"))
-        .create_on(&srv);
+    let js_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js");
+        then.status(301).header("Location", &srv.url("/js/"));
+    });
 
-    let js_prod_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/prod")
-        .return_status(301)
-        .return_header("Location", &srv.url("/js/prod/"))
-        .create_on(&srv);
+    let js_prod_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/prod");
+        then.status(301).header("Location", &srv.url("/js/prod/"));
+    });
 
-    let js_dev_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/dev")
-        .return_status(301)
-        .return_header("Location", &srv.url("/js/dev/"))
-        .create_on(&srv);
+    let js_dev_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/dev");
+        then.status(301).header("Location", &srv.url("/js/dev/"));
+    });
 
-    let js_dev_file_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/dev/file.js")
-        .return_status(200)
-        .return_body("this is a test and is more bytes than other ones")
-        .create_on(&srv);
+    let js_dev_file_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/dev/file.js");
+        then.status(200)
+            .body("this is a test and is more bytes than other ones");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -98,10 +89,10 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.times_called(), 1);
-    assert_eq!(js_prod_mock.times_called(), 1);
-    assert_eq!(js_dev_mock.times_called(), 1);
-    assert_eq!(js_dev_file_mock.times_called(), 1);
+    assert_eq!(js_mock.hits(), 1);
+    assert_eq!(js_prod_mock.hits(), 1);
+    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_dev_file_mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
 
@@ -121,33 +112,26 @@ fn scanner_recursive_request_scan_using_only_success_responses(
     ];
     let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
-    let js_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/")
-        .return_status(200)
-        .return_header("Location", &srv.url("/js/"))
-        .create_on(&srv);
+    let js_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/");
+        then.status(200).header("Location", &srv.url("/js/"));
+    });
 
-    let js_prod_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/prod/")
-        .return_status(200)
-        .return_header("Location", &srv.url("/js/prod/"))
-        .create_on(&srv);
+    let js_prod_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/prod/");
+        then.status(200).header("Location", &srv.url("/js/prod/"));
+    });
 
-    let js_dev_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/dev/")
-        .return_status(200)
-        .return_header("Location", &srv.url("/js/dev/"))
-        .create_on(&srv);
+    let js_dev_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/dev/");
+        then.status(200).header("Location", &srv.url("/js/dev/"));
+    });
 
-    let js_dev_file_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/dev/file.js")
-        .return_status(200)
-        .return_body("this is a test and is more bytes than other ones")
-        .create_on(&srv);
+    let js_dev_file_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/dev/file.js");
+        then.status(200)
+            .body("this is a test and is more bytes than other ones");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -169,10 +153,10 @@ fn scanner_recursive_request_scan_using_only_success_responses(
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.times_called(), 1);
-    assert_eq!(js_prod_mock.times_called(), 1);
-    assert_eq!(js_dev_mock.times_called(), 1);
-    assert_eq!(js_dev_file_mock.times_called(), 1);
+    assert_eq!(js_mock.hits(), 1);
+    assert_eq!(js_prod_mock.hits(), 1);
+    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_dev_file_mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
 
@@ -185,12 +169,10 @@ fn scanner_single_request_scan_with_file_output() -> Result<(), Box<dyn std::err
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let outfile = tmp_dir.path().join("output");
 
@@ -211,7 +193,7 @@ fn scanner_single_request_scan_with_file_output() -> Result<(), Box<dyn std::err
     assert!(contents.contains("200"));
     assert!(contents.contains("14"));
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -223,12 +205,10 @@ fn scanner_single_request_scan_with_file_output_and_tack_q(
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let outfile = tmp_dir.path().join("output");
 
@@ -249,7 +229,7 @@ fn scanner_single_request_scan_with_file_output_and_tack_q(
     let url = srv.url("/LICENSE");
     assert!(contents.contains(&url));
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -261,12 +241,10 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let outfile = tmp_dir.path(); // outfile is a directory
 
@@ -285,7 +263,7 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
     let contents = std::fs::read_to_string(outfile);
     assert!(contents.is_err());
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -296,12 +274,10 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -321,7 +297,7 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -334,12 +310,10 @@ fn scanner_single_request_returns_301_without_location_header(
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_body("this is a test")
-        .return_status(301)
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -359,7 +333,7 @@ fn scanner_single_request_returns_301_without_location_header(
             .and(predicate::str::contains("14")),
     );
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -372,19 +346,15 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
     let proxy = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&proxy);
+    let mock_two = proxy.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -407,8 +377,8 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
         )
         .stderr(predicate::str::contains("Replay Proxy Codes"));
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -420,19 +390,15 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "ignored".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a not a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a not a test");
+    });
 
-    let filtered_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/ignored")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let filtered_mock = srv.mock(|when, then| {
+        when.method(GET).path("/ignored");
+        then.status(200).body("this is a test");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -455,8 +421,8 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(filtered_mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(filtered_mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -467,12 +433,10 @@ fn scanner_single_request_scan_with_debug_logging() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let outfile = tmp_dir.path().join("debug.log");
 
@@ -496,7 +460,7 @@ fn scanner_single_request_scan_with_debug_logging() {
     assert!(contents.contains("feroxbuster All scans complete!"));
     assert!(contents.contains("feroxbuster exit: terminal_input_handler"));
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -506,12 +470,10 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let outfile = tmp_dir.path().join("debug.log");
 
@@ -538,7 +500,7 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     assert!(contents.contains("All scans complete!"));
     assert!(contents.contains("exit: terminal_input_handler"));
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -549,19 +511,16 @@ fn scanner_single_request_scan_with_regex_filtered_result() {
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "ignored".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a not a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
-    let filtered_mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/ignored")
-        .return_status(200)
-        .return_body("this is a test\nThat rug really tied the room together")
-        .create_on(&srv);
+    let filtered_mock = srv.mock(|when, then| {
+        when.method(GET).path("/ignored");
+        then.status(200)
+            .body("this is a test\nThat rug really tied the room together");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -583,7 +542,7 @@ fn scanner_single_request_scan_with_regex_filtered_result() {
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(filtered_mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(filtered_mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }

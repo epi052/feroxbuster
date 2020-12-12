@@ -1,7 +1,7 @@
 mod utils;
 use assert_cmd::Command;
 use httpmock::Method::GET;
-use httpmock::{Mock, MockServer};
+use httpmock::MockServer;
 use predicates::prelude::*;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -10,12 +10,10 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/");
+        then.status(200).body("this is a test");
+    });
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -29,7 +27,7 @@ fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Erro
         .stdout(predicate::str::contains("Permission denied (os error 13)"));
 
     // connectivity test hits it once
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     Ok(())
 }
 
@@ -39,12 +37,10 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&[], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/");
+        then.status(200).body("this is a test");
+    });
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -57,7 +53,7 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .failure()
         .stdout(predicate::str::contains("Did not find any words in"));
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
     Ok(())

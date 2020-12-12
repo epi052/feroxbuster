@@ -2,7 +2,7 @@ mod utils;
 use assert_cmd::prelude::*;
 use assert_cmd::Command;
 use httpmock::Method::GET;
-use httpmock::{Mock, MockServer, Regex};
+use httpmock::{MockServer, Regex};
 use predicates::prelude::*;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -65,12 +65,10 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
     let urls = vec![not_real, srv.url("/"), String::from("LICENSE")];
     let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
 
     let mut cmd = Command::cargo_bin("feroxbuster").unwrap();
 
@@ -86,7 +84,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
                 .and(predicate::str::contains("200"))
                 .and(predicate::str::contains("14")),
         );
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
     Ok(())
@@ -98,12 +96,11 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(200).body("this is a test");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -123,7 +120,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
             .and(predicate::str::contains("(url length: 32)")),
     );
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     Ok(())
 }
 
@@ -134,19 +131,17 @@ fn test_dynamic_wildcard_request_found() {
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
     let outfile = tmp_dir.path().join("outfile");
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
-    let mock2 = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET).path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
+        then.status(200).body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -177,8 +172,8 @@ fn test_dynamic_wildcard_request_found() {
             .and(predicate::str::contains("(url length: 96)")),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock2.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
 }
 
 #[test]
@@ -187,12 +182,11 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(200)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(200).body("this is a test");
+    });
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -205,7 +199,7 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
 
     teardown_tmp_directory(tmp_dir);
 
-    assert_eq!(mock.times_called(), 0);
+    assert_eq!(mock.hits(), 0);
     Ok(())
 }
 
@@ -215,19 +209,19 @@ fn heuristics_wildcard_test_with_two_static_wildcards() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
-    let mock2 = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -251,8 +245,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards() {
             )),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock2.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
 }
 
 #[test]
@@ -262,19 +256,19 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
-    let mock2 = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -290,8 +284,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
 
     cmd.assert().success().stdout(predicate::str::is_empty());
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock2.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
     Ok(())
 }
 
@@ -302,19 +296,19 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
     let outfile = tmp_dir.path().join("outfile");
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
-    let mock2 = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
-        .return_status(200)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
+        then.status(200)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -348,8 +342,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
             )),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock2.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
 }
 
 #[test]
@@ -361,20 +355,20 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
     let outfile = tmp_dir.path().join("outfile");
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap())
-        .return_status(301)
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+        then.status(301)
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
-    let mock2 = Mock::new()
-        .expect_method(GET)
-        .expect_path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap())
-        .return_status(301)
-        .return_header("Location", &srv.url("/some-redirect"))
-        .return_body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        .create_on(&srv);
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
+        then.status(301)
+            .header("Location", &srv.url("/some-redirect"))
+            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -407,7 +401,7 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
             .and(predicate::str::contains("WLD")),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock2.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
     Ok(())
 }

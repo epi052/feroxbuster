@@ -1,7 +1,7 @@
 mod utils;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
-use httpmock::{Mock, MockServer};
+use httpmock::MockServer;
 use predicates::prelude::*;
 use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
@@ -13,18 +13,17 @@ fn extractor_finds_absolute_url() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body(&srv.url("'/homepage/assets/img/icons/handshake.svg'"))
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200)
+            .body(&srv.url("'/homepage/assets/img/icons/handshake.svg'"));
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/homepage/assets/img/icons/handshake.svg")
-        .return_status(200)
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET)
+            .path("/homepage/assets/img/icons/handshake.svg");
+        then.status(200);
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -43,8 +42,8 @@ fn extractor_finds_absolute_url() -> Result<(), Box<dyn std::error::Error>> {
             )),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -56,12 +55,11 @@ fn extractor_finds_absolute_url_to_different_domain() -> Result<(), Box<dyn std:
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("\"http://localhost/homepage/assets/img/icons/handshake.svg\"")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200)
+            .body("\"http://localhost/homepage/assets/img/icons/handshake.svg\"");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -81,7 +79,7 @@ fn extractor_finds_absolute_url_to_different_domain() -> Result<(), Box<dyn std:
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -92,18 +90,17 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body("\"/homepage/assets/img/icons/handshake.svg\"")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200)
+            .body("\"/homepage/assets/img/icons/handshake.svg\"");
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/homepage/assets/img/icons/handshake.svg")
-        .return_status(200)
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET)
+            .path("/homepage/assets/img/icons/handshake.svg");
+        then.status(200);
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -122,8 +119,8 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
             )),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -136,25 +133,23 @@ fn extractor_finds_same_relative_url_twice() {
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""))
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200)
+            .body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/README")
-        .return_body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""))
-        .return_status(200)
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/README");
+        then.status(200)
+            .body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
+    });
 
-    let mock_three = Mock::new()
-        .expect_method(GET)
-        .expect_path("/homepage/assets/img/icons/handshake.svg")
-        .return_status(200)
-        .create_on(&srv);
+    let mock_three = srv.mock(|when, then| {
+        when.method(GET)
+            .path("/homepage/assets/img/icons/handshake.svg");
+        then.status(200);
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -173,10 +168,10 @@ fn extractor_finds_same_relative_url_twice() {
             )),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
-    assert!(mock_three.times_called() <= 2); // todo: sometimes this is 2 instead of 1
-                                             // the expectation is one, suggesting a race condition... investigate and fix
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
+    assert!(mock_three.hits() <= 2); // todo: sometimes this is 2 instead of 1
+                                     // the expectation is one, suggesting a race condition... investigate and fix
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -188,19 +183,17 @@ fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> 
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "README".to_string()], "wordlist")?;
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(200)
-        .return_body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""))
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200)
+            .body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/homepage/assets/img/icons/handshake.svg")
-        .return_body("im a little teapot")
-        .return_status(200)
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET)
+            .path("/homepage/assets/img/icons/handshake.svg");
+        then.status(200).body("im a little teapot");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -222,8 +215,8 @@ fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> 
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
