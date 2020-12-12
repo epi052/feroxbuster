@@ -143,7 +143,7 @@ mod tests {
     use super::*;
     use crate::utils::make_request;
     use httpmock::Method::GET;
-    use httpmock::{Mock, MockServer};
+    use httpmock::MockServer;
     use reqwest::Client;
 
     #[test]
@@ -245,12 +245,12 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let srv = MockServer::start();
 
-        let mock = Mock::new()
-            .expect_method(GET)
-            .expect_path("/some-path")
-            .return_status(200)
-            .return_body("\"http://defintely.not.a.thing.probably.com/homepage/assets/img/icons/handshake.svg\"")
-            .create_on(&srv);
+        let mock = srv.mock(|when, then|{
+            when.method(GET)
+                .path("/some-path");
+            then.status(200)
+                .body("\"http://defintely.not.a.thing.probably.com/homepage/assets/img/icons/handshake.svg\"");
+        });
 
         let client = Client::new();
         let url = Url::parse(&srv.url("/some-path")).unwrap();
@@ -263,7 +263,7 @@ mod tests {
 
         assert!(links.is_empty());
 
-        assert_eq!(mock.times_called(), 1);
+        assert_eq!(mock.hits(), 1);
         Ok(())
     }
 }

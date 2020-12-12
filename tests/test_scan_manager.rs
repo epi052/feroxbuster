@@ -1,7 +1,7 @@
 mod utils;
 use assert_cmd::Command;
 use httpmock::Method::GET;
-use httpmock::{Mock, MockServer};
+use httpmock::MockServer;
 use predicates::prelude::*;
 use std::fs::{read_to_string, write};
 use std::path::Path;
@@ -43,28 +43,23 @@ fn resume_scan_works() {
     let responses = format!(r#""responses":[{}]"#, response);
 
     // not scanned because /js is not complete, and /js/stuff response is not known
-    let not_scanned_yet = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/stuff")
-        .return_status(200)
-        .return_body("i expect to be scanned")
-        .create_on(&srv);
+    let not_scanned_yet = srv.mock(|when, then| {
+        when.method(GET).path("/js/stuff");
+        then.status(200).body("i expect to be scanned");
+    });
 
     // will get scanned because /js is not complete, but because response of /js/css is known, the
     // response will not be in stdout
-    let already_scanned = Mock::new()
-        .expect_method(GET)
-        .expect_path("/js/css")
-        .return_status(200)
-        .create_on(&srv);
+    let already_scanned = srv.mock(|when, then| {
+        when.method(GET).path("/js/css");
+        then.status(200);
+    });
 
     // already scanned because scan on / is complete
-    let also_already_scanned = Mock::new()
-        .expect_method(GET)
-        .expect_path("/css")
-        .return_status(200)
-        .return_body("two words")
-        .create_on(&srv);
+    let also_already_scanned = srv.mock(|when, then| {
+        when.method(GET).path("/css");
+        then.status(200).body("two words");
+    });
 
     let state_file_contents = format!("{{{},{},{}}}", scans, config, responses);
     let (tmp_dir2, state_file) = setup_tmp_directory(&[state_file_contents], "state-file").unwrap();
@@ -90,9 +85,9 @@ fn resume_scan_works() {
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(tmp_dir2);
 
-    assert_eq!(already_scanned.times_called(), 1);
-    assert_eq!(also_already_scanned.times_called(), 0);
-    assert_eq!(not_scanned_yet.times_called(), 1);
+    assert_eq!(already_scanned.hits(), 1);
+    assert_eq!(also_already_scanned.hits(), 0);
+    assert_eq!(not_scanned_yet.hits(), 1);
 }
 
 #[test]

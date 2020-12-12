@@ -1,7 +1,7 @@
 mod utils;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
-use httpmock::{Mock, MockServer};
+use httpmock::MockServer;
 use predicates::prelude::*;
 use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
@@ -14,19 +14,15 @@ fn filters_status_code_should_filter_response() {
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "file.js".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(302)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(302).body("this is a test");
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/file.js")
-        .return_status(200)
-        .return_body("this is also a test of some import")
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/file.js");
+        then.status(200).body("this is also a test of some import");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -51,8 +47,8 @@ fn filters_status_code_should_filter_response() {
             .and(predicate::str::contains("34c")),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -64,19 +60,16 @@ fn filters_lines_should_filter_response() {
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "file.js".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(302)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(302).body("this is a test");
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/file.js")
-        .return_status(200)
-        .return_body("this is also a test of some import\nwith 2 lines, no less")
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/file.js");
+        then.status(200)
+            .body("this is also a test of some import\nwith 2 lines, no less");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -100,8 +93,8 @@ fn filters_lines_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -113,19 +106,16 @@ fn filters_words_should_filter_response() {
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "file.js".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(302)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(302).body("this is a test");
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/file.js")
-        .return_status(200)
-        .return_body("this is also a test of some import\nwith 2 lines, no less")
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/file.js");
+        then.status(200)
+            .body("this is also a test of some import\nwith 2 lines, no less");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -149,8 +139,8 @@ fn filters_words_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -162,19 +152,16 @@ fn filters_size_should_filter_response() {
     let (tmp_dir, file) =
         setup_tmp_directory(&["LICENSE".to_string(), "file.js".to_string()], "wordlist").unwrap();
 
-    let mock = Mock::new()
-        .expect_method(GET)
-        .expect_path("/LICENSE")
-        .return_status(302)
-        .return_body("this is a test")
-        .create_on(&srv);
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(302).body("this is a test");
+    });
 
-    let mock_two = Mock::new()
-        .expect_method(GET)
-        .expect_path("/file.js")
-        .return_status(200)
-        .return_body("this is also a test of some import\nwith 2 lines, no less")
-        .create_on(&srv);
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/file.js");
+        then.status(200)
+            .body("this is also a test of some import\nwith 2 lines, no less");
+    });
 
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -198,7 +185,7 @@ fn filters_size_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(mock.times_called(), 1);
-    assert_eq!(mock_two.times_called(), 1);
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
