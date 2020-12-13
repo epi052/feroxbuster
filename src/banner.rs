@@ -424,21 +424,18 @@ by Ben "epi" Risher {}                 ver: {}"#,
     }
 
     let volume = ["🔈", "🔉", "🔊", "📢"];
-    match config.verbosity {
+    if let 1..=4 = config.verbosity {
         //speaker medium volume (increasing with verbosity to loudspeaker)
-        1..=4 => {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(
-                    format_emoji(volume[config.verbosity as usize - 1]),
-                    "Verbosity",
-                    config.verbosity
-                )
+        writeln!(
+            &mut writer,
+            "{}",
+            format_banner_entry!(
+                format_emoji(volume[config.verbosity as usize - 1]),
+                "Verbosity",
+                config.verbosity
             )
-            .unwrap_or_default();
-        }
-        _ => {}
+        )
+        .unwrap_or_default();
     }
 
     if config.add_slash {
