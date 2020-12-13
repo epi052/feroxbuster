@@ -5,6 +5,12 @@ use clap::Shell;
 include!("src/parser.rs");
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=src/parser.rs");
+
+    if let Ok(_) = std::env::var("DOCS_RS") {
+        return; // only build when we're not generating docs
+    }
+
     let outdir = "shell_completions";
 
     let mut app = initialize();
