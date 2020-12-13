@@ -7,7 +7,7 @@ include!("src/parser.rs");
 fn main() {
     println!("cargo:rerun-if-env-changed=src/parser.rs");
 
-    if let Ok(_) = std::env::var("DOCS_RS") {
+    if std::env::var("DOCS_RS").is_ok() {
         return; // only build when we're not generating docs
     }
 
