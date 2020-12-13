@@ -312,7 +312,7 @@ fn scanner_single_request_returns_301_without_location_header(
 
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
-        then.status(200).body("this is a test");
+        then.status(301).body("this is a test");
     });
 
     let cmd = Command::cargo_bin("feroxbuster")
