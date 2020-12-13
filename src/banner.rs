@@ -423,39 +423,20 @@ by Ben "epi" Risher {}                 ver: {}"#,
         .unwrap_or_default(); // 🤪
     }
 
+    let volume = ["🔈", "🔉", "🔊", "📢"];
     match config.verbosity {
         //speaker medium volume (increasing with verbosity to loudspeaker)
-        1 => {
+        1..=4 => {
             writeln!(
                 &mut writer,
                 "{}",
-                format_banner_entry!(format_emoji("🔈"), "Verbosity", config.verbosity)
+                format_banner_entry!(
+                    format_emoji(volume[config.verbosity as usize - 1]),
+                    "Verbosity",
+                    config.verbosity
+                )
             )
-            .unwrap_or_default(); // 🔈
-        }
-        2 => {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("🔉"), "Verbosity", config.verbosity)
-            )
-            .unwrap_or_default(); // 🔉
-        }
-        3 => {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("🔊"), "Verbosity", config.verbosity)
-            )
-            .unwrap_or_default(); // 🔊
-        }
-        4 => {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("📢"), "Verbosity", config.verbosity)
-            )
-            .unwrap_or_default(); // 📢
+            .unwrap_or_default();
         }
         _ => {}
     }
