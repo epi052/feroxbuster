@@ -93,6 +93,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
     - [Progress bars print one line at a time](#progress-bars-print-one-line-at-a-time)
+    - [What do each of the numbers beside the URL mean?](#what-do-each-of-the-numbers-beside-the-url-mean)
 
 ## 💿 Installation
 
