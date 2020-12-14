@@ -1,4 +1,4 @@
-use crate::FeroxResponse;
+use crate::{client, config::Configuration, utils::make_request, FeroxResponse};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
@@ -9,9 +9,17 @@ use std::collections::HashSet;
 /// Incorporates change from this [Pull Request](https://github.com/GerbenJavado/LinkFinder/pull/66/files)
 const LINKFINDER_REGEX: &str = r#"(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-.]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')"#;
 
+/// Regular expression to pull url paths from robots.txt
+///
+/// ref: https://developers.google.com/search/reference/robots_txt
+const ROBOTS_TXT_REGEX: &str = r#"^ *(Allow|Disallow): *(?P<Url>.*?)$"#;
+
 lazy_static! {
     /// `LINKFINDER_REGEX` as a regex::Regex type
     static ref REGEX: Regex = Regex::new(LINKFINDER_REGEX).unwrap();
+
+    /// `ROBOTS_TXT_REGEX` as a regex::Regex type
+    static ref ROBOTS_REGEX: Regex = Regex::new(ROBOTS_TXT_REGEX).unwrap();
 }
 
 /// Iterate over a given path, return a list of every sub-path found
@@ -135,7 +143,53 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
     }
 
     log::trace!("exit: get_links -> {:?}", links);
+
     links
+}
+
+/// helper function that simply requests /robots.txt on the given url's base url
+///
+/// example:
+///     http://localhost/api/users -> http://localhost/robots.txt
+///     
+/// The length of the given path has no effect on what's requested; it's always
+/// base url + /robots.txt
+pub async fn request_robots_txt(base_url: &str, config: &Configuration) -> Option<FeroxResponse> {
+    log::trace!("enter: get_robots_file({})", base_url);
+
+    // more often than not, domain/robots.txt will redirect to www.domain/robots.txt or something
+    // similar; to account for that, create a client that will follow redirects, regardless of
+    // what the user specified for the scanning client. Other than redirects, it will respect
+    // all other user specified settings
+    let follow_redirects = true;
+
+    let proxy = if config.proxy.is_empty() {
+        None
+    } else {
+        Some(config.proxy.as_str())
+    };
+
+    let client = client::initialize(
+        config.timeout,
+        &config.user_agent,
+        follow_redirects,
+        config.insecure,
+        &config.headers,
+        proxy,
+    );
+
+    if let Ok(mut url) = Url::parse(base_url) {
+        url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
+
+        if let Ok(response) = make_request(&client, &url).await {
+            let ferox_response = FeroxResponse::from(response, true).await;
+
+            log::trace!("exit: get_robots_file -> {}", ferox_response);
+            return Some(ferox_response);
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -265,5 +319,28 @@ mod tests {
 
         assert_eq!(mock.hits(), 1);
         Ok(())
+    }
+
+    #[tokio::test(core_threads = 1)]
+    /// test that /robots.txt is correctly requested given a base url (happy path)
+    async fn request_robots_txt_with_and_without_proxy() {
+        let srv = MockServer::start();
+
+        let mock = srv.mock(|when, then| {
+            when.method(GET).path("/robots.txt");
+            then.status(200).body("this is a test");
+        });
+
+        let mut config = Configuration::default();
+
+        request_robots_txt(&srv.url("/api/users/stuff/things"), &config).await;
+
+        // note: the proxy doesn't actually do anything other than hit a different code branch
+        // in this unit test; it would however have an effect on an integration test
+        config.proxy = srv.url("/ima-proxy");
+
+        request_robots_txt(&srv.url("/api/different/path"), &config).await;
+
+        assert_eq!(mock.hits(), 2);
     }
 }
