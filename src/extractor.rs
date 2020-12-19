@@ -1,4 +1,10 @@
-use crate::{client, config::Configuration, utils::make_request, FeroxResponse};
+use crate::{
+    client,
+    config::{Configuration, CONFIGURATION},
+    scanner::SCANNED_URLS,
+    utils::{format_url, make_request},
+    FeroxResponse,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
@@ -12,11 +18,12 @@ const LINKFINDER_REGEX: &str = r#"(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[
 /// Regular expression to pull url paths from robots.txt
 ///
 /// ref: https://developers.google.com/search/reference/robots_txt
-const ROBOTS_TXT_REGEX: &str = r#"^ *(Allow|Disallow): *(?P<Url>.*?)$"#;
+const ROBOTS_TXT_REGEX: &str =
+    r#"(?m)^ *(Allow|Disallow): *(?P<url_path>[a-zA-Z0-9._/?#@!&'()+,;%=-]+?)$"#; // multi-line (?m)
 
 lazy_static! {
     /// `LINKFINDER_REGEX` as a regex::Regex type
-    static ref REGEX: Regex = Regex::new(LINKFINDER_REGEX).unwrap();
+    static ref LINKS_REGEX: Regex = Regex::new(LINKFINDER_REGEX).unwrap();
 
     /// `ROBOTS_TXT_REGEX` as a regex::Regex type
     static ref ROBOTS_REGEX: Regex = Regex::new(ROBOTS_TXT_REGEX).unwrap();
@@ -98,7 +105,7 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
 
     let body = response.text();
 
-    for capture in REGEX.captures_iter(&body) {
+    for capture in LINKS_REGEX.captures_iter(&body) {
         // remove single & double quotes from both ends of the capture
         // capture[0] is the entire match, additional capture groups start at [1]
         let link = capture[0].trim_matches(|c| c == '\'' || c == '"');
@@ -113,27 +120,14 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
                     continue;
                 }
 
-                for sub_path in get_sub_paths_from_path(absolute.path()) {
-                    // take a url fragment like homepage/assets/img/icons/handshake.svg and
-                    // incrementally add
-                    //     - homepage/assets/img/icons/
-                    //     - homepage/assets/img/
-                    //     - homepage/assets/
-                    //     - homepage/
-                    log::debug!("Adding {} to {:?}", sub_path, links);
-                    add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
-                }
+                add_all_sub_paths(absolute.path(), &response, &mut links);
             }
             Err(e) => {
                 // this is the expected error that happens when we try to parse a url fragment
                 //     ex: Url::parse("/login") -> Err("relative URL without a base")
                 // while this is technically an error, these are good results for us
                 if e.to_string().contains("relative URL without a base") {
-                    for sub_path in get_sub_paths_from_path(link) {
-                        // incrementally save all sub-paths that led to the relative url's resource
-                        log::debug!("Adding {} to {:?}", sub_path, links);
-                        add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
-                    }
+                    add_all_sub_paths(link, &response, &mut links);
                 } else {
                     // unexpected error has occurred
                     log::error!("Could not parse given url: {}", e);
@@ -145,6 +139,79 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
     log::trace!("exit: get_links -> {:?}", links);
 
     links
+}
+
+/// take a url fragment like homepage/assets/img/icons/handshake.svg and
+/// incrementally add
+///     - homepage/assets/img/icons/
+///     - homepage/assets/img/
+///     - homepage/assets/
+///     - homepage/
+fn add_all_sub_paths(url_path: &str, response: &FeroxResponse, mut links: &mut HashSet<String>) {
+    log::trace!(
+        "enter: add_all_sub_paths({}, {}, {:?})",
+        url_path,
+        response,
+        links
+    );
+
+    for sub_path in get_sub_paths_from_path(url_path) {
+        log::debug!("Adding {} to {:?}", sub_path, links);
+        add_link_to_set_of_links(&sub_path, &response.url(), &mut links);
+    }
+
+    log::trace!("exit: add_all_sub_paths");
+}
+
+/// Wrapper around link extraction logic
+/// currently used in two places:
+///   - links from response bodys
+///   - links from robots.txt responses
+///
+/// general steps taken:
+///   - create a new Url object based on cli options/args
+///   - check if the new Url has already been seen/scanned -> None
+///   - make a request to the new Url ? -> Some(response) : None
+pub async fn request_feroxresponse_from_new_link(url: &str) -> Option<FeroxResponse> {
+    log::trace!("enter: request_feroxresponse_from_new_link({})", url);
+
+    // create a url based on the given command line options, return None on error
+    let new_url = match format_url(
+        &url,
+        &"",
+        CONFIGURATION.add_slash,
+        &CONFIGURATION.queries,
+        None,
+    ) {
+        Ok(url) => url,
+        Err(_) => {
+            log::trace!("exit: request_feroxresponse_from_new_link -> None");
+            return None;
+        }
+    };
+
+    if SCANNED_URLS.get_scan_by_url(&new_url.to_string()).is_some() {
+        //we've seen the url before and don't need to scan again
+        log::trace!("exit: request_feroxresponse_from_new_link -> None");
+        return None;
+    }
+
+    // make the request and store the response
+    let new_response = match make_request(&CONFIGURATION.client, &new_url).await {
+        Ok(resp) => resp,
+        Err(_) => {
+            log::trace!("exit: request_feroxresponse_from_new_link -> None");
+            return None;
+        }
+    };
+
+    let new_ferox_response = FeroxResponse::from(new_response, true).await;
+
+    log::trace!(
+        "exit: request_feroxresponse_from_new_link -> {:?}",
+        new_ferox_response
+    );
+    Some(new_ferox_response)
 }
 
 /// helper function that simply requests /robots.txt on the given url's base url
@@ -190,6 +257,33 @@ pub async fn request_robots_txt(base_url: &str, config: &Configuration) -> Optio
     }
 
     None
+}
+
+/// Entry point to perform link extraction from robots.txt
+///
+/// `base_url` can have paths and subpaths, however robots.txt will be requested from the
+/// root of the url
+/// given the url:
+///     http://localhost/stuff/things
+/// this function requests:
+///     http://localhost/robots.txt
+pub async fn extract_robots_txt(base_url: &str, config: &Configuration) -> HashSet<String> {
+    log::trace!("enter: extract_robots_txt({}, CONFIGURATION)", base_url);
+    let mut links = HashSet::new();
+
+    if let Some(response) = request_robots_txt(&base_url, &config).await {
+        for capture in ROBOTS_REGEX.captures_iter(response.text.as_str()) {
+            if let Some(new_path) = capture.name("url_path") {
+                if let Ok(mut new_url) = Url::parse(base_url) {
+                    new_url.set_path(new_path.as_str());
+                    add_all_sub_paths(new_url.path(), &response, &mut links);
+                }
+            }
+        }
+    }
+
+    log::trace!("exit: extract_robots_txt -> {:?}", links);
+    links
 }
 
 #[cfg(test)]

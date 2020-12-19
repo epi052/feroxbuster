@@ -1,6 +1,6 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
-    extractor::get_links,
+    extractor::{get_links, request_feroxresponse_from_new_link},
     filters::{
         FeroxFilter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
         WordsFilter,
@@ -385,30 +385,11 @@ async fn make_requests(
                 let new_links = get_links(&ferox_response).await;
 
                 for new_link in new_links {
-                    // create a url based on the given command line options, continue on error
-                    let new_url = match format_url(
-                        &new_link,
-                        &"",
-                        CONFIGURATION.add_slash,
-                        &CONFIGURATION.queries,
-                        None,
-                    ) {
-                        Ok(url) => url,
-                        Err(_) => continue,
-                    };
-
-                    if SCANNED_URLS.get_scan_by_url(&new_url.to_string()).is_some() {
-                        //we've seen the url before and don't need to scan again
-                        continue;
-                    }
-
-                    // make the request and store the response
-                    let new_response = match make_request(&CONFIGURATION.client, &new_url).await {
-                        Ok(resp) => resp,
-                        Err(_) => continue,
-                    };
-
-                    let mut new_ferox_response = FeroxResponse::from(new_response, true).await;
+                    let mut new_ferox_response =
+                        match request_feroxresponse_from_new_link(&new_link).await {
+                            Some(resp) => resp,
+                            None => continue,
+                        };
 
                     // filter if necessary
                     if should_filter_response(&new_ferox_response) {
@@ -419,7 +400,7 @@ async fn make_requests(
                         // very likely a file, simply request and report
                         log::debug!("Singular extraction: {}", new_ferox_response);
 
-                        SCANNED_URLS.add_file_scan(&new_url.to_string());
+                        SCANNED_URLS.add_file_scan(&new_ferox_response.url().to_string());
 
                         send_report(report_chan.clone(), new_ferox_response);
 
