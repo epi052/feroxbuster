@@ -7,7 +7,7 @@ use feroxbuster::{
     progress::add_bar,
     reporter,
     scan_manager::{self, PAUSE_SCAN},
-    scanner::{self, scan_url, RESPONSES, SCANNED_URLS},
+    scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
@@ -157,18 +157,20 @@ async fn scan(
                     None => continue,
                 };
 
-                let (unknown, _) = if ferox_response.is_file() {
-                    SCANNED_URLS.add_file_scan(&robot_link)
+                if ferox_response.is_file() {
+                    SCANNED_URLS.add_file_scan(&robot_link);
+                    send_report(tx_term.clone(), ferox_response);
                 } else {
-                    SCANNED_URLS.add_directory_scan(&robot_link)
-                };
+                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link);
 
-                if !unknown {
-                    // not unknown, i.e. we've seen the url before and don't need to scan again
-                    continue;
+                    if !unknown {
+                        // known directory; can skip (unlikely)
+                        continue;
+                    }
+
+                    // unknown directory; add to targets for scanning
+                    targets.push(robot_link);
                 }
-
-                targets.push(robot_link);
             }
         }
     }

@@ -433,7 +433,7 @@ async fn make_requests(
 }
 
 /// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
-fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: FeroxResponse) {
+pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: FeroxResponse) {
     log::trace!("enter: send_report({:?}, {}", report_sender, response);
 
     match report_sender.send(response) {
