@@ -163,15 +163,14 @@ fn extractor_finds_same_relative_url_twice() {
     cmd.assert().success().stdout(
         predicate::str::contains("/LICENSE")
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains(
-                "/homepage/assets/img/icons/handshake.svg",
-            )),
+            // .count(1) asserts that we only see the endpoint reported once, even though there
+            // is the potential to request the same url twice
+            .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg").count(1)),
     );
 
     assert_eq!(mock.hits(), 1);
     assert_eq!(mock_two.hits(), 1);
-    assert!(mock_three.hits() <= 2); // todo: sometimes this is 2 instead of 1
-                                     // the expectation is one, suggesting a race condition... investigate and fix
+    assert!(mock_three.hits() <= 2);
     teardown_tmp_directory(tmp_dir);
 }
 
