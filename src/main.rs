@@ -1,11 +1,13 @@
 use crossterm::event::{self, Event, KeyCode};
-use feroxbuster::progress::add_bar;
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
-    heuristics, logger, reporter,
+    extractor::{extract_robots_txt, request_feroxresponse_from_new_link},
+    heuristics, logger,
+    progress::add_bar,
+    reporter,
     scan_manager::{self, PAUSE_SCAN},
-    scanner::{self, scan_url, RESPONSES, SCANNED_URLS},
+    scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
@@ -97,7 +99,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(
-    targets: Vec<String>,
+    mut targets: Vec<String>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
 ) -> FeroxResult<()> {
@@ -138,6 +140,37 @@ async fn scan(
         if let Ok(responses) = RESPONSES.responses.read() {
             for response in responses.iter() {
                 PROGRESS_PRINTER.println(response.as_str());
+            }
+        }
+    }
+
+    if CONFIGURATION.extract_links {
+        for target in targets.clone() {
+            // modifying the targets vector, so we can't have a reference to it while we borrow
+            // it as mutable; thus the clone
+            let robots_links = extract_robots_txt(&target, &CONFIGURATION).await;
+
+            for robot_link in robots_links {
+                // create a url based on the given command line options, continue on error
+                let ferox_response = match request_feroxresponse_from_new_link(&robot_link).await {
+                    Some(resp) => resp,
+                    None => continue,
+                };
+
+                if ferox_response.is_file() {
+                    SCANNED_URLS.add_file_scan(&robot_link);
+                    send_report(tx_term.clone(), ferox_response);
+                } else {
+                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link);
+
+                    if !unknown {
+                        // known directory; can skip (unlikely)
+                        continue;
+                    }
+
+                    // unknown directory; add to targets for scanning
+                    targets.push(robot_link);
+                }
             }
         }
     }
