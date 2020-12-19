@@ -650,6 +650,12 @@ A valid time_spec can be passed to `--time-limit` in order to force a shutdown a
 
 ![time-limit](img/time-limit.gif)
 
+### Extract Links from robots.txt (New in `v1.10.2`)
+
+In addition to [extracting links from the response body](#extract-links-from-response-body-new-in-v110), using 
+`--extract-links` makes a request to `/robots.txt` and examines all `Allow` and `Disallow` entries.  Directory entries 
+are added to the scan queue, while file entries are requested and then reported if appropriate.  
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
@@ -693,6 +699,7 @@ a few of the use-cases in which feroxbuster may be a better fit:
 | filter out responses by regular expression (`v1.8.0`)                        | ✔ |   | ✔ |
 | save scan's state to disk (can pick up where it left off) (`v1.9.0`)         | ✔ |   |   |
 | maximum run time limit (`v1.10.0`)                                           | ✔ |   | ✔ |
+| use robots.txt to increase scan coverage (`v1.10.2`)                         | ✔ |   |   |
 | **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
@@ -784,3 +791,17 @@ consider using `-q` to suppress the progress bars.
 ### What do each of the numbers beside the URL mean?
 
 Please refer to [this section](#filter-response-by-word-count--line-count--new-in-v160) where each number's meaning and how to use it to filter responses is discussed.
+
+### SSL Error routines:tls_process_server_certificate:certificate verify failed
+
+In the event you see an error similar to 
+
+![self-signed](img/insecure.png)
+
+```
+error trying to connect: error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed:ssl/statem/statem_clnt.c:1913: (self signed certificate)
+```
+
+You just need to add the `-k|--insecure` flag to your command.
+
+`feroxbuster` rejects self-signed certs and other "insecure" certificates/site configurations by default. You can choose to scan these services anyway by telling `feroxbuster` to ignore insecure server certs.
