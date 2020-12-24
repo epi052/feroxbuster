@@ -391,7 +391,10 @@ fn main() {
     #[cfg(not(target_os = "windows"))]
     set_open_file_limit(DEFAULT_OPEN_FILE_LIMIT);
 
-    if let Ok(mut runtime) = tokio::runtime::Runtime::new() {
+    if let Ok(runtime) = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
         let future = wrapped_main();
         runtime.block_on(future);
     }

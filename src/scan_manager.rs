@@ -619,7 +619,7 @@ pub async fn start_max_time_thread(time_spec: &str) {
             length_in_secs
         );
 
-        time::delay_for(time::Duration::new(length_in_secs, 0)).await;
+        time::sleep(time::Duration::new(length_in_secs, 0)).await;
 
         log::trace!("exit: start_max_time_thread");
 
@@ -769,7 +769,7 @@ mod tests {
         assert!(!spinner.is_finished());
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
     /// the spinner used during the test has had .finish_and_clear called on it, meaning that
     /// a new one will be created, taking the if branch within the function
@@ -782,7 +782,7 @@ mod tests {
         let expected = time::Duration::from_secs(2);
 
         tokio::spawn(async move {
-            time::delay_for(expected).await;
+            time::sleep(expected).await;
             PAUSE_SCAN.store(false, Ordering::Relaxed);
         });
 
@@ -1043,7 +1043,7 @@ mod tests {
     }
 
     #[should_panic]
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// call start_max_time_thread with a valid timespec, expect a panic, but only after a certain
     /// number of seconds
     async fn start_max_time_thread_panics_after_delay() {
@@ -1055,7 +1055,7 @@ mod tests {
         assert!(now.elapsed() > delay);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// call start_max_time_thread with a timespec that's too large to be parsed correctly, expect
     /// immediate return and no panic, as the sigint handler is never called
     async fn start_max_time_thread_returns_immediately_with_too_large_input() {

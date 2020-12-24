@@ -385,7 +385,7 @@ mod tests {
         assert!(links.is_empty());
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// use make_request to generate a Response, and use the Response to test get_links;
     /// the response will contain an absolute path to a domain that is not part of the scanned
     /// domain; expect an empty set returned
@@ -415,7 +415,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// test that /robots.txt is correctly requested given a base url (happy path)
     async fn request_robots_txt_with_and_without_proxy() {
         let srv = MockServer::start();
