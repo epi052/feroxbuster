@@ -97,14 +97,16 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
+    num_targets: usize,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
         base_depth,
+        num_targets,
         tx_term,
         tx_file
     );
@@ -132,6 +134,7 @@ fn spawn_recursion_handler(
                     resp_clone.to_owned().as_str(),
                     list_clone,
                     base_depth,
+                    num_targets,
                     term_clone,
                     file_clone,
                 )
@@ -453,14 +456,16 @@ pub async fn scan_url(
     target_url: &str,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
+    num_targets: usize,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
 ) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
         target_url,
         wordlist.len(),
         base_depth,
+        num_targets,
         tx_term,
         tx_file
     );
@@ -469,7 +474,7 @@ pub async fn scan_url(
 
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
-    if CALL_COUNT.load(Ordering::Relaxed) == 0 {
+    if CALL_COUNT.load(Ordering::Relaxed) < num_targets {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
@@ -515,6 +520,7 @@ pub async fn scan_url(
             rx_dir,
             recurser_words,
             base_depth,
+            num_targets,
             recurser_term_clone,
             recurser_file_clone,
         )
