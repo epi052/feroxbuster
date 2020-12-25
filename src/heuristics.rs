@@ -1,7 +1,7 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     filters::WildcardFilter,
-    scanner::should_filter_response,
+    scanner::{should_filter_response, STATS},
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
 };
@@ -220,7 +220,10 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
         };
 
         match make_request(&CONFIGURATION.client, &request).await {
-            Ok(_) => {
+            Ok(response) => {
+                let ferox_response = FeroxResponse::from(response, false).await;
+                STATS.update(&ferox_response);
+                ferox_print(&format!("FUCK YEA: {:?}", *STATS), &PROGRESS_PRINTER);
                 good_urls.push(target_url.to_owned());
             }
             Err(e) => {

@@ -1,5 +1,5 @@
 use crate::{
-    config::{Configuration, CONFIGURATION},
+    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
     extractor::{get_links, request_feroxresponse_from_new_link},
     filters::{
         FeroxFilter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
@@ -7,7 +7,8 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
-    utils::{format_url, get_current_depth, make_request},
+    statistics::Stats,
+    utils::{format_url, get_current_depth, make_request, ferox_print},
     FeroxChannel, FeroxResponse,
 };
 use futures::{
@@ -38,11 +39,14 @@ use tokio::{
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Single atomic number that gets holds the number of requests to be sent per directory scanned
-pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0);
+pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0); // todo move to stats
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     pub static ref SCANNED_URLS: FeroxScans = FeroxScans::default();
+
+    /// todo
+    pub static ref STATS: Stats = Stats::default();
 
     /// Vector of implementors of the FeroxFilter trait
     static ref FILTERS: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>> = Arc::new(RwLock::new(Vec::<Box<dyn FeroxFilter>>::new()));
@@ -368,6 +372,9 @@ async fn make_requests(
         if let Ok(response) = make_request(&CONFIGURATION.client, &url).await {
             // response came back without error, convert it to FeroxResponse
             let ferox_response = FeroxResponse::from(response, true).await;
+
+            STATS.update(&ferox_response);
+            ferox_print(&format!("FUCK YEA: {:?}", *STATS), &PROGRESS_PRINTER);
 
             // do recursion if appropriate
             if !CONFIGURATION.no_recursion {

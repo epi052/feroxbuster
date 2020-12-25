@@ -10,6 +10,7 @@ pub mod progress;
 pub mod reporter;
 pub mod scan_manager;
 pub mod scanner;
+pub mod statistics;
 pub mod utils;
 
 use crate::utils::{get_url_path_length, status_colorizer};

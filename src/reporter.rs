@@ -1,6 +1,6 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
-    scanner::RESPONSES,
+    scanner::{RESPONSES, SCANNED_URLS},
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
