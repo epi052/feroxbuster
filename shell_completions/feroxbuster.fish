@@ -3,7 +3,7 @@ complete -c feroxbuster -n "__fish_use_subcommand" -s u -l url -d 'The target UR
 complete -c feroxbuster -n "__fish_use_subcommand" -s t -l threads -d 'Number of concurrent threads (default: 50)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s d -l depth -d 'Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s T -l timeout -d 'Number of seconds before a request times out (default: 7)'
-complete -c feroxbuster -n "__fish_use_subcommand" -s p -l proxy -d 'Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)'
+complete -c feroxbuster -n "__fish_use_subcommand" -s p -l proxy -d 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s P -l replay-proxy -d 'Send only unfiltered requests through a Replay Proxy, instead of all requests'
 complete -c feroxbuster -n "__fish_use_subcommand" -s R -l replay-codes -d 'Status Codes to send through a Replay Proxy when found (default: --status-codes value)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s s -l status-codes -d 'Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)'

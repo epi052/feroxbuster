@@ -77,7 +77,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(true)
                 .value_name("PROXY")
                 .help(
-                    "Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)",
+                    "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
                 ),
         )
         .arg(
