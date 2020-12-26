@@ -25,8 +25,8 @@ _feroxbuster() {
 '--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]' \
 '-T+[Number of seconds before a request times out (default: 7)]' \
 '--timeout=[Number of seconds before a request times out (default: 7)]' \
-'-p+[Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)]' \
-'--proxy=[Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)]' \
+'-p+[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]' \
+'--proxy=[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]' \
 '-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
