@@ -4,6 +4,7 @@ use crate::FeroxResponse;
 use regex::Regex;
 use std::any::Any;
 use std::fmt::Debug;
+use strsim::normalized_levenshtein;
 
 // references:
 //   https://dev.to/magnusstrale/rust-trait-objects-in-a-vector-non-trivial-4co5
@@ -279,6 +280,36 @@ impl PartialEq for RegexFilter {
     /// Simple comparison of the raw string passed in via the command line
     fn eq(&self, other: &RegexFilter) -> bool {
         self.raw_string == other.raw_string
+    }
+}
+
+/// Simple implementor of FeroxFilter; used to filter out responses based on the similarity of a
+/// Response body with a known response; specified using --filter-similar-to
+#[derive(Default, Debug, PartialEq)]
+pub struct SimilarityFilter {
+    /// Response's body to be used for comparison for similarity
+    pub text: String,
+
+    /// Percentage of similarity at which a page is determined to be a near-duplicate of another
+    pub threshold: f64,
+}
+
+/// implementation of FeroxFilter for SimilarityFilter
+impl FeroxFilter for SimilarityFilter {
+    /// Check `FeroxResponse::text` against what was requested from the site passed in via
+    /// --filter-similar-to
+    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+        (normalized_levenshtein(&self.text, &response.text) - self.threshold).abs() <= 0.00001
+    }
+
+    /// Compare one SizeFilter to another
+    fn box_eq(&self, other: &dyn Any) -> bool {
+        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+    }
+
+    /// Return self as Any for dynamic dispatch purposes
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
