@@ -1,3 +1,4 @@
+use crate::filters::SimilarityFilter;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -17,6 +18,7 @@ use futures::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
+use ssdeep;
 #[cfg(not(test))]
 use std::process::exit;
 use std::{
@@ -595,7 +597,7 @@ pub async fn scan_url(
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
 /// engine, as it were)
-pub fn initialize(num_words: usize, config: &Configuration) {
+pub async fn initialize(num_words: usize, config: &Configuration) {
     log::trace!("enter: initialize({}, {:?})", num_words, config,);
 
     // number of requests only needs to be calculated once, and then can be reused
@@ -664,6 +666,24 @@ pub fn initialize(num_words: usize, config: &Configuration) {
         };
         let boxed_filter = Box::new(filter);
         add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any similarity filters to `FILTERS` (--filter-similar-to)
+    for similarity_filter in &config.filter_similar {
+        // todo unwrap and url etc
+        if let Ok(resp) = make_request(
+            &CONFIGURATION.client,
+            &Url::parse(similarity_filter).unwrap(),
+        )
+        .await
+        {
+            let filter = SimilarityFilter {
+                text: ssdeep::hash(resp.text().await.unwrap().as_bytes()).unwrap(),
+                threshold: 95,
+            };
+            let boxed_filter = Box::new(filter);
+            add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+        }
     }
 
     if config.scan_limit == 0 {

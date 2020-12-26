@@ -2,9 +2,10 @@ use crate::config::CONFIGURATION;
 use crate::utils::get_url_path_length;
 use crate::FeroxResponse;
 use regex::Regex;
+use ssdeep;
 use std::any::Any;
 use std::fmt::Debug;
-use strsim::normalized_levenshtein;
+use strsim::{jaro, normalized_levenshtein};
 
 // references:
 //   https://dev.to/magnusstrale/rust-trait-objects-in-a-vector-non-trivial-4co5
@@ -291,7 +292,7 @@ pub struct SimilarityFilter {
     pub text: String,
 
     /// Percentage of similarity at which a page is determined to be a near-duplicate of another
-    pub threshold: f64,
+    pub threshold: i8,
 }
 
 /// implementation of FeroxFilter for SimilarityFilter
@@ -299,7 +300,10 @@ impl FeroxFilter for SimilarityFilter {
     /// Check `FeroxResponse::text` against what was requested from the site passed in via
     /// --filter-similar-to
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        normalized_levenshtein(&self.text, &response.text).abs() >= self.threshold
+        // normalized_levenshtein(&self.text, &response.text).abs() >= self.threshold
+        // jaro(&self.text, &response.text).abs() >= self.threshold
+        let other = ssdeep::hash(response.text.as_ref()).unwrap();
+        ssdeep::compare(self.text.as_ref(), &other.as_ref()).unwrap() >= self.threshold
     }
 
     /// Compare one SizeFilter to another

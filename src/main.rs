@@ -117,7 +117,7 @@ async fn scan(
         return Err(Box::new(err));
     }
 
-    scanner::initialize(words.len(), &CONFIGURATION);
+    scanner::initialize(words.len(), &CONFIGURATION).await;
 
     if CONFIGURATION.resumed {
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
