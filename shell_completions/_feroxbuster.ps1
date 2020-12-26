@@ -60,6 +60,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--filter-lines', 'filter-lines', [CompletionResultType]::ParameterName, 'Filter out messages of a particular line count (ex: -N 20 -N 31,30)')
             [CompletionResult]::new('-C', 'C', [CompletionResultType]::ParameterName, 'Filter out status codes (deny list) (ex: -C 200 -C 401)')
             [CompletionResult]::new('--filter-status', 'filter-status', [CompletionResultType]::ParameterName, 'Filter out status codes (deny list) (ex: -C 200 -C 401)')
+            [CompletionResult]::new('--filter-similar-to', 'filter-similar-to', [CompletionResultType]::ParameterName, 'Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)')
             [CompletionResult]::new('-L', 'L', [CompletionResultType]::ParameterName, 'Limit total number of concurrent scans (default: 0, i.e. no limit)')
             [CompletionResult]::new('--scan-limit', 'scan-limit', [CompletionResultType]::ParameterName, 'Limit total number of concurrent scans (default: 0, i.e. no limit)')
             [CompletionResult]::new('--time-limit', 'time-limit', [CompletionResultType]::ParameterName, 'Limit total run time of all scans (ex: --time-limit 10m)')
