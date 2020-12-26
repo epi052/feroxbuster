@@ -22,7 +22,7 @@
   <a href="https://crates.io/crates/feroxbuster">
     <img src="https://img.shields.io/crates/v/feroxbuster?color=blue&label=version&logo=rust">
   </a>
- 
+
   <a href="https://crates.io/crates/feroxbuster">
     <img src="https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive">
   </a>
