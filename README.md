@@ -78,7 +78,7 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [IPv6, Non-recursive scan with INFO logging enabled](#ipv6-non-recursive-scan-with-info-level-logging-enabled)
     - [Read urls from STDIN; pipe only resulting urls out to another tool](#read-urls-from-stdin-pipe-only-resulting-urls-out-to-another-tool)
     - [Proxy traffic through Burp](#proxy-traffic-through-burp)
-    - [Proxy traffic through a SOCKS proxy](#proxy-traffic-through-a-socks-proxy)
+    - [Proxy traffic through a SOCKS proxy (including DNS lookups)](#proxy-traffic-through-a-socks-proxy-including-dns-lookups)
     - [Pass auth token via query parameter](#pass-auth-token-via-query-parameter)
     - [Extract Links from Response Body (new in `v1.1.0`)](#extract-links-from-response-body-new-in-v110)
     - [Limit Total Number of Concurrent Scans (new in `v1.2.0`)](#limit-total-number-of-concurrent-scans-new-in-v120)
@@ -407,7 +407,7 @@ OPTIONS:
     -W, --filter-words <WORDS>...           Filter out messages of a particular word count (ex: -W 312 -W 91,82)
     -H, --headers <HEADER>...               Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                     Output file to write results to (use w/ --json for JSON entries)
-    -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    -p, --proxy <PROXY>                     Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     -Q, --query <QUERY>...                  Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
     -R, --replay-codes <REPLAY_CODE>...     Status Codes to send through a Replay Proxy when found (default: --status-
                                             codes value)
@@ -464,10 +464,10 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080
 ```
 
-### Proxy traffic through a SOCKS proxy
+### Proxy traffic through a SOCKS proxy (including DNS lookups)
 
 ```
-./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
+./feroxbuster -u http://127.1 --proxy socks5h://127.0.0.1:9050
 ```
 
 ### Pass auth token via query parameter 

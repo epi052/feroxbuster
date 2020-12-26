@@ -90,11 +90,11 @@ pub struct Configuration {
     #[serde(default)]
     pub config: String,
 
-    /// Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    /// Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     #[serde(default)]
     pub proxy: String,
 
-    /// Replay Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    /// Replay Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     #[serde(default)]
     pub replay_proxy: String,
 
