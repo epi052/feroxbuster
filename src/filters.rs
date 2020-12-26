@@ -299,7 +299,7 @@ impl FeroxFilter for SimilarityFilter {
     /// Check `FeroxResponse::text` against what was requested from the site passed in via
     /// --filter-similar-to
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        (normalized_levenshtein(&self.text, &response.text) - self.threshold).abs() <= 0.00001
+        normalized_levenshtein(&self.text, &response.text).abs() >= self.threshold
     }
 
     /// Compare one SizeFilter to another
@@ -448,6 +448,51 @@ mod tests {
             compiled: Regex::new(raw).unwrap(),
         };
 
+        assert!(filter.should_filter_response(&resp));
+    }
+
+    #[test]
+    /// simple test for similarity filter, taken from strsim docs
+    fn similarity_filter_is_accurate() {
+        let mut resp = FeroxResponse {
+            text: String::from("sitting"),
+            wildcard: false,
+            url: Url::parse("http://localhost/stuff").unwrap(),
+            content_length: 100,
+            word_count: 50,
+            line_count: 25,
+            headers: reqwest::header::HeaderMap::new(),
+            status: reqwest::StatusCode::OK,
+        };
+
+        let mut filter = SimilarityFilter {
+            text: String::from("kitten"),
+            threshold: 0.95,
+        };
+
+        // assert!((normalized_levenshtein("kitten", "sitting") - 0.57142).abs() < 0.00001)
+        // kitten/sitting is 57% similar, so a threshold of 95 should not be filtered
+        assert!(!filter.should_filter_response(&resp));
+
+        resp.text = String::new();
+        filter.text = String::new();
+        filter.threshold = 1.0;
+
+        // assert!((normalized_levenshtein("", "") - 1.0).abs() < 0.00001)
+        // two empty strings are the same
+        assert!(filter.should_filter_response(&resp));
+
+        // assert!(normalized_levenshtein("", "second").abs() < 0.00001)
+        // completely dissimilar; should not pass the similarity test
+        resp.text = String::from("second");
+        filter.threshold = 0.95;
+
+        assert!(!filter.should_filter_response(&resp));
+
+        // assert!((normalized_levenshtein("string", "string") - 1.0).abs() < 0.00001);
+        // same should pass
+        filter.text = String::from("second");
+        filter.threshold = 0.99999;
         assert!(filter.should_filter_response(&resp));
     }
 }
