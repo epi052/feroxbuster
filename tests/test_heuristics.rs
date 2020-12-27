@@ -91,6 +91,50 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 }
 
 #[test]
+/// test pipes two good targets to the scanner, expected result is that both targets
+/// are scanned successfully and no error is reported (result of issue #169)
+fn test_two_good_targets_scan_succeeds() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let srv2 = MockServer::start();
+
+    let urls = vec![srv.url("/"), srv2.url("/"), String::from("LICENSE")];
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
+
+    let mock2 = srv2.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(403).body("this also is a test");
+    });
+
+    let mut cmd = Command::cargo_bin("feroxbuster").unwrap();
+
+    cmd.arg("--stdin")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .pipe_stdin(file)
+        .unwrap()
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("/LICENSE")
+                .and(predicate::str::contains("200"))
+                .and(predicate::str::contains("403"))
+                .and(predicate::str::contains("14c"))
+                .and(predicate::str::contains("19c")),
+        );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}
+
+#[test]
 /// test finds a static wildcard and reports as much to stdout
 fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();

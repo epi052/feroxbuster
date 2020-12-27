@@ -20,7 +20,7 @@ _feroxbuster() {
 
     case "${cmd}" in
         feroxbuster)
-            opts=" -v -q -D -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -o -a -x -H -Q -S -X -W -N -C -L  --verbosity --quiet --json --dont-filter --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --output --resume-from --debug-log --user-agent --extensions --headers --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --scan-limit --time-limit  "
+            opts=" -v -q -D -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -o -a -x -H -Q -S -X -W -N -C -L  --verbosity --quiet --json --dont-filter --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --output --resume-from --debug-log --user-agent --extensions --headers --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --scan-limit --time-limit  "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -184,6 +184,10 @@ _feroxbuster() {
                     return 0
                     ;;
                     -C)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --filter-similar-to)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

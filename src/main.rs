@@ -117,7 +117,7 @@ async fn scan(
         return Err(Box::new(err));
     }
 
-    scanner::initialize(words.len(), &CONFIGURATION);
+    scanner::initialize(words.len(), &CONFIGURATION).await;
 
     if CONFIGURATION.resumed {
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
@@ -176,6 +176,7 @@ async fn scan(
     }
 
     let mut tasks = vec![];
+    let num_targets = targets.len();
 
     for target in targets {
         let word_clone = words.clone();
@@ -184,7 +185,15 @@ async fn scan(
 
         let task = tokio::spawn(async move {
             let base_depth = get_current_depth(&target);
-            scan_url(&target, word_clone, base_depth, term_clone, file_clone).await;
+            scan_url(
+                &target,
+                word_clone,
+                base_depth,
+                num_targets,
+                term_clone,
+                file_clone,
+            )
+            .await;
         });
 
         tasks.push(task);

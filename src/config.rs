@@ -90,11 +90,11 @@ pub struct Configuration {
     #[serde(default)]
     pub config: String,
 
-    /// Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    /// Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     #[serde(default)]
     pub proxy: String,
 
-    /// Replay Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)
+    /// Replay Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
     #[serde(default)]
     pub replay_proxy: String,
 
@@ -233,6 +233,10 @@ pub struct Configuration {
     /// non-negative integer and the next character is either s, m, h, or d (case insensitive)
     #[serde(default)]
     pub time_limit: String,
+
+    /// Filter out response bodies that meet a certain threshold of similarity
+    #[serde(default)]
+    pub filter_similar: Vec<String>,
 }
 
 // functions timeout, threads, status_codes, user_agent, wordlist, save_state, and depth are used to provide
@@ -328,6 +332,7 @@ impl Default for Configuration {
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
             filter_status: Vec::new(),
+            filter_similar: Vec::new(),
             headers: HashMap::new(),
             depth: depth(),
             threads: threads(),
@@ -359,6 +364,7 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **filter_size**: `None`
+    /// - **filter_similar**: `None`
     /// - **filter_regex**: `None`
     /// - **filter_word_count**: `None`
     /// - **filter_line_count**: `None`
@@ -550,6 +556,10 @@ impl Configuration {
 
         if let Some(arg) = args.values_of("filter_regex") {
             config.filter_regex = arg.map(|val| val.to_string()).collect();
+        }
+
+        if let Some(arg) = args.values_of("filter_similar") {
+            config.filter_similar = arg.map(|val| val.to_string()).collect();
         }
 
         if let Some(arg) = args.values_of("filter_size") {
@@ -761,6 +771,11 @@ impl Configuration {
             Vec::<String>::new()
         );
         update_if_not_default!(
+            &mut conf.filter_similar,
+            new.filter_similar,
+            Vec::<String>::new()
+        );
+        update_if_not_default!(
             &mut conf.filter_word_count,
             new.filter_word_count,
             Vec::<usize>::new()
@@ -893,6 +908,7 @@ mod tests {
             depth = 1
             filter_size = [4120]
             filter_regex = ["^ignore me$"]
+            filter_similar = ["https://somesite.com/soft404"]
             filter_word_count = [994, 992]
             filter_line_count = [34]
             filter_status = [201]
@@ -936,6 +952,7 @@ mod tests {
         assert_eq!(config.extensions, Vec::<String>::new());
         assert_eq!(config.filter_size, Vec::<u64>::new());
         assert_eq!(config.filter_regex, Vec::<String>::new());
+        assert_eq!(config.filter_similar, Vec::<String>::new());
         assert_eq!(config.filter_word_count, Vec::<usize>::new());
         assert_eq!(config.filter_line_count, Vec::<usize>::new());
         assert_eq!(config.filter_status, Vec::<u16>::new());
@@ -1101,6 +1118,13 @@ mod tests {
     fn config_reads_filter_regex() {
         let config = setup_config_test();
         assert_eq!(config.filter_regex, vec!["^ignore me$"]);
+    }
+
+    #[test]
+    /// parse the test config and see that the value parsed is correct
+    fn config_reads_filter_similar() {
+        let config = setup_config_test();
+        assert_eq!(config.filter_similar, vec!["https://somesite.com/soft404"]);
     }
 
     #[test]
