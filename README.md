@@ -89,6 +89,8 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Filter Response Using a Regular Expression (new in `v1.8.0`)](#filter-response-using-a-regular-expression-new-in-v180)
     - [Stop and Resume Scans (save scan's state to disk) (new in `v1.9.0`)](#stop-and-resume-scans---resume-from-file-new-in-v190)
     - [Enforce a Time Limit on Your Scan (new in `v1.10.0`)](#enforce-a-time-limit-on-your-scan-new-in-v1100)
+    - [Extract Links from robots.txt (New in `v1.10.2`)](#extract-links-from-robotstxt-new-in-v1102)
+    - [Filter Response by Similarity to A Given Page (new in `v1.11.0`)](#filter-response-by-similarity-to-a-given-page-new-in-v1110)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -352,6 +354,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # depth = 1
 # filter_size = [5174]
 # filter_regex = ["^ignore me$"]
+# filter_similar = ["https://somesite.com/soft404"]
 # filter_word_count = [993]
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
@@ -657,6 +660,8 @@ A valid time_spec can be passed to `--time-limit` in order to force a shutdown a
 In addition to [extracting links from the response body](#extract-links-from-response-body-new-in-v110), using 
 `--extract-links` makes a request to `/robots.txt` and examines all `Allow` and `Disallow` entries.  Directory entries 
 are added to the scan queue, while file entries are requested and then reported if appropriate.  
+
+### Filter Response by Similarity to A Given Page (new in `v1.11.0`)
 
 ## 🧐 Comparison w/ Similar Tools
 

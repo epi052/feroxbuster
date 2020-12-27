@@ -676,7 +676,7 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
                 // if successful, create a filter based on the response's body
                 let fr = FeroxResponse::from(resp, true).await;
 
-                if let Ok(hash) = ssdeep::hash(fr.text().as_bytes()) {
+                if let Some(hash) = ssdeep::hash(fr.text().as_bytes()) {
                     // hash the response body and store the resulting has in the filter object
                     let filter = SimilarityFilter {
                         text: hash,
