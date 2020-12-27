@@ -310,7 +310,7 @@ impl FeroxFilter for SimilarityFilter {
         false
     }
 
-    /// Compare one SizeFilter to another
+    /// Compare one SimilarityFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
         other.downcast_ref::<Self>().map_or(false, |a| self == a)
     }
@@ -460,7 +460,7 @@ mod tests {
     }
 
     #[test]
-    /// simple test for similarity filter, taken from strsim docs
+    /// a few simple tests for similarity filter
     fn similarity_filter_is_accurate() {
         let mut resp = FeroxResponse {
             text: String::from("sitting"),
@@ -474,11 +474,10 @@ mod tests {
         };
 
         let mut filter = SimilarityFilter {
-            text: String::from("kitten"),
+            text: FuzzyHash::new("kitten").to_string(),
             threshold: 95,
         };
 
-        // assert!((normalized_levenshtein("kitten", "sitting") - 0.57142).abs() < 0.00001)
         // kitten/sitting is 57% similar, so a threshold of 95 should not be filtered
         assert!(!filter.should_filter_response(&resp));
 
@@ -486,9 +485,15 @@ mod tests {
         filter.text = String::new();
         filter.threshold = 100;
 
-        // assert!((normalized_levenshtein("", "") - 1.0).abs() < 0.00001)
         // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
         assert!(!filter.should_filter_response(&resp));
+
+        resp.text = String::from("some data to hash for the purposes of running a test");
+        filter.text =
+            FuzzyHash::new("some data to hash for the purposes of running a te").to_string();
+        filter.threshold = 17;
+
+        assert!(filter.should_filter_response(&resp));
     }
 
     #[test]
