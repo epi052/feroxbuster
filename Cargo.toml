@@ -41,7 +41,6 @@ regex = "1"
 crossterm = "0.18"
 rlimit = "0.5"
 ctrlc = "3.1"
-strsim = "0.10"
 ssdeep = "0.2.0"
 
 [dev-dependencies]

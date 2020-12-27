@@ -1,15 +1,14 @@
-use crate::filters::SimilarityFilter;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
     filters::{
-        FeroxFilter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
-        WordsFilter,
+        FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+        WildcardFilter, WordsFilter,
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     utils::{format_url, get_current_depth, make_request},
-    FeroxChannel, FeroxResponse,
+    FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
 use futures::{
     future::{BoxFuture, FutureExt},
@@ -670,19 +669,24 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
 
     // add any similarity filters to `FILTERS` (--filter-similar-to)
     for similarity_filter in &config.filter_similar {
-        // todo unwrap and url etc
-        if let Ok(resp) = make_request(
-            &CONFIGURATION.client,
-            &Url::parse(similarity_filter).unwrap(),
-        )
-        .await
-        {
-            let filter = SimilarityFilter {
-                text: ssdeep::hash(resp.text().await.unwrap().as_bytes()).unwrap(),
-                threshold: 95,
-            };
-            let boxed_filter = Box::new(filter);
-            add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+        // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
+        if let Some(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
+            // attempt to request the given url
+            if let Ok(resp) = make_request(&CONFIGURATION.client, &url).await {
+                // if successful, create a filter based on the response's body
+                let fr = FeroxResponse::from(resp, true).await;
+
+                if let Ok(hash) = ssdeep::hash(fr.text().as_bytes()) {
+                    // hash the response body and store the resulting has in the filter object
+                    let filter = SimilarityFilter {
+                        text: hash,
+                        threshold: SIMILARITY_THRESHOLD,
+                    };
+
+                    let boxed_filter = Box::new(filter);
+                    add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+                }
+            }
         }
     }
 
