@@ -17,7 +17,6 @@ use futures::{
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
-use ssdeep;
 #[cfg(not(test))]
 use std::process::exit;
 use std::{
@@ -670,7 +669,7 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
     // add any similarity filters to `FILTERS` (--filter-similar-to)
     for similarity_filter in &config.filter_similar {
         // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        if let Some(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
+        if let Ok(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
             // attempt to request the given url
             if let Ok(resp) = make_request(&CONFIGURATION.client, &url).await {
                 // if successful, create a filter based on the response's body
@@ -798,12 +797,12 @@ mod tests {
         assert!(result);
     }
 
-    #[test]
+    #[tokio::test(core_threads = 1)]
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
-    fn initialize_panics_on_bad_regex() {
+    async fn initialize_panics_on_bad_regex() {
         let mut config = Configuration::default();
         config.filter_regex = vec![r"(".to_string()];
-        initialize(1, &config);
+        initialize(1, &config).await;
     }
 }
