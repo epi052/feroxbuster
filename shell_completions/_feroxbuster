@@ -55,6 +55,7 @@ _feroxbuster() {
 '*--filter-lines=[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]' \
 '*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
 '*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
+'*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]' \
 '-L+[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
 '--scan-limit=[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
 '--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]' \

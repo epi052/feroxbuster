@@ -302,6 +302,17 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("filter_similar")
+                .long("filter-similar-to")
+                .value_name("UNWANTED_PAGE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)",
+                ),
+        )
+        .arg(
             Arg::with_name("extract_links")
                 .short("e")
                 .long("extract-links")

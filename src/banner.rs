@@ -305,6 +305,17 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
     }
 
+    if !config.filter_similar.is_empty() {
+        for filter in &config.filter_similar {
+            writeln!(
+                &mut writer,
+                "{}",
+                format_banner_entry!(format_emoji("💢"), "Similarity Filter", filter)
+            )
+            .unwrap_or_default(); // 💢
+        }
+    }
+
     for filter in &config.filter_word_count {
         writeln!(
             &mut writer,

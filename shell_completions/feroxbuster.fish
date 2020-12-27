@@ -19,6 +19,7 @@ complete -c feroxbuster -n "__fish_use_subcommand" -s X -l filter-regex -d 'Filt
 complete -c feroxbuster -n "__fish_use_subcommand" -s W -l filter-words -d 'Filter out messages of a particular word count (ex: -W 312 -W 91,82)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s N -l filter-lines -d 'Filter out messages of a particular line count (ex: -N 20 -N 31,30)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s C -l filter-status -d 'Filter out status codes (deny list) (ex: -C 200 -C 401)'
+complete -c feroxbuster -n "__fish_use_subcommand" -l filter-similar-to -d 'Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s L -l scan-limit -d 'Limit total number of concurrent scans (default: 0, i.e. no limit)'
 complete -c feroxbuster -n "__fish_use_subcommand" -l time-limit -d 'Limit total run time of all scans (ex: --time-limit 10m)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s v -l verbosity -d 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v\'s is probably too much)'

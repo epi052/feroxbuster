@@ -22,7 +22,7 @@
   <a href="https://crates.io/crates/feroxbuster">
     <img src="https://img.shields.io/crates/v/feroxbuster?color=blue&label=version&logo=rust">
   </a>
- 
+
   <a href="https://crates.io/crates/feroxbuster">
     <img src="https://img.shields.io/crates/d/feroxbuster?label=downloads&logo=rust&color=inactive">
   </a>
@@ -45,20 +45,26 @@
 
 ## 😕 What the heck is a ferox anyway?
 
-Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust.  The name rustbuster was taken, so I decided on a variation.  🤷	
+Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust. The name rustbuster was taken, so I decided on a
+variation. 🤷
 
-## 🤔 What's it do tho? 
+## 🤔 What's it do tho?
 
-`feroxbuster` is a tool designed to perform [Forced Browsing](https://owasp.org/www-community/attacks/Forced_browsing).  
+`feroxbuster` is a tool designed to perform [Forced Browsing](https://owasp.org/www-community/attacks/Forced_browsing).
 
-Forced browsing is an attack where the aim is to enumerate and access resources that are not referenced by the web application, but are still accessible by an attacker.
+Forced browsing is an attack where the aim is to enumerate and access resources that are not referenced by the web
+application, but are still accessible by an attacker.
 
-`feroxbuster` uses brute force combined with a wordlist to search for unlinked content in target directories. These resources may store sensitive information about web applications and operational systems, such as source code, credentials, internal network addressing, etc...
+`feroxbuster` uses brute force combined with a wordlist to search for unlinked content in target directories. These
+resources may store sensitive information about web applications and operational systems, such as source code,
+credentials, internal network addressing, etc...
 
-This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource Enumeration.
+This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource
+Enumeration.
 
 📖 Table of Contents
 -----------------
+
 - [Installation](#-installation)
     - [Download a Release](#download-a-release)
     - [Snap Install](#snap-install)
@@ -89,6 +95,8 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
     - [Filter Response Using a Regular Expression (new in `v1.8.0`)](#filter-response-using-a-regular-expression-new-in-v180)
     - [Stop and Resume Scans (save scan's state to disk) (new in `v1.9.0`)](#stop-and-resume-scans---resume-from-file-new-in-v190)
     - [Enforce a Time Limit on Your Scan (new in `v1.10.0`)](#enforce-a-time-limit-on-your-scan-new-in-v1100)
+    - [Extract Links from robots.txt (New in `v1.10.2`)](#extract-links-from-robotstxt-new-in-v1102)
+    - [Filter Response by Similarity to A Given Page (fuzzy filter) (new in `v1.11.0`)](#filter-response-by-similarity-to-a-given-page-fuzzy-filter-new-in-v1110)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -101,9 +109,11 @@ This attack is also known as Predictable Resource Location, File Enumeration, Di
 
 ### Download a Release
 
-Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases) section.  The latest release for each of the following systems can be downloaded and executed as shown below.
+Releases for multiple architectures can be found in the [Releases](https://github.com/epi052/feroxbuster/releases)
+section. The latest release for each of the following systems can be downloaded and executed as shown below.
 
 #### Linux (32 and 64-bit) & MacOS
+
 ```
 curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
 ```
@@ -132,7 +142,7 @@ Install using `snap`
 sudo snap install feroxbuster
 ```
 
-The only gotcha here is that the snap package can only read wordlists from a few specific locations. There are a few 
+The only gotcha here is that the snap package can only read wordlists from a few specific locations. There are a few
 possible solutions, of which two are shown below.
 
 If the wordlist is on the same partition as your home directory, it can be hard-linked into `~/snap/feroxbuster/common`
@@ -142,7 +152,7 @@ ln /path/to/the/wordlist ~/snap/feroxbuster/common
 ./feroxbuster -u http://localhost -w ~/snap/feroxbuster/common/wordlist
 ``` 
 
-If the wordlist is on a separate partition, hard-linking won't work.  You'll need to copy it into the snap directory.
+If the wordlist is on a separate partition, hard-linking won't work. You'll need to copy it into the snap directory.
 
 ```
 cp /path/to/the/wordlist ~/snap/feroxbuster/common
@@ -177,7 +187,8 @@ cargo install feroxbuster
 
 ### apt Install
 
-Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/feroxbuster/releases) section.  After that, use your favorite package manager to install the `.deb`.
+Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/feroxbuster/releases) section. After
+that, use your favorite package manager to install the `.deb`.
 
 ```
 wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
@@ -226,7 +237,9 @@ cat targets.txt | sudo docker run --net=host --init -i feroxbuster --stdin -x js
 
 #### Mount a volume to pass in `ferox-config.toml`
 
-You've got some options available if you want to pass in a config file.  [`ferox-buster.toml`](#ferox-configtoml) can live in multiple locations and still be valid, so it's up to you how you'd like to pass it in.  Below are a few valid examples:
+You've got some options available if you want to pass in a config file.  [`ferox-buster.toml`](#ferox-configtoml) can
+live in multiple locations and still be valid, so it's up to you how you'd like to pass it in. Below are a few valid
+examples:
 
 ```
 sudo docker run --init -v $(pwd)/ferox-config.toml:/etc/feroxbuster/ferox-config.toml -it feroxbuster -u http://example.com
@@ -249,7 +262,9 @@ alias feroxbuster="sudo docker run --init -v ~/.config/feroxbuster:/root/.config
 ```
 
 ## ⚙️ Configuration
+
 ### Default Values
+
 Configuration begins with with the following built-in default values baked into the binary:
 
 - timeout: `7` seconds
@@ -267,11 +282,20 @@ Configuration begins with with the following built-in default values baked into 
 
 ### Threads and Connection Limits At A High-Level
 
-This section explains how the `-t` and `-L` options work together to determine the overall aggressiveness of a scan. The combination of the two values set by these options determines how hard your target will get hit and to some extent also determines how many resources will be consumed on your local machine.
+This section explains how the `-t` and `-L` options work together to determine the overall aggressiveness of a scan. The
+combination of the two values set by these options determines how hard your target will get hit and to some extent also
+determines how many resources will be consumed on your local machine.
 
 #### A Note on Green Threads
 
-`feroxbuster` uses so-called [green threads](https://en.wikipedia.org/wiki/Green_threads) as opposed to traditional kernel/OS threads. This means (at a high-level) that the threads are implemented entirely in userspace, within a single running process. As a result, a scan with 30 green threads will appear to the OS to be a single process with no additional light-weight processes associated with it as far as the kernel is concerned. As such, there will not be any impact to process (`nproc`) limits when specifying larger values for `-t`. However, these threads will still consume file descriptors, so you will need to ensure that you have a suitable `nlimit` set when scaling up the amount of threads. More detailed documentation on setting appropriate `nlimit` values can be found in the [No File Descriptors Available](#no-file-descriptors-available) section of the FAQ
+`feroxbuster` uses so-called [green threads](https://en.wikipedia.org/wiki/Green_threads) as opposed to traditional
+kernel/OS threads. This means (at a high-level) that the threads are implemented entirely in userspace, within a single
+running process. As a result, a scan with 30 green threads will appear to the OS to be a single process with no
+additional light-weight processes associated with it as far as the kernel is concerned. As such, there will not be any
+impact to process (`nproc`) limits when specifying larger values for `-t`. However, these threads will still consume
+file descriptors, so you will need to ensure that you have a suitable `nlimit` set when scaling up the amount of
+threads. More detailed documentation on setting appropriate `nlimit` values can be found in
+the [No File Descriptors Available](#no-file-descriptors-available) section of the FAQ
 
 #### Threads and Connection Limits: The Implementation
 
@@ -280,13 +304,18 @@ This section explains how the `-t` and `-L` options work together to determine t
 
 #### Threads and Connection Limits: Examples
 
-To truly have only 30 active requests to a site at any given time, `-t 30 -L 1` is necessary. Using `-t 30 -L 2` will result in a maximum of 60 total requests being processed at any given time for that site. And so on. For a conversation on this, please see [Issue #126](https://github.com/epi052/feroxbuster/issues/126) which may provide more (or less) clarity :wink:
+To truly have only 30 active requests to a site at any given time, `-t 30 -L 1` is necessary. Using `-t 30 -L 2` will
+result in a maximum of 60 total requests being processed at any given time for that site. And so on. For a conversation
+on this, please see [Issue #126](https://github.com/epi052/feroxbuster/issues/126) which may provide more (or less)
+clarity :wink:
 
 ### ferox-config.toml
+
 After setting built-in default values, any values defined in a `ferox-config.toml` config file will override the
-built-in defaults.  
+built-in defaults.
 
 `feroxbuster` searches for `ferox-config.toml` in the following locations (in the order shown):
+
 - `/etc/feroxbuster/` (global)
 - `CONFIG_DIR/ferxobuster/` (per-user)
 - The same directory as the `feroxbuster` executable (per-user)
@@ -297,14 +326,15 @@ built-in defaults.
 > - MacOs: `$HOME/Library/Application Support` i.e. `/Users/bob/Library/Application Support`
 > - Windows: `{FOLDERID_RoamingAppData}` i.e. `C:\Users\Bob\AppData\Roaming`
 
-If more than one valid configuration file is found, each one overwrites the values found previously.  
+If more than one valid configuration file is found, each one overwrites the values found previously.
 
 If no configuration file is found, nothing happens at this stage.
 
-As an example, let's say that we prefer to use a different wordlist as our default when scanning; we can
-set the `wordlist` value in the config file to override the baked-in default.
+As an example, let's say that we prefer to use a different wordlist as our default when scanning; we can set
+the `wordlist` value in the config file to override the baked-in default.
 
 Notes of interest:
+
 - it's ok to only specify values you want to change without specifying anything else
 - variable names in `ferox-config.toml` must match their command-line counterpart
 
@@ -315,6 +345,7 @@ wordlist = "/wordlists/jhaddix/all.txt"
 ```
 
 A pre-made configuration file with examples of all available settings can be found in `ferox-config.toml.example`.
+
 ```toml
 # ferox-config.toml
 # Example configuration for feroxbuster
@@ -352,6 +383,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # depth = 1
 # filter_size = [5174]
 # filter_regex = ["^ignore me$"]
+# filter_similar = ["https://somesite.com/soft404"]
 # filter_word_count = [993]
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
@@ -373,7 +405,9 @@ A pre-made configuration file with examples of all available settings can be fou
 ```
 
 ### Command Line Parsing
-Finally, after parsing the available config file, any options/arguments given on the commandline will override any values that were set as a built-in or config-file value.
+
+Finally, after parsing the available config file, any options/arguments given on the commandline will override any
+values that were set as a built-in or config-file value.
 
 ```
 USAGE:
@@ -430,7 +464,7 @@ OPTIONS:
 
 ### Multiple Values
 
-Options that take multiple values are very flexible.  Consider the following ways of specifying extensions:
+Options that take multiple values are very flexible. Consider the following ways of specifying extensions:
 
 ```
 ./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx
@@ -438,7 +472,8 @@ Options that take multiple values are very flexible.  Consider the following way
 
 The command above adds .pdf, .js, .html, .php, .txt, .json, and .docx to each url
 
-All of the methods above (multiple flags, space separated, comma separated, etc...) are valid and interchangeable.  The same goes for urls, headers, status codes, queries, and size filters.
+All of the methods above (multiple flags, space separated, comma separated, etc...) are valid and interchangeable. The
+same goes for urls, headers, status codes, queries, and size filters.
 
 ### Include Headers
 
@@ -470,18 +505,19 @@ cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | f
 ./feroxbuster -u http://127.1 --proxy socks5h://127.0.0.1:9050
 ```
 
-### Pass auth token via query parameter 
+### Pass auth token via query parameter
 
 ```
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
-### Extract Links from Response Body (New in `v1.1.0`) 
+### Extract Links from Response Body (New in `v1.1.0`)
 
 Search through the body of valid responses (html, javascript, etc...) for additional endpoints to scan. This turns
-`feroxbuster` into a hybrid that looks for both linked and unlinked content. 
+`feroxbuster` into a hybrid that looks for both linked and unlinked content.
 
 Example request/response with `--extract-links` enabled:
+
 - Make request to `http://example.com/index.html`
 - Receive, and read in, the `body` of the response
 - Search the `body` for absolute and relative links (i.e. `homepage/assets/img/icons/handshake.svg`)
@@ -496,7 +532,8 @@ Example request/response with `--extract-links` enabled:
 ./feroxbuster -u http://127.1 --extract-links
 ```
 
-Here's a comparison of a wordlist-only scan vs `--extract-links` using [Feline](https://www.hackthebox.eu/home/machines/profile/274) from Hack the Box:
+Here's a comparison of a wordlist-only scan vs `--extract-links`
+using [Feline](https://www.hackthebox.eu/home/machines/profile/274) from Hack the Box:
 
 Wordlist only
 
@@ -508,8 +545,8 @@ With `--extract-links`
 
 ### Limit Total Number of Concurrent Scans (new in `v1.2.0`)
 
-Limit the number of scans permitted to run at any given time.  Recursion will still identify new directories, but newly
-discovered directories can only begin scanning when the total number of active scans drops below the value passed to 
+Limit the number of scans permitted to run at any given time. Recursion will still identify new directories, but newly
+discovered directories can only begin scanning when the total number of active scans drops below the value passed to
 `--scan-limit`.
 
 ```
@@ -520,9 +557,9 @@ discovered directories can only begin scanning when the total number of active s
 
 ### Filter Response by Status Code  (new in `v1.3.0`)
 
-Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
-with minimal effort. The first such filter is a Status Code Filter. As responses come back from the scanned server,
-each one is checked against a list of known filters and either displayed or not according to which filters are set.
+Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added with
+minimal effort. The first such filter is a Status Code Filter. As responses come back from the scanned server, each one
+is checked against a list of known filters and either displayed or not according to which filters are set.
 
 ```
 ./feroxbuster -u http://127.1 --filter-status 301
@@ -536,42 +573,52 @@ Scans can be paused and resumed by pressing the ENTER key (shown below)
 
 ### Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)
 
-The `--replay-proxy` and `--replay-codes` options were added as a way to only send a select few responses to a proxy.  This is in stark contrast to `--proxy` which proxies EVERY request.  
+The `--replay-proxy` and `--replay-codes` options were added as a way to only send a select few responses to a proxy.
+This is in stark contrast to `--proxy` which proxies EVERY request.
 
-Imagine you only care about proxying responses that have either the status code `200` or `302` (or you just don't want to clutter up your Burp history).  These two options will allow you to fine-tune what gets proxied and what doesn't.  
+Imagine you only care about proxying responses that have either the status code `200` or `302` (or you just don't want
+to clutter up your Burp history). These two options will allow you to fine-tune what gets proxied and what doesn't.
 
 ```
 ./feroxbuster -u http://127.1 --replay-proxy http://localhost:8080 --replay-codes 200 302 --insecure
 ```
 
-Of note: this means that for every response that matches your replay criteria, you'll end up sending the request that generated that response a second time.  Depending on the target and your engagement terms (if any), it may not make sense from a traffic generated perspective.
+Of note: this means that for every response that matches your replay criteria, you'll end up sending the request that
+generated that response a second time. Depending on the target and your engagement terms (if any), it may not make sense
+from a traffic generated perspective.
 
 ![replay-proxy-demo](img/replay-proxy-demo.gif)
 
 ### Filter Response by Word Count & Line Count  (new in `v1.6.0`)
 
-In addition to filtering on the size of a response, version 1.6.0 added the ability to filter out responses based on the number of lines and/or words contained within the response body.  This change drove a change to the information displayed to the user as well. This section will detail the new information and how to make use of it with the new filters provided.
+In addition to filtering on the size of a response, version 1.6.0 added the ability to filter out responses based on the
+number of lines and/or words contained within the response body. This change drove a change to the information displayed
+to the user as well. This section will detail the new information and how to make use of it with the new filters
+provided.
 
 Example output:
+
 ```
 200        10l        212w       38437c https://example-site.com/index.html
 ```
 
 There are five columns of output above:
+
 - column 1: status code - can be filtered with `-C|--filter-status`
 - column 2: number of lines - can be filtered with `-N|--filter-lines`
 - column 3: number of words - can be filtered with `-W|--filter-words`
 - column 4: number of bytes (overall size) - can be filtered with `-S|--filter-size`
 - column 5: url to discovered resource
 
-### Filter Response Using a Regular Expression (new in `v1.8.0`) 
+### Filter Response Using a Regular Expression (new in `v1.8.0`)
 
-Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added 
-with minimal effort. The latest addition is a Regular Expression Filter. As responses come back from the scanned server,
-the **body** of the response is checked against the filter's regular expression.  If the expression is found in the 
-body, then that response is filtered out.  
+Version 1.3.0 included an overhaul to the filtering system which will allow for a wide array of filters to be added with
+minimal effort. The latest addition is a Regular Expression Filter. As responses come back from the scanned server,
+the **body** of the response is checked against the filter's regular expression. If the expression is found in the body,
+then that response is filtered out.
 
-**NOTE: Using regular expressions to filter large responses or many regular expressions may negatively impact performance.**  
+**NOTE: Using regular expressions to filter large responses or many regular expressions may negatively impact
+performance.**
 
 ```
 ./feroxbuster -u http://127.1 --filter-regex '[aA]ccess [dD]enied.?' --output results.txt --json
@@ -579,7 +626,8 @@ body, then that response is filtered out.
 
 ### Stop and Resume Scans (`--resume-from FILE`) (new in `v1.9.0`)
 
-Version 1.9.0 adds a few features that allow for completely stopping a scan, and resuming that same scan from a file on disk. 
+Version 1.9.0 adds a few features that allow for completely stopping a scan, and resuming that same scan from a file on
+disk.
 
 A simple `Ctrl+C` during a scan will create a file that contains information about the scan that was cancelled.
 
@@ -589,48 +637,51 @@ A simple `Ctrl+C` during a scan will create a file that contains information abo
 // example snippet of state file
 
 {
-   "scans":[
-      {
-         "id":"057016a14769414aac9a7a62707598cb",
-         "url":"https://localhost.com",
-         "scan_type":"Directory",
-         "complete":true
-      },
-      {
-         "id":"400b2323a16f43468a04ffcbbeba34c6",
-         "url":"https://localhost.com/css",
-         "scan_type":"Directory",
-         "complete":false
+  "scans": [
+    {
+      "id": "057016a14769414aac9a7a62707598cb",
+      "url": "https://localhost.com",
+      "scan_type": "Directory",
+      "complete": true
+    },
+    {
+      "id": "400b2323a16f43468a04ffcbbeba34c6",
+      "url": "https://localhost.com/css",
+      "scan_type": "Directory",
+      "complete": false
+    }
+  ],
+  "config": {
+    "wordlist": "/wordlists/seclists/Discovery/Web-Content/common.txt",
+    "...": "..."
+  },
+  "responses": [
+    {
+      "type": "response",
+      "url": "https://localhost.com/Login",
+      "path": "/Login",
+      "wildcard": false,
+      "status": 302,
+      "content_length": 0,
+      "line_count": 0,
+      "word_count": 0,
+      "headers": {
+        "content-length": "0",
+        "server": "nginx/1.16.1"
       }
-   ],
-   "config":{
-      "wordlist":"/wordlists/seclists/Discovery/Web-Content/common.txt",
-      "...":"..."
-   },
-   "responses":[
-      {
-         "type":"response",
-         "url":"https://localhost.com/Login",
-         "path":"/Login",
-         "wildcard":false,
-         "status":302,
-         "content_length":0,
-         "line_count":0,
-         "word_count":0,
-         "headers":{
-            "content-length":"0",
-            "server":"nginx/1.16.1"
-         }
-      }
-   ]
+    }
+  ]
 },
 ```
 
-Based on the example image above, the same scan can be resumed by using `feroxbuster --resume-from ferox-http_localhost-1606947491.state`.  Directories that were already complete are not rescanned, however partially complete scans are started from the beginning.  
+Based on the example image above, the same scan can be resumed by
+using `feroxbuster --resume-from ferox-http_localhost-1606947491.state`. Directories that were already complete are not
+rescanned, however partially complete scans are started from the beginning.
 
 ![resumed-scan](img/resumed-scan.gif)
 
-In order to prevent state file creation when `Ctrl+C` is pressed, you can simply add the entry below to your `ferox-config.toml`.
+In order to prevent state file creation when `Ctrl+C` is pressed, you can simply add the entry below to
+your `ferox-config.toml`.
 
 ```toml
 # ferox-config.toml
@@ -640,9 +691,12 @@ save_state = false
 
 ### Enforce a Time Limit on Your Scan (new in `v1.10.0`)
 
-Version 1.10.0 adds the ability to set a maximum runtime, or time limit, on your scan.  The usage is pretty simple: a number followed directly by a single character representing seconds, minutes, hours, or days.  `feroxbuster` refers to this combination as a time_spec.  
+Version 1.10.0 adds the ability to set a maximum runtime, or time limit, on your scan. The usage is pretty simple: a
+number followed directly by a single character representing seconds, minutes, hours, or days.  `feroxbuster` refers to
+this combination as a time_spec.
 
 Examples of possible time_specs:
+
 - `30s` - 30 seconds
 - `20m` - 20 minutes
 - `1h`  - 1 hour
@@ -654,25 +708,52 @@ A valid time_spec can be passed to `--time-limit` in order to force a shutdown a
 
 ### Extract Links from robots.txt (New in `v1.10.2`)
 
-In addition to [extracting links from the response body](#extract-links-from-response-body-new-in-v110), using 
-`--extract-links` makes a request to `/robots.txt` and examines all `Allow` and `Disallow` entries.  Directory entries 
-are added to the scan queue, while file entries are requested and then reported if appropriate.  
+In addition to [extracting links from the response body](#extract-links-from-response-body-new-in-v110), using
+`--extract-links` makes a request to `/robots.txt` and examines all `Allow` and `Disallow` entries. Directory entries
+are added to the scan queue, while file entries are requested and then reported if appropriate.
+
+### Filter Response by Similarity to A Given Page (fuzzy filter) (new in `v1.11.0`)
+
+Version 1.11.0 adds the ability to specify an example page for filtering pages that are similar to the given example.
+
+For example, consider a site that attempts to redirect new users to a `/register` endpoint. The `/register` page has a
+CSRF token that alters the page's response slightly with each new request (sometimes affecting overall length). This
+means that a simple line/word/char filter won't be able to filter all responses. In order to filter those redirects out,
+one could use a command like this:
+
+```
+./feroxbuster -u https://somesite.xyz --filter-similar-to https://somesite.xyz/register
+```
+
+`--filter-similar-to` requests the page passed to it via CLI (`https://somesite.xyz/register`), after which it hashes 
+the response body using the [SSDeep algorithm](https://ssdeep-project.github.io/ssdeep/index.html).  All subsequent 
+pages are hashed and compared to the original request's hash. If the comparison of the two hashes meets a certain 
+percentage of similarity (currently 95%), then that request will be filtered out.
+
+SSDeep was selected as it does a good job of identifying near-duplicate pages once content-length reaches a certain 
+size, while remaining performant.  Other algorithms were tested but resulted in huge performance hits (orders of 
+magnitude slower on requests/second).
+
+**NOTE**
+- SSDeep/`--filter-similar-to` does not do well at detecting similarity of very small responses
+  - The lack of accuracy with very small responses is considered a fair trade-off for not negatively impacting performance
+- Using a bunch of `--filter-similar-to` values **may** negatively impact performance
 
 ## 🧐 Comparison w/ Similar Tools
 
-There are quite a few similar tools for forced browsing/content discovery.  Burp Suite Pro, Dirb, Dirbuster, etc... 
-However, in my opinion, there are two that set the standard: [gobuster](https://github.com/OJ/gobuster) and 
-[ffuf](https://github.com/ffuf/ffuf).  Both are mature, feature-rich, and all-around incredible tools to use.
+There are quite a few similar tools for forced browsing/content discovery. Burp Suite Pro, Dirb, Dirbuster, etc...
+However, in my opinion, there are two that set the standard: [gobuster](https://github.com/OJ/gobuster) and
+[ffuf](https://github.com/ffuf/ffuf). Both are mature, feature-rich, and all-around incredible tools to use.
 
-So, why would you ever want to use feroxbuster over ffuf/gobuster?  In most cases, you probably won't.  ffuf in particular
-can do the vast majority of things that feroxbuster can, while still offering boatloads more functionality.  Here are
-a few of the use-cases in which feroxbuster may be a better fit:
+So, why would you ever want to use feroxbuster over ffuf/gobuster? In most cases, you probably won't. ffuf in particular
+can do the vast majority of things that feroxbuster can, while still offering boatloads more functionality. Here are a
+few of the use-cases in which feroxbuster may be a better fit:
 
 - You want a **simple** tool usage experience
 - You want to be able to run your content discovery as part of some crazy 12 command unix **pipeline extravaganza**
 - You want to scan through a **SOCKS** proxy
 - You want **auto-filtering** of Wildcard responses by default
-- You want an integrated **link extractor** to increase discovered endpoints
+- You want an integrated **link extractor/robots.txt parser** to increase discovered endpoints
 - You want **recursion** along with some other thing mentioned above (ffuf also does recursion)
 - You want a **configuration file** option for overriding built-in default values for your scans
 
@@ -702,13 +783,14 @@ a few of the use-cases in which feroxbuster may be a better fit:
 | save scan's state to disk (can pick up where it left off) (`v1.9.0`)         | ✔ |   |   |
 | maximum run time limit (`v1.10.0`)                                           | ✔ |   | ✔ |
 | use robots.txt to increase scan coverage (`v1.10.2`)                         | ✔ |   |   |
+| use example page's response to fuzzily filter similar pages  (`v1.11.0`)     | ✔ |   |   |
 | **huge** number of other options                                             |   |   | ✔ |
 
-Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I 
-came across rustbuster when I was naming my tool (😢). I don't have any experience using it, but it appears to 
-be able to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost
-dns, directory, etc...).  In short, it definitely looks interesting and may be what you're looking for as it has some 
-capability I haven't seen in similar tools.  
+Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I
+came across rustbuster when I was naming my tool (😢). I don't have any experience using it, but it appears to be able
+to do POST requests with an HTTP body, has SOCKS support, and has an 8.3 shortname scanner (in addition to vhost dns,
+directory, etc...). In short, it definitely looks interesting and may be what you're looking for as it has some
+capability I haven't seen in similar tools.
 
 ## 🤯 Common Problems/Issues (FAQ)
 
@@ -718,21 +800,24 @@ Why do I get a bunch of `No file descriptors available (os error 24)` errors?
 
 ---
 
-There are a few potential causes of this error.  The simplest is that your operating system sets an open file limit that is aggressively low.  Through personal testing, I've found that `4096` is a reasonable open file limit (this will vary based on your exact setup).
+There are a few potential causes of this error. The simplest is that your operating system sets an open file limit that
+is aggressively low. Through personal testing, I've found that `4096` is a reasonable open file limit (this will vary
+based on your exact setup).
 
-There are quite a few options to solve this particular problem, of which a handful are shown below.  
+There are quite a few options to solve this particular problem, of which a handful are shown below.
 
 #### Increase the Number of Open Files
 
-We'll start by increasing the number of open files the OS allows. On my Kali install, the default was `1024`, and I know some MacOS installs use `256` 😕.
+We'll start by increasing the number of open files the OS allows. On my Kali install, the default was `1024`, and I know
+some MacOS installs use `256` 😕.
 
 ##### Edit `/etc/security/limits.conf`
 
-One option to up the limit is to edit `/etc/security/limits.conf` so that it includes the two lines below.  
+One option to up the limit is to edit `/etc/security/limits.conf` so that it includes the two lines below.
 
 - `*` represents all users
-- `hard` and `soft` indicate the hard and soft limits for the OS 
-- `nofile` is the number of open files option. 
+- `hard` and `soft` indicate the hard and soft limits for the OS
+- `nofile` is the number of open files option.
 
 ```
 /etc/security/limits.conf
@@ -753,20 +838,25 @@ ulimit -n 4096
 
 #### Additional Tweaks (may not be needed)
 
-If you still find yourself hitting the file limit with the above changes, there are a few additional tweaks that may help.  
+If you still find yourself hitting the file limit with the above changes, there are a few additional tweaks that may
+help.
 
-> This section was shamelessly stolen from this [stackoverflow answer](https://stackoverflow.com/a/3923785).  More information is included in that post and is recommended reading if you end up needing to use this section.
+> This section was shamelessly stolen from this [stackoverflow answer](https://stackoverflow.com/a/3923785). More information is included in that post and is recommended reading if you end up needing to use this section.
 
-✨ Special thanks to HTB user [@sparkla](https://www.hackthebox.eu/home/users/profile/221599) for their help with identifying these additional tweaks ✨
+✨ Special thanks to HTB user [@sparkla](https://www.hackthebox.eu/home/users/profile/221599) for their help with
+identifying these additional tweaks ✨
 
 ##### Increase the ephemeral port range, and decrease the tcp_fin_timeout.
 
-The ephermal port range defines the maximum number of outbound sockets a host can create from a particular I.P. address. The fin_timeout defines the minimum time these sockets will stay in TIME_WAIT state (unusable after being used once). Usual system defaults are
+The ephermal port range defines the maximum number of outbound sockets a host can create from a particular I.P. address.
+The fin_timeout defines the minimum time these sockets will stay in TIME_WAIT state (unusable after being used once).
+Usual system defaults are
 
 - `net.ipv4.ip_local_port_range = 32768   61000`
 - `net.ipv4.tcp_fin_timeout = 60`
 
-This basically means your system cannot consistently guarantee more than `(61000 - 32768) / 60 = 470` sockets per second.
+This basically means your system cannot consistently guarantee more than `(61000 - 32768) / 60 = 470` sockets per
+second.
 
 ```
 sudo sysctl net.ipv4.ip_local_port_range="15000 61000"
@@ -775,7 +865,9 @@ sudo sysctl net.ipv4.tcp_fin_timeout=30
 
 ##### Allow socket reuse while in a `TIME_WAIT` status
 
-This allows fast cycling of sockets in time_wait state and re-using them. Make sure to read post [Coping with the TCP TIME-WAIT](https://vincent.bernat.ch/en/blog/2014-tcp-time-wait-state-linux) from Vincent Bernat to understand the implications.
+This allows fast cycling of sockets in time_wait state and re-using them. Make sure to read
+post [Coping with the TCP TIME-WAIT](https://vincent.bernat.ch/en/blog/2014-tcp-time-wait-state-linux) from Vincent
+Bernat to understand the implications.
 
 ```
 sudo sysctl net.ipv4.tcp_tw_reuse=1 
@@ -783,30 +875,39 @@ sudo sysctl net.ipv4.tcp_tw_reuse=1
 
 ### Progress bars print one line at a time
 
-`feroxbuster` needs a terminal width of at least the size of what's being printed in order to do progress bar printing correctly.  If your width is too small, you may see output like what's shown below.
+`feroxbuster` needs a terminal width of at least the size of what's being printed in order to do progress bar printing
+correctly. If your width is too small, you may see output like what's shown below.
 
 ![small-term](img/small-term.png)
 
-If you can, simply make the terminal wider and rerun.  If you're unable to make your terminal wider
-consider using `-q` to suppress the progress bars.
+If you can, simply make the terminal wider and rerun. If you're unable to make your terminal wider consider using `-q`
+to suppress the progress bars.
 
 ### What do each of the numbers beside the URL mean?
 
-Please refer to [this section](#filter-response-by-word-count--line-count--new-in-v160) where each number's meaning and how to use it to filter responses is discussed.
+Please refer to [this section](#filter-response-by-word-count--line-count--new-in-v160) where each number's meaning and
+how to use it to filter responses is discussed.
 
 ### Connection closed before message completed
 
-The error in question can be boiled down to 'networking stuff'. `feroxbuster` uses [reqwest](https://docs.rs/reqwest/latest/) which uses [hyper](https://docs.rs/hyper/latest/hyper/) to make requests to the server. [This issue report](https://github.com/hyperium/hyper/issues/2136#issuecomment-589345238) to the hyper project explains what is happening (quoted below to save you a click). This isn't a bug so much as it's a target-specific tuning issue. When lowering the `-t` value, the error doesn't occur (or happens much less frequently).
+The error in question can be boiled down to 'networking stuff'. `feroxbuster`
+uses [reqwest](https://docs.rs/reqwest/latest/) which uses [hyper](https://docs.rs/hyper/latest/hyper/) to make requests
+to the server. [This issue report](https://github.com/hyperium/hyper/issues/2136#issuecomment-589345238) to the hyper
+project explains what is happening (quoted below to save you a click). This isn't a bug so much as it's a
+target-specific tuning issue. When lowering the `-t` value, the error doesn't occur (or happens much less frequently).
 
-This isn't a bug. Simply slow down the scan. A `-t` value of 50 was chosen as a sane default that's still quite fast out of the box. However, network related errors may occur when the client and/or server become over-saturated.  The [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level) section details how to accomplish per-target tuning.
+This isn't a bug. Simply slow down the scan. A `-t` value of 50 was chosen as a sane default that's still quite fast out
+of the box. However, network related errors may occur when the client and/or server become over-saturated.
+The [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level) section details how
+to accomplish per-target tuning.
 
 > This is just due to the racy nature of networking.
-> 
+>
 > hyper has a connection pool of idle connections, and it selected one to send your request. Most of the time, hyper will receive the server's FIN and drop the dead connection from its pool. But occasionally, a connection will be selected from the pool and written to at the same time the server is deciding to close the connection. Since hyper already wrote some of the request, it can't really retry it automatically on a new connection, since the server may have acted already.
 
 ### SSL Error routines:tls_process_server_certificate:certificate verify failed
 
-In the event you see an error similar to 
+In the event you see an error similar to
 
 ![self-signed](img/insecure.png)
 
@@ -816,4 +917,5 @@ error trying to connect: error:1416F086:SSL routines:tls_process_server_certific
 
 You just need to add the `-k|--insecure` flag to your command.
 
-`feroxbuster` rejects self-signed certs and other "insecure" certificates/site configurations by default. You can choose to scan these services anyway by telling `feroxbuster` to ignore insecure server certs.
+`feroxbuster` rejects self-signed certs and other "insecure" certificates/site configurations by default. You can choose
+to scan these services anyway by telling `feroxbuster` to ignore insecure server certs.

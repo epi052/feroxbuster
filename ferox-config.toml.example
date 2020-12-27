@@ -33,6 +33,7 @@
 # depth = 1
 # filter_size = [5174]
 # filter_regex = ["^ignore me$"]
+# filter_similar = ["https://somesite.com/soft404"]
 # filter_word_count = [993]
 # filter_line_count = [35, 36]
 # queries = [["name","value"], ["rick", "astley"]]
