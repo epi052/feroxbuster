@@ -490,4 +490,19 @@ mod tests {
         // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
         assert!(!filter.should_filter_response(&resp));
     }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn similarity_filter_as_any() {
+        let filter = SimilarityFilter {
+            text: String::from("stuff"),
+            threshold: 95,
+        };
+
+        assert_eq!(filter.text, "stuff");
+        assert_eq!(
+            *filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
+            filter
+        );
+    }
 }
