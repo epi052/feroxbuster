@@ -1,6 +1,7 @@
 use crate::config::CONFIGURATION;
 use crate::utils::get_url_path_length;
 use crate::{FeroxResponse, FeroxSerialize};
+use fuzzyhash::FuzzyHash;
 use regex::Regex;
 use std::any::Any;
 use std::fmt::Debug;
@@ -290,7 +291,7 @@ pub struct SimilarityFilter {
     pub text: String,
 
     /// Percentage of similarity at which a page is determined to be a near-duplicate of another
-    pub threshold: i8,
+    pub threshold: u32,
 }
 
 /// implementation of FeroxFilter for SimilarityFilter
@@ -298,11 +299,11 @@ impl FeroxFilter for SimilarityFilter {
     /// Check `FeroxResponse::text` against what was requested from the site passed in via
     /// --filter-similar-to
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        if let Some(other) = ssdeep::hash(response.text.as_ref()) {
-            if let Some(result) = ssdeep::compare(self.text.as_ref(), &other.as_ref()) {
-                return result >= self.threshold;
-            }
-        };
+        let other = FuzzyHash::new(&response.text);
+
+        if let Ok(result) = FuzzyHash::compare(&self.text, &other.to_string()) {
+            return result >= self.threshold;
+        }
 
         // couldn't hash the response, don't filter
         log::warn!("Could not hash body from {}", response.as_str());
@@ -488,21 +489,5 @@ mod tests {
         // assert!((normalized_levenshtein("", "") - 1.0).abs() < 0.00001)
         // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
         assert!(!filter.should_filter_response(&resp));
-
-        // let lorem =
-        //     "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor";
-        //
-        // // assert!(normalized_levenshtein("", "second").abs() < 0.00001)
-        // // completely dissimilar; should not pass the similarity test
-        // resp.text = String::from(lorem);
-        // filter.threshold = 95;
-        //
-        // assert!(!filter.should_filter_response(&resp));
-        //
-        // // assert!((normalized_levenshtein("string", "string") - 1.0).abs() < 0.00001);
-        // // same should pass
-        // filter.text = String::from(lorem);
-        // filter.threshold = 95;
-        // assert!(filter.should_filter_response(&resp));
     }
 }

@@ -14,6 +14,7 @@ use futures::{
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
+use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
@@ -675,16 +676,16 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
                 // if successful, create a filter based on the response's body
                 let fr = FeroxResponse::from(resp, true).await;
 
-                if let Some(hash) = ssdeep::hash(fr.text().as_bytes()) {
-                    // hash the response body and store the resulting has in the filter object
-                    let filter = SimilarityFilter {
-                        text: hash,
-                        threshold: SIMILARITY_THRESHOLD,
-                    };
+                // hash the response body and store the resulting hash in the filter object
+                let hash = FuzzyHash::new(&fr.text()).to_string();
 
-                    let boxed_filter = Box::new(filter);
-                    add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
-                }
+                let filter = SimilarityFilter {
+                    text: hash,
+                    threshold: SIMILARITY_THRESHOLD,
+                };
+
+                let boxed_filter = Box::new(filter);
+                add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
             }
         }
     }
