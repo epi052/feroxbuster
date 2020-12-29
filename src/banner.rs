@@ -550,19 +550,22 @@ by Ben "epi" Risher {}                 ver: {}"#,
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::VERSION;
+    use crate::{FeroxChannel, VERSION};
     use httpmock::Method::GET;
     use httpmock::MockServer;
     use std::fs::read_to_string;
     use std::io::stderr;
     use std::time::Duration;
     use tempfile::NamedTempFile;
+    use tokio::sync::mpsc;
 
     #[tokio::test(core_threads = 1)]
     /// test to hit no execution of targets for loop in banner
     async fn banner_intialize_without_targets() {
         let config = Configuration::default();
-        initialize(&[], &config, VERSION, stderr()).await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        initialize(&[], &config, VERSION, stderr(), tx).await;
     }
 
     #[tokio::test(core_threads = 1)]
@@ -570,11 +573,15 @@ mod tests {
     async fn banner_intialize_without_status_codes() {
         let mut config = Configuration::default();
         config.status_codes = vec![];
+
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
         initialize(
             &[String::from("http://localhost")],
             &config,
             VERSION,
             stderr(),
+            tx,
         )
         .await;
     }
@@ -584,11 +591,14 @@ mod tests {
     async fn banner_intialize_without_config_file() {
         let mut config = Configuration::default();
         config.config = String::new();
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
         initialize(
             &[String::from("http://localhost")],
             &config,
             VERSION,
             stderr(),
+            tx,
         )
         .await;
     }
@@ -598,11 +608,14 @@ mod tests {
     async fn banner_intialize_without_queries() {
         let mut config = Configuration::default();
         config.queries = vec![(String::new(), String::new())];
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
         initialize(
             &[String::from("http://localhost")],
             &config,
             VERSION,
             stderr(),
+            tx,
         )
         .await;
     }
@@ -612,11 +625,14 @@ mod tests {
     async fn banner_intialize_with_mismatched_version() {
         let config = Configuration::default();
         let file = NamedTempFile::new().unwrap();
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
         initialize(
             &[String::from("http://localhost")],
             &config,
             "mismatched-version",
             &file,
+            tx,
         )
         .await;
         let contents = read_to_string(file.path()).unwrap();
@@ -628,7 +644,9 @@ mod tests {
     #[tokio::test(core_threads = 1)]
     /// test that
     async fn banner_needs_update_returns_unknown_with_bad_url() {
-        let result = needs_update(&CONFIGURATION.client, &"", VERSION).await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = needs_update(&CONFIGURATION.client, &"", VERSION, tx).await;
         assert!(matches!(result, UpdateStatus::Unknown));
     }
 
@@ -642,7 +660,9 @@ mod tests {
             then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
         });
 
-        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.1.0").await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.1.0", tx).await;
 
         assert_eq!(mock.hits(), 1);
         assert!(matches!(result, UpdateStatus::UpToDate));
@@ -658,7 +678,9 @@ mod tests {
             then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
         });
 
-        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1").await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1", tx).await;
 
         assert_eq!(mock.hits(), 1);
         assert!(matches!(result, UpdateStatus::OutOfDate));
@@ -676,7 +698,9 @@ mod tests {
                 .delay(Duration::from_secs(8));
         });
 
-        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1").await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1", tx).await;
 
         assert_eq!(mock.hits(), 1);
         assert!(matches!(result, UpdateStatus::Unknown));
@@ -692,7 +716,9 @@ mod tests {
             then.status(200).body("not json");
         });
 
-        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1").await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1", tx).await;
 
         assert_eq!(mock.hits(), 1);
         assert!(matches!(result, UpdateStatus::Unknown));
@@ -709,7 +735,9 @@ mod tests {
                 .body("{\"no tag_name\": \"doesn't exist\"}");
         });
 
-        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1").await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = needs_update(&CONFIGURATION.client, &srv.url("/latest"), "1.0.1", tx).await;
 
         assert_eq!(mock.hits(), 1);
         assert!(matches!(result, UpdateStatus::Unknown));

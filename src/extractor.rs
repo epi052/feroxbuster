@@ -311,7 +311,6 @@ pub async fn extract_robots_txt(
 mod tests {
     use super::*;
     use crate::utils::make_request;
-    use crate::utils::update_stat;
     use crate::FeroxChannel;
     use httpmock::Method::GET;
     use httpmock::MockServer;
@@ -434,7 +433,7 @@ mod tests {
 
         let links = get_links(&ferox_response).await;
 
-        update_stat!(tx, StatCommand::Exit);
+        tx.send(StatCommand::Exit).unwrap_or_default();
 
         assert!(links.is_empty());
 
@@ -454,13 +453,15 @@ mod tests {
 
         let mut config = Configuration::default();
 
-        request_robots_txt(&srv.url("/api/users/stuff/things"), &config).await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        request_robots_txt(&srv.url("/api/users/stuff/things"), &config, tx.clone()).await;
 
         // note: the proxy doesn't actually do anything other than hit a different code branch
         // in this unit test; it would however have an effect on an integration test
         config.proxy = srv.url("/ima-proxy");
 
-        request_robots_txt(&srv.url("/api/different/path"), &config).await;
+        request_robots_txt(&srv.url("/api/different/path"), &config, tx).await;
 
         assert_eq!(mock.hits(), 2);
     }

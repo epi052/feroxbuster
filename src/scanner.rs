@@ -840,6 +840,7 @@ mod tests {
     async fn initialize_panics_on_bad_regex() {
         let mut config = Configuration::default();
         config.filter_regex = vec![r"(".to_string()];
-        initialize(1, &config).await;
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        initialize(1, &config, tx).await;
     }
 }

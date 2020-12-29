@@ -291,7 +291,8 @@ async fn wrapped_main() {
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
-    let (stats, tx_stats, stats_handle) = statistics::initialize();
+    // todo am i gonna use stats for anything?
+    let (_stats, tx_stats, stats_handle) = statistics::initialize();
 
     let (tx_term, tx_file, term_handle, file_handle) =
         reporter::initialize(&CONFIGURATION.output, save_output, tx_stats.clone());
