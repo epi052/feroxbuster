@@ -1,3 +1,4 @@
+#![macro_use]
 use crate::statistics::{
     StatCommand::{self, AddError, AddRequest, AddStatus},
     StatError::{Connection, Other, Redirection, Request, Timeout},

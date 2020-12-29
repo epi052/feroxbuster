@@ -1,6 +1,4 @@
 use crossterm::event::{self, Event, KeyCode};
-#[macro_use(update_stat)]
-extern crate feroxbuster;
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
@@ -12,7 +10,7 @@ use feroxbuster::{
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
     statistics::{self, StatCommand},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
+    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION, update_stat
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};

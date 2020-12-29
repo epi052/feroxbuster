@@ -4,8 +4,9 @@ use crate::{
     scanner::should_filter_response,
     statistics::{StatCommand, StatError},
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
-    FeroxResponse,
+    FeroxResponse
 };
+
 use console::style;
 use indicatif::ProgressBar;
 use tokio::sync::mpsc::UnboundedSender;
