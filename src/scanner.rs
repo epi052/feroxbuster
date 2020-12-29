@@ -1,4 +1,3 @@
-use crate::statistics::StatCommand;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -8,7 +7,7 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
-    statistics::Stats,
+    statistics::StatCommand,
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
@@ -37,7 +36,11 @@ use tokio::{
     task::JoinHandle,
 };
 
-/// Single atomic number that gets incremented once, used to track first scan vs. all others
+/// Single atomic number that gets incremented at least once, used to track first scan(s) vs. all
+/// others found during recursion
+///
+/// -u means this will be incremented once
+/// --stdin means this will be incremented by the number of targets passed via STDIN
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 /// Single atomic number that gets holds the number of requests to be sent per directory scanned
@@ -46,9 +49,6 @@ pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0); // todo move to st
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
     pub static ref SCANNED_URLS: FeroxScans = FeroxScans::default();
-
-    /// todo
-    pub static ref STATS: Stats = Stats::default();
 
     /// Vector of implementors of the FeroxFilter trait
     static ref FILTERS: Arc<RwLock<Vec<Box<dyn FeroxFilter>>>> = Arc::new(RwLock::new(Vec::<Box<dyn FeroxFilter>>::new()));
