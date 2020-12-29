@@ -106,7 +106,13 @@ async fn scan(
     tx_file: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
 ) -> FeroxResult<()> {
-    log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
+    log::trace!(
+        "enter: scan({:?}, {:?}, {:?}, {:?})",
+        targets,
+        tx_term,
+        tx_file,
+        tx_stats
+    );
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
