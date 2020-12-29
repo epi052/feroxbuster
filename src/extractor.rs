@@ -1,3 +1,4 @@
+use crate::statistics::StatCommand;
 use crate::{
     client,
     config::{Configuration, CONFIGURATION},
@@ -9,6 +10,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
 use std::collections::HashSet;
+use tokio::sync::mpsc::UnboundedSender;
 
 /// Regular expression used in [LinkFinder](https://github.com/GerbenJavado/LinkFinder)
 ///
@@ -172,8 +174,15 @@ fn add_all_sub_paths(url_path: &str, response: &FeroxResponse, mut links: &mut H
 ///   - create a new Url object based on cli options/args
 ///   - check if the new Url has already been seen/scanned -> None
 ///   - make a request to the new Url ? -> Some(response) : None
-pub async fn request_feroxresponse_from_new_link(url: &str) -> Option<FeroxResponse> {
-    log::trace!("enter: request_feroxresponse_from_new_link({})", url);
+pub async fn request_feroxresponse_from_new_link(
+    url: &str,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> Option<FeroxResponse> {
+    log::trace!(
+        "enter: request_feroxresponse_from_new_link({}, {:?})",
+        url,
+        tx_stats
+    );
 
     // create a url based on the given command line options, return None on error
     let new_url = match format_url(
@@ -197,7 +206,7 @@ pub async fn request_feroxresponse_from_new_link(url: &str) -> Option<FeroxRespo
     }
 
     // make the request and store the response
-    let new_response = match make_request(&CONFIGURATION.client, &new_url).await {
+    let new_response = match make_request(&CONFIGURATION.client, &new_url, tx_stats).await {
         Ok(resp) => resp,
         Err(_) => {
             log::trace!("exit: request_feroxresponse_from_new_link -> None");
@@ -221,8 +230,16 @@ pub async fn request_feroxresponse_from_new_link(url: &str) -> Option<FeroxRespo
 ///     
 /// The length of the given path has no effect on what's requested; it's always
 /// base url + /robots.txt
-pub async fn request_robots_txt(base_url: &str, config: &Configuration) -> Option<FeroxResponse> {
-    log::trace!("enter: get_robots_file({})", base_url);
+pub async fn request_robots_txt(
+    base_url: &str,
+    config: &Configuration,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> Option<FeroxResponse> {
+    log::trace!(
+        "enter: get_robots_file({}, Configuration, {:?})",
+        base_url,
+        tx_stats
+    );
 
     // more often than not, domain/robots.txt will redirect to www.domain/robots.txt or something
     // similar; to account for that, create a client that will follow redirects, regardless of
@@ -248,7 +265,7 @@ pub async fn request_robots_txt(base_url: &str, config: &Configuration) -> Optio
     if let Ok(mut url) = Url::parse(base_url) {
         url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
 
-        if let Ok(response) = make_request(&client, &url).await {
+        if let Ok(response) = make_request(&client, &url, tx_stats).await {
             let ferox_response = FeroxResponse::from(response, true).await;
 
             log::trace!("exit: get_robots_file -> {}", ferox_response);
@@ -267,11 +284,15 @@ pub async fn request_robots_txt(base_url: &str, config: &Configuration) -> Optio
 ///     http://localhost/stuff/things
 /// this function requests:
 ///     http://localhost/robots.txt
-pub async fn extract_robots_txt(base_url: &str, config: &Configuration) -> HashSet<String> {
+pub async fn extract_robots_txt(
+    base_url: &str,
+    config: &Configuration,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> HashSet<String> {
     log::trace!("enter: extract_robots_txt({}, CONFIGURATION)", base_url);
     let mut links = HashSet::new();
 
-    if let Some(response) = request_robots_txt(&base_url, &config).await {
+    if let Some(response) = request_robots_txt(&base_url, &config, tx_stats.clone()).await {
         for capture in ROBOTS_REGEX.captures_iter(response.text.as_str()) {
             if let Some(new_path) = capture.name("url_path") {
                 if let Ok(mut new_url) = Url::parse(base_url) {
@@ -290,9 +311,12 @@ pub async fn extract_robots_txt(base_url: &str, config: &Configuration) -> HashS
 mod tests {
     use super::*;
     use crate::utils::make_request;
+    use crate::utils::update_stat;
+    use crate::FeroxChannel;
     use httpmock::Method::GET;
     use httpmock::MockServer;
     use reqwest::Client;
+    use tokio::sync::mpsc;
 
     #[test]
     /// extract sub paths from the given url fragment; expect 4 sub paths and that all are
@@ -402,12 +426,15 @@ mod tests {
 
         let client = Client::new();
         let url = Url::parse(&srv.url("/some-path")).unwrap();
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
 
-        let response = make_request(&client, &url).await.unwrap();
+        let response = make_request(&client, &url, tx.clone()).await.unwrap();
 
         let ferox_response = FeroxResponse::from(response, true).await;
 
         let links = get_links(&ferox_response).await;
+
+        update_stat!(tx, StatCommand::Exit);
 
         assert!(links.is_empty());
 

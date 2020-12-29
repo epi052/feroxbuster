@@ -6,7 +6,6 @@ use crate::{
     parser::TIMESPEC_REGEX,
     progress,
     scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
-    statistics::Stats,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
 use console::style;

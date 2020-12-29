@@ -1,3 +1,7 @@
+use crate::statistics::{
+    StatCommand::{self, AddError, AddRequest, AddStatus},
+    StatError::{Connection, Other, Redirection, Request, Timeout},
+};
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     FeroxError, FeroxResult,
@@ -10,6 +14,7 @@ use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::convert::TryInto;
 use std::sync::{Arc, RwLock};
 use std::{fs, io};
+use tokio::sync::mpsc::UnboundedSender;
 
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
 /// return a reference to the file that is buffered and locked
@@ -208,7 +213,7 @@ pub fn format_url(
     // the transforms that occur here will need to keep this in mind, i.e. add a slash to preserve
     // the current directory sent as part of the url
     let url = if word.is_empty() {
-        // v1.0.6: added during --extract-links feature inplementation to support creating urls
+        // v1.0.6: added during --extract-links feature implementation to support creating urls
         // that were extracted from response bodies, i.e. http://localhost/some/path/js/main.js
         url.to_string()
     } else if !url.ends_with('/') {
@@ -262,37 +267,67 @@ pub fn format_url(
     }
 }
 
+#[macro_export]
+/// wrapper to improve code readability
+macro_rules! update_stat {
+    ($tx:expr, $value:expr) => {
+        $tx.send($value).unwrap_or_default();
+    };
+}
+
 /// Initiate request to the given `Url` using `Client`
-pub async fn make_request(client: &Client, url: &Url) -> FeroxResult<Response> {
+pub async fn make_request(
+    client: &Client,
+    url: &Url,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> FeroxResult<Response> {
     log::trace!("enter: make_request(CONFIGURATION.Client, {})", url);
 
     match client.get(url.to_owned()).send().await {
-        Ok(resp) => {
-            log::trace!("exit: make_request -> {:?}", resp);
-            Ok(resp)
-        }
         Err(e) => {
+            let mut log_level = log::Level::Error;
+
             log::trace!("exit: make_request -> {}", e);
-            if e.to_string().contains("operation timed out") {
+            if e.is_timeout() {
                 // only warn for timeouts, while actual errors are still left as errors
-                log::warn!("Error while making request: {}", e);
+                log_level = log::Level::Warn;
+                update_stat!(tx_stats, AddError(Timeout));
             } else if e.is_redirect() {
                 if let Some(last_redirect) = e.url() {
                     // get where we were headed (last_redirect) and where we came from (url)
                     let fancy_message = format!("{} !=> {}", url, last_redirect);
 
                     let report = if let Some(msg_status) = e.status() {
+                        update_stat!(tx_stats, AddStatus(msg_status));
                         create_report_string(msg_status.as_str(), "-1", "-1", "-1", &fancy_message)
                     } else {
                         create_report_string("UNK", "-1", "-1", "-1", &fancy_message)
                     };
 
+                    update_stat!(tx_stats, AddError(Redirection));
+
                     ferox_print(&report, &PROGRESS_PRINTER)
                 };
+            } else if e.is_connect() {
+                update_stat!(tx_stats, AddError(Connection));
+            } else if e.is_request() {
+                update_stat!(tx_stats, AddError(Request));
             } else {
-                log::error!("Error while making request: {}", e);
+                update_stat!(tx_stats, AddError(Other));
             }
+
+            if matches!(log_level, log::Level::Error) {
+                log::error!("Error while making request: {}", e);
+            } else {
+                log::warn!("Error while making request: {}", e);
+            }
+
             Err(Box::new(e))
+        }
+        Ok(resp) => {
+            log::trace!("exit: make_request -> {:?}", resp);
+            update_stat!(tx_stats, AddRequest);
+            Ok(resp)
         }
     }
 }

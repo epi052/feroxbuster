@@ -1,4 +1,6 @@
 use crossterm::event::{self, Event, KeyCode};
+#[macro_use(update_stat)]
+extern crate feroxbuster;
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
@@ -8,15 +10,16 @@ use feroxbuster::{
     reporter,
     scan_manager::{self, PAUSE_SCAN},
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
+    statistics::{self, StatCommand},
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
-use std::convert::TryInto;
 use std::{
     collections::HashSet,
+    convert::TryInto,
     fs::File,
     io::{stderr, BufRead, BufReader},
     process,
@@ -102,6 +105,7 @@ async fn scan(
     mut targets: Vec<String>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> FeroxResult<()> {
     log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
@@ -117,7 +121,7 @@ async fn scan(
         return Err(Box::new(err));
     }
 
-    scanner::initialize(words.len(), &CONFIGURATION).await;
+    scanner::initialize(words.len(), &CONFIGURATION, tx_stats.clone()).await;
 
     if CONFIGURATION.resumed {
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
@@ -148,11 +152,16 @@ async fn scan(
         for target in targets.clone() {
             // modifying the targets vector, so we can't have a reference to it while we borrow
             // it as mutable; thus the clone
-            let robots_links = extract_robots_txt(&target, &CONFIGURATION).await;
+            let robots_links = extract_robots_txt(&target, &CONFIGURATION, tx_stats.clone()).await;
 
             for robot_link in robots_links {
                 // create a url based on the given command line options, continue on error
-                let ferox_response = match request_feroxresponse_from_new_link(&robot_link).await {
+                let ferox_response = match request_feroxresponse_from_new_link(
+                    &robot_link,
+                    tx_stats.clone(),
+                )
+                .await
+                {
                     Some(resp) => resp,
                     None => continue,
                 };
@@ -182,6 +191,7 @@ async fn scan(
         let word_clone = words.clone();
         let term_clone = tx_term.clone();
         let file_clone = tx_file.clone();
+        let stats_clone = tx_stats.clone();
 
         let task = tokio::spawn(async move {
             let base_depth = get_current_depth(&target);
@@ -192,6 +202,7 @@ async fn scan(
                 num_targets,
                 term_clone,
                 file_clone,
+                stats_clone,
             )
             .await;
         });
@@ -280,8 +291,10 @@ async fn wrapped_main() {
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
+    let (stats, tx_stats, stats_handle) = statistics::initialize();
+
     let (tx_term, tx_file, term_handle, file_handle) =
-        reporter::initialize(&CONFIGURATION.output, save_output);
+        reporter::initialize(&CONFIGURATION.output, save_output, tx_stats.clone());
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
@@ -289,7 +302,16 @@ async fn wrapped_main() {
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
             log::error!("{} {}", module_colorizer("main::get_targets"), e);
-            clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+            clean_up(
+                tx_term,
+                term_handle,
+                tx_file,
+                file_handle,
+                tx_stats,
+                stats_handle,
+                save_output,
+            )
+            .await;
             return;
         }
     };
@@ -297,19 +319,42 @@ async fn wrapped_main() {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
-        banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
+        banner::initialize(
+            &targets,
+            &CONFIGURATION,
+            &VERSION,
+            std_stderr,
+            tx_stats.clone(),
+        )
+        .await;
     }
 
     // discard non-responsive targets
-    let live_targets = heuristics::connectivity_test(&targets).await;
+    let live_targets = heuristics::connectivity_test(&targets, tx_stats.clone()).await;
 
     if live_targets.is_empty() {
-        clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+        clean_up(
+            tx_term,
+            term_handle,
+            tx_file,
+            file_handle,
+            tx_stats,
+            stats_handle,
+            save_output,
+        )
+        .await;
         return;
     }
 
     // kick off a scan against any targets determined to be responsive
-    match scan(live_targets, tx_term.clone(), tx_file.clone()).await {
+    match scan(
+        live_targets,
+        tx_term.clone(),
+        tx_file.clone(),
+        tx_stats.clone(),
+    )
+    .await
+    {
         Ok(_) => {
             log::info!("All scans complete!");
         }
@@ -318,12 +363,30 @@ async fn wrapped_main() {
                 &format!("{} while scanning: {}", status_colorizer("Error"), e),
                 &PROGRESS_PRINTER,
             );
-            clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+            clean_up(
+                tx_term,
+                term_handle,
+                tx_file,
+                file_handle,
+                tx_stats,
+                stats_handle,
+                save_output,
+            )
+            .await;
             process::exit(1);
         }
     };
 
-    clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+    clean_up(
+        tx_term,
+        term_handle,
+        tx_file,
+        file_handle,
+        tx_stats,
+        stats_handle,
+        save_output,
+    )
+    .await;
 
     log::trace!("exit: main");
 }
@@ -335,14 +398,18 @@ async fn clean_up(
     term_handle: JoinHandle<()>,
     tx_file: UnboundedSender<FeroxResponse>,
     file_handle: Option<JoinHandle<()>>,
+    tx_stats: UnboundedSender<StatCommand>,
+    stats_handle: JoinHandle<()>,
     save_output: bool,
 ) {
     log::trace!(
-        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {})",
+        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {})",
         tx_term,
         term_handle,
         tx_file,
         file_handle,
+        tx_stats,
+        stats_handle,
         save_output
     );
 
@@ -363,6 +430,10 @@ async fn clean_up(
     // the same drop/await process used on the terminal handler is repeated for the file handler
     // we drop the file transmitter every time, because it's created no matter what
     drop(tx_file);
+
+    log::trace!("tx_stats: {:?}", tx_stats);
+    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
+    stats_handle.await.unwrap_or_default();
 
     log::trace!("dropped file output handler's transmitter");
     if save_output {

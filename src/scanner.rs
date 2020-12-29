@@ -1,5 +1,6 @@
+use crate::statistics::StatCommand;
 use crate::{
-    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
+    config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
     filters::{
         FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
@@ -8,7 +9,7 @@ use crate::{
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     statistics::Stats,
-    utils::{ferox_print, format_url, get_current_depth, make_request},
+    utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
 use futures::{
@@ -105,15 +106,17 @@ fn spawn_recursion_handler(
     num_targets: usize,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {}, {:?}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
         base_depth,
         num_targets,
         tx_term,
-        tx_file
+        tx_file,
+        tx_stats
     );
 
     let boxed_future = async move {
@@ -131,6 +134,7 @@ fn spawn_recursion_handler(
 
             let term_clone = tx_term.clone();
             let file_clone = tx_file.clone();
+            let stats_clone = tx_stats.clone();
             let resp_clone = resp.clone();
             let list_clone = wordlist.clone();
 
@@ -142,6 +146,7 @@ fn spawn_recursion_handler(
                     num_targets,
                     term_clone,
                     file_clone,
+                    stats_clone,
                 )
                 .await
             });
@@ -360,25 +365,24 @@ async fn make_requests(
     base_depth: usize,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: make_requests({}, {}, {}, {:?}, {:?})",
+        "enter: make_requests({}, {}, {}, {:?}, {:?}, {:?})",
         target_url,
         word,
         base_depth,
         dir_chan,
-        report_chan
+        report_chan,
+        tx_stats
     );
 
     let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
 
     for url in urls {
-        if let Ok(response) = make_request(&CONFIGURATION.client, &url).await {
+        if let Ok(response) = make_request(&CONFIGURATION.client, &url, tx_stats.clone()).await {
             // response came back without error, convert it to FeroxResponse
             let ferox_response = FeroxResponse::from(response, true).await;
-
-            STATS.update(&ferox_response);
-            ferox_print(&format!("FUCK YEA: {:?}", *STATS), &PROGRESS_PRINTER);
 
             // do recursion if appropriate
             if !CONFIGURATION.no_recursion {
@@ -396,11 +400,15 @@ async fn make_requests(
                 let new_links = get_links(&ferox_response).await;
 
                 for new_link in new_links {
-                    let mut new_ferox_response =
-                        match request_feroxresponse_from_new_link(&new_link).await {
-                            Some(resp) => resp,
-                            None => continue,
-                        };
+                    let mut new_ferox_response = match request_feroxresponse_from_new_link(
+                        &new_link,
+                        tx_stats.clone(),
+                    )
+                    .await
+                    {
+                        Some(resp) => resp,
+                        None => continue,
+                    };
 
                     // filter if necessary
                     if should_filter_response(&new_ferox_response) {
@@ -467,15 +475,17 @@ pub async fn scan_url(
     num_targets: usize,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {}, {:?}, {:?}, {:?})",
         target_url,
         wordlist.len(),
         base_depth,
         num_targets,
         tx_term,
-        tx_file
+        tx_file,
+        tx_stats
     );
 
     log::info!("Starting scan against: {}", target_url);
@@ -518,8 +528,10 @@ pub async fn scan_url(
     // Arc clones to be passed around to the various scans
     let wildcard_bar = progress_bar.clone();
     let heuristics_term_clone = tx_term.clone();
+    let heuristics_stats_clone = tx_stats.clone();
     let recurser_term_clone = tx_term.clone();
     let recurser_file_clone = tx_file.clone();
+    let recurser_stats_clone = tx_stats.clone();
     let recurser_words = wordlist.clone();
     let looping_words = wordlist.clone();
 
@@ -531,16 +543,23 @@ pub async fn scan_url(
             num_targets,
             recurser_term_clone,
             recurser_file_clone,
+            recurser_stats_clone,
         )
         .await
     });
 
     // add any wildcard filters to `FILTERS`
-    let filter =
-        match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_term_clone).await {
-            Some(f) => Box::new(f),
-            None => Box::new(WildcardFilter::default()),
-        };
+    let filter = match heuristics::wildcard_test(
+        &target_url,
+        wildcard_bar,
+        heuristics_term_clone,
+        heuristics_stats_clone,
+    )
+    .await
+    {
+        Some(f) => Box::new(f),
+        None => Box::new(WildcardFilter::default()),
+    };
 
     add_filter_to_list_of_ferox_filters(filter, FILTERS.clone());
 
@@ -549,6 +568,7 @@ pub async fn scan_url(
         .map(|word| {
             let txd = tx_dir.clone();
             let txr = tx_term.clone();
+            let txs = tx_stats.clone();
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             (
@@ -561,7 +581,7 @@ pub async fn scan_url(
                         // todo change to true when issue #107 is resolved
                         SCANNED_URLS.pause(false).await;
                     }
-                    make_requests(&tgt, &word, base_depth, txd, txr).await
+                    make_requests(&tgt, &word, base_depth, txd, txr, txs).await
                 }),
                 pb,
             )
@@ -603,8 +623,17 @@ pub async fn scan_url(
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
 /// engine, as it were)
-pub async fn initialize(num_words: usize, config: &Configuration) {
-    log::trace!("enter: initialize({}, {:?})", num_words, config,);
+pub async fn initialize(
+    num_words: usize,
+    config: &Configuration,
+    tx_stats: UnboundedSender<StatCommand>,
+) {
+    log::trace!(
+        "enter: initialize({}, {:?}, {:?})",
+        num_words,
+        config,
+        tx_stats
+    );
 
     // number of requests only needs to be calculated once, and then can be reused
     let num_reqs_expected: u64 = if config.extensions.is_empty() {
@@ -679,7 +708,7 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
         // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
         if let Ok(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
             // attempt to request the given url
-            if let Ok(resp) = make_request(&CONFIGURATION.client, &url).await {
+            if let Ok(resp) = make_request(&CONFIGURATION.client, &url, tx_stats.clone()).await {
                 // if successful, create a filter based on the response's body
                 let fr = FeroxResponse::from(resp, true).await;
 

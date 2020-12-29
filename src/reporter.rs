@@ -1,6 +1,7 @@
+use crate::statistics::StatCommand;
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
-    scanner::{RESPONSES, SCANNED_URLS},
+    scanner::RESPONSES,
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
@@ -42,21 +43,28 @@ pub fn get_cached_file_handle(filename: &str) -> Option<Arc<RwLock<io::BufWriter
 pub fn initialize(
     output_file: &str,
     save_output: bool,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> (
     UnboundedSender<FeroxResponse>,
     UnboundedSender<FeroxResponse>,
     JoinHandle<()>,
     Option<JoinHandle<()>>,
 ) {
-    log::trace!("enter: initialize({}, {})", output_file, save_output);
+    log::trace!(
+        "enter: initialize({}, {}, {:?})",
+        output_file,
+        save_output,
+        tx_stats
+    );
 
     let (tx_rpt, rx_rpt): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
     let (tx_file, rx_file): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
 
     let file_clone = tx_file.clone();
 
-    let term_reporter =
-        tokio::spawn(async move { spawn_terminal_reporter(rx_rpt, file_clone, save_output).await });
+    let term_reporter = tokio::spawn(async move {
+        spawn_terminal_reporter(rx_rpt, file_clone, tx_stats.clone(), save_output).await
+    });
 
     let file_reporter = if save_output {
         // -o used, need to spawn the thread for writing to disk
@@ -85,12 +93,14 @@ pub fn initialize(
 async fn spawn_terminal_reporter(
     mut resp_chan: UnboundedReceiver<FeroxResponse>,
     file_chan: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
     save_output: bool,
 ) {
     log::trace!(
-        "enter: spawn_terminal_reporter({:?}, {:?}, {})",
+        "enter: spawn_terminal_reporter({:?}, {:?}, {:?}, {})",
         resp_chan,
         file_chan,
+        tx_stats,
         save_output
     );
 
@@ -122,7 +132,13 @@ async fn spawn_terminal_reporter(
         if CONFIGURATION.replay_client.is_some() && should_process_response {
             // replay proxy specified/client created and this response's status code is one that
             // should be replayed
-            match make_request(CONFIGURATION.replay_client.as_ref().unwrap(), &resp.url()).await {
+            match make_request(
+                CONFIGURATION.replay_client.as_ref().unwrap(),
+                &resp.url(),
+                tx_stats.clone(),
+            )
+            .await
+            {
                 Ok(_) => {}
                 Err(e) => {
                     log::error!("{}", e);

@@ -1,9 +1,11 @@
 use crate::config::{Configuration, CONFIGURATION};
+use crate::statistics::StatCommand;
 use crate::utils::{make_request, status_colorizer};
 use console::{style, Emoji};
 use reqwest::{Client, Url};
 use serde_json::Value;
 use std::io::Write;
+use tokio::sync::mpsc::UnboundedSender;
 
 /// macro helper to abstract away repetitive string formatting
 macro_rules! format_banner_entry_helper {
@@ -67,7 +69,12 @@ enum UpdateStatus {
 /// ex: v1.1.0
 ///
 /// Returns `UpdateStatus`
-async fn needs_update(client: &Client, url: &str, bin_version: &str) -> UpdateStatus {
+async fn needs_update(
+    client: &Client,
+    url: &str,
+    bin_version: &str,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> UpdateStatus {
     log::trace!("enter: needs_update({:?}, {})", client, url);
 
     let unknown = UpdateStatus::Unknown;
@@ -81,7 +88,7 @@ async fn needs_update(client: &Client, url: &str, bin_version: &str) -> UpdateSt
         }
     };
 
-    if let Ok(response) = make_request(&client, &api_url).await {
+    if let Ok(response) = make_request(&client, &api_url, tx_stats).await {
         let body = response.text().await.unwrap_or_default();
 
         let json_response: Value = serde_json::from_str(&body).unwrap_or_default();
@@ -137,8 +144,13 @@ fn format_emoji(emoji: &str) -> String {
 /// Prints the banner to stdout.
 ///
 /// Only prints those settings which are either always present, or passed in by the user.
-pub async fn initialize<W>(targets: &[String], config: &Configuration, version: &str, mut writer: W)
-where
+pub async fn initialize<W>(
+    targets: &[String],
+    config: &Configuration,
+    version: &str,
+    mut writer: W,
+    tx_stats: UnboundedSender<StatCommand>,
+) where
     W: Write,
 {
     let artwork = format!(
@@ -150,7 +162,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         Emoji("🤓", &format!("{:<2}", "\u{0020}")),
         version
     );
-    let status = needs_update(&CONFIGURATION.client, UPDATE_URL, version).await;
+    let status = needs_update(&CONFIGURATION.client, UPDATE_URL, version, tx_stats).await;
 
     let top = "───────────────────────────┬──────────────────────";
     let addl_section = "──────────────────────────────────────────────────";
