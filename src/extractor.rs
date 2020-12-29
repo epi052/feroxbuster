@@ -236,7 +236,7 @@ pub async fn request_robots_txt(
     tx_stats: UnboundedSender<StatCommand>,
 ) -> Option<FeroxResponse> {
     log::trace!(
-        "enter: get_robots_file({}, Configuration, {:?})",
+        "enter: get_robots_file({}, CONFIGURATION, {:?})",
         base_url,
         tx_stats
     );
@@ -289,7 +289,11 @@ pub async fn extract_robots_txt(
     config: &Configuration,
     tx_stats: UnboundedSender<StatCommand>,
 ) -> HashSet<String> {
-    log::trace!("enter: extract_robots_txt({}, CONFIGURATION)", base_url);
+    log::trace!(
+        "enter: extract_robots_txt({}, CONFIGURATION, {:?})",
+        base_url,
+        tx_stats
+    );
     let mut links = HashSet::new();
 
     if let Some(response) = request_robots_txt(&base_url, &config, tx_stats.clone()).await {
@@ -432,8 +436,6 @@ mod tests {
         let ferox_response = FeroxResponse::from(response, true).await;
 
         let links = get_links(&ferox_response).await;
-
-        tx.send(StatCommand::Exit).unwrap_or_default();
 
         assert!(links.is_empty());
 
