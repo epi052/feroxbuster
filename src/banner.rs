@@ -1,6 +1,8 @@
-use crate::config::{Configuration, CONFIGURATION};
-use crate::statistics::StatCommand;
-use crate::utils::{make_request, status_colorizer};
+use crate::{
+    config::{Configuration, CONFIGURATION},
+    statistics::StatCommand,
+    utils::{make_request, status_colorizer},
+};
 use console::{style, Emoji};
 use reqwest::{Client, Url};
 use serde_json::Value;
@@ -75,7 +77,7 @@ async fn needs_update(
     bin_version: &str,
     tx_stats: UnboundedSender<StatCommand>,
 ) -> UpdateStatus {
-    log::trace!("enter: needs_update({:?}, {})", client, url);
+    log::trace!("enter: needs_update({:?}, {}, {:?})", client, url, tx_stats);
 
     let unknown = UpdateStatus::Unknown;
 
