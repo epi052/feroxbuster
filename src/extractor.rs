@@ -1,8 +1,8 @@
-use crate::statistics::StatCommand;
 use crate::{
     client,
     config::{Configuration, CONFIGURATION},
     scanner::SCANNED_URLS,
+    statistics::StatCommand,
     utils::{format_url, make_request},
     FeroxResponse,
 };
