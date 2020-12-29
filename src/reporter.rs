@@ -1,14 +1,16 @@
-use crate::statistics::StatCommand;
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     scanner::RESPONSES,
+    statistics::StatCommand,
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
 use console::strip_ansi_codes;
-use std::io::Write;
-use std::sync::{Arc, Once, RwLock};
-use std::{fs, io};
+use std::{
+    fs, io,
+    io::Write,
+    sync::{Arc, Once, RwLock},
+};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinHandle;
 
@@ -63,7 +65,7 @@ pub fn initialize(
     let file_clone = tx_file.clone();
 
     let term_reporter = tokio::spawn(async move {
-        spawn_terminal_reporter(rx_rpt, file_clone, tx_stats.clone(), save_output).await
+        spawn_terminal_reporter(rx_rpt, file_clone, tx_stats, save_output).await
     });
 
     let file_reporter = if save_output {
