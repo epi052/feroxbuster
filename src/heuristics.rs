@@ -174,13 +174,7 @@ async fn make_wildcard_request(
         }
     };
 
-    match make_request(
-        &CONFIGURATION.client,
-        &nonexistent.to_owned(),
-        tx_stats.clone(),
-    )
-    .await
-    {
+    match make_request(&CONFIGURATION.client, &nonexistent.to_owned(), tx_stats).await {
         Ok(response) => {
             if CONFIGURATION
                 .status_codes
@@ -238,9 +232,7 @@ pub async fn connectivity_test(
         ) {
             Ok(url) => url,
             Err(e) => {
-                tx_stats
-                    .send(StatCommand::AddError(StatError::UrlFormat))
-                    .unwrap_or_default();
+                update_stat!(tx_stats, StatCommand::AddError(StatError::UrlFormat));
                 log::error!("{}", e);
                 continue;
             }
