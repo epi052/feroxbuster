@@ -9,8 +9,9 @@ use feroxbuster::{
     scan_manager::{self, PAUSE_SCAN},
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
     statistics::{self, StatCommand},
+    update_stat,
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION, update_stat
+    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
