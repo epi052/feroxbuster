@@ -233,7 +233,7 @@ mod tests {
 
         handle.await.unwrap(); // blocks on the handler's while loop
 
-        assert!(true); // if we've made it here, the test has succeeded
+        // if we've made it here, the test has succeeded
     }
 
     #[tokio::test(core_threads = 1)]
