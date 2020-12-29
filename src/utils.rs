@@ -282,7 +282,11 @@ pub async fn make_request(
     url: &Url,
     tx_stats: UnboundedSender<StatCommand>,
 ) -> FeroxResult<Response> {
-    log::trace!("enter: make_request(CONFIGURATION.Client, {})", url);
+    log::trace!(
+        "enter: make_request(CONFIGURATION.Client, {}, {:?})",
+        url,
+        tx_stats
+    );
 
     match client.get(url.to_owned()).send().await {
         Err(e) => {

@@ -9,12 +9,14 @@
 use crate::{config::PROGRESS_PRINTER, FeroxChannel};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::sync::mpsc::UnboundedSender;
-use tokio::task::JoinHandle;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use tokio::{
+    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
 
 /// Wrapper to save me from writing Ordering::Relaxed a bajillion times
 ///
@@ -178,6 +180,12 @@ pub async fn spawn_statistics_handler(
     mut stats_channel: UnboundedReceiver<StatCommand>,
     stats: Arc<Stats>,
 ) {
+    log::trace!(
+        "enter: spawn_statistics_handler({:?}, {:?})",
+        stats_channel,
+        stats
+    );
+
     while let Some(command) = stats_channel.recv().await {
         match command as StatCommand {
             StatCommand::AddError(err) => {
@@ -193,16 +201,27 @@ pub async fn spawn_statistics_handler(
 
     // todo remove or do something cool with it
     PROGRESS_PRINTER.println(format!("{:?}", *stats));
+
+    log::trace!("exit: spawn_statistics_handler")
 }
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
 /// updates to the aforementioned object.
 pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
+    log::trace!("enter: initialize");
+
     let stats_tracker = Arc::new(Stats::default());
     let cloned = stats_tracker.clone();
     let (tx_stats, rx_stats): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
     let stats_thread =
         tokio::spawn(async move { spawn_statistics_handler(rx_stats, cloned).await });
+
+    log::trace!(
+        "exit: initialize -> ({:?}, {:?}, {:?})",
+        stats_tracker,
+        tx_stats,
+        stats_thread
+    );
 
     (stats_tracker, tx_stats, stats_thread)
 }
