@@ -1,6 +1,9 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
-    statistics::StatCommand,
+    statistics::{
+        StatCommand::{self, UpdateField},
+        StatField::TotalExpected,
+    },
     utils::{make_request, status_colorizer},
 };
 use console::{style, Emoji};
@@ -90,7 +93,9 @@ async fn needs_update(
         }
     };
 
-    if let Ok(response) = make_request(&client, &api_url, tx_stats).await {
+    if let Ok(response) = make_request(&client, &api_url, tx_stats.clone()).await {
+        update_stat!(tx_stats, UpdateField(TotalExpected, 1));
+
         let body = response.text().await.unwrap_or_default();
 
         let json_response: Value = serde_json::from_str(&body).unwrap_or_default();

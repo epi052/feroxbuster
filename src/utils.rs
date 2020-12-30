@@ -1,6 +1,6 @@
 #![macro_use]
 use crate::statistics::{
-    StatCommand::{self, AddError, AddRequest, AddStatus},
+    StatCommand::{self, AddError, AddStatus},
     StatError::{Connection, Other, Redirection, Request, Timeout},
 };
 use crate::{
@@ -331,7 +331,7 @@ pub async fn make_request(
         }
         Ok(resp) => {
             log::trace!("exit: make_request -> {:?}", resp);
-            update_stat!(tx_stats, AddRequest);
+            update_stat!(tx_stats, AddStatus(resp.status()));
             Ok(resp)
         }
     }

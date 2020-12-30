@@ -7,7 +7,10 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
-    statistics::StatCommand,
+    statistics::{
+        StatCommand::{self, UpdateField},
+        StatField::{ExpectedPerScan, TotalScans},
+    },
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
@@ -129,6 +132,8 @@ fn spawn_recursion_handler(
                 // not unknown, i.e. we've seen the url before and don't need to scan again
                 continue;
             }
+
+            update_stat!(tx_stats, UpdateField(TotalScans, 1));
 
             log::info!("received {} on recursion channel", resp);
 
@@ -293,7 +298,7 @@ async fn try_recursion(
         "enter: try_recursion({}, {}, {:?})",
         response,
         base_depth,
-        transmitter
+        transmitter,
     );
 
     if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth)
@@ -495,6 +500,8 @@ pub async fn scan_url(
     if CALL_COUNT.load(Ordering::Relaxed) < num_targets {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
+        update_stat!(tx_stats, UpdateField(TotalScans, 1));
+
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
         SCANNED_URLS.add_directory_scan(&target_url);
@@ -644,6 +651,12 @@ pub async fn initialize(
     };
 
     NUMBER_OF_REQUESTS.store(num_reqs_expected, Ordering::Relaxed);
+
+    // tell Stats object about the number of expected requests
+    update_stat!(
+        tx_stats,
+        UpdateField(ExpectedPerScan, num_reqs_expected as usize)
+    );
 
     // add any status code filters to `FILTERS` (-C|--filter-status)
     for code_filter in &config.filter_status {

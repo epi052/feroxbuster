@@ -2,11 +2,14 @@ use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     filters::WildcardFilter,
     scanner::should_filter_response,
-    statistics::{StatCommand, StatError},
+    statistics::{
+        StatCommand::{self, AddError, UpdateField},
+        StatError::UrlFormat,
+        StatField::TotalExpected,
+    },
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
 };
-
 use console::style;
 use indicatif::ProgressBar;
 use tokio::sync::mpsc::UnboundedSender;
@@ -175,7 +178,15 @@ async fn make_wildcard_request(
         }
     };
 
-    match make_request(&CONFIGURATION.client, &nonexistent.to_owned(), tx_stats).await {
+    update_stat!(tx_stats, UpdateField(TotalExpected, 1));
+
+    match make_request(
+        &CONFIGURATION.client,
+        &nonexistent.to_owned(),
+        tx_stats.clone(),
+    )
+    .await
+    {
         Ok(response) => {
             if CONFIGURATION
                 .status_codes
@@ -202,6 +213,7 @@ async fn make_wildcard_request(
             return None;
         }
     }
+
     log::trace!("exit: make_wildcard_request -> None");
     None
 }
@@ -233,7 +245,8 @@ pub async fn connectivity_test(
         ) {
             Ok(url) => url,
             Err(e) => {
-                update_stat!(tx_stats, StatCommand::AddError(StatError::UrlFormat));
+                // todo this probably makes more sense inside format_url, similar to make_request
+                update_stat!(tx_stats, AddError(UrlFormat));
                 log::error!("{}", e);
                 continue;
             }
@@ -253,6 +266,8 @@ pub async fn connectivity_test(
                 log::error!("{}", e);
             }
         }
+
+        update_stat!(tx_stats, UpdateField(TotalExpected, 1));
     }
 
     if good_urls.is_empty() {

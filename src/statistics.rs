@@ -4,6 +4,8 @@
 // - domains redirected to?
 // - number of links extracted vs busted?
 // - number of borked urls?
+// - total time to run
+// - time per directory
 // todo integration test that hits some/all of the errors in make_request
 
 use crate::{config::PROGRESS_PRINTER, FeroxChannel};
@@ -44,7 +46,11 @@ pub struct Stats {
     ///
     /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
     /// indicative of the current expectation at any given time, but is a moving target.  
-    expected_requests: AtomicUsize,
+    expected_per_scan: AtomicUsize,
+
+    /// tracker for accumulating total number of requests expected (i.e. as a new scan is started
+    /// this value should increase by `expected_requests`
+    total_expected: AtomicUsize,
 
     /// tracker for total number of errors encountered by the client
     errors: AtomicUsize,
@@ -61,6 +67,14 @@ pub struct Stats {
     /// tracker for overall number of 5xx status codes seen by the client
     server_errors: AtomicUsize,
 
+    /// tracker for number of scans performed, this directly equates to number of directories
+    /// recursed into and affects the total number of expected requests
+    total_scans: AtomicUsize,
+
+    /// tracker for number of links extracted when `--extract-links` is used; sources are
+    /// response bodies and robots.txt as of v1.11.0
+    links_extracted: AtomicUsize,
+
     /// tracker for overall number of 403s seen by the client
     status_403s: AtomicUsize,
 }
@@ -72,15 +86,16 @@ impl Stats {
         atomic_increment!(self.requests);
     }
 
-    /// create a new Stats object with an expected number of requests
-    ///
-    /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
-    /// indicative of the current expectation at any given time, but is a moving target.  
-    pub fn new(expected: usize) -> Self {
-        let stats = Self::default();
-        atomic_increment!(stats.expected_requests, expected);
-        stats
-    }
+    // todo remove if not used
+    // /// create a new Stats object with an expected number of requests
+    // ///
+    // /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
+    // /// indicative of the current expectation at any given time, but is a moving target.
+    // pub fn new(expected: usize) -> Self {
+    //     let stats = Self::default();
+    //     atomic_increment!(stats.expected_requests, expected);
+    //     stats
+    // }
 
     /// Inspect the given `StatError` and increment the appropriate fields
     ///
@@ -111,7 +126,7 @@ impl Stats {
     ///     - requests
     ///     - status_403s (when code is 403)
     ///     - errors (when code is [45]xx)
-    pub fn add_status_code(&self, status: StatusCode) {
+    fn add_status_code(&self, status: StatusCode) {
         self.add_request();
 
         if status.is_success() {
@@ -119,7 +134,10 @@ impl Stats {
         } else if status.is_redirection() {
             atomic_increment!(self.redirects);
         } else if status.is_client_error() {
-            atomic_increment!(self.errors);
+            if status.as_u16() != 404 {
+                // don't increment errors for 404, they're expected when busting
+                atomic_increment!(self.errors);
+            }
             atomic_increment!(self.client_errors);
         } else if status.is_server_error() {
             atomic_increment!(self.errors);
@@ -129,6 +147,27 @@ impl Stats {
 
         if matches!(status, StatusCode::FORBIDDEN) {
             atomic_increment!(self.status_403s);
+        }
+    }
+
+    fn update_field(&self, field: StatField, value: usize) {
+        match field {
+            StatField::ExpectedPerScan => {
+                atomic_increment!(self.expected_per_scan, value);
+            }
+            StatField::TotalScans => {
+                atomic_increment!(self.total_scans, value);
+                atomic_increment!(
+                    self.total_expected,
+                    value * self.expected_per_scan.load(Ordering::Relaxed)
+                );
+            }
+            StatField::TotalExpected => {
+                atomic_increment!(self.total_expected, value);
+            }
+            StatField::LinksExtracted => {
+                atomic_increment!(self.links_extracted, value);
+            }
         }
     }
 }
@@ -169,8 +208,29 @@ pub enum StatCommand {
     /// Add one to the proper field(s) based on the given `StatusCode`
     AddStatus(StatusCode),
 
+    /// Update a `Stats` field that corresponds to the given `StatField` by the given value
+    UpdateField(StatField, usize),
+
     /// Break out of the (infinite) mpsc receive loop
     Exit,
+}
+
+/// Enum representing fields whose updates need to be performed in batches instead of one at
+/// a time
+pub enum StatField {
+    /// Due to the necessary order of events, the number of requests expected to be sent isn't
+    /// known until after `statistics::initialize` is called. This command allows for updating
+    /// the `expected_per_scan` field after initialization
+    ExpectedPerScan,
+
+    /// Translates to Stats::total_scans
+    TotalScans,
+
+    /// Translates to links_extracted
+    LinksExtracted,
+
+    /// Translates to total_expected
+    TotalExpected,
 }
 
 /// Spawn a single consumer task (sc side of mpsc)
@@ -195,12 +255,13 @@ pub async fn spawn_statistics_handler(
                 stats.add_status_code(status);
             }
             StatCommand::AddRequest => stats.add_request(),
+            StatCommand::UpdateField(field, value) => stats.update_field(field, value),
             StatCommand::Exit => break,
         }
     }
 
     // todo remove or do something cool with it
-    PROGRESS_PRINTER.println(format!("{:?}", *stats));
+    PROGRESS_PRINTER.println(format!("{:#?}", *stats));
 
     log::trace!("exit: spawn_statistics_handler")
 }
@@ -338,6 +399,6 @@ mod tests {
     /// when Stats::new is called, the value is properly assigned to expected_requests
     fn stats_new_sets_expected_requests() {
         let stats = Stats::new(42);
-        assert_eq!(stats.expected_requests.load(Ordering::Relaxed), 42);
+        assert_eq!(stats.expected_per_scan.load(Ordering::Relaxed), 42);
     }
 }
