@@ -77,7 +77,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .takes_value(true)
                 .value_name("PROXY")
                 .help(
-                    "Proxy to use for requests (ex: http(s)://host:port, socks5://host:port)",
+                    "Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)",
                 ),
         )
         .arg(
@@ -299,6 +299,17 @@ pub fn initialize() -> App<'static, 'static> {
                 .use_delimiter(true)
                 .help(
                     "Filter out status codes (deny list) (ex: -C 200 -C 401)",
+                ),
+        )
+        .arg(
+            Arg::with_name("filter_similar")
+                .long("filter-similar-to")
+                .value_name("UNWANTED_PAGE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)",
                 ),
         )
         .arg(

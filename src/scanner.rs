@@ -2,18 +2,19 @@ use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
     filters::{
-        FeroxFilter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
-        WordsFilter,
+        FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+        WildcardFilter, WordsFilter,
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     utils::{format_url, get_current_depth, make_request},
-    FeroxChannel, FeroxResponse,
+    FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
 use futures::{
     future::{BoxFuture, FutureExt},
     stream, StreamExt,
 };
+use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
@@ -97,14 +98,16 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
+    num_targets: usize,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
         base_depth,
+        num_targets,
         tx_term,
         tx_file
     );
@@ -132,6 +135,7 @@ fn spawn_recursion_handler(
                     resp_clone.to_owned().as_str(),
                     list_clone,
                     base_depth,
+                    num_targets,
                     term_clone,
                     file_clone,
                 )
@@ -453,14 +457,16 @@ pub async fn scan_url(
     target_url: &str,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
+    num_targets: usize,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
 ) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
         target_url,
         wordlist.len(),
         base_depth,
+        num_targets,
         tx_term,
         tx_file
     );
@@ -469,7 +475,7 @@ pub async fn scan_url(
 
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
-    if CALL_COUNT.load(Ordering::Relaxed) == 0 {
+    if CALL_COUNT.load(Ordering::Relaxed) < num_targets {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
@@ -515,6 +521,7 @@ pub async fn scan_url(
             rx_dir,
             recurser_words,
             base_depth,
+            num_targets,
             recurser_term_clone,
             recurser_file_clone,
         )
@@ -589,7 +596,7 @@ pub async fn scan_url(
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
 /// engine, as it were)
-pub fn initialize(num_words: usize, config: &Configuration) {
+pub async fn initialize(num_words: usize, config: &Configuration) {
     log::trace!("enter: initialize({}, {:?})", num_words, config,);
 
     // number of requests only needs to be calculated once, and then can be reused
@@ -658,6 +665,29 @@ pub fn initialize(num_words: usize, config: &Configuration) {
         };
         let boxed_filter = Box::new(filter);
         add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+    }
+
+    // add any similarity filters to `FILTERS` (--filter-similar-to)
+    for similarity_filter in &config.filter_similar {
+        // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
+        if let Ok(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
+            // attempt to request the given url
+            if let Ok(resp) = make_request(&CONFIGURATION.client, &url).await {
+                // if successful, create a filter based on the response's body
+                let fr = FeroxResponse::from(resp, true).await;
+
+                // hash the response body and store the resulting hash in the filter object
+                let hash = FuzzyHash::new(&fr.text()).to_string();
+
+                let filter = SimilarityFilter {
+                    text: hash,
+                    threshold: SIMILARITY_THRESHOLD,
+                };
+
+                let boxed_filter = Box::new(filter);
+                add_filter_to_list_of_ferox_filters(boxed_filter, FILTERS.clone());
+            }
+        }
     }
 
     if config.scan_limit == 0 {
@@ -768,12 +798,12 @@ mod tests {
         assert!(result);
     }
 
-    #[test]
+    #[tokio::test(core_threads = 1)]
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
-    fn initialize_panics_on_bad_regex() {
+    async fn initialize_panics_on_bad_regex() {
         let mut config = Configuration::default();
         config.filter_regex = vec![r"(".to_string()];
-        initialize(1, &config);
+        initialize(1, &config).await;
     }
 }

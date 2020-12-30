@@ -1,6 +1,7 @@
 use crate::config::CONFIGURATION;
 use crate::utils::get_url_path_length;
-use crate::FeroxResponse;
+use crate::{FeroxResponse, FeroxSerialize};
+use fuzzyhash::FuzzyHash;
 use regex::Regex;
 use std::any::Any;
 use std::fmt::Debug;
@@ -282,6 +283,44 @@ impl PartialEq for RegexFilter {
     }
 }
 
+/// Simple implementor of FeroxFilter; used to filter out responses based on the similarity of a
+/// Response body with a known response; specified using --filter-similar-to
+#[derive(Default, Debug, PartialEq)]
+pub struct SimilarityFilter {
+    /// Response's body to be used for comparison for similarity
+    pub text: String,
+
+    /// Percentage of similarity at which a page is determined to be a near-duplicate of another
+    pub threshold: u32,
+}
+
+/// implementation of FeroxFilter for SimilarityFilter
+impl FeroxFilter for SimilarityFilter {
+    /// Check `FeroxResponse::text` against what was requested from the site passed in via
+    /// --filter-similar-to
+    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+        let other = FuzzyHash::new(&response.text);
+
+        if let Ok(result) = FuzzyHash::compare(&self.text, &other.to_string()) {
+            return result >= self.threshold;
+        }
+
+        // couldn't hash the response, don't filter
+        log::warn!("Could not hash body from {}", response.as_str());
+        false
+    }
+
+    /// Compare one SimilarityFilter to another
+    fn box_eq(&self, other: &dyn Any) -> bool {
+        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+    }
+
+    /// Return self as Any for dynamic dispatch purposes
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -418,5 +457,57 @@ mod tests {
         };
 
         assert!(filter.should_filter_response(&resp));
+    }
+
+    #[test]
+    /// a few simple tests for similarity filter
+    fn similarity_filter_is_accurate() {
+        let mut resp = FeroxResponse {
+            text: String::from("sitting"),
+            wildcard: false,
+            url: Url::parse("http://localhost/stuff").unwrap(),
+            content_length: 100,
+            word_count: 50,
+            line_count: 25,
+            headers: reqwest::header::HeaderMap::new(),
+            status: reqwest::StatusCode::OK,
+        };
+
+        let mut filter = SimilarityFilter {
+            text: FuzzyHash::new("kitten").to_string(),
+            threshold: 95,
+        };
+
+        // kitten/sitting is 57% similar, so a threshold of 95 should not be filtered
+        assert!(!filter.should_filter_response(&resp));
+
+        resp.text = String::new();
+        filter.text = String::new();
+        filter.threshold = 100;
+
+        // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
+        assert!(!filter.should_filter_response(&resp));
+
+        resp.text = String::from("some data to hash for the purposes of running a test");
+        filter.text =
+            FuzzyHash::new("some data to hash for the purposes of running a te").to_string();
+        filter.threshold = 17;
+
+        assert!(filter.should_filter_response(&resp));
+    }
+
+    #[test]
+    /// just a simple test to increase code coverage by hitting as_any and the inner value
+    fn similarity_filter_as_any() {
+        let filter = SimilarityFilter {
+            text: String::from("stuff"),
+            threshold: 95,
+        };
+
+        assert_eq!(filter.text, "stuff");
+        assert_eq!(
+            *filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
+            filter
+        );
     }
 }

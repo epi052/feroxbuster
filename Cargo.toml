@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "1.10.2"
+version = "1.11.0"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -41,6 +41,7 @@ regex = "1"
 crossterm = "0.18"
 rlimit = "0.5"
 ctrlc = "3.1"
+fuzzyhash = "0.2"
 
 [dev-dependencies]
 tempfile = "3.1"
