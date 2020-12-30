@@ -10,7 +10,11 @@
 // todo integration test that hits some/all of the errors in make_request
 // todo create a summary report to be shown when the scan ends, should present the accumulated data in a way that makes interpretation easy
 
-use crate::{config::PROGRESS_PRINTER, FeroxChannel};
+use crate::{
+    config::{CONFIGURATION, PROGRESS_PRINTER},
+    reporter::{get_cached_file_handle, safe_file_write},
+    FeroxChannel, FeroxSerialize,
+};
 use console::{pad_str, Alignment};
 use indicatif::ProgressBar;
 use reqwest::StatusCode;
@@ -46,8 +50,12 @@ macro_rules! atomic_load {
 }
 
 /// Data collection of statistics related to a scan
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct Stats {
+    #[serde(rename = "type", default = "stats_kind")]
+    /// Name of this type of struct, used for serialization, i.e. `{"type":"statistics"}`
+    kind: String,
+
     /// tracker for number of timeouts seen by the client
     timeouts: AtomicUsize,
 
@@ -97,11 +105,66 @@ pub struct Stats {
     responses_filtered: AtomicUsize,
 }
 
+/// default value for `Stats::kind`
+fn stats_kind() -> String {
+    String::from("statistics")
+}
+
+/// Default implementation for Stats
+impl Default for Stats {
+    /// Small wrapper for default to set `kind` to "statistics"
+    fn default() -> Self {
+        Self {
+            kind: String::from("statistics"),
+            timeouts: Default::default(),
+            requests: Default::default(),
+            expected_per_scan: Default::default(),
+            total_expected: Default::default(),
+            errors: Default::default(),
+            successes: Default::default(),
+            redirects: Default::default(),
+            client_errors: Default::default(),
+            server_errors: Default::default(),
+            total_scans: Default::default(),
+            links_extracted: Default::default(),
+            status_403s: Default::default(),
+            wildcards_filtered: Default::default(),
+            responses_filtered: Default::default(),
+        }
+    }
+}
+
+/// FeroxSerialize implementation for Stats
+impl FeroxSerialize for Stats {
+    /// Simply return debug format of Stats to satisfy as_str
+    fn as_str(&self) -> String {
+        self.summary()
+    }
+
+    /// Simple call to produce a JSON string using the given Stats object
+    fn as_json(&self) -> String {
+        serde_json::to_string(&self).unwrap_or_default()
+    }
+}
+
 /// implementation of statistics data collection struct
 impl Stats {
     /// increment `requests` field by one
     fn add_request(&self) {
         atomic_increment!(self.requests);
+    }
+
+    /// save an instance of `Stats` to disk
+    fn save(&self) {
+        PROGRESS_PRINTER.println("FUCKING SAVING");
+        let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
+            Some(file) => file,
+            None => {
+                return;
+            }
+        };
+
+        safe_file_write(self, buffered_file, CONFIGURATION.json);
     }
 
     /// Inspect the given `StatError` and increment the appropriate fields
@@ -185,8 +248,7 @@ impl Stats {
         }
     }
 
-    /// Print a summary of all information accumulated/surmised during the scan(s)
-    pub fn print_summary(&self, printer: &ProgressBar) {
+    fn summary(&self) -> String {
         let results_bottom = "───────────────────────────┬──────────────────────";
         let results_top = "──────────────────────────────────────────────────";
         let bottom = "───────────────────────────┴──────────────────────";
@@ -200,20 +262,27 @@ impl Stats {
             };
         }
 
-        let results_header = format!("📊{}📊", pad_str("Results", 46, Alignment::Center, None));
+        let mut lines = Vec::new();
 
-        printer.println(format!("{}", results_top));
-        printer.println(results_header);
-        printer.println(format!("{}", results_bottom));
+        let results_header = format!("  📊{}📊", pad_str("Results", 44, Alignment::Center, None));
+        lines.push(results_top.to_string());
+        lines.push(results_header);
+        lines.push(results_bottom.to_string());
 
-        printer.println(format_summary_item!(
+        // printer.println(format!("{}", results_top));
+        // printer.println(results_header);
+        // printer.println(format!("{}", results_bottom));
+
+        let responses = format_summary_item!(
             "Requests Sent / Expected",
             format!(
                 "{} / {}",
                 atomic_load!(self.requests),
                 atomic_load!(self.total_expected)
             )
-        ));
+        );
+
+        lines.push(responses);
 
         let mut fields = BTreeMap::new();
 
@@ -233,11 +302,18 @@ impl Stats {
             let loaded = atomic_load!(value);
             if loaded > 0 {
                 let msg = format_summary_item!(key, loaded);
-                printer.println(msg);
+                lines.push(msg);
             }
         }
 
-        printer.println(format!("{}", bottom));
+        lines.push(bottom.to_string());
+
+        lines.join("\n")
+    }
+
+    /// Print a summary of all information accumulated/surmised during the scan(s)
+    pub fn print_summary(&self, printer: &ProgressBar) {
+        printer.println(self.summary());
     }
 }
 
@@ -279,6 +355,9 @@ pub enum StatCommand {
 
     /// Update a `Stats` field that corresponds to the given `StatField` by the given value
     UpdateField(StatField, usize),
+
+    /// Save a `Stats` object to disk using `reporter::get_cached_file_handle`
+    Save,
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,
@@ -330,6 +409,7 @@ pub async fn spawn_statistics_handler(
                 stats.add_status_code(status);
             }
             StatCommand::AddRequest => stats.add_request(),
+            StatCommand::Save => stats.save(),
             StatCommand::UpdateField(field, value) => stats.update_field(field, value),
             StatCommand::Exit => break,
         }

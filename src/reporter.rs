@@ -63,16 +63,17 @@ pub fn initialize(
     let (tx_file, rx_file): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
 
     let file_clone = tx_file.clone();
+    let stats_clone = tx_stats.clone();
 
     let term_reporter = tokio::spawn(async move {
-        spawn_terminal_reporter(rx_rpt, file_clone, tx_stats, save_output).await
+        spawn_terminal_reporter(rx_rpt, file_clone, stats_clone, save_output).await
     });
 
     let file_reporter = if save_output {
         // -o used, need to spawn the thread for writing to disk
         let file_clone = output_file.to_string();
         Some(tokio::spawn(async move {
-            spawn_file_reporter(rx_file, &file_clone).await
+            spawn_file_reporter(rx_file, tx_stats, &file_clone).await
         }))
     } else {
         None
@@ -169,6 +170,7 @@ async fn spawn_terminal_reporter(
 /// the given reporting criteria
 async fn spawn_file_reporter(
     mut report_channel: UnboundedReceiver<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
     output_file: &str,
 ) {
     let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
@@ -190,6 +192,9 @@ async fn spawn_file_reporter(
     while let Some(response) = report_channel.recv().await {
         safe_file_write(&response, buffered_file.clone(), CONFIGURATION.json);
     }
+
+    // todo if --summary was used, do this, else pass
+    update_stat!(tx_stats, StatCommand::Save);
 
     log::trace!("exit: spawn_file_reporter");
 }

@@ -352,7 +352,7 @@ pub fn should_filter_response(
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(&response) {
                     match filter.as_any().downcast_ref::<WildcardFilter>() {
-                        Some(s) => {
+                        Some(_) => {
                             update_stat!(tx_stats, UpdateField(WildcardsFiltered, 1))
                         }
                         None => {}

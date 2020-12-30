@@ -278,11 +278,17 @@ async fn wrapped_main() {
         PROGRESS_BAR.join().unwrap();
     });
 
+    // todo am i gonna use stats for anything?
+    let (stats, tx_stats, stats_handle) = statistics::initialize();
+
     if !CONFIGURATION.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
         // the limit
+
+        let max_time_stats = stats.clone();
+
         tokio::spawn(async move {
-            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit).await
+            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, max_time_stats).await
         });
     }
 
@@ -296,8 +302,10 @@ async fn wrapped_main() {
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
-    // todo am i gonna use stats for anything?
-    let (_stats, tx_stats, stats_handle) = statistics::initialize();
+    if CONFIGURATION.save_state {
+        // start the ctrl+c handler
+        scan_manager::initialize(stats.clone());
+    }
 
     let (tx_term, tx_file, term_handle, file_handle) =
         reporter::initialize(&CONFIGURATION.output, save_output, tx_stats.clone());
@@ -437,10 +445,6 @@ async fn clean_up(
     // we drop the file transmitter every time, because it's created no matter what
     drop(tx_file);
 
-    log::trace!("tx_stats: {:?}", tx_stats);
-    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
-    stats_handle.await.unwrap_or_default();
-
     log::trace!("dropped file output handler's transmitter");
     if save_output {
         // but we only await if -o was specified
@@ -453,6 +457,10 @@ async fn clean_up(
         }
         log::trace!("done awaiting file output handler's receiver");
     }
+
+    log::trace!("tx_stats: {:?}", tx_stats);
+    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
+    stats_handle.await.unwrap_or_default();
 
     // mark all scans complete so the terminal input handler will exit cleanly
     SCAN_COMPLETE.store(true, Ordering::Relaxed);
@@ -468,10 +476,10 @@ fn main() {
     // setup logging based on the number of -v's used
     logger::initialize(CONFIGURATION.verbosity);
 
-    if CONFIGURATION.save_state {
-        // start the ctrl+c handler
-        scan_manager::initialize();
-    }
+    // if CONFIGURATION.save_state {
+    //     // start the ctrl+c handler
+    //     scan_manager::initialize();
+    // }
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]

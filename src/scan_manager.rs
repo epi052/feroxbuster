@@ -1,11 +1,11 @@
-use crate::config::Configuration;
-use crate::reporter::safe_file_write;
-use crate::utils::open_file;
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
     progress,
+    reporter::safe_file_write,
     scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
+    statistics::Stats,
+    utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
 use console::style;
@@ -16,18 +16,16 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::Value;
-use std::collections::HashMap;
 use std::{
     cmp::PartialEq,
+    collections::HashMap,
     fmt,
     fs::File,
     io::BufReader,
-    sync::{Arc, Mutex, RwLock},
-    time::{SystemTime, UNIX_EPOCH},
-};
-use std::{
     io::{stderr, Write},
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::{Arc, Mutex, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
@@ -575,6 +573,8 @@ pub struct FeroxState {
 
     /// Known responses
     responses: &'static FeroxResponses,
+
+    statistics: Arc<Stats>,
 }
 
 /// FeroxSerialize implementation for FeroxState
@@ -594,7 +594,7 @@ impl FeroxSerialize for FeroxState {
 /// that representation to seconds and then wait for those seconds to elapse.  Once that period
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
-pub async fn start_max_time_thread(time_spec: &str) {
+pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
     log::trace!("enter: start_max_time_thread({})", time_spec);
 
     // as this function has already made it through the parser, which calls is_match on
@@ -626,7 +626,7 @@ pub async fn start_max_time_thread(time_spec: &str) {
         #[cfg(test)]
         panic!();
         #[cfg(not(test))]
-        sigint_handler();
+        sigint_handler(stats);
     }
 
     log::error!(
@@ -636,7 +636,7 @@ pub async fn start_max_time_thread(time_spec: &str) {
 }
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler() {
+fn sigint_handler(stats: Arc<Stats>) {
     log::trace!("enter: sigint_handler");
 
     let ts = SystemTime::now()
@@ -669,6 +669,7 @@ fn sigint_handler() {
         config: &CONFIGURATION,
         scans: &SCANNED_URLS,
         responses: &RESPONSES,
+        statistics: stats,
     };
 
     let state_file = open_file(&filename);
@@ -682,10 +683,12 @@ fn sigint_handler() {
 }
 
 /// Initialize the ctrl+c handler that saves scan state to disk
-pub fn initialize() {
+pub fn initialize(stats: Arc<Stats>) {
     log::trace!("enter: initialize");
 
-    let result = ctrlc::set_handler(sigint_handler);
+    let result = ctrlc::set_handler(move || {
+        sigint_handler(stats.clone());
+    });
 
     if result.is_err() {
         log::error!("Could not set Ctrl+c handler");
