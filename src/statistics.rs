@@ -6,11 +6,16 @@
 // - number of borked urls?
 // - total time to run
 // - time per directory
+// - wildcards filtered
 // todo integration test that hits some/all of the errors in make_request
+// todo create a summary report to be shown when the scan ends, should present the accumulated data in a way that makes interpretation easy
 
 use crate::{config::PROGRESS_PRINTER, FeroxChannel};
+use console::{pad_str, Alignment};
+use indicatif::ProgressBar;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -30,6 +35,13 @@ macro_rules! atomic_increment {
 
     ($metric:expr, $value:expr) => {
         $metric.fetch_add($value, Ordering::Relaxed);
+    };
+}
+
+/// Wrapper to save me from writing Ordering::Relaxed a bajillion times
+macro_rules! atomic_load {
+    ($metric:expr) => {
+        $metric.load(Ordering::Relaxed);
     };
 }
 
@@ -77,6 +89,12 @@ pub struct Stats {
 
     /// tracker for overall number of 403s seen by the client
     status_403s: AtomicUsize,
+
+    /// tracker for overall number of wildcard urls filtered out by the client
+    wildcards_filtered: AtomicUsize,
+
+    /// tracker for overall number of all filtered responses
+    responses_filtered: AtomicUsize,
 }
 
 /// implementation of statistics data collection struct
@@ -85,17 +103,6 @@ impl Stats {
     fn add_request(&self) {
         atomic_increment!(self.requests);
     }
-
-    // todo remove if not used
-    // /// create a new Stats object with an expected number of requests
-    // ///
-    // /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
-    // /// indicative of the current expectation at any given time, but is a moving target.
-    // pub fn new(expected: usize) -> Self {
-    //     let stats = Self::default();
-    //     atomic_increment!(stats.expected_requests, expected);
-    //     stats
-    // }
 
     /// Inspect the given `StatError` and increment the appropriate fields
     ///
@@ -168,7 +175,69 @@ impl Stats {
             StatField::LinksExtracted => {
                 atomic_increment!(self.links_extracted, value);
             }
+            StatField::WildcardsFiltered => {
+                atomic_increment!(self.wildcards_filtered, value);
+                atomic_increment!(self.responses_filtered, value);
+            }
+            StatField::ResponsesFiltered => {
+                atomic_increment!(self.responses_filtered, value);
+            }
         }
+    }
+
+    /// Print a summary of all information accumulated/surmised during the scan(s)
+    pub fn print_summary(&self, printer: &ProgressBar) {
+        let results_bottom = "───────────────────────────┬──────────────────────";
+        let results_top = "──────────────────────────────────────────────────";
+        let bottom = "───────────────────────────┴──────────────────────";
+
+        macro_rules! format_summary_item {
+            ($title:expr, $value:expr) => {
+                format!(
+                    "\u{0020}{:\u{0020}<26}\u{2502}\u{0020}{:\u{0020}^21}",
+                    $title, $value
+                )
+            };
+        }
+
+        let results_header = format!("📊{}📊", pad_str("Results", 46, Alignment::Center, None));
+
+        printer.println(format!("{}", results_top));
+        printer.println(results_header);
+        printer.println(format!("{}", results_bottom));
+
+        printer.println(format_summary_item!(
+            "Requests Sent / Expected",
+            format!(
+                "{} / {}",
+                atomic_load!(self.requests),
+                atomic_load!(self.total_expected)
+            )
+        ));
+
+        let mut fields = BTreeMap::new();
+
+        fields.insert("Errors", &self.errors);
+        fields.insert("403 Forbidden", &self.status_403s);
+        fields.insert("Success Status Codes", &self.successes);
+        fields.insert("Redirects", &self.redirects);
+        fields.insert("Links Extracted", &self.links_extracted);
+        fields.insert("Timeouts", &self.timeouts);
+        fields.insert("Requests Expected per Dir", &self.expected_per_scan);
+        fields.insert("Client Error Codes", &self.client_errors);
+        fields.insert("Server Error Codes", &self.server_errors);
+        fields.insert("Non-404s Filtered", &self.responses_filtered);
+        fields.insert("Wildcard Responses", &self.wildcards_filtered);
+
+        for (key, value) in &fields {
+            let loaded = atomic_load!(value);
+            if loaded > 0 {
+                let msg = format_summary_item!(key, loaded);
+                printer.println(msg);
+            }
+        }
+
+        printer.println(format!("{}", bottom));
     }
 }
 
@@ -231,6 +300,12 @@ pub enum StatField {
 
     /// Translates to total_expected
     TotalExpected,
+
+    /// Translates to wildcards_filtered
+    WildcardsFiltered,
+
+    /// Translates to responses_filtered
+    ResponsesFiltered,
 }
 
 /// Spawn a single consumer task (sc side of mpsc)
@@ -260,8 +335,7 @@ pub async fn spawn_statistics_handler(
         }
     }
 
-    // todo remove or do something cool with it
-    PROGRESS_PRINTER.println(format!("{:#?}", *stats));
+    stats.print_summary(&*PROGRESS_PRINTER);
 
     log::trace!("exit: spawn_statistics_handler")
 }

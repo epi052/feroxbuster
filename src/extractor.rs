@@ -2,7 +2,10 @@ use crate::{
     client,
     config::{Configuration, CONFIGURATION},
     scanner::SCANNED_URLS,
-    statistics::StatCommand,
+    statistics::{
+        StatCommand::{self, UpdateField},
+        StatField::{LinksExtracted, TotalExpected},
+    },
     utils::{format_url, make_request},
     FeroxResponse,
 };
@@ -100,8 +103,15 @@ fn add_link_to_set_of_links(link: &str, url: &Url, links: &mut HashSet<String>) 
 ///         - homepage/assets/img/
 ///         - homepage/assets/
 ///         - homepage/
-pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
-    log::trace!("enter: get_links({})", response.url().as_str());
+pub async fn get_links(
+    response: &FeroxResponse,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> HashSet<String> {
+    log::trace!(
+        "enter: get_links({}, {:?})",
+        response.url().as_str(),
+        tx_stats
+    );
 
     let mut links = HashSet::<String>::new();
 
@@ -137,6 +147,9 @@ pub async fn get_links(response: &FeroxResponse) -> HashSet<String> {
             }
         }
     }
+
+    update_stat!(tx_stats, UpdateField(LinksExtracted, links.len()));
+    update_stat!(tx_stats, UpdateField(TotalExpected, links.len()));
 
     log::trace!("exit: get_links -> {:?}", links);
 
@@ -306,6 +319,9 @@ pub async fn extract_robots_txt(
             }
         }
     }
+
+    update_stat!(tx_stats, UpdateField(LinksExtracted, links.len()));
+    update_stat!(tx_stats, UpdateField(TotalExpected, links.len()));
 
     log::trace!("exit: extract_robots_txt -> {:?}", links);
     links

@@ -9,7 +9,7 @@ use crate::{
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     statistics::{
         StatCommand::{self, UpdateField},
-        StatField::{ExpectedPerScan, TotalScans},
+        StatField::{ExpectedPerScan, TotalScans, WildcardsFiltered},
     },
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
@@ -342,12 +342,21 @@ async fn try_recursion(
 
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
 /// to the user or not.
-pub fn should_filter_response(response: &FeroxResponse) -> bool {
+pub fn should_filter_response(
+    response: &FeroxResponse,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> bool {
     match FILTERS.read() {
         Ok(filters) => {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(&response) {
+                    match filter.as_any().downcast_ref::<WildcardFilter>() {
+                        Some(s) => {
+                            update_stat!(tx_stats, UpdateField(WildcardsFiltered, 1))
+                        }
+                        None => {}
+                    }
                     return true;
                 }
             }
@@ -397,12 +406,12 @@ async fn make_requests(
             // purposefully doing recursion before filtering. the thought process is that
             // even though this particular url is filtered, subsequent urls may not
 
-            if should_filter_response(&ferox_response) {
+            if should_filter_response(&ferox_response, tx_stats.clone()) {
                 continue;
             }
 
             if CONFIGURATION.extract_links && !ferox_response.status().is_redirection() {
-                let new_links = get_links(&ferox_response).await;
+                let new_links = get_links(&ferox_response, tx_stats.clone()).await;
 
                 for new_link in new_links {
                     let mut new_ferox_response = match request_feroxresponse_from_new_link(
@@ -416,7 +425,7 @@ async fn make_requests(
                     };
 
                     // filter if necessary
-                    if should_filter_response(&new_ferox_response) {
+                    if should_filter_response(&new_ferox_response, tx_stats.clone()) {
                         continue;
                     }
 

@@ -197,7 +197,7 @@ async fn make_wildcard_request(
                 ferox_response.wildcard = true;
 
                 if !CONFIGURATION.quiet
-                    && !should_filter_response(&ferox_response)
+                    && !should_filter_response(&ferox_response, tx_stats.clone())
                     && tx_file.send(ferox_response.clone()).is_err()
                 {
                     return None;
