@@ -550,9 +550,7 @@ pub async fn scan_url(
                         // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
                         // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                         // to false
-
-                        // todo change to true when issue #107 is resolved
-                        SCANNED_URLS.pause(false).await;
+                        SCANNED_URLS.pause(true).await;
                     }
                     make_requests(&tgt, &word, base_depth, txd, txr).await
                 }),

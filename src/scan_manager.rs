@@ -26,11 +26,18 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use std::{
-    io::{stderr, Write},
+    io::{stderr, stdout, Write},
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
+// todo do i need this 107
+use crossterm::style::Print;
+use crossterm::{
+    cursor::{Hide, MoveTo, Show},
+    execute, queue,
+    terminal::{enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 
 lazy_static! {
     /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
@@ -108,8 +115,8 @@ impl FeroxScan {
     pub fn abort(&self) {
         self.stop_progress_bar();
 
-        if let Some(_task) = &self.task {
-            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
+        if let Some(task) = &self.task {
+            task.abort();
         }
     }
 
@@ -347,12 +354,28 @@ impl FeroxScans {
     ///   9: complete   https://10.129.45.20/images
     ///  10: complete   https://10.129.45.20/assets
     pub fn display_scans(&self) {
+        // todo #107: trying to figure out a way to display these without the terminal going batshit
+        // i think what likely needs to happen is that the terminal thread needs to be paused
+        // as well, so that returning responses arent shown.  clear the screen, get the input, act
+        // accordingly, and then unpause everything.  i.e. pinch the hose and then let it go
+        let mut writer = stdout();
+        queue!(writer, EnterAlternateScreen, Hide).unwrap();
+
         if let Ok(scans) = self.scans.lock() {
+            let mut y = 1;
             for (i, scan) in scans.iter().enumerate() {
                 if let Ok(unlocked_scan) = scan.lock() {
                     match unlocked_scan.scan_type {
                         ScanType::Directory => {
-                            PROGRESS_PRINTER.println(format!("{:3}: {}", i, unlocked_scan));
+                            queue!(
+                                writer,
+                                MoveTo(1, y),
+                                Print(format!("{:3}: {}", i, unlocked_scan))
+                            )
+                            .unwrap();
+                            writer.flush().unwrap();
+                            y += 1;
+                            // PROGRESS_PRINTER.println(format!("{:3}: {}", i, unlocked_scan));
                         }
                         ScanType::File => {
                             // we're only interested in displaying directory scans, as those are
@@ -362,6 +385,8 @@ impl FeroxScans {
                 }
             }
         }
+
+        execute!(writer, LeaveAlternateScreen, Show).unwrap();
     }
 
     /// Forced the calling thread into a busy loop
