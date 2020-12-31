@@ -1,12 +1,10 @@
-// todo needs to be serializable and added to scan save/resume/output
 // todo consider batch size for stats update/display (if display is used)
 // todo are there more metrics to capture?
 // - domains redirected to?
-// - number of links extracted vs busted?
+// - number of busted?
 // - number of borked urls?
 // - total time to run
 // - time per directory
-// - wildcards filtered
 // todo integration test that hits some/all of the errors in make_request
 // todo create a summary report to be shown when the scan ends, should present the accumulated data in a way that makes interpretation easy
 
@@ -22,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc,
+    Arc, RwLock,
 };
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
@@ -52,7 +50,7 @@ macro_rules! atomic_load {
 /// Data collection of statistics related to a scan
 #[derive(Deserialize, Debug, Serialize)]
 pub struct Stats {
-    #[serde(rename = "type", default = "stats_kind")]
+    #[serde(rename = "type")]
     /// Name of this type of struct, used for serialization, i.e. `{"type":"statistics"}`
     kind: String,
 
@@ -60,7 +58,7 @@ pub struct Stats {
     timeouts: AtomicUsize,
 
     /// tracker for total number of requests sent by the client
-    requests: AtomicUsize,
+    requests: usize,
 
     /// tracker for total number of requests expected to send if the scan runs to completion
     ///
@@ -103,11 +101,9 @@ pub struct Stats {
 
     /// tracker for overall number of all filtered responses
     responses_filtered: AtomicUsize,
-}
 
-/// default value for `Stats::kind`
-fn stats_kind() -> String {
-    String::from("statistics")
+    /// tracker for each directory's total scan time in seconds as a float
+    directory_scan_times: Vec<f64>,
 }
 
 /// Default implementation for Stats
@@ -130,6 +126,7 @@ impl Default for Stats {
             status_403s: Default::default(),
             wildcards_filtered: Default::default(),
             responses_filtered: Default::default(),
+            directory_scan_times: Vec::new(),
         }
     }
 }
@@ -248,6 +245,7 @@ impl Stats {
         }
     }
 
+    /// Build out the summary string of a `Stats` object
     fn summary(&self) -> String {
         let results_bottom = "───────────────────────────┬──────────────────────";
         let results_top = "──────────────────────────────────────────────────";
@@ -264,14 +262,12 @@ impl Stats {
 
         let mut lines = Vec::new();
 
-        let results_header = format!("  📊{}📊", pad_str("Results", 44, Alignment::Center, None));
+        let padded_results = pad_str("Results", 44, Alignment::Center, None);
+        let results_header = format!("\u{0020}📊{}📊\u{0020}", padded_results);
+
         lines.push(results_top.to_string());
         lines.push(results_header);
         lines.push(results_bottom.to_string());
-
-        // printer.println(format!("{}", results_top));
-        // printer.println(results_header);
-        // printer.println(format!("{}", results_bottom));
 
         let responses = format_summary_item!(
             "Requests Sent / Expected",
@@ -305,6 +301,8 @@ impl Stats {
                 lines.push(msg);
             }
         }
+
+        // todo scan time stuff
 
         lines.push(bottom.to_string());
 
@@ -392,7 +390,7 @@ pub enum StatField {
 /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
 pub async fn spawn_statistics_handler(
     mut stats_channel: UnboundedReceiver<StatCommand>,
-    stats: Arc<Stats>,
+    stats: Arc<RwLock<Stats>>,
 ) {
     log::trace!(
         "enter: spawn_statistics_handler({:?}, {:?})",
@@ -403,7 +401,7 @@ pub async fn spawn_statistics_handler(
     while let Some(command) = stats_channel.recv().await {
         match command as StatCommand {
             StatCommand::AddError(err) => {
-                stats.add_error(err);
+                stats.read().unwrap().add_error(err);
             }
             StatCommand::AddStatus(status) => {
                 stats.add_status_code(status);
@@ -422,10 +420,14 @@ pub async fn spawn_statistics_handler(
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
 /// updates to the aforementioned object.
-pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
+pub fn initialize() -> (
+    Arc<RwLock<Stats>>,
+    UnboundedSender<StatCommand>,
+    JoinHandle<()>,
+) {
     log::trace!("enter: initialize");
 
-    let stats_tracker = Arc::new(Stats::default());
+    let stats_tracker = Arc::new(RwLock::new(Stats::default()));
     let cloned = stats_tracker.clone();
     let (tx_stats, rx_stats): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
     let stats_thread =
@@ -446,7 +448,11 @@ mod tests {
     use super::*;
 
     /// simple helper to reduce code reuse
-    fn setup_stats_test() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
+    fn setup_stats_test() -> (
+        Arc<RwLock<Stats>>,
+        UnboundedSender<StatCommand>,
+        JoinHandle<()>,
+    ) {
         initialize()
     }
 

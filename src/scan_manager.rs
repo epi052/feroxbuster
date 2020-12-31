@@ -574,7 +574,7 @@ pub struct FeroxState {
     /// Known responses
     responses: &'static FeroxResponses,
 
-    statistics: Arc<Stats>,
+    statistics: Arc<RwLock<Stats>>,
 }
 
 /// FeroxSerialize implementation for FeroxState
@@ -594,7 +594,7 @@ impl FeroxSerialize for FeroxState {
 /// that representation to seconds and then wait for those seconds to elapse.  Once that period
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
-pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
+pub async fn start_max_time_thread(time_spec: &str, stats: Arc<RwLock<Stats>>) {
     log::trace!("enter: start_max_time_thread({})", time_spec);
 
     // as this function has already made it through the parser, which calls is_match on
@@ -636,7 +636,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
 }
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler(stats: Arc<Stats>) {
+fn sigint_handler(stats: Arc<RwLock<Stats>>) {
     log::trace!("enter: sigint_handler");
 
     let ts = SystemTime::now()
