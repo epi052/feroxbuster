@@ -477,11 +477,6 @@ fn main() {
     // setup logging based on the number of -v's used
     logger::initialize(CONFIGURATION.verbosity);
 
-    // if CONFIGURATION.save_state {
-    //     // start the ctrl+c handler
-    //     scan_manager::initialize();
-    // }
-
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]
     set_open_file_limit(DEFAULT_OPEN_FILE_LIMIT);
