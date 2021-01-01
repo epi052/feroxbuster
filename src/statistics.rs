@@ -646,7 +646,7 @@ mod tests {
         stats.update_usize_field(StatField::WildcardsFiltered, 1);
 
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 0);
+        assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 2);
     }
 
     #[test]
