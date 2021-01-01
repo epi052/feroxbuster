@@ -574,7 +574,7 @@ pub struct FeroxState {
     /// Known responses
     responses: &'static FeroxResponses,
 
-    statistics: Arc<RwLock<Stats>>,
+    statistics: Arc<Stats>,
 }
 
 /// FeroxSerialize implementation for FeroxState
@@ -594,7 +594,7 @@ impl FeroxSerialize for FeroxState {
 /// that representation to seconds and then wait for those seconds to elapse.  Once that period
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
-pub async fn start_max_time_thread(time_spec: &str, stats: Arc<RwLock<Stats>>) {
+pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
     log::trace!("enter: start_max_time_thread({})", time_spec);
 
     // as this function has already made it through the parser, which calls is_match on
@@ -624,7 +624,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<RwLock<Stats>>) {
         log::trace!("exit: start_max_time_thread");
 
         #[cfg(test)]
-        panic!();
+        panic!(stats);
         #[cfg(not(test))]
         sigint_handler(stats);
     }
@@ -636,7 +636,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<RwLock<Stats>>) {
 }
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler(stats: Arc<RwLock<Stats>>) {
+fn sigint_handler(stats: Arc<Stats>) {
     log::trace!("enter: sigint_handler");
 
     let ts = SystemTime::now()
@@ -1016,6 +1016,8 @@ mod tests {
         let saved_id = ferox_scan.lock().unwrap().id.clone();
         SCANNED_URLS.insert(ferox_scan);
 
+        let stats = Arc::new(Stats::new());
+
         let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
         let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
         RESPONSES.insert(response);
@@ -1024,6 +1026,7 @@ mod tests {
             scans: &SCANNED_URLS,
             responses: &RESPONSES,
             config: &CONFIGURATION,
+            statistics: stats,
         };
 
         let expected_strs = predicates::str::contains("scans: FeroxScans").and(
@@ -1052,8 +1055,9 @@ mod tests {
     async fn start_max_time_thread_panics_after_delay() {
         let now = time::Instant::now();
         let delay = time::Duration::new(3, 0);
+        let stats = Arc::new(Stats::new());
 
-        start_max_time_thread("3s").await;
+        start_max_time_thread("3s", stats).await;
 
         assert!(now.elapsed() > delay);
     }
@@ -1064,9 +1068,10 @@ mod tests {
     async fn start_max_time_thread_returns_immediately_with_too_large_input() {
         let now = time::Instant::now();
         let delay = time::Duration::new(1, 0);
+        let stats = Arc::new(Stats::new());
 
         // pub const MAX: usize = usize::MAX; // 18_446_744_073_709_551_615usize
-        start_max_time_thread("18446744073709551616m").await; // can't fit in dest u64
+        start_max_time_thread("18446744073709551616m", stats).await; // can't fit in dest u64
 
         assert!(now.elapsed() < delay); // assuming function call will take less than 1second
     }

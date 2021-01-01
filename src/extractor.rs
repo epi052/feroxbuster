@@ -3,7 +3,7 @@ use crate::{
     config::{Configuration, CONFIGURATION},
     scanner::SCANNED_URLS,
     statistics::{
-        StatCommand::{self, UpdateField},
+        StatCommand::{self, UpdateUsizeField},
         StatField::{LinksExtracted, TotalExpected},
     },
     utils::{format_url, make_request},
@@ -148,8 +148,8 @@ pub async fn get_links(
         }
     }
 
-    update_stat!(tx_stats, UpdateField(LinksExtracted, links.len()));
-    update_stat!(tx_stats, UpdateField(TotalExpected, links.len()));
+    update_stat!(tx_stats, UpdateUsizeField(LinksExtracted, links.len()));
+    update_stat!(tx_stats, UpdateUsizeField(TotalExpected, links.len()));
 
     log::trace!("exit: get_links -> {:?}", links);
 
@@ -320,8 +320,8 @@ pub async fn extract_robots_txt(
         }
     }
 
-    update_stat!(tx_stats, UpdateField(LinksExtracted, links.len()));
-    update_stat!(tx_stats, UpdateField(TotalExpected, links.len()));
+    update_stat!(tx_stats, UpdateUsizeField(LinksExtracted, links.len()));
+    update_stat!(tx_stats, UpdateUsizeField(TotalExpected, links.len()));
 
     log::trace!("exit: extract_robots_txt -> {:?}", links);
     links
@@ -451,7 +451,7 @@ mod tests {
 
         let ferox_response = FeroxResponse::from(response, true).await;
 
-        let links = get_links(&ferox_response).await;
+        let links = get_links(&ferox_response, tx).await;
 
         assert!(links.is_empty());
 

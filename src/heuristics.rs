@@ -3,7 +3,7 @@ use crate::{
     filters::WildcardFilter,
     scanner::should_filter_response,
     statistics::{
-        StatCommand::{self, AddError, UpdateField},
+        StatCommand::{self, AddError, UpdateUsizeField},
         StatError::UrlFormat,
         StatField::TotalExpected,
     },
@@ -178,7 +178,7 @@ async fn make_wildcard_request(
         }
     };
 
-    update_stat!(tx_stats, UpdateField(TotalExpected, 1));
+    update_stat!(tx_stats, UpdateUsizeField(TotalExpected, 1));
 
     match make_request(
         &CONFIGURATION.client,
@@ -267,7 +267,7 @@ pub async fn connectivity_test(
             }
         }
 
-        update_stat!(tx_stats, UpdateField(TotalExpected, 1));
+        update_stat!(tx_stats, UpdateUsizeField(TotalExpected, 1));
     }
 
     if good_urls.is_empty() {

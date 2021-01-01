@@ -1,10 +1,8 @@
 // todo consider batch size for stats update/display (if display is used)
 // todo are there more metrics to capture?
 // - domains redirected to?
-// - number of busted?
 // - number of borked urls?
 // - total time to run
-// - time per directory
 // todo integration test that hits some/all of the errors in make_request
 // todo create a summary report to be shown when the scan ends, should present the accumulated data in a way that makes interpretation easy
 
@@ -20,8 +18,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc, RwLock,
+    Arc, Mutex,
 };
+use std::time::Instant;
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
@@ -47,8 +46,18 @@ macro_rules! atomic_load {
     };
 }
 
+/// Wrapper around consistent formatting for summary table items
+macro_rules! format_summary_item {
+    ($title:expr, $value:expr) => {
+        format!(
+            "\u{0020}{:\u{0020}<26}\u{2502}\u{0020}{:\u{0020}^21}",
+            $title, $value
+        )
+    };
+}
+
 /// Data collection of statistics related to a scan
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Default, Deserialize, Debug, Serialize)]
 pub struct Stats {
     #[serde(rename = "type")]
     /// Name of this type of struct, used for serialization, i.e. `{"type":"statistics"}`
@@ -58,7 +67,7 @@ pub struct Stats {
     timeouts: AtomicUsize,
 
     /// tracker for total number of requests sent by the client
-    requests: usize,
+    requests: AtomicUsize,
 
     /// tracker for total number of requests expected to send if the scan runs to completion
     ///
@@ -102,33 +111,14 @@ pub struct Stats {
     /// tracker for overall number of all filtered responses
     responses_filtered: AtomicUsize,
 
-    /// tracker for each directory's total scan time in seconds as a float
-    directory_scan_times: Vec<f64>,
-}
+    /// tracker for number of files found
+    resources_discovered: AtomicUsize,
 
-/// Default implementation for Stats
-impl Default for Stats {
-    /// Small wrapper for default to set `kind` to "statistics"
-    fn default() -> Self {
-        Self {
-            kind: String::from("statistics"),
-            timeouts: Default::default(),
-            requests: Default::default(),
-            expected_per_scan: Default::default(),
-            total_expected: Default::default(),
-            errors: Default::default(),
-            successes: Default::default(),
-            redirects: Default::default(),
-            client_errors: Default::default(),
-            server_errors: Default::default(),
-            total_scans: Default::default(),
-            links_extracted: Default::default(),
-            status_403s: Default::default(),
-            wildcards_filtered: Default::default(),
-            responses_filtered: Default::default(),
-            directory_scan_times: Vec::new(),
-        }
-    }
+    /// tracker for each directory's total scan time in seconds as a float
+    directory_scan_times: Mutex<Vec<f64>>,
+
+    /// tracker for total runtime
+    total_runtime: Mutex<Vec<f64>>,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -146,9 +136,25 @@ impl FeroxSerialize for Stats {
 
 /// implementation of statistics data collection struct
 impl Stats {
+    /// Small wrapper for default to set `kind` to "statistics" and `total_runtime` to have at least
+    /// one value
+    pub fn new() -> Self {
+        let mut stats = Self::default();
+        stats.kind = String::from("statistics");
+        stats.total_runtime = Mutex::new(vec![0.0]);
+        stats
+    }
+
     /// increment `requests` field by one
     fn add_request(&self) {
         atomic_increment!(self.requests);
+    }
+
+    /// given an `Instant` update total runtime
+    fn update_runtime(&self, seconds: f64) {
+        if let Ok(mut runtime) = self.total_runtime.lock() {
+            runtime[0] = seconds;
+        }
     }
 
     /// save an instance of `Stats` to disk
@@ -217,7 +223,39 @@ impl Stats {
         }
     }
 
-    fn update_field(&self, field: StatField, value: usize) {
+    /// Takes all known directory scan times from `directory_scan_times` and calculates the
+    /// shortest, longest, average, and total scan times (returned in that order)
+    ///
+    /// If a mutex can't be acquired, 0.0 is returned for the values behind the mutex
+    fn calculate_scan_times(&self) -> (f64, f64, f64, f64) {
+        let mut shortest = 0.0;
+        let mut longest = 0.0;
+        let mut average = 0.0;
+        let mut total = 0.0;
+
+        if let Ok(scans) = self.directory_scan_times.lock() {
+            shortest = scans.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+            longest = scans.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+            average = scans.iter().sum::<f64>() / scans.len() as f64;
+        }
+
+        if let Ok(runtime) = self.total_runtime.lock() {
+            total = runtime[0];
+        }
+
+        (shortest, longest, average, total)
+    }
+
+    /// Update a `Stats` field of type f64
+    fn update_f64_field(&self, field: StatField, value: f64) {
+        if let StatField::DirScanTimes = field {
+            // todo unwrap
+            self.directory_scan_times.lock().unwrap().push(value);
+        }
+    }
+
+    /// Update a `Stats` field of type usize
+    fn update_usize_field(&self, field: StatField, value: usize) {
         match field {
             StatField::ExpectedPerScan => {
                 atomic_increment!(self.expected_per_scan, value);
@@ -242,46 +280,42 @@ impl Stats {
             StatField::ResponsesFiltered => {
                 atomic_increment!(self.responses_filtered, value);
             }
+            StatField::ResourcesDiscovered => {
+                atomic_increment!(self.resources_discovered, value);
+            }
+            _ => {} // f64 fields
         }
     }
 
-    /// Build out the summary string of a `Stats` object
-    fn summary(&self) -> String {
-        let results_bottom = "───────────────────────────┬──────────────────────";
-        let results_top = "──────────────────────────────────────────────────";
-        let bottom = "───────────────────────────┴──────────────────────";
-
-        macro_rules! format_summary_item {
-            ($title:expr, $value:expr) => {
-                format!(
-                    "\u{0020}{:\u{0020}<26}\u{2502}\u{0020}{:\u{0020}^21}",
-                    $title, $value
-                )
-            };
-        }
-
-        let mut lines = Vec::new();
-
-        let padded_results = pad_str("Results", 44, Alignment::Center, None);
-        let results_header = format!("\u{0020}📊{}📊\u{0020}", padded_results);
-
-        lines.push(results_top.to_string());
-        lines.push(results_header);
-        lines.push(results_bottom.to_string());
-
-        let responses = format_summary_item!(
-            "Requests Sent / Expected",
-            format!(
-                "{} / {}",
-                atomic_load!(self.requests),
-                atomic_load!(self.total_expected)
-            )
-        );
-
-        lines.push(responses);
-
+    /// simple encapsulation to keep `summary` a bit cleaner
+    fn add_f64_summary_data(&self, lines: &mut Vec<String>) {
         let mut fields = BTreeMap::new();
 
+        let (shortest, longest, avg, total) = self.calculate_scan_times();
+
+        fields.insert("Shortest Dir Scan", &shortest);
+        fields.insert("Longest Dir Scan", &longest);
+        fields.insert("Average Dir Scan", &avg);
+        fields.insert("Total Scan Time", &total);
+
+        for (key, value) in &fields {
+            if **value > 0.0 {
+                let msg = format!(
+                    "\u{0020}{:\u{0020}<26}\u{2502}\u{0020}{:\u{0020}^21}",
+                    key,
+                    format!("{:.4} secs", value)
+                );
+
+                lines.push(msg);
+            }
+        }
+    }
+
+    /// simple encapsulation to keep `summary` a bit cleaner
+    fn add_usize_summary_data(&self, lines: &mut Vec<String>) {
+        let mut fields = BTreeMap::new();
+
+        fields.insert("Requests Sent", &self.requests);
         fields.insert("Errors", &self.errors);
         fields.insert("403 Forbidden", &self.status_403s);
         fields.insert("Success Status Codes", &self.successes);
@@ -293,6 +327,7 @@ impl Stats {
         fields.insert("Server Error Codes", &self.server_errors);
         fields.insert("Non-404s Filtered", &self.responses_filtered);
         fields.insert("Wildcard Responses", &self.wildcards_filtered);
+        fields.insert("Resources Discovered", &self.resources_discovered);
 
         for (key, value) in &fields {
             let loaded = atomic_load!(value);
@@ -301,8 +336,25 @@ impl Stats {
                 lines.push(msg);
             }
         }
+    }
 
-        // todo scan time stuff
+    /// Build out the summary string of a `Stats` object
+    fn summary(&self) -> String {
+        let results_bottom = "───────────────────────────┬──────────────────────";
+        let results_top = "──────────────────────────────────────────────────";
+        let bottom = "───────────────────────────┴──────────────────────";
+
+        let mut lines = Vec::new();
+
+        let padded_results = pad_str("Results", 44, Alignment::Center, None);
+        let results_header = format!("\u{0020}📊{}📊\u{0020}", padded_results);
+
+        lines.push(results_top.to_string());
+        lines.push(results_header);
+        lines.push(results_bottom.to_string());
+
+        self.add_f64_summary_data(&mut lines);
+        self.add_usize_summary_data(&mut lines);
 
         lines.push(bottom.to_string());
 
@@ -351,8 +403,11 @@ pub enum StatCommand {
     /// Add one to the proper field(s) based on the given `StatusCode`
     AddStatus(StatusCode),
 
-    /// Update a `Stats` field that corresponds to the given `StatField` by the given value
-    UpdateField(StatField, usize),
+    /// Update a `Stats` field that corresponds to the given `StatField` by the given `usize` value
+    UpdateUsizeField(StatField, usize),
+
+    /// Update a `Stats` field that corresponds to the given `StatField` by the given `f64` value
+    UpdateF64Field(StatField, f64),
 
     /// Save a `Stats` object to disk using `reporter::get_cached_file_handle`
     Save,
@@ -369,20 +424,26 @@ pub enum StatField {
     /// the `expected_per_scan` field after initialization
     ExpectedPerScan,
 
-    /// Translates to Stats::total_scans
+    /// Translates to `total_scans`
     TotalScans,
 
-    /// Translates to links_extracted
+    /// Translates to `links_extracted`
     LinksExtracted,
 
-    /// Translates to total_expected
+    /// Translates to `total_expected`
     TotalExpected,
 
-    /// Translates to wildcards_filtered
+    /// Translates to `wildcards_filtered`
     WildcardsFiltered,
 
-    /// Translates to responses_filtered
+    /// Translates to `responses_filtered`
     ResponsesFiltered,
+
+    /// Translates to `resources_discovered`
+    ResourcesDiscovered,
+
+    /// Translates to `directory_scan_times`; assumes a single append to the vector
+    DirScanTimes,
 }
 
 /// Spawn a single consumer task (sc side of mpsc)
@@ -390,7 +451,7 @@ pub enum StatField {
 /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
 pub async fn spawn_statistics_handler(
     mut stats_channel: UnboundedReceiver<StatCommand>,
-    stats: Arc<RwLock<Stats>>,
+    stats: Arc<Stats>,
 ) {
     log::trace!(
         "enter: spawn_statistics_handler({:?}, {:?})",
@@ -398,20 +459,25 @@ pub async fn spawn_statistics_handler(
         stats
     );
 
+    let start = Instant::now();
+
     while let Some(command) = stats_channel.recv().await {
         match command as StatCommand {
             StatCommand::AddError(err) => {
-                stats.read().unwrap().add_error(err);
+                stats.add_error(err);
             }
             StatCommand::AddStatus(status) => {
                 stats.add_status_code(status);
             }
             StatCommand::AddRequest => stats.add_request(),
             StatCommand::Save => stats.save(),
-            StatCommand::UpdateField(field, value) => stats.update_field(field, value),
+            StatCommand::UpdateUsizeField(field, value) => stats.update_usize_field(field, value),
+            StatCommand::UpdateF64Field(field, value) => stats.update_f64_field(field, value),
             StatCommand::Exit => break,
         }
     }
+
+    stats.update_runtime(start.elapsed().as_secs_f64());
 
     stats.print_summary(&*PROGRESS_PRINTER);
 
@@ -420,14 +486,10 @@ pub async fn spawn_statistics_handler(
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
 /// updates to the aforementioned object.
-pub fn initialize() -> (
-    Arc<RwLock<Stats>>,
-    UnboundedSender<StatCommand>,
-    JoinHandle<()>,
-) {
+pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
     log::trace!("enter: initialize");
 
-    let stats_tracker = Arc::new(RwLock::new(Stats::default()));
+    let stats_tracker = Arc::new(Stats::default());
     let cloned = stats_tracker.clone();
     let (tx_stats, rx_stats): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
     let stats_thread =
@@ -448,11 +510,7 @@ mod tests {
     use super::*;
 
     /// simple helper to reduce code reuse
-    fn setup_stats_test() -> (
-        Arc<RwLock<Stats>>,
-        UnboundedSender<StatCommand>,
-        JoinHandle<()>,
-    ) {
+    fn setup_stats_test() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
         initialize()
     }
 
@@ -544,7 +602,7 @@ mod tests {
     ///     - requests
     ///     - errors
     fn stats_increments_timeouts() {
-        let stats = Stats::default();
+        let stats = Stats::new();
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
@@ -553,12 +611,5 @@ mod tests {
         assert_eq!(stats.errors.load(Ordering::Relaxed), 4);
         assert_eq!(stats.requests.load(Ordering::Relaxed), 4);
         assert_eq!(stats.timeouts.load(Ordering::Relaxed), 4);
-    }
-
-    #[test]
-    /// when Stats::new is called, the value is properly assigned to expected_requests
-    fn stats_new_sets_expected_requests() {
-        let stats = Stats::new(42);
-        assert_eq!(stats.expected_per_scan.load(Ordering::Relaxed), 42);
     }
 }

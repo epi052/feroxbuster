@@ -1,7 +1,10 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     scanner::RESPONSES,
-    statistics::StatCommand,
+    statistics::{
+        StatCommand::{self, UpdateUsizeField},
+        StatField::ResourcesDiscovered,
+    },
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
@@ -117,6 +120,8 @@ async fn spawn_terminal_reporter(
         if should_process_response {
             // print to stdout
             ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
+
+            update_stat!(tx_stats, UpdateUsizeField(ResourcesDiscovered, 1));
 
             if save_output {
                 // -o used, need to send the report to be written out to disk

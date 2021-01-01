@@ -1,7 +1,7 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
     statistics::{
-        StatCommand::{self, UpdateField},
+        StatCommand::{self, UpdateUsizeField},
         StatField::TotalExpected,
     },
     utils::{make_request, status_colorizer},
@@ -94,7 +94,7 @@ async fn needs_update(
     };
 
     if let Ok(response) = make_request(&client, &api_url, tx_stats.clone()).await {
-        update_stat!(tx_stats, UpdateField(TotalExpected, 1));
+        update_stat!(tx_stats, UpdateUsizeField(TotalExpected, 1));
 
         let body = response.text().await.unwrap_or_default();
 

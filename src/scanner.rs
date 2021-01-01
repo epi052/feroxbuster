@@ -1,3 +1,4 @@
+use crate::statistics::StatCommand::UpdateF64Field;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -8,8 +9,8 @@ use crate::{
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     statistics::{
-        StatCommand::{self, UpdateField},
-        StatField::{ExpectedPerScan, TotalScans, WildcardsFiltered},
+        StatCommand::{self, UpdateUsizeField},
+        StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
     },
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
@@ -133,7 +134,7 @@ fn spawn_recursion_handler(
                 continue;
             }
 
-            update_stat!(tx_stats, UpdateField(TotalScans, 1));
+            update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
             log::info!("received {} on recursion channel", resp);
 
@@ -351,11 +352,8 @@ pub fn should_filter_response(
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(&response) {
-                    match filter.as_any().downcast_ref::<WildcardFilter>() {
-                        Some(_) => {
-                            update_stat!(tx_stats, UpdateField(WildcardsFiltered, 1))
-                        }
-                        None => {}
+                    if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
+                        update_stat!(tx_stats, UpdateUsizeField(WildcardsFiltered, 1))
                     }
                     return true;
                 }
@@ -504,12 +502,15 @@ pub async fn scan_url(
 
     log::info!("Starting scan against: {}", target_url);
 
+    // todo import
+    let scan_timer = std::time::Instant::now();
+
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
     if CALL_COUNT.load(Ordering::Relaxed) < num_targets {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
-        update_stat!(tx_stats, UpdateField(TotalScans, 1));
+        update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
@@ -618,6 +619,11 @@ pub async fn scan_url(
     producers.await;
     log::trace!("done awaiting scan producers");
 
+    update_stat!(
+        tx_stats,
+        UpdateF64Field(DirScanTimes, scan_timer.elapsed().as_secs_f64())
+    );
+
     // drop the current permit so the semaphore will allow another scan to proceed
     drop(permit);
 
@@ -664,7 +670,7 @@ pub async fn initialize(
     // tell Stats object about the number of expected requests
     update_stat!(
         tx_stats,
-        UpdateField(ExpectedPerScan, num_reqs_expected as usize)
+        UpdateUsizeField(ExpectedPerScan, num_reqs_expected as usize)
     );
 
     // add any status code filters to `FILTERS` (-C|--filter-status)
