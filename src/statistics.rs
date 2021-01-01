@@ -1,10 +1,9 @@
 // todo consider batch size for stats update/display (if display is used)
-// todo are there more metrics to capture?
-// - domains redirected to?
-// - number of borked urls?
-// - total time to run
 // todo integration test that hits some/all of the errors in make_request
-// todo create a summary report to be shown when the scan ends, should present the accumulated data in a way that makes interpretation easy
+// todo maybe a realtime status updater line as progress bar or similar
+// todo resume_scan should repopulate statistics if possible or at least update an already existing Stats
+// todo logic for determining if tuning is required
+// todo gate summary display behind --summary
 
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
@@ -159,7 +158,6 @@ impl Stats {
 
     /// save an instance of `Stats` to disk
     fn save(&self) {
-        PROGRESS_PRINTER.println("FUCKING SAVING");
         let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
             Some(file) => file,
             None => {
@@ -346,7 +344,7 @@ impl Stats {
 
         let mut lines = Vec::new();
 
-        let padded_results = pad_str("Results", 44, Alignment::Center, None);
+        let padded_results = pad_str("Scan Summary", 44, Alignment::Center, None);
         let results_header = format!("\u{0020}📊{}📊\u{0020}", padded_results);
 
         lines.push(results_top.to_string());
@@ -489,7 +487,7 @@ pub async fn spawn_statistics_handler(
 pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
     log::trace!("enter: initialize");
 
-    let stats_tracker = Arc::new(Stats::default());
+    let stats_tracker = Arc::new(Stats::new());
     let cloned = stats_tracker.clone();
     let (tx_stats, rx_stats): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
     let stats_thread =
