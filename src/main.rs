@@ -278,7 +278,6 @@ async fn wrapped_main() {
         PROGRESS_BAR.join().unwrap();
     });
 
-    // todo am i gonna use stats for anything?
     let (stats, tx_stats, stats_handle) = statistics::initialize();
 
     if !CONFIGURATION.time_limit.is_empty() {

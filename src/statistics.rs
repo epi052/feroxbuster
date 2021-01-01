@@ -533,7 +533,7 @@ mod tests {
     }
 
     #[tokio::test(core_threads = 1)]
-    /// when sent StatCommand::IncrementRequest, stats object should reflect the change
+    /// when sent StatCommand::AddRequest, stats object should reflect the change
     async fn statistics_handler_increments_requests() {
         let (stats, tx, handle) = setup_stats_test();
 
@@ -547,7 +547,7 @@ mod tests {
     }
 
     #[tokio::test(core_threads = 1)]
-    /// when sent StatCommand::IncrementRequest, stats object should reflect the change
+    /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
     ///     - errors
@@ -571,7 +571,7 @@ mod tests {
     }
 
     #[tokio::test(core_threads = 1)]
-    /// when sent StatCommand::IncrementRequest, stats object should reflect the change
+    /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
     ///     - errors
@@ -594,6 +594,28 @@ mod tests {
         assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
     }
 
+    #[tokio::test(core_threads = 1)]
+    /// when sent StatCommand::AddStatus, stats object should reflect the change
+    ///
+    /// incrementing a 500 (tracked in server_errors) should also increment:
+    ///     - errors
+    ///     - requests
+    async fn statistics_handler_increments_500_via_status_code() {
+        let (stats, tx, handle) = setup_stats_test();
+
+        let err = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err2 = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+
+        tx.send(err).unwrap_or_default();
+        tx.send(err2).unwrap_or_default();
+
+        teardown_stats_test(tx, handle).await;
+
+        assert_eq!(stats.errors.load(Ordering::Relaxed), 2);
+        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(stats.server_errors.load(Ordering::Relaxed), 2);
+    }
+
     #[test]
     /// when Stats::add_error receives StatError::Timeout, it should increment the following:
     ///     - timeouts
@@ -609,5 +631,34 @@ mod tests {
         assert_eq!(stats.errors.load(Ordering::Relaxed), 4);
         assert_eq!(stats.requests.load(Ordering::Relaxed), 4);
         assert_eq!(stats.timeouts.load(Ordering::Relaxed), 4);
+    }
+
+    #[test]
+    /// when Stats::update_usize_field receives StatField::WildcardsFiltered, it should increment
+    /// the following:
+    ///     - responses_filtered
+    fn stats_increments_wildcards() {
+        let stats = Stats::new();
+        assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
+        assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 0);
+
+        stats.update_usize_field(StatField::WildcardsFiltered, 1);
+        stats.update_usize_field(StatField::WildcardsFiltered, 1);
+
+        assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 2);
+        assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    /// when Stats::update_usize_field receives StatField::ResponsesFiltered, it should increment
+    fn stats_increments_responses_filtered() {
+        let stats = Stats::new();
+        assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
+
+        stats.update_usize_field(StatField::ResponsesFiltered, 1);
+        stats.update_usize_field(StatField::ResponsesFiltered, 1);
+        stats.update_usize_field(StatField::ResponsesFiltered, 1);
+
+        assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 3);
     }
 }
