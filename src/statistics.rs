@@ -138,10 +138,11 @@ impl Stats {
     /// Small wrapper for default to set `kind` to "statistics" and `total_runtime` to have at least
     /// one value
     pub fn new() -> Self {
-        let mut stats = Self::default();
-        stats.kind = String::from("statistics");
-        stats.total_runtime = Mutex::new(vec![0.0]);
-        stats
+        Self {
+            kind: String::from("statistics"),
+            total_runtime: Mutex::new(vec![0.0]),
+            ..Default::default()
+        }
     }
 
     /// increment `requests` field by one

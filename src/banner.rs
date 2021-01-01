@@ -576,8 +576,10 @@ mod tests {
     #[tokio::test(core_threads = 1)]
     /// test to hit no execution of statuscode for loop in banner
     async fn banner_intialize_without_status_codes() {
-        let mut config = Configuration::default();
-        config.status_codes = vec![];
+        let config = Configuration {
+            status_codes: vec![],
+            ..Default::default()
+        };
 
         let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
 
@@ -594,8 +596,11 @@ mod tests {
     #[tokio::test(core_threads = 1)]
     /// test to hit an empty config file
     async fn banner_intialize_without_config_file() {
-        let mut config = Configuration::default();
-        config.config = String::new();
+        let config = Configuration {
+            config: String::new(),
+            ..Default::default()
+        };
+
         let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
 
         initialize(
@@ -611,8 +616,11 @@ mod tests {
     #[tokio::test(core_threads = 1)]
     /// test to hit an empty config file
     async fn banner_intialize_without_queries() {
-        let mut config = Configuration::default();
-        config.queries = vec![(String::new(), String::new())];
+        let config = Configuration {
+            queries: vec![(String::new(), String::new())],
+            ..Default::default()
+        };
+
         let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
 
         initialize(

@@ -866,8 +866,10 @@ mod tests {
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
     async fn initialize_panics_on_bad_regex() {
-        let mut config = Configuration::default();
-        config.filter_regex = vec![r"(".to_string()];
+        let config = Configuration {
+            filter_regex: vec![r"(".to_string()],
+            ..Default::default()
+        };
         let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         initialize(1, &config, tx).await;
     }

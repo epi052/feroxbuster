@@ -136,13 +136,12 @@ impl FeroxScan {
 
     /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
     pub fn new(url: &str, scan_type: ScanType, pb: Option<ProgressBar>) -> Arc<Mutex<Self>> {
-        let mut me = Self::default();
-
-        me.url = url.to_string();
-        me.scan_type = scan_type;
-        me.progress_bar = pb;
-
-        Arc::new(Mutex::new(me))
+        Arc::new(Mutex::new(Self {
+            url: url.to_string(),
+            scan_type,
+            progress_bar: pb,
+            ..Default::default()
+        }))
     }
 
     /// Mark the scan as complete and stop the scan's progress bar

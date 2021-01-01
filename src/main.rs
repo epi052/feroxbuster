@@ -121,8 +121,10 @@ async fn scan(
             .await??;
 
     if words.len() == 0 {
-        let mut err = FeroxError::default();
-        err.message = format!("Did not find any words in {}", CONFIGURATION.wordlist);
+        let err = FeroxError {
+            message: format!("Did not find any words in {}", CONFIGURATION.wordlist),
+        };
+
         return Err(Box::new(err));
     }
 

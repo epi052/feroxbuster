@@ -80,7 +80,7 @@ fn report_and_exit(err: &str) -> ! {
 pub struct Configuration {
     #[serde(rename = "type", default = "serialized_type")]
     /// Name of this type of struct, used for serialization, i.e. `{"type":"configuration"}`
-    kind: String,
+    pub kind: String,
 
     /// Path to the wordlist
     #[serde(default = "wordlist")]
@@ -401,8 +401,10 @@ impl Configuration {
     pub fn new() -> Self {
         // when compiling for test, we want to eliminate the runtime dependency of the parser
         if cfg!(test) {
-            let mut test_config = Configuration::default();
-            test_config.save_state = false; // don't clutter up junk when testing
+            let test_config = Configuration {
+                save_state: false, // don't clutter up junk when testing
+                ..Default::default()
+            };
             return test_config;
         }
 

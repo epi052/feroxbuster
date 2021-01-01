@@ -199,8 +199,7 @@ pub fn format_url(
         );
         log::warn!("{}", message);
 
-        let mut err = FeroxError::default();
-        err.message = message;
+        let err = FeroxError { message };
 
         log::trace!("exit: format_url -> {}", err);
         return Err(Box::new(err));
