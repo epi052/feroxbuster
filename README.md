@@ -78,6 +78,7 @@ Enumeration.
     - [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
+- [Interpreting Results](#interpreting-results)
 - [Example Usage](#-example-usage)
     - [Multiple Values](#multiple-values)
     - [Include Headers](#include-headers)
@@ -459,6 +460,16 @@ OPTIONS:
     -a, --user-agent <USER_AGENT>           Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                   Path to the wordlist
 ```
+
+## Scan Display Explained 
+
+![total-bar-explained](img/total-bar-explained.png)
+![response-bar-explained](img/response-bar-explained.png)
+
+todo: change section heading 
+todo: change ToC anchor 
+todo: insert emoji above
+todo: words make for good explaining
 
 ## 🧰 Example Usage
 

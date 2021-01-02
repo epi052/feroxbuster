@@ -1,7 +1,7 @@
 use crate::{
     config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
-    progress,
+    progress::{add_bar, BarType},
     reporter::safe_file_write,
     scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
     statistics::Stats,
@@ -124,7 +124,7 @@ impl FeroxScan {
             pb.clone()
         } else {
             let num_requests = NUMBER_OF_REQUESTS.load(Ordering::Relaxed);
-            let pb = progress::add_bar(&self.url, num_requests, false, false);
+            let pb = add_bar(&self.url, num_requests, BarType::Default);
 
             pb.reset_elapsed();
 
@@ -438,11 +438,10 @@ impl FeroxScans {
     fn add_scan(&self, url: &str, scan_type: ScanType) -> (bool, Arc<Mutex<FeroxScan>>) {
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar = progress::add_bar(
+                let progress_bar = add_bar(
                     &url,
                     NUMBER_OF_REQUESTS.load(Ordering::Relaxed),
-                    false,
-                    false,
+                    BarType::Default,
                 );
 
                 progress_bar.reset_elapsed();

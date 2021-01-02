@@ -1,6 +1,9 @@
 use crate::scan_manager::resume_scan;
 use crate::utils::{module_colorizer, status_colorizer};
-use crate::{client, parser, progress};
+use crate::{
+    client, parser,
+    progress::{add_bar, BarType},
+};
 use crate::{FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::{value_t, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
@@ -22,7 +25,7 @@ lazy_static! {
     pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
 
     /// Global progress bar that is only used for printing messages that don't jack up other bars
-    pub static ref PROGRESS_PRINTER: ProgressBar = progress::add_bar("", 0, true, false);
+    pub static ref PROGRESS_PRINTER: ProgressBar = add_bar("", 0, BarType::Hidden);
 }
 
 /// macro helper to abstract away repetitive configuration updates

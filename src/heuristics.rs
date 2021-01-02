@@ -5,7 +5,7 @@ use crate::{
     statistics::{
         StatCommand::{self, AddError, UpdateUsizeField},
         StatError::UrlFormat,
-        StatField::TotalExpected,
+        // StatField::TotalExpected,
     },
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
@@ -178,8 +178,6 @@ async fn make_wildcard_request(
         }
     };
 
-    update_stat!(tx_stats, UpdateUsizeField(TotalExpected, 1));
-
     match make_request(
         &CONFIGURATION.client,
         &nonexistent.to_owned(),
@@ -266,8 +264,6 @@ pub async fn connectivity_test(
                 log::error!("{}", e);
             }
         }
-
-        update_stat!(tx_stats, UpdateUsizeField(TotalExpected, 1));
     }
 
     if good_urls.is_empty() {

@@ -1,9 +1,6 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
-    statistics::{
-        StatCommand::{self, UpdateUsizeField},
-        StatField::TotalExpected,
-    },
+    statistics::StatCommand,
     utils::{make_request, status_colorizer},
 };
 use console::{style, Emoji};
@@ -94,8 +91,6 @@ async fn needs_update(
     };
 
     if let Ok(response) = make_request(&client, &api_url, tx_stats.clone()).await {
-        update_stat!(tx_stats, UpdateUsizeField(TotalExpected, 1));
-
         let body = response.text().await.unwrap_or_default();
 
         let json_response: Value = serde_json::from_str(&body).unwrap_or_default();
@@ -550,6 +545,9 @@ by Ben "epi" Risher {}                 ver: {}"#,
     .unwrap_or_default();
 
     writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
+    // todo: this isn't printing properly anymore, feels like the totals bar is overwriting it
+    // writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
+    // writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
 }
 
 #[cfg(test)]

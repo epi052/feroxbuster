@@ -1,4 +1,5 @@
 use crossterm::event::{self, Event, KeyCode};
+use feroxbuster::progress::BarType;
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
@@ -130,6 +131,14 @@ async fn scan(
 
     scanner::initialize(words.len(), &CONFIGURATION, tx_stats.clone()).await;
 
+    // at this point, the stat thread's progress bar can be created; things that needed to happen
+    // first:
+    // - banner gets printed
+    // - scanner initialized (this sent expected requests per directory to the stats thread, which
+    //   having been set, makes it so the progress bar doesn't flash as full before anything has
+    //   even happened
+    update_stat!(tx_stats, StatCommand::CreateBar);
+
     if CONFIGURATION.resumed {
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {
@@ -139,8 +148,7 @@ async fn scan(
                         let pb = add_bar(
                             &locked_scan.url,
                             words.len().try_into().unwrap_or_default(),
-                            false,
-                            true,
+                            BarType::Default,
                         );
                         pb.finish();
                     }

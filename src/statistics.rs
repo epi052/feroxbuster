@@ -6,12 +6,13 @@
 // todo gate summary display behind --summary
 
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::CONFIGURATION,
+    progress::{add_bar, BarType},
     reporter::{get_cached_file_handle, safe_file_write},
     FeroxChannel, FeroxSerialize,
 };
-use console::{pad_str, Alignment};
-use indicatif::ProgressBar;
+use console::{pad_str, style, Alignment};
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -206,13 +207,8 @@ impl Stats {
         } else if status.is_redirection() {
             atomic_increment!(self.redirects);
         } else if status.is_client_error() {
-            if status.as_u16() != 404 {
-                // don't increment errors for 404, they're expected when busting
-                atomic_increment!(self.errors);
-            }
             atomic_increment!(self.client_errors);
         } else if status.is_server_error() {
-            atomic_increment!(self.errors);
             atomic_increment!(self.server_errors);
         }
         // todo consider else / other status codes etc...
@@ -392,6 +388,7 @@ pub enum StatError {
 }
 
 /// Protocol definition for updating a Stats object via mpsc
+#[derive(Debug)]
 pub enum StatCommand {
     /// Add one to the total number of requests
     AddRequest,
@@ -401,6 +398,9 @@ pub enum StatCommand {
 
     /// Add one to the proper field(s) based on the given `StatusCode`
     AddStatus(StatusCode),
+
+    /// Create the progress bar (`BarType::Total`) that is updated from the stats thread
+    CreateBar,
 
     /// Update a `Stats` field that corresponds to the given `StatField` by the given `usize` value
     UpdateUsizeField(StatField, usize),
@@ -417,6 +417,7 @@ pub enum StatCommand {
 
 /// Enum representing fields whose updates need to be performed in batches instead of one at
 /// a time
+#[derive(Debug)]
 pub enum StatField {
     /// Due to the necessary order of events, the number of requests expected to be sent isn't
     /// known until after `statistics::initialize` is called. This command allows for updating
@@ -458,9 +459,13 @@ pub async fn spawn_statistics_handler(
         stats
     );
 
+    // will be updated later via StatCommand; delay is for banner to print first
+    let mut bar = ProgressBar::hidden();
+
     let start = Instant::now();
 
     while let Some(command) = stats_channel.recv().await {
+        log::info!("command: {:?}", command);
         match command as StatCommand {
             StatCommand::AddError(err) => {
                 stats.add_error(err);
@@ -470,15 +475,42 @@ pub async fn spawn_statistics_handler(
             }
             StatCommand::AddRequest => stats.add_request(),
             StatCommand::Save => stats.save(),
-            StatCommand::UpdateUsizeField(field, value) => stats.update_usize_field(field, value),
+            StatCommand::UpdateUsizeField(field, value) => {
+                let update_len = matches!(field, StatField::TotalScans);
+                stats.update_usize_field(field, value);
+
+                if update_len {
+                    bar.set_length(atomic_load!(stats.total_expected) as u64)
+                }
+            }
             StatCommand::UpdateF64Field(field, value) => stats.update_f64_field(field, value),
+            StatCommand::CreateBar => {
+                bar = add_bar(
+                    "",
+                    atomic_load!(stats.total_expected) as u64,
+                    BarType::Total,
+                );
+            }
             StatCommand::Exit => break,
         }
+
+        let msg = format!(
+            "{}:{:<7} {}:{:<7}",
+            style("found").green(),
+            atomic_load!(stats.resources_discovered),
+            style("errors").red(),
+            atomic_load!(stats.errors),
+        );
+
+        bar.set_message(&msg);
+        bar.inc(1);
     }
 
     stats.update_runtime(start.elapsed().as_secs_f64());
 
-    stats.print_summary(&*PROGRESS_PRINTER);
+    bar.finish();
+
+    // stats.print_summary(&*PROGRESS_PRINTER);
 
     log::trace!("exit: spawn_statistics_handler")
 }
