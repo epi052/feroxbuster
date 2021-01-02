@@ -12,7 +12,7 @@ use crate::{
     FeroxChannel, FeroxSerialize,
 };
 use console::{pad_str, style, Alignment};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::ProgressBar;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

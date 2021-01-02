@@ -3,9 +3,8 @@ use crate::{
     filters::WildcardFilter,
     scanner::should_filter_response,
     statistics::{
-        StatCommand::{self, AddError, UpdateUsizeField},
+        StatCommand::{self, AddError},
         StatError::UrlFormat,
-        // StatField::TotalExpected,
     },
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
