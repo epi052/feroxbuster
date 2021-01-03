@@ -198,7 +198,6 @@ async fn spawn_file_reporter(
         safe_file_write(&response, buffered_file.clone(), CONFIGURATION.json);
     }
 
-    // todo if --summary was used, do this, else pass
     update_stat!(tx_stats, StatCommand::Save);
 
     log::trace!("exit: spawn_file_reporter");

@@ -3,7 +3,7 @@ use crate::{
     parser::TIMESPEC_REGEX,
     progress::{add_bar, BarType},
     reporter::safe_file_write,
-    scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
+    scanner::{RESPONSES, SCANNED_URLS},
     statistics::Stats,
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
@@ -73,6 +73,9 @@ pub struct FeroxScan {
     /// The type of scan
     pub scan_type: ScanType,
 
+    /// Number of requests to populate the progress bar with
+    num_requests: u64,
+
     /// Whether or not this scan has completed
     pub complete: bool,
 
@@ -93,6 +96,7 @@ impl Default for FeroxScan {
             id: new_id,
             task: None,
             complete: false,
+            num_requests: 0,
             url: String::new(),
             progress_bar: None,
             scan_type: ScanType::File,
@@ -123,8 +127,7 @@ impl FeroxScan {
         if let Some(pb) = &self.progress_bar {
             pb.clone()
         } else {
-            let num_requests = NUMBER_OF_REQUESTS.load(Ordering::Relaxed);
-            let pb = add_bar(&self.url, num_requests, BarType::Default);
+            let pb = add_bar(&self.url, self.num_requests, BarType::Default);
 
             pb.reset_elapsed();
 
@@ -135,10 +138,16 @@ impl FeroxScan {
     }
 
     /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
-    pub fn new(url: &str, scan_type: ScanType, pb: Option<ProgressBar>) -> Arc<Mutex<Self>> {
+    pub fn new(
+        url: &str,
+        scan_type: ScanType,
+        num_requests: u64,
+        pb: Option<ProgressBar>,
+    ) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             url: url.to_string(),
             scan_type,
+            num_requests,
             progress_bar: pb,
             ..Default::default()
         }))
@@ -435,12 +444,17 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    fn add_scan(&self, url: &str, scan_type: ScanType) -> (bool, Arc<Mutex<FeroxScan>>) {
+    fn add_scan(
+        &self,
+        url: &str,
+        scan_type: ScanType,
+        stats: Arc<Stats>,
+    ) -> (bool, Arc<Mutex<FeroxScan>>) {
         let bar = match scan_type {
             ScanType::Directory => {
                 let progress_bar = add_bar(
                     &url,
-                    NUMBER_OF_REQUESTS.load(Ordering::Relaxed),
+                    stats.expected_per_scan.load(Ordering::Relaxed) as u64,
                     BarType::Default,
                 );
 
@@ -451,7 +465,9 @@ impl FeroxScans {
             ScanType::File => None,
         };
 
-        let ferox_scan = FeroxScan::new(&url, scan_type, bar);
+        let num_requests = stats.expected_per_scan.load(Ordering::Relaxed) as u64;
+
+        let ferox_scan = FeroxScan::new(&url, scan_type, num_requests, bar);
 
         // If the set did not contain the scan, true is returned.
         // If the set did contain the scan, false is returned.
@@ -465,8 +481,12 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_directory_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
-        self.add_scan(&url, ScanType::Directory)
+    pub fn add_directory_scan(
+        &self,
+        url: &str,
+        stats: Arc<Stats>,
+    ) -> (bool, Arc<Mutex<FeroxScan>>) {
+        self.add_scan(&url, ScanType::Directory, stats)
     }
 
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
@@ -474,8 +494,8 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_file_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
-        self.add_scan(&url, ScanType::File)
+    pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<Mutex<FeroxScan>>) {
+        self.add_scan(&url, ScanType::File, stats)
     }
 }
 
@@ -796,8 +816,9 @@ mod tests {
     /// add an unknown url to the hashset, expect true
     fn add_url_to_list_of_scanned_urls_with_unknown_url() {
         let urls = FeroxScans::default();
+        let stats = Arc::new(Stats::new());
         let url = "http://unknown_url";
-        let (result, _scan) = urls.add_scan(url, ScanType::Directory);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory, stats);
         assert_eq!(result, true);
     }
 
@@ -807,11 +828,13 @@ mod tests {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+        let stats = Arc::new(Stats::new());
+
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url, ScanType::Directory);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory, stats);
 
         assert_eq!(result, false);
     }
@@ -821,7 +844,8 @@ mod tests {
     fn abort_stops_progress_bar() {
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
 
         assert_eq!(
             scan.lock()
@@ -851,11 +875,13 @@ mod tests {
     fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         let urls = FeroxScans::default();
         let url = "http://unknown_url";
-        let scan = FeroxScan::new(url, ScanType::File, None);
+        let stats = Arc::new(Stats::new());
+
+        let scan = FeroxScan::new(url, ScanType::File, 0, None);
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url, ScanType::File);
+        let (result, _scan) = urls.add_scan(url, ScanType::File, stats);
 
         assert_eq!(result, false);
     }
@@ -868,8 +894,8 @@ mod tests {
         let pb_two = ProgressBar::new(2);
         let url = "http://unknown_url/";
         let url_two = "http://unknown_url/fa";
-        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
-        let scan_two = FeroxScan::new(url_two, ScanType::Directory, Some(pb_two));
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
+        let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
 
         scan_two.lock().unwrap().finish(); // one complete, one incomplete
 
@@ -882,8 +908,8 @@ mod tests {
     /// ensure that PartialEq compares FeroxScan.id fields
     fn partial_eq_compares_the_id_field() {
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, None);
-        let scan_two = FeroxScan::new(url, ScanType::Directory, None);
+        let scan = FeroxScan::new(url, ScanType::Directory, 0, None);
+        let scan_two = FeroxScan::new(url, ScanType::Directory, 0, None);
 
         assert!(!scan.lock().unwrap().eq(&scan_two.lock().unwrap()));
 
@@ -942,7 +968,7 @@ mod tests {
     #[test]
     /// given a FeroxScan, test that it serializes into the proper JSON entry
     fn ferox_scan_serialize() {
-        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let fs_json = format!(
             r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}"#,
             fs.lock().unwrap().id
@@ -956,7 +982,7 @@ mod tests {
     #[test]
     /// given a FeroxScans, test that it serializes into the proper JSON entry
     fn ferox_scans_serialize() {
-        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
             r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}]"#,
@@ -1010,7 +1036,7 @@ mod tests {
     #[test]
     /// test FeroxSerialize implementation of FeroxState
     fn feroxstates_feroxserialize_implementation() {
-        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let saved_id = ferox_scan.lock().unwrap().id.clone();
         SCANNED_URLS.insert(ferox_scan);
 

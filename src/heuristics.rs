@@ -2,10 +2,7 @@ use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     filters::WildcardFilter,
     scanner::should_filter_response,
-    statistics::{
-        StatCommand::{self, AddError},
-        StatError::UrlFormat,
-    },
+    statistics::StatCommand,
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
 };
@@ -168,6 +165,7 @@ async fn make_wildcard_request(
         CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
+        tx_stats.clone(),
     ) {
         Ok(url) => url,
         Err(e) => {
@@ -239,11 +237,10 @@ pub async fn connectivity_test(
             CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             None,
+            tx_stats.clone(),
         ) {
             Ok(url) => url,
             Err(e) => {
-                // todo this probably makes more sense inside format_url, similar to make_request
-                update_stat!(tx_stats, AddError(UrlFormat));
                 log::error!("{}", e);
                 continue;
             }

@@ -70,7 +70,7 @@ pub struct Stats {
     ///
     /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
     /// indicative of the current expectation at any given time, but is a moving target.  
-    expected_per_scan: AtomicUsize,
+    pub expected_per_scan: AtomicUsize,
 
     /// tracker for accumulating total number of requests expected (i.e. as a new scan is started
     /// this value should increase by `expected_requests`
@@ -94,6 +94,9 @@ pub struct Stats {
     /// tracker for number of scans performed, this directly equates to number of directories
     /// recursed into and affects the total number of expected requests
     total_scans: AtomicUsize,
+
+    /// tracker for initial number of requested targets
+    pub initial_targets: AtomicUsize,
 
     /// tracker for number of links extracted when `--extract-links` is used; sources are
     /// response bodies and robots.txt as of v1.11.0
@@ -299,6 +302,9 @@ impl Stats {
             StatField::ResourcesDiscovered => {
                 atomic_increment!(self.resources_discovered, value);
             }
+            StatField::InitialTargets => {
+                atomic_increment!(self.initial_targets, value);
+            }
             _ => {} // f64 fields
         }
     }
@@ -462,6 +468,9 @@ pub enum StatField {
 
     /// Translates to `resources_discovered`
     ResourcesDiscovered,
+
+    /// Translates to `initial_targets`
+    InitialTargets,
 
     /// Translates to `directory_scan_times`; assumes a single append to the vector
     DirScanTimes,

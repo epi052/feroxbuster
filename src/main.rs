@@ -1,15 +1,19 @@
 use crossterm::event::{self, Event, KeyCode};
-use feroxbuster::progress::BarType;
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     extractor::{extract_robots_txt, request_feroxresponse_from_new_link},
     heuristics, logger,
-    progress::add_bar,
+    progress::{add_bar, BarType},
     reporter,
     scan_manager::{self, PAUSE_SCAN},
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
-    statistics::{self, StatCommand},
+    statistics::{
+        self,
+        StatCommand::{self, UpdateUsizeField},
+        StatField::InitialTargets,
+        Stats,
+    },
     update_stat,
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
@@ -103,13 +107,15 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(
     mut targets: Vec<String>,
+    stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
 ) -> FeroxResult<()> {
     log::trace!(
-        "enter: scan({:?}, {:?}, {:?}, {:?})",
+        "enter: scan({:?}, {:?}, {:?}, {:?}, {:?})",
         targets,
+        stats,
         tx_term,
         tx_file,
         tx_stats
@@ -182,10 +188,10 @@ async fn scan(
                 };
 
                 if ferox_response.is_file() {
-                    SCANNED_URLS.add_file_scan(&robot_link);
+                    SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
                     send_report(tx_term.clone(), ferox_response);
                 } else {
-                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link);
+                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
 
                     if !unknown {
                         // known directory; can skip (unlikely)
@@ -200,13 +206,13 @@ async fn scan(
     }
 
     let mut tasks = vec![];
-    let num_targets = targets.len();
 
     for target in targets {
         let word_clone = words.clone();
         let term_clone = tx_term.clone();
         let file_clone = tx_file.clone();
-        let stats_clone = tx_stats.clone();
+        let tx_stats_clone = tx_stats.clone();
+        let stats_clone = stats.clone();
 
         let task = tokio::spawn(async move {
             let base_depth = get_current_depth(&target);
@@ -214,10 +220,10 @@ async fn scan(
                 &target,
                 word_clone,
                 base_depth,
-                num_targets,
+                stats_clone,
                 term_clone,
                 file_clone,
-                stats_clone,
+                tx_stats_clone,
             )
             .await;
         });
@@ -339,6 +345,8 @@ async fn wrapped_main() {
         }
     };
 
+    update_stat!(tx_stats, UpdateUsizeField(InitialTargets, targets.len()));
+
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
@@ -372,6 +380,7 @@ async fn wrapped_main() {
     // kick off a scan against any targets determined to be responsive
     match scan(
         live_targets,
+        stats,
         tx_term.clone(),
         tx_file.clone(),
         tx_stats.clone(),

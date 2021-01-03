@@ -58,14 +58,16 @@ mod tests {
         let p1 = add_bar("prefix", 2, BarType::Hidden); // hidden
         let p2 = add_bar("prefix", 2, BarType::Message); // no per second field
         let p3 = add_bar("prefix", 2, BarType::Default); // normal bar
-                                                         // todo add Total bartype to test
+        let p4 = add_bar("prefix", 2, BarType::Total); // totals bar
 
         p1.finish();
         p2.finish();
         p3.finish();
+        p4.finish();
 
         assert!(p1.is_finished());
         assert!(p2.is_finished());
         assert!(p3.is_finished());
+        assert!(p4.is_finished());
     }
 }

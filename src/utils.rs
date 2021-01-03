@@ -1,10 +1,10 @@
 #![macro_use]
-use crate::statistics::{
-    StatCommand::{self, AddError, AddStatus},
-    StatError::{Connection, Other, Redirection, Request, Timeout},
-};
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
+    statistics::{
+        StatCommand::{self, AddError, AddStatus},
+        StatError::{Connection, Other, Redirection, Request, Timeout, UrlFormat},
+    },
     FeroxError, FeroxResult,
 };
 use console::{strip_ansi_codes, style, user_attended};
@@ -166,6 +166,14 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
     }
 }
 
+#[macro_export]
+/// wrapper to improve code readability
+macro_rules! update_stat {
+    ($tx:expr, $value:expr) => {
+        $tx.send($value).unwrap_or_default();
+    };
+}
+
 /// Simple helper to generate a `Url`
 ///
 /// Errors during parsing `url` or joining `word` are propagated up the call stack
@@ -175,14 +183,16 @@ pub fn format_url(
     add_slash: bool,
     queries: &[(String, String)],
     extension: Option<&str>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> FeroxResult<Url> {
     log::trace!(
-        "enter: format_url({}, {}, {}, {:?} {:?})",
+        "enter: format_url({}, {}, {}, {:?} {:?}, {:?})",
         url,
         word,
         add_slash,
         queries,
-        extension
+        extension,
+        tx_stats
     );
 
     if Url::parse(&word).is_ok() {
@@ -200,6 +210,8 @@ pub fn format_url(
         log::warn!("{}", message);
 
         let err = FeroxError { message };
+
+        update_stat!(tx_stats, AddError(UrlFormat));
 
         log::trace!("exit: format_url -> {}", err);
         return Err(Box::new(err));
@@ -260,19 +272,12 @@ pub fn format_url(
             }
         }
         Err(e) => {
+            update_stat!(tx_stats, AddError(UrlFormat));
             log::trace!("exit: format_url -> {}", e);
             log::error!("Could not join {} with {}", word, base_url);
             Err(Box::new(e))
         }
     }
-}
-
-#[macro_export]
-/// wrapper to improve code readability
-macro_rules! update_stat {
-    ($tx:expr, $value:expr) => {
-        $tx.send($value).unwrap_or_default();
-    };
 }
 
 /// Initiate request to the given `Url` using `Client`
@@ -430,6 +435,8 @@ pub fn normalize_url(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FeroxChannel;
+    use tokio::sync::mpsc;
 
     #[test]
     /// set_open_file_limit with a low requested limit succeeds
@@ -497,8 +504,9 @@ mod tests {
     #[test]
     /// base url + 1 word + no slash + no extension
     fn format_url_normal() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         assert_eq!(
-            format_url("http://localhost", "stuff", false, &Vec::new(), None).unwrap(),
+            format_url("http://localhost", "stuff", false, &Vec::new(), None, tx).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
         );
     }
@@ -506,8 +514,9 @@ mod tests {
     #[test]
     /// base url + no word + no slash + no extension
     fn format_url_no_word() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         assert_eq!(
-            format_url("http://localhost", "", false, &Vec::new(), None).unwrap(),
+            format_url("http://localhost", "", false, &Vec::new(), None, tx).unwrap(),
             reqwest::Url::parse("http://localhost").unwrap()
         );
     }
@@ -515,13 +524,15 @@ mod tests {
     #[test]
     /// base url + word + no slash + no extension + queries
     fn format_url_joins_queries() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         assert_eq!(
             format_url(
                 "http://localhost",
                 "lazer",
                 false,
                 &[(String::from("stuff"), String::from("things"))],
-                None
+                None,
+                tx
             )
             .unwrap(),
             reqwest::Url::parse("http://localhost/lazer?stuff=things").unwrap()
@@ -531,13 +542,15 @@ mod tests {
     #[test]
     /// base url + no word + no slash + no extension + queries
     fn format_url_without_word_joins_queries() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         assert_eq!(
             format_url(
                 "http://localhost",
                 "",
                 false,
                 &[(String::from("stuff"), String::from("things"))],
-                None
+                None,
+                tx
             )
             .unwrap(),
             reqwest::Url::parse("http://localhost/?stuff=things").unwrap()
@@ -548,14 +561,16 @@ mod tests {
     #[should_panic]
     /// no base url is an error
     fn format_url_no_url() {
-        format_url("", "stuff", false, &Vec::new(), None).unwrap();
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        format_url("", "stuff", false, &Vec::new(), None, tx).unwrap();
     }
 
     #[test]
     /// word prepended with slash is adjusted for correctness
     fn format_url_word_with_preslash() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         assert_eq!(
-            format_url("http://localhost", "/stuff", false, &Vec::new(), None).unwrap(),
+            format_url("http://localhost", "/stuff", false, &Vec::new(), None, tx).unwrap(),
             reqwest::Url::parse("http://localhost/stuff").unwrap()
         );
     }
@@ -563,8 +578,9 @@ mod tests {
     #[test]
     /// word with appended slash allows the slash to persist
     fn format_url_word_with_postslash() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         assert_eq!(
-            format_url("http://localhost", "stuff/", false, &Vec::new(), None).unwrap(),
+            format_url("http://localhost", "stuff/", false, &Vec::new(), None, tx).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
         );
     }
@@ -572,12 +588,14 @@ mod tests {
     #[test]
     /// word that is a fully formed url, should return an error
     fn format_url_word_that_is_a_url() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
         let url = format_url(
             "http://localhost",
             "http://schmocalhost",
             false,
             &Vec::new(),
             None,
+            tx,
         );
         assert!(url.is_err());
     }

@@ -204,6 +204,7 @@ pub async fn request_feroxresponse_from_new_link(
         CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
+        tx_stats.clone(),
     ) {
         Ok(url) => url,
         Err(_) => {

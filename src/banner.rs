@@ -545,9 +545,6 @@ by Ben "epi" Risher {}                 ver: {}"#,
     .unwrap_or_default();
 
     writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
-    // todo: this isn't printing properly anymore, feels like the totals bar is overwriting it
-    // writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
-    // writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
 }
 
 #[cfg(test)]

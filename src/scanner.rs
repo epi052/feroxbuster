@@ -1,4 +1,4 @@
-use crate::statistics::StatCommand::UpdateF64Field;
+use crate::statistics::Stats;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -9,7 +9,7 @@ use crate::{
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
     statistics::{
-        StatCommand::{self, UpdateUsizeField},
+        StatCommand::{self, UpdateF64Field, UpdateUsizeField},
         StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
     },
     utils::{format_url, get_current_depth, make_request},
@@ -29,8 +29,9 @@ use std::{
     collections::HashSet,
     convert::TryInto,
     ops::Deref,
-    sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
     sync::{Arc, RwLock},
+    time::Instant,
 };
 use tokio::{
     sync::{
@@ -46,9 +47,6 @@ use tokio::{
 /// -u means this will be incremented once
 /// --stdin means this will be incremented by the number of targets passed via STDIN
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
-
-/// Single atomic number that gets holds the number of requests to be sent per directory scanned
-pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0); // todo move to stats
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
@@ -107,17 +105,17 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
-    num_targets: usize,
+    stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {}, {:?}, {:?}, {:?})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
         base_depth,
-        num_targets,
+        stats,
         tx_term,
         tx_file,
         tx_stats
@@ -127,7 +125,7 @@ fn spawn_recursion_handler(
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp);
+            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -140,7 +138,8 @@ fn spawn_recursion_handler(
 
             let term_clone = tx_term.clone();
             let file_clone = tx_file.clone();
-            let stats_clone = tx_stats.clone();
+            let tx_stats_clone = tx_stats.clone();
+            let stats_clone = stats.clone();
             let resp_clone = resp.clone();
             let list_clone = wordlist.clone();
 
@@ -149,10 +148,10 @@ fn spawn_recursion_handler(
                     resp_clone.to_owned().as_str(),
                     list_clone,
                     base_depth,
-                    num_targets,
+                    stats_clone,
                     term_clone,
                     file_clone,
-                    stats_clone,
+                    tx_stats_clone,
                 )
                 .await
             });
@@ -173,12 +172,18 @@ fn spawn_recursion_handler(
 ///
 /// If any extensions were passed to the program, each extension will add a
 /// (base_url + word + ext) Url to the vector
-fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> {
+fn create_urls(
+    target_url: &str,
+    word: &str,
+    extensions: &[String],
+    tx_stats: UnboundedSender<StatCommand>,
+) -> Vec<Url> {
     log::trace!(
-        "enter: create_urls({}, {}, {:?})",
+        "enter: create_urls({}, {}, {:?}, {:?})",
         target_url,
         word,
-        extensions
+        extensions,
+        tx_stats
     );
 
     let mut urls = vec![];
@@ -189,6 +194,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
         CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
+        tx_stats.clone(),
     ) {
         urls.push(url); // default request, i.e. no extension
     }
@@ -200,6 +206,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
             CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             Some(ext),
+            tx_stats.clone(),
         ) {
             urls.push(url); // any extensions passed in
         }
@@ -375,21 +382,28 @@ async fn make_requests(
     target_url: &str,
     word: &str,
     base_depth: usize,
+    stats: Arc<Stats>,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: make_requests({}, {}, {}, {:?}, {:?}, {:?})",
+        "enter: make_requests({}, {}, {}, {:?}, {:?}, {:?}, {:?})",
         target_url,
         word,
         base_depth,
+        stats,
         dir_chan,
         report_chan,
         tx_stats
     );
 
-    let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
+    let urls = create_urls(
+        &target_url,
+        &word,
+        &CONFIGURATION.extensions,
+        tx_stats.clone(),
+    );
 
     for url in urls {
         if let Ok(response) = make_request(&CONFIGURATION.client, &url, tx_stats.clone()).await {
@@ -431,7 +445,8 @@ async fn make_requests(
                         // very likely a file, simply request and report
                         log::debug!("Singular extraction: {}", new_ferox_response);
 
-                        SCANNED_URLS.add_file_scan(&new_ferox_response.url().to_string());
+                        SCANNED_URLS
+                            .add_file_scan(&new_ferox_response.url().to_string(), stats.clone());
 
                         send_report(report_chan.clone(), new_ferox_response);
 
@@ -484,17 +499,17 @@ pub async fn scan_url(
     target_url: &str,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
-    num_targets: usize,
+    stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {}, {}, {:?}, {:?}, {:?})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
         target_url,
         wordlist.len(),
         base_depth,
-        num_targets,
+        stats,
         tx_term,
         tx_file,
         tx_stats
@@ -502,19 +517,18 @@ pub async fn scan_url(
 
     log::info!("Starting scan against: {}", target_url);
 
-    // todo import
-    let scan_timer = std::time::Instant::now();
+    let scan_timer = Instant::now();
 
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
-    if CALL_COUNT.load(Ordering::Relaxed) < num_targets {
+    if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets.load(Ordering::Relaxed) {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
         update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
-        SCANNED_URLS.add_directory_scan(&target_url);
+        SCANNED_URLS.add_directory_scan(&target_url, stats.clone());
     }
 
     let ferox_scan = match SCANNED_URLS.get_scan_by_url(&target_url) {
@@ -551,13 +565,14 @@ pub async fn scan_url(
     let recurser_stats_clone = tx_stats.clone();
     let recurser_words = wordlist.clone();
     let looping_words = wordlist.clone();
+    let looping_stats = stats.clone();
 
     let recurser = tokio::spawn(async move {
         spawn_recursion_handler(
             rx_dir,
             recurser_words,
             base_depth,
-            num_targets,
+            stats.clone(),
             recurser_term_clone,
             recurser_file_clone,
             recurser_stats_clone,
@@ -588,6 +603,7 @@ pub async fn scan_url(
             let txs = tx_stats.clone();
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
+            let lst = looping_stats.clone();
             (
                 tokio::spawn(async move {
                     if PAUSE_SCAN.load(Ordering::Acquire) {
@@ -598,7 +614,7 @@ pub async fn scan_url(
                         // todo change to true when issue #107 is resolved
                         SCANNED_URLS.pause(false).await;
                     }
-                    make_requests(&tgt, &word, base_depth, txd, txr, txs).await
+                    make_requests(&tgt, &word, base_depth, lst, txd, txr, txs).await
                 }),
                 pb,
             )
@@ -664,8 +680,6 @@ pub async fn initialize(
         let total = num_words * (config.extensions.len() + 1);
         total.try_into().unwrap()
     };
-
-    NUMBER_OF_REQUESTS.store(num_reqs_expected, Ordering::Relaxed);
 
     // tell Stats object about the number of expected requests
     update_stat!(
@@ -734,7 +748,14 @@ pub async fn initialize(
     // add any similarity filters to `FILTERS` (--filter-similar-to)
     for similarity_filter in &config.filter_similar {
         // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        if let Ok(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
+        if let Ok(url) = format_url(
+            &similarity_filter,
+            &"",
+            false,
+            &Vec::new(),
+            None,
+            tx_stats.clone(),
+        ) {
             // attempt to request the given url
             if let Ok(resp) = make_request(&CONFIGURATION.client, &url, tx_stats.clone()).await {
                 // if successful, create a filter based on the response's body
@@ -771,14 +792,16 @@ mod tests {
     #[test]
     /// sending url + word without any extensions should get back one url with the joined word
     fn create_urls_no_extension_returns_base_url_with_word() {
-        let urls = create_urls("http://localhost", "turbo", &[]);
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let urls = create_urls("http://localhost", "turbo", &[], tx);
         assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
     }
 
     #[test]
     /// sending url + word + 1 extension should get back two urls, one base and one with extension
     fn create_urls_one_extension_returns_two_urls() {
-        let urls = create_urls("http://localhost", "turbo", &[String::from("js")]);
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let urls = create_urls("http://localhost", "turbo", &[String::from("js")], tx);
         assert_eq!(
             urls,
             [
@@ -816,8 +839,10 @@ mod tests {
             vec![base, js, php, pdf, tar],
         ];
 
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
         for (i, ext_set) in ext_vec.into_iter().enumerate() {
-            let urls = create_urls("http://localhost", "turbo", &ext_set);
+            let urls = create_urls("http://localhost", "turbo", &ext_set, tx.clone());
             assert_eq!(urls, expected[i]);
         }
     }
