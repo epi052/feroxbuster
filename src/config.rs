@@ -1,19 +1,21 @@
-use crate::scan_manager::resume_scan;
-use crate::utils::{module_colorizer, status_colorizer};
 use crate::{
+    utils::{module_colorizer, status_colorizer},
+    scan_manager::resume_scan,
     client, parser,
     progress::{add_bar, BarType},
+    FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION
 };
-use crate::{FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION};
 use clap::{value_t, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::env::{current_dir, current_exe};
-use std::fs::read_to_string;
-use std::path::PathBuf;
+use std::{
+    collections::HashMap,
+    env::{current_dir, current_exe}, 
+    fs::read_to_string,
+    path::PathBuf,
+};
 #[cfg(not(test))]
 use std::process::exit;
 
