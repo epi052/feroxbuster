@@ -8,11 +8,10 @@ use crate::{
     reporter::{get_cached_file_handle, safe_file_write},
     FeroxChannel, FeroxSerialize,
 };
-use console::{pad_str, style, Alignment};
+use console::style;
 use indicatif::ProgressBar;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
@@ -40,16 +39,6 @@ macro_rules! atomic_increment {
 macro_rules! atomic_load {
     ($metric:expr) => {
         $metric.load(Ordering::Relaxed);
-    };
-}
-
-/// Wrapper around consistent formatting for summary table items
-macro_rules! format_summary_item {
-    ($title:expr, $value:expr) => {
-        format!(
-            "\u{0020}{:\u{0020}<26}\u{2502}\u{0020}{:\u{0020}^21}",
-            $title, $value
-        )
     };
 }
 
@@ -104,6 +93,33 @@ pub struct Stats {
 
     /// tracker for overall number of 403s seen by the client
     status_403s: AtomicUsize,
+
+    /// tracker for overall number of 200s seen by the client
+    status_200s: AtomicUsize,
+
+    /// tracker for overall number of 301s seen by the client
+    status_301s: AtomicUsize,
+
+    /// tracker for overall number of 302s seen by the client
+    status_302s: AtomicUsize,
+
+    /// tracker for overall number of 401s seen by the client
+    status_401s: AtomicUsize,
+
+    /// tracker for overall number of 429s seen by the client
+    status_429s: AtomicUsize,
+
+    /// tracker for overall number of 500s seen by the client
+    status_500s: AtomicUsize,
+
+    /// tracker for overall number of 503s seen by the client
+    status_503s: AtomicUsize,
+
+    /// tracker for overall number of 504s seen by the client
+    status_504s: AtomicUsize,
+
+    /// tracker for overall number of 508s seen by the client
+    status_508s: AtomicUsize,
 
     /// tracker for overall number of wildcard urls filtered out by the client
     wildcards_filtered: AtomicUsize,
@@ -235,41 +251,48 @@ impl Stats {
         } else if status.is_server_error() {
             atomic_increment!(self.server_errors);
         }
-        // todo consider else / other status codes etc...
 
-        if matches!(status, StatusCode::FORBIDDEN) {
-            atomic_increment!(self.status_403s);
+        match status {
+            StatusCode::FORBIDDEN => {
+                atomic_increment!(self.status_403s);
+            }
+            StatusCode::OK => {
+                atomic_increment!(self.status_200s);
+            }
+            StatusCode::MOVED_PERMANENTLY => {
+                atomic_increment!(self.status_301s);
+            }
+            StatusCode::FOUND => {
+                atomic_increment!(self.status_302s);
+            }
+            StatusCode::UNAUTHORIZED => {
+                atomic_increment!(self.status_401s);
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                atomic_increment!(self.status_429s);
+            }
+            StatusCode::INTERNAL_SERVER_ERROR => {
+                atomic_increment!(self.status_500s);
+            }
+            StatusCode::SERVICE_UNAVAILABLE => {
+                atomic_increment!(self.status_503s);
+            }
+            StatusCode::GATEWAY_TIMEOUT => {
+                atomic_increment!(self.status_504s);
+            }
+            StatusCode::LOOP_DETECTED => {
+                atomic_increment!(self.status_508s);
+            }
+            _ => {} // other status codes ignored for stat gathering
         }
-    }
-
-    /// Takes all known directory scan times from `directory_scan_times` and calculates the
-    /// shortest, longest, average, and total scan times (returned in that order)
-    ///
-    /// If a mutex can't be acquired, 0.0 is returned for the values behind the mutex
-    fn calculate_scan_times(&self) -> (f64, f64, f64, f64) {
-        let mut shortest = 0.0;
-        let mut longest = 0.0;
-        let mut average = 0.0;
-        let mut total = 0.0;
-
-        if let Ok(scans) = self.directory_scan_times.lock() {
-            shortest = scans.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-            longest = scans.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-            average = scans.iter().sum::<f64>() / scans.len() as f64;
-        }
-
-        if let Ok(runtime) = self.total_runtime.lock() {
-            total = runtime[0];
-        }
-
-        (shortest, longest, average, total)
     }
 
     /// Update a `Stats` field of type f64
     fn update_f64_field(&self, field: StatField, value: f64) {
         if let StatField::DirScanTimes = field {
-            // todo unwrap
-            self.directory_scan_times.lock().unwrap().push(value);
+            if let Ok(mut locked_times) = self.directory_scan_times.lock() {
+                locked_times.push(value);
+            }
         }
     }
 
@@ -307,85 +330,6 @@ impl Stats {
             }
             _ => {} // f64 fields
         }
-    }
-
-    /// simple encapsulation to keep `summary` a bit cleaner
-    fn add_f64_summary_data(&self, lines: &mut Vec<String>) {
-        let mut fields = BTreeMap::new();
-
-        let (shortest, longest, avg, total) = self.calculate_scan_times();
-
-        fields.insert("Shortest Dir Scan", &shortest);
-        fields.insert("Longest Dir Scan", &longest);
-        fields.insert("Average Dir Scan", &avg);
-        fields.insert("Total Scan Time", &total);
-
-        for (key, value) in &fields {
-            if **value > 0.0 {
-                let msg = format!(
-                    "\u{0020}{:\u{0020}<26}\u{2502}\u{0020}{:\u{0020}^21}",
-                    key,
-                    format!("{:.4} secs", value)
-                );
-
-                lines.push(msg);
-            }
-        }
-    }
-
-    /// simple encapsulation to keep `summary` a bit cleaner
-    fn add_usize_summary_data(&self, lines: &mut Vec<String>) {
-        let mut fields = BTreeMap::new();
-
-        fields.insert("Requests Sent", &self.requests);
-        fields.insert("Errors", &self.errors);
-        fields.insert("403 Forbidden", &self.status_403s);
-        fields.insert("Success Status Codes", &self.successes);
-        fields.insert("Redirects", &self.redirects);
-        fields.insert("Links Extracted", &self.links_extracted);
-        fields.insert("Timeouts", &self.timeouts);
-        fields.insert("Requests Expected per Dir", &self.expected_per_scan);
-        fields.insert("Client Error Codes", &self.client_errors);
-        fields.insert("Server Error Codes", &self.server_errors);
-        fields.insert("Non-404s Filtered", &self.responses_filtered);
-        fields.insert("Wildcard Responses", &self.wildcards_filtered);
-        fields.insert("Resources Discovered", &self.resources_discovered);
-
-        for (key, value) in &fields {
-            let loaded = atomic_load!(value);
-            if loaded > 0 {
-                let msg = format_summary_item!(key, loaded);
-                lines.push(msg);
-            }
-        }
-    }
-
-    /// Build out the summary string of a `Stats` object
-    fn summary(&self) -> String {
-        let results_bottom = "───────────────────────────┬──────────────────────";
-        let results_top = "──────────────────────────────────────────────────";
-        let bottom = "───────────────────────────┴──────────────────────";
-
-        let mut lines = Vec::new();
-
-        let padded_results = pad_str("Scan Summary", 44, Alignment::Center, None);
-        let results_header = format!("\u{0020}📊{}📊\u{0020}", padded_results);
-
-        lines.push(results_top.to_string());
-        lines.push(results_header);
-        lines.push(results_bottom.to_string());
-
-        self.add_f64_summary_data(&mut lines);
-        self.add_usize_summary_data(&mut lines);
-
-        lines.push(bottom.to_string());
-
-        lines.join("\n")
-    }
-
-    /// Print a summary of all information accumulated/surmised during the scan(s)
-    pub fn print_summary(&self, printer: &ProgressBar) {
-        printer.println(self.summary());
     }
 }
 
