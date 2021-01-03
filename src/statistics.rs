@@ -1,9 +1,6 @@
-// todo consider batch size for stats update/display (if display is used)
 // todo integration test that hits some/all of the errors in make_request
-// todo maybe a realtime status updater line as progress bar or similar
 // todo resume_scan should repopulate statistics if possible or at least update an already existing Stats
 // todo logic for determining if tuning is required
-// todo gate summary display behind --summary
 
 use crate::{
     config::CONFIGURATION,
@@ -119,13 +116,25 @@ pub struct Stats {
 
     /// tracker for total runtime
     total_runtime: Mutex<Vec<f64>>,
+
+    /// tracker for number of errors triggered during URL formatting
+    url_format_errors: AtomicUsize,
+
+    /// tracker for number of errors triggered by the `reqwest::RedirectPolicy`
+    redirection_errors: AtomicUsize,
+
+    /// tracker for number of errors related to the connecting
+    connection_errors: AtomicUsize,
+
+    /// tracker for number of errors related to the request used
+    request_errors: AtomicUsize,
 }
 
 /// FeroxSerialize implementation for Stats
 impl FeroxSerialize for Stats {
     /// Simply return debug format of Stats to satisfy as_str
     fn as_str(&self) -> String {
-        self.summary()
+        String::new()
     }
 
     /// Simple call to produce a JSON string using the given Stats object
@@ -187,8 +196,20 @@ impl Stats {
                 atomic_increment!(self.status_403s);
                 atomic_increment!(self.client_errors);
             }
-            _ => {
-                // todo implement the rest of the errors
+            StatError::UrlFormat => {
+                atomic_increment!(self.url_format_errors);
+            }
+            StatError::Redirection => {
+                atomic_increment!(self.redirection_errors);
+            }
+            StatError::Connection => {
+                atomic_increment!(self.connection_errors);
+            }
+            StatError::Request => {
+                atomic_increment!(self.request_errors);
+            }
+            StatError::Other => {
+                atomic_increment!(self.errors);
             }
         }
     }
@@ -607,7 +628,6 @@ mod tests {
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
-    ///     - errors
     ///     - requests
     ///     - client_errors
     async fn statistics_handler_increments_403_via_status_code() {
@@ -621,7 +641,6 @@ mod tests {
 
         teardown_stats_test(tx, handle).await;
 
-        assert_eq!(stats.errors.load(Ordering::Relaxed), 2);
         assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
         assert_eq!(stats.status_403s.load(Ordering::Relaxed), 2);
         assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
@@ -631,7 +650,6 @@ mod tests {
     /// when sent StatCommand::AddStatus, stats object should reflect the change
     ///
     /// incrementing a 500 (tracked in server_errors) should also increment:
-    ///     - errors
     ///     - requests
     async fn statistics_handler_increments_500_via_status_code() {
         let (stats, tx, handle) = setup_stats_test();
@@ -644,7 +662,6 @@ mod tests {
 
         teardown_stats_test(tx, handle).await;
 
-        assert_eq!(stats.errors.load(Ordering::Relaxed), 2);
         assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
         assert_eq!(stats.server_errors.load(Ordering::Relaxed), 2);
     }
