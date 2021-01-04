@@ -74,7 +74,7 @@ pub struct FeroxScan {
     pub scan_type: ScanType,
 
     /// Number of requests to populate the progress bar with
-    num_requests: u64,
+    pub num_requests: u64,
 
     /// Whether or not this scan has completed
     pub complete: bool,
@@ -193,6 +193,7 @@ impl Serialize for FeroxScan {
         state.serialize_field("url", &self.url)?;
         state.serialize_field("scan_type", &self.scan_type)?;
         state.serialize_field("complete", &self.complete)?;
+        state.serialize_field("num_requests", &self.num_requests)?;
 
         state.end()
     }
@@ -233,6 +234,11 @@ impl<'de> Deserialize<'de> for FeroxScan {
                 "url" => {
                     if let Some(url) = value.as_str() {
                         scan.url = url.to_string();
+                    }
+                }
+                "num_requests" => {
+                    if let Some(num_requests) = value.as_u64() {
+                        scan.num_requests = num_requests;
                     }
                 }
                 _ => {}
@@ -450,13 +456,11 @@ impl FeroxScans {
         scan_type: ScanType,
         stats: Arc<Stats>,
     ) -> (bool, Arc<Mutex<FeroxScan>>) {
+        let num_requests = stats.expected_per_scan.load(Ordering::Relaxed) as u64;
+
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar = add_bar(
-                    &url,
-                    stats.expected_per_scan.load(Ordering::Relaxed) as u64,
-                    BarType::Default,
-                );
+                let progress_bar = add_bar(&url, num_requests, BarType::Default);
 
                 progress_bar.reset_elapsed();
 
@@ -464,8 +468,6 @@ impl FeroxScans {
             }
             ScanType::File => None,
         };
-
-        let num_requests = stats.expected_per_scan.load(Ordering::Relaxed) as u64;
 
         let ferox_scan = FeroxScan::new(&url, scan_type, num_requests, bar);
 

@@ -1,7 +1,4 @@
 // todo integration test that hits some/all of the errors in make_request
-// todo resume_scan should repopulate statistics if possible or at least update an already existing Stats
-// todo logic for determining if tuning is required
-
 use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
@@ -12,6 +9,8 @@ use console::style;
 use indicatif::ProgressBar;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::BufReader;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
@@ -303,10 +302,17 @@ impl Stats {
                 atomic_increment!(self.expected_per_scan, value);
             }
             StatField::TotalScans => {
+                let num_extensions = CONFIGURATION.extensions.len();
+                let multiplier = if num_extensions > 0 {
+                    num_extensions
+                } else {
+                    1
+                };
+
                 atomic_increment!(self.total_scans, value);
                 atomic_increment!(
                     self.total_expected,
-                    value * self.expected_per_scan.load(Ordering::Relaxed)
+                    value * self.expected_per_scan.load(Ordering::Relaxed) * multiplier
                 );
             }
             StatField::TotalExpected => {
@@ -327,6 +333,69 @@ impl Stats {
             }
             StatField::InitialTargets => {
                 atomic_increment!(self.initial_targets, value);
+            }
+            StatField::Requests => {
+                atomic_increment!(self.requests, value);
+            }
+            StatField::UrlFormatErrors => {
+                atomic_increment!(self.url_format_errors, value);
+            }
+            StatField::Errors => {
+                atomic_increment!(self.errors, value);
+            }
+            StatField::Timeouts => {
+                atomic_increment!(self.timeouts, value);
+            }
+            StatField::Successes => {
+                atomic_increment!(self.successes, value);
+            }
+            StatField::Redirects => {
+                atomic_increment!(self.redirects, value);
+            }
+            StatField::ClientErrors => {
+                atomic_increment!(self.client_errors, value);
+            }
+            StatField::ServerErrors => {
+                atomic_increment!(self.server_errors, value);
+            }
+            StatField::Status403s => {
+                atomic_increment!(self.status_403s, value);
+            }
+            StatField::Status200s => {
+                atomic_increment!(self.status_200s, value);
+            }
+            StatField::Status301s => {
+                atomic_increment!(self.status_301s, value);
+            }
+            StatField::Status302s => {
+                atomic_increment!(self.status_302s, value);
+            }
+            StatField::Status401s => {
+                atomic_increment!(self.status_401s, value);
+            }
+            StatField::Status429s => {
+                atomic_increment!(self.status_429s, value);
+            }
+            StatField::Status500s => {
+                atomic_increment!(self.status_500s, value);
+            }
+            StatField::Status503s => {
+                atomic_increment!(self.status_503s, value);
+            }
+            StatField::Status504s => {
+                atomic_increment!(self.status_504s, value);
+            }
+            StatField::Status508s => {
+                atomic_increment!(self.status_508s, value);
+            }
+            StatField::RedirectionErrors => {
+                atomic_increment!(self.redirection_errors, value);
+            }
+            StatField::ConnectionErrors => {
+                atomic_increment!(self.connection_errors, value);
+            }
+            StatField::RequestErrors => {
+                atomic_increment!(self.request_errors, value);
             }
             _ => {} // f64 fields
         }
@@ -382,6 +451,9 @@ pub enum StatCommand {
     /// Save a `Stats` object to disk using `reporter::get_cached_file_handle`
     Save,
 
+    /// Load a `Stats` object from disk
+    LoadStats(String),
+
     /// Break out of the (infinite) mpsc receive loop
     Exit,
 }
@@ -416,6 +488,69 @@ pub enum StatField {
     /// Translates to `initial_targets`
     InitialTargets,
 
+    /// Translates to `url_format_errors`
+    UrlFormatErrors,
+
+    /// Translates to `requests`
+    Requests,
+
+    /// Translates to `errors`
+    Errors,
+
+    /// Translates to `timeouts`
+    Timeouts,
+
+    /// Translates to `successes`
+    Successes,
+
+    /// Translates to `redirects`
+    Redirects,
+
+    /// Translates to `client_errors`
+    ClientErrors,
+
+    /// Translates to `server_errors`
+    ServerErrors,
+
+    /// Translates to `status_403s`
+    Status403s,
+
+    /// Translates to `status_200s`
+    Status200s,
+
+    /// Translates to `status_301s`
+    Status301s,
+
+    /// Translates to `status_302s`
+    Status302s,
+
+    /// Translates to `status_401s`
+    Status401s,
+
+    /// Translates to `status_429s`
+    Status429s,
+
+    /// Translates to `status_500s`
+    Status500s,
+
+    /// Translates to `status_503s`
+    Status503s,
+
+    /// Translates to `status_504s`
+    Status504s,
+
+    /// Translates to `status_508s`
+    Status508s,
+
+    /// Translates to `redirection_errors`
+    RedirectionErrors,
+
+    /// Translates to `connection_errors`
+    ConnectionErrors,
+
+    /// Translates to `request_errors`
+    RequestErrors,
+
     /// Translates to `directory_scan_times`; assumes a single append to the vector
     DirScanTimes,
 }
@@ -424,13 +559,15 @@ pub enum StatField {
 ///
 /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
 pub async fn spawn_statistics_handler(
-    mut stats_channel: UnboundedReceiver<StatCommand>,
+    mut rx_stats: UnboundedReceiver<StatCommand>,
     stats: Arc<Stats>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: spawn_statistics_handler({:?}, {:?})",
-        stats_channel,
-        stats
+        "enter: spawn_statistics_handler({:?}, {:?}, {:?})",
+        rx_stats,
+        stats,
+        tx_stats
     );
 
     // will be updated later via StatCommand; delay is for banner to print first
@@ -438,8 +575,7 @@ pub async fn spawn_statistics_handler(
 
     let start = Instant::now();
 
-    while let Some(command) = stats_channel.recv().await {
-        log::info!("command: {:?}", command);
+    while let Some(command) = rx_stats.recv().await {
         match command as StatCommand {
             StatCommand::AddError(err) => {
                 stats.add_error(err);
@@ -465,6 +601,9 @@ pub async fn spawn_statistics_handler(
                     BarType::Total,
                 );
             }
+            StatCommand::LoadStats(filename) => {
+                load_stats(&filename, tx_stats.clone());
+            }
             StatCommand::Exit => break,
         }
 
@@ -489,16 +628,195 @@ pub async fn spawn_statistics_handler(
     log::trace!("exit: spawn_statistics_handler")
 }
 
+/// Given a `Stats` object, send update directives over the given `StatCommand` transmitter
+fn update_stats(stats: Stats, tx_stats: UnboundedSender<StatCommand>) {
+    // total runtime skipped; makes no sense here as the scan has never completed
+    // expected_per_scan skipped as it's already updated from scanner::initialize
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Timeouts, atomic_load!(stats.timeouts))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Requests, atomic_load!(stats.requests))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Errors, atomic_load!(stats.errors))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Successes, atomic_load!(stats.successes))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Redirects, atomic_load!(stats.redirects))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::ClientErrors, atomic_load!(stats.client_errors))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::ServerErrors, atomic_load!(stats.server_errors))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::LinksExtracted,
+            atomic_load!(stats.links_extracted)
+        )
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status200s, atomic_load!(stats.status_200s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status403s, atomic_load!(stats.status_403s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status301s, atomic_load!(stats.status_301s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status302s, atomic_load!(stats.status_302s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status401s, atomic_load!(stats.status_401s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status429s, atomic_load!(stats.status_429s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status500s, atomic_load!(stats.status_500s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status503s, atomic_load!(stats.status_503s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status504s, atomic_load!(stats.status_504s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::Status508s, atomic_load!(stats.status_508s))
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::WildcardsFiltered,
+            atomic_load!(stats.wildcards_filtered)
+        )
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::ResponsesFiltered,
+            atomic_load!(stats.responses_filtered)
+        )
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::ResourcesDiscovered,
+            atomic_load!(stats.resources_discovered)
+        )
+    );
+
+    if let Ok(scan_times) = stats.directory_scan_times.lock() {
+        for scan_time in scan_times.iter() {
+            update_stat!(
+                tx_stats,
+                StatCommand::UpdateF64Field(StatField::DirScanTimes, *scan_time)
+            );
+        }
+    }
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::UrlFormatErrors,
+            atomic_load!(stats.url_format_errors)
+        )
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::RedirectionErrors,
+            atomic_load!(stats.redirection_errors)
+        )
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(
+            StatField::ConnectionErrors,
+            atomic_load!(stats.connection_errors)
+        )
+    );
+
+    update_stat!(
+        tx_stats,
+        StatCommand::UpdateUsizeField(StatField::RequestErrors, atomic_load!(stats.request_errors))
+    );
+}
+
+/// Populate a `Stats` object from a json entry written to disk when handling a Ctrl+c
+///
+/// This is only ever called when resuming a scan from disk
+pub fn load_stats(filename: &str, tx_stats: UnboundedSender<StatCommand>) {
+    if let Ok(file) = File::open(filename) {
+        let reader = BufReader::new(file);
+        let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+        if let Some(state_stats) = state.get("statistics") {
+            if let Ok(deser_stats) = serde_json::from_value::<Stats>(state_stats.clone()) {
+                update_stats(deser_stats, tx_stats);
+            }
+        }
+    }
+}
+
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
 /// updates to the aforementioned object.
 pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
     log::trace!("enter: initialize");
 
     let stats_tracker = Arc::new(Stats::new());
-    let cloned = stats_tracker.clone();
+    let stats_cloned = stats_tracker.clone();
     let (tx_stats, rx_stats): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-    let stats_thread =
-        tokio::spawn(async move { spawn_statistics_handler(rx_stats, cloned).await });
+    let tx_stats_cloned = tx_stats.clone();
+    let stats_thread = tokio::spawn(async move {
+        spawn_statistics_handler(rx_stats, stats_cloned, tx_stats_cloned).await
+    });
 
     log::trace!(
         "exit: initialize -> ({:?}, {:?}, {:?})",

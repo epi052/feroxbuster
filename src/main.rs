@@ -10,7 +10,7 @@ use feroxbuster::{
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
     statistics::{
         self,
-        StatCommand::{self, UpdateUsizeField},
+        StatCommand::{self, CreateBar, LoadStats, UpdateUsizeField},
         StatField::InitialTargets,
         Stats,
     },
@@ -143,9 +143,17 @@ async fn scan(
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    update_stat!(tx_stats, StatCommand::CreateBar);
+    update_stat!(tx_stats, CreateBar);
 
     if CONFIGURATION.resumed {
+        update_stat!(tx_stats, LoadStats(CONFIGURATION.resume_from.clone()));
+
+        if let Ok(responses) = RESPONSES.responses.read() {
+            for response in responses.iter() {
+                PROGRESS_PRINTER.println(response.as_str());
+            }
+        }
+
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {
                 if let Ok(locked_scan) = scan.lock() {
@@ -154,17 +162,11 @@ async fn scan(
                         let pb = add_bar(
                             &locked_scan.url,
                             words.len().try_into().unwrap_or_default(),
-                            BarType::Default,
+                            BarType::Message,
                         );
                         pb.finish();
                     }
                 }
-            }
-        }
-
-        if let Ok(responses) = RESPONSES.responses.read() {
-            for response in responses.iter() {
-                PROGRESS_PRINTER.println(response.as_str());
             }
         }
     }

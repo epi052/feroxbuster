@@ -148,8 +148,18 @@ pub async fn get_links(
         }
     }
 
+    let num_extensions = CONFIGURATION.extensions.len();
+    let multiplier = if num_extensions > 0 {
+        num_extensions
+    } else {
+        1
+    };
+
     update_stat!(tx_stats, UpdateUsizeField(LinksExtracted, links.len()));
-    update_stat!(tx_stats, UpdateUsizeField(TotalExpected, links.len()));
+    update_stat!(
+        tx_stats,
+        UpdateUsizeField(TotalExpected, links.len() * multiplier)
+    );
 
     log::trace!("exit: get_links -> {:?}", links);
 
@@ -321,8 +331,18 @@ pub async fn extract_robots_txt(
         }
     }
 
+    let num_extensions = CONFIGURATION.extensions.len();
+    let multiplier = if num_extensions > 0 {
+        num_extensions
+    } else {
+        1
+    };
+
     update_stat!(tx_stats, UpdateUsizeField(LinksExtracted, links.len()));
-    update_stat!(tx_stats, UpdateUsizeField(TotalExpected, links.len()));
+    update_stat!(
+        tx_stats,
+        UpdateUsizeField(TotalExpected, links.len() * multiplier)
+    );
 
     log::trace!("exit: extract_robots_txt -> {:?}", links);
     links
