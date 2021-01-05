@@ -623,8 +623,7 @@ pub async fn spawn_statistics_handler(
 
     bar.finish();
 
-    // stats.print_summary(&*PROGRESS_PRINTER);
-
+    log::debug!("{:#?}", *stats);
     log::trace!("exit: spawn_statistics_handler")
 }
 
