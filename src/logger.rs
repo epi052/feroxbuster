@@ -15,7 +15,11 @@ pub fn initialize(verbosity: u8) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
     match env::var("RUST_LOG") {
-        Ok(_) => {} // RUST_LOG found, don't override
+        Ok(var) => {
+            if var.to_ascii_lowercase() == "off" {
+                return;
+            }
+        } // RUST_LOG found, don't override
         Err(_) => {
             // only set log level based on verbosity when RUST_LOG variable doesn't exist
             match verbosity {
