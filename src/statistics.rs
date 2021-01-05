@@ -8,12 +8,14 @@ use console::style;
 use indicatif::ProgressBar;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+use std::{
     fs::File,
     io::BufReader,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
     time::Instant,
-    Arc, Mutex,
 };
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
