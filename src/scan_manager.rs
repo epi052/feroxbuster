@@ -973,7 +973,7 @@ mod tests {
     fn ferox_scan_serialize() {
         let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let fs_json = format!(
-            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}"#,
+            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}"#,
             fs.lock().unwrap().id
         );
         assert_eq!(
@@ -988,7 +988,7 @@ mod tests {
         let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
-            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}]"#,
+            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}]"#,
             ferox_scan.lock().unwrap().id
         );
         ferox_scans.scans.lock().unwrap().push(ferox_scan);
@@ -1068,7 +1068,7 @@ mod tests {
 
         let json_state = ferox_state.as_json();
         let expected = format!(
-            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
             saved_id, VERSION
         );
         println!("{}\n{}", expected, json_state);
