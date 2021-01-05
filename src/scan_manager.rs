@@ -594,6 +594,7 @@ pub struct FeroxState {
     /// Known responses
     responses: &'static FeroxResponses,
 
+    /// Gathered statistics
     statistics: Arc<Stats>,
 }
 
@@ -657,7 +658,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
 fn sigint_handler(stats: Arc<Stats>) {
-    log::trace!("enter: sigint_handler");
+    log::trace!("enter: sigint_handler({:?})", stats);
 
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -704,7 +705,7 @@ fn sigint_handler(stats: Arc<Stats>) {
 
 /// Initialize the ctrl+c handler that saves scan state to disk
 pub fn initialize(stats: Arc<Stats>) {
-    log::trace!("enter: initialize");
+    log::trace!("enter: initialize({:?})", stats);
 
     let result = ctrlc::set_handler(move || {
         sigint_handler(stats.clone());

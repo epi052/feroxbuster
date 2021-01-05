@@ -1,4 +1,3 @@
-// todo integration test that hits some/all of the errors in make_request
 use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
@@ -9,13 +8,13 @@ use console::style;
 use indicatif::ProgressBar;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::BufReader;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
+    fs::File,
+    io::BufReader,
+    time::Instant,
     Arc, Mutex,
 };
-use std::time::Instant;
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
@@ -333,69 +332,6 @@ impl Stats {
             StatField::InitialTargets => {
                 atomic_increment!(self.initial_targets, value);
             }
-            StatField::Requests => {
-                atomic_increment!(self.requests, value);
-            }
-            StatField::UrlFormatErrors => {
-                atomic_increment!(self.url_format_errors, value);
-            }
-            StatField::Errors => {
-                atomic_increment!(self.errors, value);
-            }
-            StatField::Timeouts => {
-                atomic_increment!(self.timeouts, value);
-            }
-            StatField::Successes => {
-                atomic_increment!(self.successes, value);
-            }
-            StatField::Redirects => {
-                atomic_increment!(self.redirects, value);
-            }
-            StatField::ClientErrors => {
-                atomic_increment!(self.client_errors, value);
-            }
-            StatField::ServerErrors => {
-                atomic_increment!(self.server_errors, value);
-            }
-            StatField::Status403s => {
-                atomic_increment!(self.status_403s, value);
-            }
-            StatField::Status200s => {
-                atomic_increment!(self.status_200s, value);
-            }
-            StatField::Status301s => {
-                atomic_increment!(self.status_301s, value);
-            }
-            StatField::Status302s => {
-                atomic_increment!(self.status_302s, value);
-            }
-            StatField::Status401s => {
-                atomic_increment!(self.status_401s, value);
-            }
-            StatField::Status429s => {
-                atomic_increment!(self.status_429s, value);
-            }
-            StatField::Status500s => {
-                atomic_increment!(self.status_500s, value);
-            }
-            StatField::Status503s => {
-                atomic_increment!(self.status_503s, value);
-            }
-            StatField::Status504s => {
-                atomic_increment!(self.status_504s, value);
-            }
-            StatField::Status508s => {
-                atomic_increment!(self.status_508s, value);
-            }
-            StatField::RedirectionErrors => {
-                atomic_increment!(self.redirection_errors, value);
-            }
-            StatField::ConnectionErrors => {
-                atomic_increment!(self.connection_errors, value);
-            }
-            StatField::RequestErrors => {
-                atomic_increment!(self.request_errors, value);
-            }
             _ => {} // f64 fields
         }
     }
@@ -550,69 +486,6 @@ pub enum StatField {
 
     /// Translates to `initial_targets`
     InitialTargets,
-
-    /// Translates to `url_format_errors`
-    UrlFormatErrors,
-
-    /// Translates to `requests`
-    Requests,
-
-    /// Translates to `errors`
-    Errors,
-
-    /// Translates to `timeouts`
-    Timeouts,
-
-    /// Translates to `successes`
-    Successes,
-
-    /// Translates to `redirects`
-    Redirects,
-
-    /// Translates to `client_errors`
-    ClientErrors,
-
-    /// Translates to `server_errors`
-    ServerErrors,
-
-    /// Translates to `status_403s`
-    Status403s,
-
-    /// Translates to `status_200s`
-    Status200s,
-
-    /// Translates to `status_301s`
-    Status301s,
-
-    /// Translates to `status_302s`
-    Status302s,
-
-    /// Translates to `status_401s`
-    Status401s,
-
-    /// Translates to `status_429s`
-    Status429s,
-
-    /// Translates to `status_500s`
-    Status500s,
-
-    /// Translates to `status_503s`
-    Status503s,
-
-    /// Translates to `status_504s`
-    Status504s,
-
-    /// Translates to `status_508s`
-    Status508s,
-
-    /// Translates to `redirection_errors`
-    RedirectionErrors,
-
-    /// Translates to `connection_errors`
-    ConnectionErrors,
-
-    /// Translates to `request_errors`
-    RequestErrors,
 
     /// Translates to `directory_scan_times`; assumes a single append to the vector
     DirScanTimes,
