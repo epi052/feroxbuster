@@ -78,7 +78,10 @@ Enumeration.
     - [Threads and Connection Limits At A High-Level](#threads-and-connection-limits-at-a-high-level)
     - [ferox-config.toml](#ferox-configtoml)
     - [Command Line Parsing](#command-line-parsing)
-- [Interpreting Results](#interpreting-results)
+- [Scan's Display Explained](#-scans-display-explained)
+    - [Discovered Resource](#discovered-resource)
+    - [Overall Scan Progress Bar](#overall-scan-progress-bar)
+    - [Directory Scan Progress Bar](#directory-scan-progress-bar)
 - [Example Usage](#-example-usage)
     - [Multiple Values](#multiple-values)
     - [Include Headers](#include-headers)
@@ -461,15 +464,30 @@ OPTIONS:
     -w, --wordlist <FILE>                   Path to the wordlist
 ```
 
-## Scan Display Explained 
+## 📊 Scan's Display Explained
 
-![total-bar-explained](img/total-bar-explained.png)
+`feroxbuster` attempts to be intuitive and easy to understand, however, if you are wondering about any of the scan's
+output and what it means, this is the section for you!  
+
+### Discovered Resource
+
+When `feroxbuster` finds a response that you haven't filtered out, it's reported above the progress bars and looks similar to what's pictured below.  
+
+The number of lines, words, and bytes shown here can be used to [filter those responses](#filter-response-by-word-count--line-count--new-in-v160)
+
 ![response-bar-explained](img/response-bar-explained.png)
 
-todo: change section heading 
-todo: change ToC anchor 
-todo: insert emoji above
-todo: words make for good explaining
+### Overall Scan Progress Bar
+
+The top progress bar, colored yellow, tracks the overall scan status.  Its fields are described in the image below.
+
+![total-bar-explained](img/total-bar-explained.png)
+
+### Directory Scan Progress Bar
+
+All other progress bars, colored cyan, represent a scan of one particular directory and will look similar to what's below.   
+
+![dir-scan-bar-explained](img/dir-scan-bar-explained.png)
 
 ## 🧰 Example Usage
 
