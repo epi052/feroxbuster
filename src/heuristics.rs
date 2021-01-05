@@ -2,6 +2,7 @@ use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     filters::WildcardFilter,
     scanner::should_filter_response,
+    statistics::StatCommand,
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
 };
@@ -40,12 +41,14 @@ pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
     tx_term: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> Option<WildcardFilter> {
     log::trace!(
-        "enter: wildcard_test({:?}, {:?}, {:?})",
+        "enter: wildcard_test({:?}, {:?}, {:?}, {:?})",
         target_url,
         bar,
-        tx_term
+        tx_term,
+        tx_stats
     );
 
     if CONFIGURATION.dont_filter {
@@ -54,10 +57,14 @@ pub async fn wildcard_test(
         return None;
     }
 
-    let tx_clone_one = tx_term.clone();
-    let tx_clone_two = tx_term.clone();
+    let tx_term_mwcr1 = tx_term.clone();
+    let tx_term_mwcr2 = tx_term.clone();
+    let tx_stats_mwcr1 = tx_stats.clone();
+    let tx_stats_mwcr2 = tx_stats.clone();
 
-    if let Some(ferox_response) = make_wildcard_request(&target_url, 1, tx_clone_one).await {
+    if let Some(ferox_response) =
+        make_wildcard_request(&target_url, 1, tx_term_mwcr1, tx_stats_mwcr1).await
+    {
         bar.inc(1);
 
         // found a wildcard response
@@ -72,7 +79,9 @@ pub async fn wildcard_test(
 
         // content length of wildcard is non-zero, perform additional tests:
         //   make a second request, with a known-sized (64) longer request
-        if let Some(resp_two) = make_wildcard_request(&target_url, 3, tx_clone_two).await {
+        if let Some(resp_two) =
+            make_wildcard_request(&target_url, 3, tx_term_mwcr2, tx_stats_mwcr2).await
+        {
             bar.inc(1);
 
             let wc2_length = resp_two.content_length();
@@ -138,12 +147,14 @@ async fn make_wildcard_request(
     target_url: &str,
     length: usize,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> Option<FeroxResponse> {
     log::trace!(
-        "enter: make_wildcard_request({}, {}, {:?})",
+        "enter: make_wildcard_request({}, {}, {:?}, {:?})",
         target_url,
         length,
-        tx_file
+        tx_file,
+        tx_stats,
     );
 
     let unique_str = unique_string(length);
@@ -154,6 +165,7 @@ async fn make_wildcard_request(
         CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
+        tx_stats.clone(),
     ) {
         Ok(url) => url,
         Err(e) => {
@@ -163,7 +175,13 @@ async fn make_wildcard_request(
         }
     };
 
-    match make_request(&CONFIGURATION.client, &nonexistent.to_owned()).await {
+    match make_request(
+        &CONFIGURATION.client,
+        &nonexistent.to_owned(),
+        tx_stats.clone(),
+    )
+    .await
+    {
         Ok(response) => {
             if CONFIGURATION
                 .status_codes
@@ -174,7 +192,7 @@ async fn make_wildcard_request(
                 ferox_response.wildcard = true;
 
                 if !CONFIGURATION.quiet
-                    && !should_filter_response(&ferox_response)
+                    && !should_filter_response(&ferox_response, tx_stats.clone())
                     && tx_file.send(ferox_response.clone()).is_err()
                 {
                     return None;
@@ -190,6 +208,7 @@ async fn make_wildcard_request(
             return None;
         }
     }
+
     log::trace!("exit: make_wildcard_request -> None");
     None
 }
@@ -199,8 +218,15 @@ async fn make_wildcard_request(
 /// In the event that no sites can be reached, the program will exit.
 ///
 /// Any urls that are found to be alive are returned to the caller.
-pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
-    log::trace!("enter: connectivity_test({:?})", target_urls);
+pub async fn connectivity_test(
+    target_urls: &[String],
+    tx_stats: UnboundedSender<StatCommand>,
+) -> Vec<String> {
+    log::trace!(
+        "enter: connectivity_test({:?}, {:?})",
+        target_urls,
+        tx_stats
+    );
 
     let mut good_urls = vec![];
 
@@ -211,6 +237,7 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
             CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             None,
+            tx_stats.clone(),
         ) {
             Ok(url) => url,
             Err(e) => {
@@ -219,7 +246,7 @@ pub async fn connectivity_test(target_urls: &[String]) -> Vec<String> {
             }
         };
 
-        match make_request(&CONFIGURATION.client, &request).await {
+        match make_request(&CONFIGURATION.client, &request, tx_stats.clone()).await {
             Ok(_) => {
                 good_urls.push(target_url.to_owned());
             }

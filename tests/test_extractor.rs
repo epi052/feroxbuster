@@ -264,6 +264,7 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--extract-links")
+        .arg("-vvvv")
         .unwrap();
 
     cmd.assert().success().stdout(
