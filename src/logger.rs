@@ -15,17 +15,7 @@ pub fn initialize(verbosity: u8) {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
     match env::var("RUST_LOG") {
-        Ok(var) => {
-            if var.to_ascii_lowercase() == "off" {
-                // https://github.com/epi052/feroxbuster/issues/181
-                // @saraiva had a problem where the Instant/elapsed call in this function caused
-                // a panic on his machine. Dropping his VM down to a single core fixed the problem.
-                // The assumption is that his VM cores were out of sync wrt timing. In order to
-                // avoid the code here, I'm exposing a RUST_LOG=off env configuration that will
-                // skip the timing code tied up in the custom formatter used here.
-                return;
-            }
-        } // RUST_LOG found, don't override
+        Ok(_) => {} // RUST_LOG found, don't override
         Err(_) => {
             // only set log level based on verbosity when RUST_LOG variable doesn't exist
             match verbosity {
