@@ -182,9 +182,7 @@ impl Stats {
     /// given an `Instant` update total runtime
     fn update_runtime(&self, seconds: f64) {
         if let Ok(mut runtime) = self.total_runtime.lock() {
-            log::error!("in the if");
             runtime[0] = seconds;
-            log::error!("runtime: {} and runtimes: {:?}", seconds, runtime);
         }
     }
 
