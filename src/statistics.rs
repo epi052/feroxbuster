@@ -1,4 +1,7 @@
 // todo integration test that hits some/all of the errors in make_request
+// todo correctness test of merge_from
+// todo total runtime didn't get populated into --json output
+
 use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
@@ -21,7 +24,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-/// Wrapper to save me from writing Ordering::Relaxed a bajillion times
+/// Wrapper `Atomic*.fetch_add` to save me from writing Ordering::Relaxed a bajillion times
 ///
 /// default is to increment by 1, second arg can be used to increment by a different value
 macro_rules! atomic_increment {
@@ -34,7 +37,7 @@ macro_rules! atomic_increment {
     };
 }
 
-/// Wrapper to save me from writing Ordering::Relaxed a bajillion times
+/// Wrapper around `Atomic*.load` to save me from writing Ordering::Relaxed a bajillion times
 macro_rules! atomic_load {
     ($metric:expr) => {
         $metric.load(Ordering::Relaxed);
@@ -90,9 +93,6 @@ pub struct Stats {
     /// response bodies and robots.txt as of v1.11.0
     links_extracted: AtomicUsize,
 
-    /// tracker for overall number of 403s seen by the client
-    status_403s: AtomicUsize,
-
     /// tracker for overall number of 200s seen by the client
     status_200s: AtomicUsize,
 
@@ -104,6 +104,9 @@ pub struct Stats {
 
     /// tracker for overall number of 401s seen by the client
     status_401s: AtomicUsize,
+
+    /// tracker for overall number of 403s seen by the client
+    status_403s: AtomicUsize,
 
     /// tracker for overall number of 429s seen by the client
     status_429s: AtomicUsize,
@@ -129,12 +132,6 @@ pub struct Stats {
     /// tracker for number of files found
     resources_discovered: AtomicUsize,
 
-    /// tracker for each directory's total scan time in seconds as a float
-    directory_scan_times: Mutex<Vec<f64>>,
-
-    /// tracker for total runtime
-    total_runtime: Mutex<Vec<f64>>,
-
     /// tracker for number of errors triggered during URL formatting
     url_format_errors: AtomicUsize,
 
@@ -146,6 +143,12 @@ pub struct Stats {
 
     /// tracker for number of errors related to the request used
     request_errors: AtomicUsize,
+
+    /// tracker for each directory's total scan time in seconds as a float
+    directory_scan_times: Mutex<Vec<f64>>,
+
+    /// tracker for total runtime
+    total_runtime: Mutex<Vec<f64>>,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -181,18 +184,22 @@ impl Stats {
     /// given an `Instant` update total runtime
     fn update_runtime(&self, seconds: f64) {
         if let Ok(mut runtime) = self.total_runtime.lock() {
+            log::error!("in the if");
             runtime[0] = seconds;
+            log::error!("runtime: {} and runtimes: {:?}", seconds, runtime);
         }
     }
 
-    /// save an instance of `Stats` to disk
-    fn save(&self) {
+    /// save an instance of `Stats` to disk after updating the total runtime for the scan
+    fn save(&self, seconds: f64) {
         let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
             Some(file) => file,
             None => {
                 return;
             }
         };
+
+        self.update_runtime(seconds);
 
         safe_file_write(self, buffered_file, CONFIGURATION.json);
     }
@@ -400,6 +407,70 @@ impl Stats {
             _ => {} // f64 fields
         }
     }
+
+    /// Merge a given `Stats` object from a json entry written to disk when handling a Ctrl+c
+    ///
+    /// This is only ever called when resuming a scan from disk
+    pub fn merge_from(&self, filename: &str) {
+        if let Ok(file) = File::open(filename) {
+            let reader = BufReader::new(file);
+            let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
+
+            if let Some(state_stats) = state.get("statistics") {
+                if let Ok(d_stats) = serde_json::from_value::<Stats>(state_stats.clone()) {
+                    atomic_increment!(self.successes, atomic_load!(d_stats.successes));
+                    atomic_increment!(self.timeouts, atomic_load!(d_stats.timeouts));
+                    atomic_increment!(self.requests, atomic_load!(d_stats.requests));
+                    atomic_increment!(self.errors, atomic_load!(d_stats.errors));
+                    atomic_increment!(self.redirects, atomic_load!(d_stats.redirects));
+                    atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
+                    atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
+                    atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
+                    atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
+                    atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
+                    atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
+                    atomic_increment!(self.status_401s, atomic_load!(d_stats.status_401s));
+                    atomic_increment!(self.status_403s, atomic_load!(d_stats.status_403s));
+                    atomic_increment!(self.status_429s, atomic_load!(d_stats.status_429s));
+                    atomic_increment!(self.status_500s, atomic_load!(d_stats.status_500s));
+                    atomic_increment!(self.status_503s, atomic_load!(d_stats.status_503s));
+                    atomic_increment!(self.status_504s, atomic_load!(d_stats.status_504s));
+                    atomic_increment!(self.status_508s, atomic_load!(d_stats.status_508s));
+                    atomic_increment!(
+                        self.wildcards_filtered,
+                        atomic_load!(d_stats.wildcards_filtered)
+                    );
+                    atomic_increment!(
+                        self.responses_filtered,
+                        atomic_load!(d_stats.responses_filtered)
+                    );
+                    atomic_increment!(
+                        self.resources_discovered,
+                        atomic_load!(d_stats.resources_discovered)
+                    );
+                    atomic_increment!(
+                        self.url_format_errors,
+                        atomic_load!(d_stats.url_format_errors)
+                    );
+                    atomic_increment!(
+                        self.connection_errors,
+                        atomic_load!(d_stats.connection_errors)
+                    );
+                    atomic_increment!(
+                        self.redirection_errors,
+                        atomic_load!(d_stats.redirection_errors)
+                    );
+                    atomic_increment!(self.request_errors, atomic_load!(d_stats.request_errors));
+
+                    if let Ok(scan_times) = d_stats.directory_scan_times.lock() {
+                        for scan_time in scan_times.iter() {
+                            self.update_f64_field(StatField::DirScanTimes, *scan_time);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -584,7 +655,7 @@ pub async fn spawn_statistics_handler(
                 stats.add_status_code(status);
             }
             StatCommand::AddRequest => stats.add_request(),
-            StatCommand::Save => stats.save(),
+            StatCommand::Save => stats.save(start.elapsed().as_secs_f64()),
             StatCommand::UpdateUsizeField(field, value) => {
                 let update_len = matches!(field, StatField::TotalScans);
                 stats.update_usize_field(field, value);
@@ -602,7 +673,7 @@ pub async fn spawn_statistics_handler(
                 );
             }
             StatCommand::LoadStats(filename) => {
-                load_stats(&filename, tx_stats.clone());
+                stats.merge_from(&filename);
             }
             StatCommand::Exit => break,
         }
@@ -619,189 +690,10 @@ pub async fn spawn_statistics_handler(
         bar.inc(1);
     }
 
-    stats.update_runtime(start.elapsed().as_secs_f64());
-
     bar.finish();
 
     log::debug!("{:#?}", *stats);
     log::trace!("exit: spawn_statistics_handler")
-}
-
-/// Given a `Stats` object, send update directives over the given `StatCommand` transmitter
-fn update_stats(stats: Stats, tx_stats: UnboundedSender<StatCommand>) {
-    // total runtime skipped; makes no sense here as the scan has never completed
-    // expected_per_scan skipped as it's already updated from scanner::initialize
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Timeouts, atomic_load!(stats.timeouts))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Requests, atomic_load!(stats.requests))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Errors, atomic_load!(stats.errors))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Successes, atomic_load!(stats.successes))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Redirects, atomic_load!(stats.redirects))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::ClientErrors, atomic_load!(stats.client_errors))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::ServerErrors, atomic_load!(stats.server_errors))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::LinksExtracted,
-            atomic_load!(stats.links_extracted)
-        )
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status200s, atomic_load!(stats.status_200s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status403s, atomic_load!(stats.status_403s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status301s, atomic_load!(stats.status_301s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status302s, atomic_load!(stats.status_302s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status401s, atomic_load!(stats.status_401s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status429s, atomic_load!(stats.status_429s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status500s, atomic_load!(stats.status_500s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status503s, atomic_load!(stats.status_503s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status504s, atomic_load!(stats.status_504s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::Status508s, atomic_load!(stats.status_508s))
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::WildcardsFiltered,
-            atomic_load!(stats.wildcards_filtered)
-        )
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::ResponsesFiltered,
-            atomic_load!(stats.responses_filtered)
-        )
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::ResourcesDiscovered,
-            atomic_load!(stats.resources_discovered)
-        )
-    );
-
-    if let Ok(scan_times) = stats.directory_scan_times.lock() {
-        for scan_time in scan_times.iter() {
-            update_stat!(
-                tx_stats,
-                StatCommand::UpdateF64Field(StatField::DirScanTimes, *scan_time)
-            );
-        }
-    }
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::UrlFormatErrors,
-            atomic_load!(stats.url_format_errors)
-        )
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::RedirectionErrors,
-            atomic_load!(stats.redirection_errors)
-        )
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(
-            StatField::ConnectionErrors,
-            atomic_load!(stats.connection_errors)
-        )
-    );
-
-    update_stat!(
-        tx_stats,
-        StatCommand::UpdateUsizeField(StatField::RequestErrors, atomic_load!(stats.request_errors))
-    );
-}
-
-/// Populate a `Stats` object from a json entry written to disk when handling a Ctrl+c
-///
-/// This is only ever called when resuming a scan from disk
-pub fn load_stats(filename: &str, tx_stats: UnboundedSender<StatCommand>) {
-    if let Ok(file) = File::open(filename) {
-        let reader = BufReader::new(file);
-        let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
-
-        if let Some(state_stats) = state.get("statistics") {
-            if let Ok(deser_stats) = serde_json::from_value::<Stats>(state_stats.clone()) {
-                update_stats(deser_stats, tx_stats);
-            }
-        }
-    }
 }
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
@@ -830,6 +722,8 @@ pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::write;
+    use tempfile::NamedTempFile;
 
     /// simple helper to reduce code reuse
     fn setup_stats_test() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
@@ -980,5 +874,55 @@ mod tests {
         stats.update_usize_field(StatField::ResponsesFiltered, 1);
 
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    /// Stats::merge_from should properly incrememnt expected fields and ignore others
+    fn stats_merge_from_alters_correct_fields() {
+        let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
+        let stats = Stats::new();
+        let tfile = NamedTempFile::new().unwrap();
+        write(&tfile, contents).unwrap();
+
+        stats.merge_from(tfile.path().to_str().unwrap());
+
+        // as of 1.11.1; all Stats fields are accounted for whether they're updated in merge_from
+        // or not
+        assert_eq!(atomic_load!(stats.timeouts), 1);
+        assert_eq!(atomic_load!(stats.requests), 9207);
+        assert_eq!(atomic_load!(stats.expected_per_scan), 0); // not updated in merge_from
+        assert_eq!(atomic_load!(stats.total_expected), 0); // not updated in merge_from
+        assert_eq!(atomic_load!(stats.errors), 3);
+        assert_eq!(atomic_load!(stats.successes), 720);
+        assert_eq!(atomic_load!(stats.redirects), 13);
+        assert_eq!(atomic_load!(stats.client_errors), 8474);
+        assert_eq!(atomic_load!(stats.server_errors), 2);
+        assert_eq!(atomic_load!(stats.total_scans), 0); // not updated in merge_from
+        assert_eq!(atomic_load!(stats.initial_targets), 0); // not updated in merge_from
+        assert_eq!(atomic_load!(stats.links_extracted), 51);
+        assert_eq!(atomic_load!(stats.status_200s), 720);
+        assert_eq!(atomic_load!(stats.status_301s), 12);
+        assert_eq!(atomic_load!(stats.status_302s), 1);
+        assert_eq!(atomic_load!(stats.status_401s), 4);
+        assert_eq!(atomic_load!(stats.status_403s), 3);
+        assert_eq!(atomic_load!(stats.status_429s), 2);
+        assert_eq!(atomic_load!(stats.status_500s), 5);
+        assert_eq!(atomic_load!(stats.status_503s), 9);
+        assert_eq!(atomic_load!(stats.status_504s), 6);
+        assert_eq!(atomic_load!(stats.status_508s), 7);
+        assert_eq!(atomic_load!(stats.wildcards_filtered), 707);
+        assert_eq!(atomic_load!(stats.responses_filtered), 707);
+        assert_eq!(atomic_load!(stats.resources_discovered), 27);
+        assert_eq!(atomic_load!(stats.url_format_errors), 17);
+        assert_eq!(atomic_load!(stats.redirection_errors), 12);
+        assert_eq!(atomic_load!(stats.connection_errors), 21);
+        assert_eq!(atomic_load!(stats.request_errors), 4);
+        assert_eq!(stats.directory_scan_times.lock().unwrap().len(), 13);
+        for scan in stats.directory_scan_times.lock().unwrap().iter() {
+            assert!(scan.max(0.0) > 0.0); // all scans are non-zero
+        }
+        // total_runtime not updated in merge_from
+        assert_eq!(stats.total_runtime.lock().unwrap().len(), 1);
+        assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
     }
 }
