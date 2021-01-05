@@ -1,7 +1,4 @@
 // todo integration test that hits some/all of the errors in make_request
-// todo correctness test of merge_from
-// todo total runtime didn't get populated into --json output
-
 use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
@@ -309,12 +306,7 @@ impl Stats {
                 atomic_increment!(self.expected_per_scan, value);
             }
             StatField::TotalScans => {
-                let num_extensions = CONFIGURATION.extensions.len();
-                let multiplier = if num_extensions > 0 {
-                    num_extensions
-                } else {
-                    1
-                };
+                let multiplier = CONFIGURATION.extensions.len().max(1);
 
                 atomic_increment!(self.total_scans, value);
                 atomic_increment!(

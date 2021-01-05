@@ -148,12 +148,7 @@ pub async fn get_links(
         }
     }
 
-    let num_extensions = CONFIGURATION.extensions.len();
-    let multiplier = if num_extensions > 0 {
-        num_extensions
-    } else {
-        1
-    };
+    let multiplier = CONFIGURATION.extensions.len().max(1);
 
     update_stat!(tx_stats, UpdateUsizeField(LinksExtracted, links.len()));
     update_stat!(
@@ -331,12 +326,7 @@ pub async fn extract_robots_txt(
         }
     }
 
-    let num_extensions = CONFIGURATION.extensions.len();
-    let multiplier = if num_extensions > 0 {
-        num_extensions
-    } else {
-        1
-    };
+    let multiplier = CONFIGURATION.extensions.len().max(1);
 
     update_stat!(tx_stats, UpdateUsizeField(LinksExtracted, links.len()));
     update_stat!(
