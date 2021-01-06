@@ -34,7 +34,7 @@ use crossterm::{
     cursor::{Hide, MoveTo, Show},
     execute, queue,
     style::Print,
-    terminal::{enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 };
 
 lazy_static! {

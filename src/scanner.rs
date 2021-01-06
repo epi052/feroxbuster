@@ -885,7 +885,7 @@ mod tests {
         assert!(result);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
     async fn initialize_panics_on_bad_regex() {

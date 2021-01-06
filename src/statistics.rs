@@ -603,7 +603,7 @@ mod tests {
         handle.await.unwrap();
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::Exit, function should exit its while loop (runs forever otherwise)
     async fn statistics_handler_exits() {
         let (_, sender, handle) = setup_stats_test();
@@ -615,7 +615,7 @@ mod tests {
         // if we've made it here, the test has succeeded
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     async fn statistics_handler_increments_requests() {
         let (stats, tx, handle) = setup_stats_test();
@@ -629,7 +629,7 @@ mod tests {
         assert_eq!(stats.requests.load(Ordering::Relaxed), 3);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
@@ -653,7 +653,7 @@ mod tests {
         assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
@@ -675,7 +675,7 @@ mod tests {
         assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddStatus, stats object should reflect the change
     ///
     /// incrementing a 500 (tracked in server_errors) should also increment:
