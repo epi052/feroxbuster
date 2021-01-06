@@ -4,19 +4,26 @@ use feroxbuster::{
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     extractor::{extract_robots_txt, request_feroxresponse_from_new_link},
     heuristics, logger,
-    progress::add_bar,
+    progress::{add_bar, BarType},
     reporter,
     scan_manager::{self, PAUSE_SCAN},
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
+    statistics::{
+        self,
+        StatCommand::{self, CreateBar, LoadStats, UpdateUsizeField},
+        StatField::InitialTargets,
+        Stats,
+    },
+    update_stat,
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
-use std::convert::TryInto;
 use std::{
     collections::HashSet,
+    convert::TryInto,
     fs::File,
     io::{stderr, BufRead, BufReader},
     process,
@@ -100,10 +107,19 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(
     mut targets: Vec<String>,
+    stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> FeroxResult<()> {
-    log::trace!("enter: scan({:?}, {:?}, {:?})", targets, tx_term, tx_file);
+    log::trace!(
+        "enter: scan({:?}, {:?}, {:?}, {:?}, {:?})",
+        targets,
+        stats,
+        tx_term,
+        tx_file,
+        tx_stats
+    );
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
@@ -112,14 +128,32 @@ async fn scan(
             .await??;
 
     if words.len() == 0 {
-        let mut err = FeroxError::default();
-        err.message = format!("Did not find any words in {}", CONFIGURATION.wordlist);
+        let err = FeroxError {
+            message: format!("Did not find any words in {}", CONFIGURATION.wordlist),
+        };
+
         return Err(Box::new(err));
     }
 
-    scanner::initialize(words.len(), &CONFIGURATION).await;
+    scanner::initialize(words.len(), &CONFIGURATION, tx_stats.clone()).await;
+
+    // at this point, the stat thread's progress bar can be created; things that needed to happen
+    // first:
+    // - banner gets printed
+    // - scanner initialized (this sent expected requests per directory to the stats thread, which
+    //   having been set, makes it so the progress bar doesn't flash as full before anything has
+    //   even happened
+    update_stat!(tx_stats, CreateBar);
 
     if CONFIGURATION.resumed {
+        update_stat!(tx_stats, LoadStats(CONFIGURATION.resume_from.clone()));
+
+        if let Ok(responses) = RESPONSES.responses.read() {
+            for response in responses.iter() {
+                PROGRESS_PRINTER.println(response.as_str());
+            }
+        }
+
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {
                 if let Ok(locked_scan) = scan.lock() {
@@ -128,18 +162,11 @@ async fn scan(
                         let pb = add_bar(
                             &locked_scan.url,
                             words.len().try_into().unwrap_or_default(),
-                            false,
-                            true,
+                            BarType::Message,
                         );
                         pb.finish();
                     }
                 }
-            }
-        }
-
-        if let Ok(responses) = RESPONSES.responses.read() {
-            for response in responses.iter() {
-                PROGRESS_PRINTER.println(response.as_str());
             }
         }
     }
@@ -148,20 +175,25 @@ async fn scan(
         for target in targets.clone() {
             // modifying the targets vector, so we can't have a reference to it while we borrow
             // it as mutable; thus the clone
-            let robots_links = extract_robots_txt(&target, &CONFIGURATION).await;
+            let robots_links = extract_robots_txt(&target, &CONFIGURATION, tx_stats.clone()).await;
 
             for robot_link in robots_links {
                 // create a url based on the given command line options, continue on error
-                let ferox_response = match request_feroxresponse_from_new_link(&robot_link).await {
+                let ferox_response = match request_feroxresponse_from_new_link(
+                    &robot_link,
+                    tx_stats.clone(),
+                )
+                .await
+                {
                     Some(resp) => resp,
                     None => continue,
                 };
 
                 if ferox_response.is_file() {
-                    SCANNED_URLS.add_file_scan(&robot_link);
+                    SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
                     send_report(tx_term.clone(), ferox_response);
                 } else {
-                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link);
+                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
 
                     if !unknown {
                         // known directory; can skip (unlikely)
@@ -176,12 +208,13 @@ async fn scan(
     }
 
     let mut tasks = vec![];
-    let num_targets = targets.len();
 
     for target in targets {
         let word_clone = words.clone();
         let term_clone = tx_term.clone();
         let file_clone = tx_file.clone();
+        let tx_stats_clone = tx_stats.clone();
+        let stats_clone = stats.clone();
 
         let task = tokio::spawn(async move {
             let base_depth = get_current_depth(&target);
@@ -189,9 +222,10 @@ async fn scan(
                 &target,
                 word_clone,
                 base_depth,
-                num_targets,
+                stats_clone,
                 term_clone,
                 file_clone,
+                tx_stats_clone,
             )
             .await;
         });
@@ -262,11 +296,16 @@ async fn wrapped_main() {
         PROGRESS_BAR.join().unwrap();
     });
 
+    let (stats, tx_stats, stats_handle) = statistics::initialize();
+
     if !CONFIGURATION.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
         // the limit
+
+        let max_time_stats = stats.clone();
+
         tokio::spawn(async move {
-            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit).await
+            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, max_time_stats).await
         });
     }
 
@@ -280,8 +319,13 @@ async fn wrapped_main() {
 
     let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
 
+    if CONFIGURATION.save_state {
+        // start the ctrl+c handler
+        scan_manager::initialize(stats.clone());
+    }
+
     let (tx_term, tx_file, term_handle, file_handle) =
-        reporter::initialize(&CONFIGURATION.output, save_output);
+        reporter::initialize(&CONFIGURATION.output, save_output, tx_stats.clone());
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
@@ -289,27 +333,62 @@ async fn wrapped_main() {
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
             log::error!("{} {}", module_colorizer("main::get_targets"), e);
-            clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+            clean_up(
+                tx_term,
+                term_handle,
+                tx_file,
+                file_handle,
+                tx_stats,
+                stats_handle,
+                save_output,
+            )
+            .await;
             return;
         }
     };
 
+    update_stat!(tx_stats, UpdateUsizeField(InitialTargets, targets.len()));
+
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
-        banner::initialize(&targets, &CONFIGURATION, &VERSION, std_stderr).await;
+        banner::initialize(
+            &targets,
+            &CONFIGURATION,
+            &VERSION,
+            std_stderr,
+            tx_stats.clone(),
+        )
+        .await;
     }
 
     // discard non-responsive targets
-    let live_targets = heuristics::connectivity_test(&targets).await;
+    let live_targets = heuristics::connectivity_test(&targets, tx_stats.clone()).await;
 
     if live_targets.is_empty() {
-        clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+        clean_up(
+            tx_term,
+            term_handle,
+            tx_file,
+            file_handle,
+            tx_stats,
+            stats_handle,
+            save_output,
+        )
+        .await;
         return;
     }
 
     // kick off a scan against any targets determined to be responsive
-    match scan(live_targets, tx_term.clone(), tx_file.clone()).await {
+    match scan(
+        live_targets,
+        stats,
+        tx_term.clone(),
+        tx_file.clone(),
+        tx_stats.clone(),
+    )
+    .await
+    {
         Ok(_) => {
             log::info!("All scans complete!");
         }
@@ -318,12 +397,30 @@ async fn wrapped_main() {
                 &format!("{} while scanning: {}", status_colorizer("Error"), e),
                 &PROGRESS_PRINTER,
             );
-            clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+            clean_up(
+                tx_term,
+                term_handle,
+                tx_file,
+                file_handle,
+                tx_stats,
+                stats_handle,
+                save_output,
+            )
+            .await;
             process::exit(1);
         }
     };
 
-    clean_up(tx_term, term_handle, tx_file, file_handle, save_output).await;
+    clean_up(
+        tx_term,
+        term_handle,
+        tx_file,
+        file_handle,
+        tx_stats,
+        stats_handle,
+        save_output,
+    )
+    .await;
 
     log::trace!("exit: main");
 }
@@ -335,14 +432,18 @@ async fn clean_up(
     term_handle: JoinHandle<()>,
     tx_file: UnboundedSender<FeroxResponse>,
     file_handle: Option<JoinHandle<()>>,
+    tx_stats: UnboundedSender<StatCommand>,
+    stats_handle: JoinHandle<()>,
     save_output: bool,
 ) {
     log::trace!(
-        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {})",
+        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {})",
         tx_term,
         term_handle,
         tx_file,
         file_handle,
+        tx_stats,
+        stats_handle,
         save_output
     );
 
@@ -377,6 +478,10 @@ async fn clean_up(
         log::trace!("done awaiting file output handler's receiver");
     }
 
+    log::trace!("tx_stats: {:?}", tx_stats);
+    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
+    stats_handle.await.unwrap_or_default();
+
     // mark all scans complete so the terminal input handler will exit cleanly
     SCAN_COMPLETE.store(true, Ordering::Relaxed);
 
@@ -390,11 +495,6 @@ async fn clean_up(
 fn main() {
     // setup logging based on the number of -v's used
     logger::initialize(CONFIGURATION.verbosity);
-
-    if CONFIGURATION.save_state {
-        // start the ctrl+c handler
-        scan_manager::initialize();
-    }
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]

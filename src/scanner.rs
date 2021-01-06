@@ -1,3 +1,4 @@
+use crate::statistics::Stats;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -7,6 +8,10 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
+    statistics::{
+        StatCommand::{self, UpdateF64Field, UpdateUsizeField},
+        StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
+    },
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
@@ -24,8 +29,9 @@ use std::{
     collections::HashSet,
     convert::TryInto,
     ops::Deref,
-    sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
     sync::{Arc, RwLock},
+    time::Instant,
 };
 use tokio::{
     sync::{
@@ -35,11 +41,12 @@ use tokio::{
     task::JoinHandle,
 };
 
-/// Single atomic number that gets incremented once, used to track first scan vs. all others
+/// Single atomic number that gets incremented at least once, used to track first scan(s) vs. all
+/// others found during recursion
+///
+/// -u means this will be incremented once
+/// --stdin means this will be incremented by the number of targets passed via STDIN
 static CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
-
-/// Single atomic number that gets holds the number of requests to be sent per directory scanned
-pub static NUMBER_OF_REQUESTS: AtomicU64 = AtomicU64::new(0);
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
@@ -98,35 +105,41 @@ fn spawn_recursion_handler(
     mut recursion_channel: UnboundedReceiver<String>,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
-    num_targets: usize,
+    stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
         base_depth,
-        num_targets,
+        stats,
         tx_term,
-        tx_file
+        tx_file,
+        tx_stats
     );
 
     let boxed_future = async move {
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp);
+            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
                 continue;
             }
 
+            update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
+
             log::info!("received {} on recursion channel", resp);
 
             let term_clone = tx_term.clone();
             let file_clone = tx_file.clone();
+            let tx_stats_clone = tx_stats.clone();
+            let stats_clone = stats.clone();
             let resp_clone = resp.clone();
             let list_clone = wordlist.clone();
 
@@ -135,9 +148,10 @@ fn spawn_recursion_handler(
                     resp_clone.to_owned().as_str(),
                     list_clone,
                     base_depth,
-                    num_targets,
+                    stats_clone,
                     term_clone,
                     file_clone,
+                    tx_stats_clone,
                 )
                 .await
             });
@@ -158,12 +172,18 @@ fn spawn_recursion_handler(
 ///
 /// If any extensions were passed to the program, each extension will add a
 /// (base_url + word + ext) Url to the vector
-fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> {
+fn create_urls(
+    target_url: &str,
+    word: &str,
+    extensions: &[String],
+    tx_stats: UnboundedSender<StatCommand>,
+) -> Vec<Url> {
     log::trace!(
-        "enter: create_urls({}, {}, {:?})",
+        "enter: create_urls({}, {}, {:?}, {:?})",
         target_url,
         word,
-        extensions
+        extensions,
+        tx_stats
     );
 
     let mut urls = vec![];
@@ -174,6 +194,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
         CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
+        tx_stats.clone(),
     ) {
         urls.push(url); // default request, i.e. no extension
     }
@@ -185,6 +206,7 @@ fn create_urls(target_url: &str, word: &str, extensions: &[String]) -> Vec<Url> 
             CONFIGURATION.add_slash,
             &CONFIGURATION.queries,
             Some(ext),
+            tx_stats.clone(),
         ) {
             urls.push(url); // any extensions passed in
         }
@@ -284,7 +306,7 @@ async fn try_recursion(
         "enter: try_recursion({}, {}, {:?})",
         response,
         base_depth,
-        transmitter
+        transmitter,
     );
 
     if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth)
@@ -328,12 +350,18 @@ async fn try_recursion(
 
 /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
 /// to the user or not.
-pub fn should_filter_response(response: &FeroxResponse) -> bool {
+pub fn should_filter_response(
+    response: &FeroxResponse,
+    tx_stats: UnboundedSender<StatCommand>,
+) -> bool {
     match FILTERS.read() {
         Ok(filters) => {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(&response) {
+                    if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
+                        update_stat!(tx_stats, UpdateUsizeField(WildcardsFiltered, 1))
+                    }
                     return true;
                 }
             }
@@ -354,22 +382,31 @@ async fn make_requests(
     target_url: &str,
     word: &str,
     base_depth: usize,
+    stats: Arc<Stats>,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: make_requests({}, {}, {}, {:?}, {:?})",
+        "enter: make_requests({}, {}, {}, {:?}, {:?}, {:?}, {:?})",
         target_url,
         word,
         base_depth,
+        stats,
         dir_chan,
-        report_chan
+        report_chan,
+        tx_stats
     );
 
-    let urls = create_urls(&target_url, &word, &CONFIGURATION.extensions);
+    let urls = create_urls(
+        &target_url,
+        &word,
+        &CONFIGURATION.extensions,
+        tx_stats.clone(),
+    );
 
     for url in urls {
-        if let Ok(response) = make_request(&CONFIGURATION.client, &url).await {
+        if let Ok(response) = make_request(&CONFIGURATION.client, &url, tx_stats.clone()).await {
             // response came back without error, convert it to FeroxResponse
             let ferox_response = FeroxResponse::from(response, true).await;
 
@@ -381,22 +418,26 @@ async fn make_requests(
             // purposefully doing recursion before filtering. the thought process is that
             // even though this particular url is filtered, subsequent urls may not
 
-            if should_filter_response(&ferox_response) {
+            if should_filter_response(&ferox_response, tx_stats.clone()) {
                 continue;
             }
 
             if CONFIGURATION.extract_links && !ferox_response.status().is_redirection() {
-                let new_links = get_links(&ferox_response).await;
+                let new_links = get_links(&ferox_response, tx_stats.clone()).await;
 
                 for new_link in new_links {
-                    let mut new_ferox_response =
-                        match request_feroxresponse_from_new_link(&new_link).await {
-                            Some(resp) => resp,
-                            None => continue,
-                        };
+                    let mut new_ferox_response = match request_feroxresponse_from_new_link(
+                        &new_link,
+                        tx_stats.clone(),
+                    )
+                    .await
+                    {
+                        Some(resp) => resp,
+                        None => continue,
+                    };
 
                     // filter if necessary
-                    if should_filter_response(&new_ferox_response) {
+                    if should_filter_response(&new_ferox_response, tx_stats.clone()) {
                         continue;
                     }
 
@@ -404,7 +445,8 @@ async fn make_requests(
                         // very likely a file, simply request and report
                         log::debug!("Singular extraction: {}", new_ferox_response);
 
-                        SCANNED_URLS.add_file_scan(&new_ferox_response.url().to_string());
+                        SCANNED_URLS
+                            .add_file_scan(&new_ferox_response.url().to_string(), stats.clone());
 
                         send_report(report_chan.clone(), new_ferox_response);
 
@@ -457,30 +499,36 @@ pub async fn scan_url(
     target_url: &str,
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
-    num_targets: usize,
+    stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
+    tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {}, {}, {:?}, {:?})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
         target_url,
         wordlist.len(),
         base_depth,
-        num_targets,
+        stats,
         tx_term,
-        tx_file
+        tx_file,
+        tx_stats
     );
 
     log::info!("Starting scan against: {}", target_url);
 
+    let scan_timer = Instant::now();
+
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
-    if CALL_COUNT.load(Ordering::Relaxed) < num_targets {
+    if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets.load(Ordering::Relaxed) {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
+
+        update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
-        SCANNED_URLS.add_directory_scan(&target_url);
+        SCANNED_URLS.add_directory_scan(&target_url, stats.clone());
     }
 
     let ferox_scan = match SCANNED_URLS.get_scan_by_url(&target_url) {
@@ -511,29 +559,39 @@ pub async fn scan_url(
     // Arc clones to be passed around to the various scans
     let wildcard_bar = progress_bar.clone();
     let heuristics_term_clone = tx_term.clone();
+    let heuristics_stats_clone = tx_stats.clone();
     let recurser_term_clone = tx_term.clone();
     let recurser_file_clone = tx_file.clone();
+    let recurser_stats_clone = tx_stats.clone();
     let recurser_words = wordlist.clone();
     let looping_words = wordlist.clone();
+    let looping_stats = stats.clone();
 
     let recurser = tokio::spawn(async move {
         spawn_recursion_handler(
             rx_dir,
             recurser_words,
             base_depth,
-            num_targets,
+            stats.clone(),
             recurser_term_clone,
             recurser_file_clone,
+            recurser_stats_clone,
         )
         .await
     });
 
     // add any wildcard filters to `FILTERS`
-    let filter =
-        match heuristics::wildcard_test(&target_url, wildcard_bar, heuristics_term_clone).await {
-            Some(f) => Box::new(f),
-            None => Box::new(WildcardFilter::default()),
-        };
+    let filter = match heuristics::wildcard_test(
+        &target_url,
+        wildcard_bar,
+        heuristics_term_clone,
+        heuristics_stats_clone,
+    )
+    .await
+    {
+        Some(f) => Box::new(f),
+        None => Box::new(WildcardFilter::default()),
+    };
 
     add_filter_to_list_of_ferox_filters(filter, FILTERS.clone());
 
@@ -542,8 +600,10 @@ pub async fn scan_url(
         .map(|word| {
             let txd = tx_dir.clone();
             let txr = tx_term.clone();
+            let txs = tx_stats.clone();
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
+            let lst = looping_stats.clone();
             (
                 tokio::spawn(async move {
                     if PAUSE_SCAN.load(Ordering::Acquire) {
@@ -552,7 +612,7 @@ pub async fn scan_url(
                         // to false
                         SCANNED_URLS.pause(true).await;
                     }
-                    make_requests(&tgt, &word, base_depth, txd, txr).await
+                    make_requests(&tgt, &word, base_depth, lst, txd, txr, txs).await
                 }),
                 pb,
             )
@@ -572,6 +632,11 @@ pub async fn scan_url(
     log::trace!("awaiting scan producers");
     producers.await;
     log::trace!("done awaiting scan producers");
+
+    update_stat!(
+        tx_stats,
+        UpdateF64Field(DirScanTimes, scan_timer.elapsed().as_secs_f64())
+    );
 
     // drop the current permit so the semaphore will allow another scan to proceed
     drop(permit);
@@ -594,8 +659,17 @@ pub async fn scan_url(
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
 /// engine, as it were)
-pub async fn initialize(num_words: usize, config: &Configuration) {
-    log::trace!("enter: initialize({}, {:?})", num_words, config,);
+pub async fn initialize(
+    num_words: usize,
+    config: &Configuration,
+    tx_stats: UnboundedSender<StatCommand>,
+) {
+    log::trace!(
+        "enter: initialize({}, {:?}, {:?})",
+        num_words,
+        config,
+        tx_stats
+    );
 
     // number of requests only needs to be calculated once, and then can be reused
     let num_reqs_expected: u64 = if config.extensions.is_empty() {
@@ -605,7 +679,11 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
         total.try_into().unwrap()
     };
 
-    NUMBER_OF_REQUESTS.store(num_reqs_expected, Ordering::Relaxed);
+    // tell Stats object about the number of expected requests
+    update_stat!(
+        tx_stats,
+        UpdateUsizeField(ExpectedPerScan, num_reqs_expected as usize)
+    );
 
     // add any status code filters to `FILTERS` (-C|--filter-status)
     for code_filter in &config.filter_status {
@@ -668,9 +746,16 @@ pub async fn initialize(num_words: usize, config: &Configuration) {
     // add any similarity filters to `FILTERS` (--filter-similar-to)
     for similarity_filter in &config.filter_similar {
         // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        if let Ok(url) = format_url(&similarity_filter, &"", false, &Vec::new(), None) {
+        if let Ok(url) = format_url(
+            &similarity_filter,
+            &"",
+            false,
+            &Vec::new(),
+            None,
+            tx_stats.clone(),
+        ) {
             // attempt to request the given url
-            if let Ok(resp) = make_request(&CONFIGURATION.client, &url).await {
+            if let Ok(resp) = make_request(&CONFIGURATION.client, &url, tx_stats.clone()).await {
                 // if successful, create a filter based on the response's body
                 let fr = FeroxResponse::from(resp, true).await;
 
@@ -705,14 +790,16 @@ mod tests {
     #[test]
     /// sending url + word without any extensions should get back one url with the joined word
     fn create_urls_no_extension_returns_base_url_with_word() {
-        let urls = create_urls("http://localhost", "turbo", &[]);
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let urls = create_urls("http://localhost", "turbo", &[], tx);
         assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
     }
 
     #[test]
     /// sending url + word + 1 extension should get back two urls, one base and one with extension
     fn create_urls_one_extension_returns_two_urls() {
-        let urls = create_urls("http://localhost", "turbo", &[String::from("js")]);
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let urls = create_urls("http://localhost", "turbo", &[String::from("js")], tx);
         assert_eq!(
             urls,
             [
@@ -750,8 +837,10 @@ mod tests {
             vec![base, js, php, pdf, tar],
         ];
 
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
         for (i, ext_set) in ext_vec.into_iter().enumerate() {
-            let urls = create_urls("http://localhost", "turbo", &ext_set);
+            let urls = create_urls("http://localhost", "turbo", &ext_set, tx.clone());
             assert_eq!(urls, expected[i]);
         }
     }
@@ -800,8 +889,11 @@ mod tests {
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
     async fn initialize_panics_on_bad_regex() {
-        let mut config = Configuration::default();
-        config.filter_regex = vec![r"(".to_string()];
-        initialize(1, &config).await;
+        let config = Configuration {
+            filter_regex: vec![r"(".to_string()],
+            ..Default::default()
+        };
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        initialize(1, &config, tx).await;
     }
 }

@@ -1,11 +1,11 @@
-use crate::config::Configuration;
-use crate::reporter::safe_file_write;
-use crate::utils::open_file;
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
-    progress,
-    scanner::{NUMBER_OF_REQUESTS, RESPONSES, SCANNED_URLS},
+    progress::{add_bar, BarType},
+    reporter::safe_file_write,
+    scanner::{RESPONSES, SCANNED_URLS},
+    statistics::Stats,
+    utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
 use console::style;
@@ -16,26 +16,24 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::Value;
-use std::collections::HashMap;
 use std::{
     cmp::PartialEq,
+    collections::HashMap,
     fmt,
     fs::File,
     io::BufReader,
+    io::{stderr, stdout, Write},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Mutex, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
-use std::{
-    io::{stderr, stdout, Write},
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
-};
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
-// todo do i need this 107
-use crossterm::style::Print;
+// todo do i need this crossterm stuff 107
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     execute, queue,
+    style::Print,
     terminal::{enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
@@ -82,6 +80,9 @@ pub struct FeroxScan {
     /// The type of scan
     pub scan_type: ScanType,
 
+    /// Number of requests to populate the progress bar with
+    pub num_requests: u64,
+
     /// Whether or not this scan has completed
     pub complete: bool,
 
@@ -102,6 +103,7 @@ impl Default for FeroxScan {
             id: new_id,
             task: None,
             complete: false,
+            num_requests: 0,
             url: String::new(),
             progress_bar: None,
             scan_type: ScanType::File,
@@ -132,8 +134,7 @@ impl FeroxScan {
         if let Some(pb) = &self.progress_bar {
             pb.clone()
         } else {
-            let num_requests = NUMBER_OF_REQUESTS.load(Ordering::Relaxed);
-            let pb = progress::add_bar(&self.url, num_requests, false, false);
+            let pb = add_bar(&self.url, self.num_requests, BarType::Default);
 
             pb.reset_elapsed();
 
@@ -144,14 +145,19 @@ impl FeroxScan {
     }
 
     /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
-    pub fn new(url: &str, scan_type: ScanType, pb: Option<ProgressBar>) -> Arc<Mutex<Self>> {
-        let mut me = Self::default();
-
-        me.url = url.to_string();
-        me.scan_type = scan_type;
-        me.progress_bar = pb;
-
-        Arc::new(Mutex::new(me))
+    pub fn new(
+        url: &str,
+        scan_type: ScanType,
+        num_requests: u64,
+        pb: Option<ProgressBar>,
+    ) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self {
+            url: url.to_string(),
+            scan_type,
+            num_requests,
+            progress_bar: pb,
+            ..Default::default()
+        }))
     }
 
     /// Mark the scan as complete and stop the scan's progress bar
@@ -194,6 +200,7 @@ impl Serialize for FeroxScan {
         state.serialize_field("url", &self.url)?;
         state.serialize_field("scan_type", &self.scan_type)?;
         state.serialize_field("complete", &self.complete)?;
+        state.serialize_field("num_requests", &self.num_requests)?;
 
         state.end()
     }
@@ -234,6 +241,11 @@ impl<'de> Deserialize<'de> for FeroxScan {
                 "url" => {
                     if let Some(url) = value.as_str() {
                         scan.url = url.to_string();
+                    }
+                }
+                "num_requests" => {
+                    if let Some(num_requests) = value.as_u64() {
+                        scan.num_requests = num_requests;
                     }
                 }
                 _ => {}
@@ -463,15 +475,17 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    fn add_scan(&self, url: &str, scan_type: ScanType) -> (bool, Arc<Mutex<FeroxScan>>) {
+    fn add_scan(
+        &self,
+        url: &str,
+        scan_type: ScanType,
+        stats: Arc<Stats>,
+    ) -> (bool, Arc<Mutex<FeroxScan>>) {
+        let num_requests = stats.expected_per_scan.load(Ordering::Relaxed) as u64;
+
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar = progress::add_bar(
-                    &url,
-                    NUMBER_OF_REQUESTS.load(Ordering::Relaxed),
-                    false,
-                    false,
-                );
+                let progress_bar = add_bar(&url, num_requests, BarType::Default);
 
                 progress_bar.reset_elapsed();
 
@@ -480,7 +494,7 @@ impl FeroxScans {
             ScanType::File => None,
         };
 
-        let ferox_scan = FeroxScan::new(&url, scan_type, bar);
+        let ferox_scan = FeroxScan::new(&url, scan_type, num_requests, bar);
 
         // If the set did not contain the scan, true is returned.
         // If the set did contain the scan, false is returned.
@@ -494,8 +508,12 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_directory_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
-        self.add_scan(&url, ScanType::Directory)
+    pub fn add_directory_scan(
+        &self,
+        url: &str,
+        stats: Arc<Stats>,
+    ) -> (bool, Arc<Mutex<FeroxScan>>) {
+        self.add_scan(&url, ScanType::Directory, stats)
     }
 
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
@@ -503,8 +521,8 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_file_scan(&self, url: &str) -> (bool, Arc<Mutex<FeroxScan>>) {
-        self.add_scan(&url, ScanType::File)
+    pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<Mutex<FeroxScan>>) {
+        self.add_scan(&url, ScanType::File, stats)
     }
 }
 
@@ -600,6 +618,9 @@ pub struct FeroxState {
 
     /// Known responses
     responses: &'static FeroxResponses,
+
+    /// Gathered statistics
+    statistics: Arc<Stats>,
 }
 
 /// FeroxSerialize implementation for FeroxState
@@ -619,7 +640,7 @@ impl FeroxSerialize for FeroxState {
 /// that representation to seconds and then wait for those seconds to elapse.  Once that period
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
-pub async fn start_max_time_thread(time_spec: &str) {
+pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
     log::trace!("enter: start_max_time_thread({})", time_spec);
 
     // as this function has already made it through the parser, which calls is_match on
@@ -649,9 +670,9 @@ pub async fn start_max_time_thread(time_spec: &str) {
         log::trace!("exit: start_max_time_thread");
 
         #[cfg(test)]
-        panic!();
+        panic!(stats);
         #[cfg(not(test))]
-        sigint_handler();
+        sigint_handler(stats);
     }
 
     log::error!(
@@ -661,8 +682,8 @@ pub async fn start_max_time_thread(time_spec: &str) {
 }
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler() {
-    log::trace!("enter: sigint_handler");
+fn sigint_handler(stats: Arc<Stats>) {
+    log::trace!("enter: sigint_handler({:?})", stats);
 
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -694,6 +715,7 @@ fn sigint_handler() {
         config: &CONFIGURATION,
         scans: &SCANNED_URLS,
         responses: &RESPONSES,
+        statistics: stats,
     };
 
     let state_file = open_file(&filename);
@@ -707,10 +729,12 @@ fn sigint_handler() {
 }
 
 /// Initialize the ctrl+c handler that saves scan state to disk
-pub fn initialize() {
-    log::trace!("enter: initialize");
+pub fn initialize(stats: Arc<Stats>) {
+    log::trace!("enter: initialize({:?})", stats);
 
-    let result = ctrlc::set_handler(sigint_handler);
+    let result = ctrlc::set_handler(move || {
+        sigint_handler(stats.clone());
+    });
 
     if result.is_err() {
         log::error!("Could not set Ctrl+c handler");
@@ -820,8 +844,9 @@ mod tests {
     /// add an unknown url to the hashset, expect true
     fn add_url_to_list_of_scanned_urls_with_unknown_url() {
         let urls = FeroxScans::default();
+        let stats = Arc::new(Stats::new());
         let url = "http://unknown_url";
-        let (result, _scan) = urls.add_scan(url, ScanType::Directory);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory, stats);
         assert_eq!(result, true);
     }
 
@@ -831,11 +856,13 @@ mod tests {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+        let stats = Arc::new(Stats::new());
+
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url, ScanType::Directory);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory, stats);
 
         assert_eq!(result, false);
     }
@@ -845,7 +872,8 @@ mod tests {
     fn abort_stops_progress_bar() {
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
+
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
 
         assert_eq!(
             scan.lock()
@@ -875,11 +903,13 @@ mod tests {
     fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         let urls = FeroxScans::default();
         let url = "http://unknown_url";
-        let scan = FeroxScan::new(url, ScanType::File, None);
+        let stats = Arc::new(Stats::new());
+
+        let scan = FeroxScan::new(url, ScanType::File, 0, None);
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url, ScanType::File);
+        let (result, _scan) = urls.add_scan(url, ScanType::File, stats);
 
         assert_eq!(result, false);
     }
@@ -892,8 +922,8 @@ mod tests {
         let pb_two = ProgressBar::new(2);
         let url = "http://unknown_url/";
         let url_two = "http://unknown_url/fa";
-        let scan = FeroxScan::new(url, ScanType::Directory, Some(pb));
-        let scan_two = FeroxScan::new(url_two, ScanType::Directory, Some(pb_two));
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
+        let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
 
         scan_two.lock().unwrap().finish(); // one complete, one incomplete
 
@@ -906,8 +936,8 @@ mod tests {
     /// ensure that PartialEq compares FeroxScan.id fields
     fn partial_eq_compares_the_id_field() {
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, None);
-        let scan_two = FeroxScan::new(url, ScanType::Directory, None);
+        let scan = FeroxScan::new(url, ScanType::Directory, 0, None);
+        let scan_two = FeroxScan::new(url, ScanType::Directory, 0, None);
 
         assert!(!scan.lock().unwrap().eq(&scan_two.lock().unwrap()));
 
@@ -966,9 +996,9 @@ mod tests {
     #[test]
     /// given a FeroxScan, test that it serializes into the proper JSON entry
     fn ferox_scan_serialize() {
-        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let fs_json = format!(
-            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}"#,
+            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}"#,
             fs.lock().unwrap().id
         );
         assert_eq!(
@@ -980,10 +1010,10 @@ mod tests {
     #[test]
     /// given a FeroxScans, test that it serializes into the proper JSON entry
     fn ferox_scans_serialize() {
-        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
-            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}]"#,
+            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}]"#,
             ferox_scan.lock().unwrap().id
         );
         ferox_scans.scans.lock().unwrap().push(ferox_scan);
@@ -1034,9 +1064,11 @@ mod tests {
     #[test]
     /// test FeroxSerialize implementation of FeroxState
     fn feroxstates_feroxserialize_implementation() {
-        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, None);
+        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let saved_id = ferox_scan.lock().unwrap().id.clone();
         SCANNED_URLS.insert(ferox_scan);
+
+        let stats = Arc::new(Stats::new());
 
         let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
         let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
@@ -1046,6 +1078,7 @@ mod tests {
             scans: &SCANNED_URLS,
             responses: &RESPONSES,
             config: &CONFIGURATION,
+            statistics: stats,
         };
 
         let expected_strs = predicates::str::contains("scans: FeroxScans").and(
@@ -1060,11 +1093,11 @@ mod tests {
 
         let json_state = ferox_state.as_json();
         let expected = format!(
-            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]}}"#,
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
             saved_id, VERSION
         );
         println!("{}\n{}", expected, json_state);
-        assert!(predicates::str::similar(expected).eval(&json_state));
+        assert!(predicates::str::contains(expected).eval(&json_state));
     }
 
     #[should_panic]
@@ -1074,8 +1107,9 @@ mod tests {
     async fn start_max_time_thread_panics_after_delay() {
         let now = time::Instant::now();
         let delay = time::Duration::new(3, 0);
+        let stats = Arc::new(Stats::new());
 
-        start_max_time_thread("3s").await;
+        start_max_time_thread("3s", stats).await;
 
         assert!(now.elapsed() > delay);
     }
@@ -1086,9 +1120,10 @@ mod tests {
     async fn start_max_time_thread_returns_immediately_with_too_large_input() {
         let now = time::Instant::now();
         let delay = time::Duration::new(1, 0);
+        let stats = Arc::new(Stats::new());
 
         // pub const MAX: usize = usize::MAX; // 18_446_744_073_709_551_615usize
-        start_max_time_thread("18446744073709551616m").await; // can't fit in dest u64
+        start_max_time_thread("18446744073709551616m", stats).await; // can't fit in dest u64
 
         assert!(now.elapsed() < delay); // assuming function call will take less than 1second
     }
