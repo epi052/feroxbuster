@@ -21,6 +21,7 @@ use feroxbuster::{
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
+use std::thread::sleep;
 use std::{
     collections::HashSet,
     convert::TryInto,
@@ -44,17 +45,20 @@ fn terminal_input_handler() {
     log::trace!("enter: terminal_input_handler");
 
     loop {
-        if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
+        if PAUSE_SCAN.load(Ordering::Relaxed) {
+            // if the scan is already paused, we don't want this event poller fighting the user
+            // over stdin
+            sleep(Duration::from_millis(SLEEP_DURATION));
+        } else if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
             // It's guaranteed that the `read()` won't block when the `poll()`
             // function returns `true`
 
             if let Ok(key_pressed) = event::read() {
+                // ignore any other keys
                 if key_pressed == Event::Key(KeyCode::Enter.into()) {
-                    // if the user presses Enter, toggle the value stored in PAUSE_SCAN
-                    // ignore any other keys
-                    let current = PAUSE_SCAN.load(Ordering::Acquire);
-
-                    PAUSE_SCAN.store(!current, Ordering::Release);
+                    // if the user presses Enter, set PAUSE_SCAN to true. The interactive menu
+                    // will be triggered and will handle setting PAUSE_SCAN to false
+                    PAUSE_SCAN.store(true, Ordering::Release);
                 }
             }
         } else {
@@ -193,13 +197,14 @@ async fn scan(
                     SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
                     send_report(tx_term.clone(), ferox_response);
                 } else {
-                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
+                    let (unknown, scan) =
+                        SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
 
                     if !unknown {
                         // known directory; can skip (unlikely)
                         continue;
                     }
-
+                    // todo add task to scan
                     // unknown directory; add to targets for scanning
                     targets.push(robot_link);
                 }

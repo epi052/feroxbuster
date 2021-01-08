@@ -1,4 +1,3 @@
-use crate::statistics::Stats;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -11,6 +10,7 @@ use crate::{
     statistics::{
         StatCommand::{self, UpdateF64Field, UpdateUsizeField},
         StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
+        Stats,
     },
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
@@ -60,6 +60,8 @@ lazy_static! {
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
+
+
 }
 
 /// Adds the given FeroxFilter to the given list of FeroxFilter implementors
@@ -109,7 +111,7 @@ fn spawn_recursion_handler(
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
-) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
+) -> BoxFuture<'static, Vec<Arc<JoinHandle<()>>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
         recursion_channel,
@@ -125,7 +127,7 @@ fn spawn_recursion_handler(
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
+            let (unknown, mut scan) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -156,7 +158,11 @@ fn spawn_recursion_handler(
                 .await
             });
 
-            scans.push(future);
+            // todo dont be dumb
+            let scandle = Arc::new(future);
+
+            scan.lock().unwrap().task = Some(scandle.clone());
+            scans.push(scandle);
         }
         scans
     }
@@ -529,6 +535,7 @@ pub async fn scan_url(
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
         SCANNED_URLS.add_directory_scan(&target_url, stats.clone());
+        // todo add task to scan
     }
 
     let ferox_scan = match SCANNED_URLS.get_scan_by_url(&target_url) {
@@ -651,7 +658,23 @@ pub async fn scan_url(
 
     // await rx tasks
     log::trace!("awaiting recursive scan receiver/scans");
-    futures::future::join_all(recurser.await.unwrap()).await;
+    // let x = recurser
+    //     .await
+    //     .unwrap()
+    //     .iter()
+    //     .map(|c| Arc::try_unwrap(c).unwrap())
+    //     .collect::<Vec<JoinHandle<()>>>();
+
+    // let mut y = Vec::new();
+    // for i in &x {
+    //     y.push();
+    // }
+    // futures::future::join_all(y).await;
+    for i in recurser.await.unwrap() {
+        Arc::try_unwrap(i).unwrap().await;
+    }
+    // todo clean up comments
+    // tokio::join!(y);
     log::trace!("done awaiting recursive scan receiver/scans");
 
     log::trace!("exit: scan_url");

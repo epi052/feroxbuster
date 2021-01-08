@@ -8,9 +8,8 @@ use crate::{
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
-use console::style;
-use indicatif::{ProgressBar, ProgressStyle};
-use lazy_static::lazy_static;
+use console::{style, Term};
+use indicatif::ProgressBar;
 use serde::{
     ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -22,26 +21,16 @@ use std::{
     fmt,
     fs::File,
     io::BufReader,
-    io::{stderr, stdout, Write},
+    io::{stderr, Write},
+    ops::Index,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Mutex, RwLock},
+    thread::sleep,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::time::Duration;
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
-// todo do i need this crossterm stuff 107
-use crossterm::{
-    cursor::{Hide, MoveTo, Show},
-    execute, queue,
-    style::Print,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-};
-
-lazy_static! {
-    /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
-    // todo remove this when issue #107 is resolved
-    static ref SINGLE_SPINNER: RwLock<ProgressBar> = RwLock::new(get_single_spinner());
-}
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
 /// when pausing a scan
@@ -87,7 +76,7 @@ pub struct FeroxScan {
     pub complete: bool,
 
     /// The spawned tokio task performing this scan
-    pub task: Option<JoinHandle<()>>,
+    pub task: Option<Arc<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
     pub progress_bar: Option<ProgressBar>,
@@ -116,16 +105,20 @@ impl FeroxScan {
     /// Stop a currently running scan
     pub fn abort(&self) {
         self.stop_progress_bar();
+        PROGRESS_PRINTER.println(format!("Aborting: {:?}", self));
 
         if let Some(task) = &self.task {
+            PROGRESS_PRINTER.println(format!("Got task: {:?}", task));
             task.abort();
         }
     }
+    // todo 3 prints here need to go
 
     /// Simple helper to call .finish on the scan's progress bar
     fn stop_progress_bar(&self) {
         if let Some(pb) = &self.progress_bar {
-            pb.finish();
+            PROGRESS_PRINTER.println(format!("Got bar: {:?}", pb));
+            pb.finish_at_current_pos();
         }
     }
 
@@ -263,6 +256,9 @@ pub struct FeroxScans {
     pub scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
 }
 
+// todo scan status state (incompete, complete, cancelled); needs to be debug, [de]serialize and
+// part of a feroxscan; feroxscan should then also properly [de]serialize
+
 /// Serialize implementation for FeroxScans
 impl Serialize for FeroxScans {
     /// Function that handles serialization of FeroxScans
@@ -365,29 +361,15 @@ impl FeroxScans {
     ///   0: complete   https://10.129.45.20
     ///   9: complete   https://10.129.45.20/images
     ///  10: complete   https://10.129.45.20/assets
-    pub fn display_scans(&self) {
-        // todo #107: trying to figure out a way to display these without the terminal going batshit
-        // i think what likely needs to happen is that the terminal thread needs to be paused
-        // as well, so that returning responses arent shown.  clear the screen, get the input, act
-        // accordingly, and then unpause everything.  i.e. pinch the hose and then let it go
-        let mut writer = stdout();
-        queue!(writer, EnterAlternateScreen, Hide).unwrap();
-
+    pub async fn display_scans(&self, term: &Term) {
         if let Ok(scans) = self.scans.lock() {
-            let mut y = 1;
             for (i, scan) in scans.iter().enumerate() {
                 if let Ok(unlocked_scan) = scan.lock() {
                     match unlocked_scan.scan_type {
                         ScanType::Directory => {
-                            queue!(
-                                writer,
-                                MoveTo(1, y),
-                                Print(format!("{:3}: {}", i, unlocked_scan))
-                            )
-                            .unwrap();
-                            writer.flush().unwrap();
-                            y += 1;
-                            // PROGRESS_PRINTER.println(format!("{:3}: {}", i, unlocked_scan));
+                            // todo unwrap
+                            term.write_line(&format!("{:3}: {}", i, unlocked_scan))
+                                .unwrap();
                         }
                         ScanType::File => {
                             // we're only interested in displaying directory scans, as those are
@@ -397,8 +379,74 @@ impl FeroxScans {
                 }
             }
         }
+    }
 
-        execute!(writer, LeaveAlternateScreen, Show).unwrap();
+    /// todo
+    async fn interactive_menu(&self, term: &Term) -> Result<(), Box<dyn std::error::Error>> {
+        // 1.5 seconds feels right as far as menu timing
+        let menu_pause_duration = SLEEP_DURATION * 3;
+
+        loop {
+            term.clear_screen().unwrap(); // todo does this need to change?
+
+            self.display_scans(&term).await;
+
+            let border = "==============================================================";
+
+            // todo progress printer or ferox? (entire function)
+            println!("{}", border);
+            println!(
+                "Select a scan by index to {} or press '{}' to {} scanning",
+                style("stop").red(),
+                style("r").green(),
+                style("resume").green()
+            );
+            println!("{}", border);
+
+            let input = term.read_char()?;
+
+            if input == 'r' {
+                println!("Resuming scans...");
+                sleep(Duration::from_millis(menu_pause_duration));
+                break;
+            } else {
+                let num = match input.to_string().parse::<usize>() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        println!("Expected a number or 'r', you provided: {}", input);
+                        sleep(Duration::from_millis(menu_pause_duration));
+                        continue;
+                    }
+                };
+
+                // todo unwrap
+                if num >= self.scans.lock().unwrap().len() {
+                    // usize can't be negative, just need to handle exceeding bounds
+                    println!("The number you provided is not a valid choice.");
+                    sleep(Duration::from_millis(menu_pause_duration));
+                    continue;
+                }
+
+                // todo grab copy of whole scan so we can call abort
+                let selected = self.scans.lock().unwrap().index(num).clone();
+                let url = selected.lock().unwrap().url.to_owned();
+
+                println!("You sure you wanna cancel this scan: {}? [Y/n]", url);
+
+                let input = term.read_char()?.to_ascii_lowercase();
+
+                if input == 'y' || input == '\n' {
+                    println!("Stopping {}...", url);
+                    selected.lock().unwrap().abort();
+                } else {
+                    println!("Ok, doing nothing...");
+                }
+
+                sleep(Duration::from_millis(menu_pause_duration));
+            }
+        }
+
+        Ok(())
     }
 
     /// Forced the calling thread into a busy loop
@@ -415,35 +463,29 @@ impl FeroxScans {
         let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
 
         // ignore any error returned
-        let _ = stderr().flush();
+        // let _ = stderr().flush();
+        let term = Term::stderr();
 
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                self.display_scans();
+                // the first clear screen happens and then there's another tick from the existing
+                // progress bars. A clear, brief pause, clear is used to present the user with a
+                // clean menu
+                term.clear_screen().unwrap();
+                time::sleep(Duration::from_millis(SLEEP_DURATION / 2)).await;
+                term.clear_screen().unwrap();
 
-                let mut user_input = String::new();
-                std::io::stdin().read_line(&mut user_input).unwrap();
-                // todo (issue #107) actual logic for parsing user input in a way that allows for
-                // calling .abort on the scan retrieved based on the input
+                // interactive_menu is a blocking interactive loop
+                match self.interactive_menu(&term).await {
+                    Ok(_) => {}
+                    Err(_) => {
+                        log::error!("Unexpected error within cancel scan menu");
+                    }
+                }
+                PAUSE_SCAN.store(false, Ordering::Relaxed);
             }
-        }
-
-        if SINGLE_SPINNER.read().unwrap().is_finished() {
-            // todo remove this when issue #107 is resolved
-
-            // in order to not leave draw artifacts laying around in the terminal, we call
-            // finish_and_clear on the progress bar when resuming scans. For this reason, we need to
-            // check if the spinner is finished, and repopulate the RwLock with a new spinner if
-            // necessary
-            if let Ok(mut guard) = SINGLE_SPINNER.write() {
-                *guard = get_single_spinner();
-            }
-        }
-
-        if let Ok(spinner) = SINGLE_SPINNER.write() {
-            spinner.enable_steady_tick(120);
         }
 
         loop {
@@ -457,11 +499,7 @@ impl FeroxScans {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
                 }
 
-                if let Ok(spinner) = SINGLE_SPINNER.write() {
-                    // todo remove this when issue #107 is resolved
-                    spinner.finish_and_clear();
-                }
-
+                term.clear_screen().unwrap();
                 let _ = stderr().flush();
 
                 log::trace!("exit: pause_scan");
@@ -524,26 +562,6 @@ impl FeroxScans {
     pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<Mutex<FeroxScan>>) {
         self.add_scan(&url, ScanType::File, stats)
     }
-}
-
-/// Return a clock spinner, used when scans are paused
-// todo remove this when issue #107 is resolved
-fn get_single_spinner() -> ProgressBar {
-    log::trace!("enter: get_single_spinner");
-
-    let spinner = ProgressBar::new_spinner().with_style(
-        ProgressStyle::default_spinner()
-            .tick_strings(&[
-                "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
-            ])
-            .template(&format!(
-                "\t-= All Scans {{spinner}} {} =-",
-                style("Paused").red()
-            )),
-    );
-
-    log::trace!("exit: get_single_spinner -> {:?}", spinner);
-    spinner
 }
 
 /// Container around a locked vector of `FeroxResponse`s, adds wrappers for insertion and search
@@ -810,14 +828,6 @@ mod tests {
         }
     }
 
-    #[test]
-    /// test that get_single_spinner returns the correct spinner
-    // todo remove this when issue #107 is resolved
-    fn scanner_get_single_spinner_returns_spinner() {
-        let spinner = get_single_spinner();
-        assert!(!spinner.is_finished());
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
     /// the spinner used during the test has had .finish_and_clear called on it, meaning that
@@ -914,23 +924,24 @@ mod tests {
         assert_eq!(result, false);
     }
 
-    #[test]
-    /// just increasing coverage, no real expectations
-    fn call_display_scans() {
-        let urls = FeroxScans::default();
-        let pb = ProgressBar::new(1);
-        let pb_two = ProgressBar::new(2);
-        let url = "http://unknown_url/";
-        let url_two = "http://unknown_url/fa";
-        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
-        let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
-
-        scan_two.lock().unwrap().finish(); // one complete, one incomplete
-
-        assert_eq!(urls.insert(scan), true);
-
-        urls.display_scans();
-    }
+    // todo reenable and make async
+    // #[test]
+    // /// just increasing coverage, no real expectations
+    // fn call_display_scans() {
+    //     let urls = FeroxScans::default();
+    //     let pb = ProgressBar::new(1);
+    //     let pb_two = ProgressBar::new(2);
+    //     let url = "http://unknown_url/";
+    //     let url_two = "http://unknown_url/fa";
+    //     let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
+    //     let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
+    //
+    //     scan_two.lock().unwrap().finish(); // one complete, one incomplete
+    //
+    //     assert_eq!(urls.insert(scan), true);
+    //
+    //     urls.display_scans();
+    // }
 
     #[test]
     /// ensure that PartialEq compares FeroxScan.id fields
