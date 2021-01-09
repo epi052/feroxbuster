@@ -1,3 +1,4 @@
+use crate::scan_manager::ScanStatus;
 use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{get_links, request_feroxresponse_from_new_link},
@@ -127,7 +128,7 @@ fn spawn_recursion_handler(
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, mut scan) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
+            let (unknown, scan) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -158,11 +159,11 @@ fn spawn_recursion_handler(
                 .await
             });
 
-            // todo dont be dumb
-            let scandle = Arc::new(future);
+            let shared_task = Arc::new(future);
 
-            scan.lock().unwrap().task = Some(scandle.clone());
-            scans.push(scandle);
+            // todo unwrap
+            scan.lock().unwrap().task = Some(shared_task.clone());
+            scans.push(shared_task);
         }
         scans
     }
@@ -535,11 +536,15 @@ pub async fn scan_url(
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
         SCANNED_URLS.add_directory_scan(&target_url, stats.clone());
-        // todo add task to scan
     }
 
     let ferox_scan = match SCANNED_URLS.get_scan_by_url(&target_url) {
-        Some(scan) => scan,
+        Some(scan) => {
+            if let Ok(mut u_scan) = scan.lock() {
+                u_scan.status = ScanStatus::Running;
+            }
+            scan
+        }
         None => {
             log::error!(
                 "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
@@ -656,26 +661,10 @@ pub async fn scan_url(
     log::trace!("dropped recursion handler's transmitter");
     drop(tx_dir);
 
-    // await rx tasks
-    log::trace!("awaiting recursive scan receiver/scans");
-    // let x = recurser
-    //     .await
-    //     .unwrap()
-    //     .iter()
-    //     .map(|c| Arc::try_unwrap(c).unwrap())
-    //     .collect::<Vec<JoinHandle<()>>>();
-
-    // let mut y = Vec::new();
-    // for i in &x {
-    //     y.push();
-    // }
-    // futures::future::join_all(y).await;
-    for i in recurser.await.unwrap() {
-        Arc::try_unwrap(i).unwrap().await;
-    }
-    // todo clean up comments
-    // tokio::join!(y);
-    log::trace!("done awaiting recursive scan receiver/scans");
+    // note: in v1.11.2 i removed the join_all call that used to handle the recurser handles.
+    // nothing appears to change by having them removed, however, if ever a revert is needed
+    // this is the place and anything prior to 1.11.2 will have the code to do so
+    let _ = recurser.await.unwrap_or_default();
 
     log::trace!("exit: scan_url");
 }

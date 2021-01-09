@@ -21,7 +21,6 @@ use std::{
     fmt,
     fs::File,
     io::BufReader,
-    io::{stderr, Write},
     ops::Index,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Mutex, RwLock},
@@ -38,6 +37,21 @@ static INTERACTIVE_BARRIER: AtomicUsize = AtomicUsize::new(0);
 
 /// Atomic boolean flag, used to determine whether or not a scan should pause or resume
 pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
+
+/// Wrapper around console's Term::clear_screen and Term::flush
+macro_rules! clear_screen {
+    ($term:expr) => {
+        $term.clear_screen().unwrap_or_default();
+        $term.flush().unwrap_or_default();
+    };
+}
+
+/// Wrapper around console's Term::write_line
+macro_rules! term_write {
+    ($term:expr, $msg:expr) => {
+        $term.write_line($msg).unwrap_or_default();
+    };
+}
 
 /// Simple enum used to flag a `FeroxScan` as likely a directory or file
 #[derive(Debug, Serialize, Deserialize)]
@@ -72,8 +86,8 @@ pub struct FeroxScan {
     /// Number of requests to populate the progress bar with
     pub num_requests: u64,
 
-    /// Whether or not this scan has completed
-    pub complete: bool,
+    /// Status of this scan
+    pub status: ScanStatus,
 
     /// The spawned tokio task performing this scan
     pub task: Option<Arc<JoinHandle<()>>>,
@@ -91,7 +105,7 @@ impl Default for FeroxScan {
         FeroxScan {
             id: new_id,
             task: None,
-            complete: false,
+            status: ScanStatus::default(),
             num_requests: 0,
             url: String::new(),
             progress_bar: None,
@@ -103,21 +117,16 @@ impl Default for FeroxScan {
 /// Implementation of FeroxScan
 impl FeroxScan {
     /// Stop a currently running scan
-    pub fn abort(&self) {
-        self.stop_progress_bar();
-        PROGRESS_PRINTER.println(format!("Aborting: {:?}", self));
-
+    pub fn abort(&mut self) {
         if let Some(task) = &self.task {
-            PROGRESS_PRINTER.println(format!("Got task: {:?}", task));
+            self.status = ScanStatus::Cancelled;
             task.abort();
         }
     }
-    // todo 3 prints here need to go
 
     /// Simple helper to call .finish on the scan's progress bar
     fn stop_progress_bar(&self) {
         if let Some(pb) = &self.progress_bar {
-            PROGRESS_PRINTER.println(format!("Got bar: {:?}", pb));
             pb.finish_at_current_pos();
         }
     }
@@ -155,7 +164,7 @@ impl FeroxScan {
 
     /// Mark the scan as complete and stop the scan's progress bar
     pub fn finish(&mut self) {
-        self.complete = true;
+        self.status = ScanStatus::Complete;
         self.stop_progress_bar();
     }
 }
@@ -163,13 +172,14 @@ impl FeroxScan {
 /// Display implementation
 impl fmt::Display for FeroxScan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let complete = if self.complete {
-            style("complete").green()
-        } else {
-            style("incomplete").red()
+        let status = match self.status {
+            ScanStatus::NotStarted => style("not started").bright().blue(),
+            ScanStatus::Complete => style("complete").green(),
+            ScanStatus::Cancelled => style("cancelled").red(),
+            ScanStatus::Running => style("running").bright().yellow(),
         };
 
-        write!(f, "{:10} {}", complete, self.url)
+        write!(f, "{:12} {}", status, self.url)
     }
 }
 
@@ -192,7 +202,7 @@ impl Serialize for FeroxScan {
         state.serialize_field("id", &self.id)?;
         state.serialize_field("url", &self.url)?;
         state.serialize_field("scan_type", &self.scan_type)?;
-        state.serialize_field("complete", &self.complete)?;
+        state.serialize_field("status", &self.status)?;
         state.serialize_field("num_requests", &self.num_requests)?;
 
         state.end()
@@ -226,9 +236,15 @@ impl<'de> Deserialize<'de> for FeroxScan {
                         }
                     }
                 }
-                "complete" => {
-                    if let Some(complete) = value.as_bool() {
-                        scan.complete = complete;
+                "status" => {
+                    if let Some(status) = value.as_str() {
+                        scan.status = match status {
+                            "NotStarted" => ScanStatus::NotStarted,
+                            "Running" => ScanStatus::Running,
+                            "Complete" => ScanStatus::Complete,
+                            "Cancelled" => ScanStatus::Cancelled,
+                            _ => ScanStatus::default(),
+                        }
                     }
                 }
                 "url" => {
@@ -249,15 +265,36 @@ impl<'de> Deserialize<'de> for FeroxScan {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+/// Simple enum to represent a scan's current status ([in]complete, cancelled)
+pub enum ScanStatus {
+    /// Scan hasn't started yet
+    NotStarted,
+
+    /// Scan finished normally
+    Complete,
+
+    /// Scan was cancelled by the user
+    Cancelled,
+
+    /// Scan has started, but hasn't finished, nor been cancelled
+    Running,
+}
+
+/// Default implementation for ScanStatus
+impl Default for ScanStatus {
+    /// Default variant for ScanStatus is NotStarted
+    fn default() -> Self {
+        Self::NotStarted
+    }
+}
+
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
 pub struct FeroxScans {
     /// Internal structure: locked hashset of `FeroxScan`s
     pub scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
 }
-
-// todo scan status state (incompete, complete, cancelled); needs to be debug, [de]serialize and
-// part of a feroxscan; feroxscan should then also properly [de]serialize
 
 /// Serialize implementation for FeroxScans
 impl Serialize for FeroxScans {
@@ -365,84 +402,116 @@ impl FeroxScans {
         if let Ok(scans) = self.scans.lock() {
             for (i, scan) in scans.iter().enumerate() {
                 if let Ok(unlocked_scan) = scan.lock() {
-                    match unlocked_scan.scan_type {
-                        ScanType::Directory => {
-                            // todo unwrap
-                            term.write_line(&format!("{:3}: {}", i, unlocked_scan))
-                                .unwrap();
-                        }
-                        ScanType::File => {
-                            // we're only interested in displaying directory scans, as those are
-                            // the only ones that make sense to be stopped
-                        }
+                    if unlocked_scan.task.is_none() {
+                        // no JoinHandle associated with this FeroxScan, meaning it was an original
+                        // target passed in via either -u or --stdin
+                        continue;
+                    }
+
+                    if matches!(unlocked_scan.scan_type, ScanType::Directory) {
+                        // we're only interested in displaying directory scans, as those are
+                        // the only ones that make sense to be stopped
+                        let scan_msg = format!("{:3}: {}", i, unlocked_scan);
+                        term_write!(term, &scan_msg);
                     }
                 }
             }
         }
     }
 
-    /// todo
+    /// CLI menu that allows for interactive cancellation of recursed-into directories
     async fn interactive_menu(&self, term: &Term) -> Result<(), Box<dyn std::error::Error>> {
         // 1.5 seconds feels right as far as menu timing
-        let menu_pause_duration = SLEEP_DURATION * 3;
+        let menu_pause_duration = Duration::from_millis(SLEEP_DURATION * 3);
+
+        clear_screen!(term);
+
+        let mut cancelled_scans = Vec::new();
 
         loop {
-            term.clear_screen().unwrap(); // todo does this need to change?
+            clear_screen!(term);
 
             self.display_scans(&term).await;
 
             let border = "==============================================================";
 
-            // todo progress printer or ferox? (entire function)
-            println!("{}", border);
-            println!(
+            term_write!(term, border);
+
+            let instructions = format!(
                 "Select a scan by index to {} or press '{}' to {} scanning",
                 style("stop").red(),
                 style("r").green(),
                 style("resume").green()
             );
-            println!("{}", border);
+
+            term_write!(term, &instructions);
+            term_write!(term, border);
 
             let input = term.read_char()?;
 
             if input == 'r' {
-                println!("Resuming scans...");
-                sleep(Duration::from_millis(menu_pause_duration));
+                term_write!(term, "Resuming scans...");
+                sleep(menu_pause_duration);
                 break;
             } else {
                 let num = match input.to_string().parse::<usize>() {
                     Ok(n) => n,
                     Err(_) => {
-                        println!("Expected a number or 'r', you provided: {}", input);
-                        sleep(Duration::from_millis(menu_pause_duration));
+                        term_write!(
+                            term,
+                            &format!("Expected a number or 'r', you provided: {}", input)
+                        );
+
+                        sleep(menu_pause_duration);
                         continue;
                     }
                 };
 
-                // todo unwrap
-                if num >= self.scans.lock().unwrap().len() {
-                    // usize can't be negative, just need to handle exceeding bounds
-                    println!("The number you provided is not a valid choice.");
-                    sleep(Duration::from_millis(menu_pause_duration));
-                    continue;
+                if let Ok(u_scans) = self.scans.lock() {
+                    // check if number provided is out of range
+                    if num >= u_scans.len() {
+                        // usize can't be negative, just need to handle exceeding bounds
+                        term_write!(term, "The number you provided is not a valid choice.");
+                        sleep(menu_pause_duration);
+                        continue;
+                    }
+
+                    // save a clone to stop the progressbar before resuming the scans
+                    // this is done due to the fact that calling finish_at_current_position
+                    // on a progress bar results in the bar flashing in the display briefly.
+                    // Instead, we'll gather the responses, cancel the scan, but delay the
+                    // progress bar stoppage.
+                    let selected = u_scans.index(num).clone();
+
+                    cancelled_scans.push(selected.clone());
+
+                    if let Ok(mut ferox_scan) = selected.lock() {
+                        term_write!(
+                            term,
+                            &format!(
+                                "You sure you wanna cancel this scan: {}? [Y/n]",
+                                ferox_scan.url
+                            )
+                        );
+
+                        let input = term.read_char()?.to_ascii_lowercase();
+
+                        if input == 'y' || input == '\n' {
+                            term_write!(term, &format!("Stopping {}...", ferox_scan.url));
+                            ferox_scan.abort();
+                        } else {
+                            term_write!(term, "Ok, doing nothing...");
+                        }
+                    }
+
+                    sleep(menu_pause_duration);
                 }
+            }
+        }
 
-                // todo grab copy of whole scan so we can call abort
-                let selected = self.scans.lock().unwrap().index(num).clone();
-                let url = selected.lock().unwrap().url.to_owned();
-
-                println!("You sure you wanna cancel this scan: {}? [Y/n]", url);
-
-                let input = term.read_char()?.to_ascii_lowercase();
-
-                if input == 'y' || input == '\n' {
-                    println!("Stopping {}...", url);
-                    selected.lock().unwrap().abort();
-                } else {
-                    println!("Ok, doing nothing...");
-                }
-
-                sleep(Duration::from_millis(menu_pause_duration));
+        for scan in &cancelled_scans {
+            if let Ok(u_scan) = scan.lock() {
+                u_scan.stop_progress_bar();
             }
         }
 
@@ -462,8 +531,6 @@ impl FeroxScans {
         // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
         let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
 
-        // ignore any error returned
-        // let _ = stderr().flush();
         let term = Term::stderr();
 
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
@@ -473,9 +540,9 @@ impl FeroxScans {
                 // the first clear screen happens and then there's another tick from the existing
                 // progress bars. A clear, brief pause, clear is used to present the user with a
                 // clean menu
-                term.clear_screen().unwrap();
+                clear_screen!(term);
                 time::sleep(Duration::from_millis(SLEEP_DURATION / 2)).await;
-                term.clear_screen().unwrap();
+                clear_screen!(term);
 
                 // interactive_menu is a blocking interactive loop
                 match self.interactive_menu(&term).await {
@@ -484,7 +551,16 @@ impl FeroxScans {
                         log::error!("Unexpected error within cancel scan menu");
                     }
                 }
+
+                clear_screen!(term);
+
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
+
+                if let Ok(responses) = RESPONSES.responses.read() {
+                    for response in responses.iter() {
+                        PROGRESS_PRINTER.println(response.as_str());
+                    }
+                }
             }
         }
 
@@ -498,9 +574,6 @@ impl FeroxScans {
                 if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 1 {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
                 }
-
-                term.clear_screen().unwrap();
-                let _ = stderr().flush();
 
                 log::trace!("exit: pause_scan");
                 return;
@@ -878,8 +951,8 @@ mod tests {
     }
 
     #[test]
-    /// abort should call stop_progress_bar, marking it as finished
-    fn abort_stops_progress_bar() {
+    /// stop_progress_bar should stop the progress bar
+    fn stop_progress_bar_stops_bar() {
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
 
@@ -895,7 +968,7 @@ mod tests {
             false
         );
 
-        scan.lock().unwrap().abort();
+        scan.lock().unwrap().stop_progress_bar();
 
         assert_eq!(
             scan.lock()
@@ -924,24 +997,23 @@ mod tests {
         assert_eq!(result, false);
     }
 
-    // todo reenable and make async
-    // #[test]
-    // /// just increasing coverage, no real expectations
-    // fn call_display_scans() {
-    //     let urls = FeroxScans::default();
-    //     let pb = ProgressBar::new(1);
-    //     let pb_two = ProgressBar::new(2);
-    //     let url = "http://unknown_url/";
-    //     let url_two = "http://unknown_url/fa";
-    //     let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
-    //     let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
-    //
-    //     scan_two.lock().unwrap().finish(); // one complete, one incomplete
-    //
-    //     assert_eq!(urls.insert(scan), true);
-    //
-    //     urls.display_scans();
-    // }
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// just increasing coverage, no real expectations
+    async fn call_display_scans() {
+        let urls = FeroxScans::default();
+        let pb = ProgressBar::new(1);
+        let pb_two = ProgressBar::new(2);
+        let url = "http://unknown_url/";
+        let url_two = "http://unknown_url/fa";
+        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
+        let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
+
+        scan_two.lock().unwrap().finish(); // one complete, one incomplete
+
+        assert_eq!(urls.insert(scan), true);
+        let term = Term::stderr();
+        urls.display_scans(&term).await;
+    }
 
     #[test]
     /// ensure that PartialEq compares FeroxScan.id fields
@@ -974,8 +1046,8 @@ mod tests {
     /// given a JSON entry representing a FeroxScan, test that it deserializes into the proper type
     /// with the right attributes
     fn ferox_scan_deserialize() {
-        let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","complete":true}"#;
-        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","complete":true}"#;
+        let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","status":"Complete"}"#;
+        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"Complete"}"#;
 
         let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
         let fs_two: FeroxScan = serde_json::from_str(fs_json_two).unwrap();
@@ -1000,7 +1072,7 @@ mod tests {
                 panic!();
             }
         }
-        assert_eq!(fs.complete, true);
+        assert!(matches!(fs.status, ScanStatus::Complete));
         assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
     }
 
@@ -1009,7 +1081,7 @@ mod tests {
     fn ferox_scan_serialize() {
         let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let fs_json = format!(
-            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}"#,
+            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
             fs.lock().unwrap().id
         );
         assert_eq!(
@@ -1024,7 +1096,7 @@ mod tests {
         let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
-            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}]"#,
+            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
             ferox_scan.lock().unwrap().id
         );
         ferox_scans.scans.lock().unwrap().push(ferox_scan);
@@ -1104,7 +1176,7 @@ mod tests {
 
         let json_state = ferox_state.as_json();
         let expected = format!(
-            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
             saved_id, VERSION
         );
         println!("{}\n{}", expected, json_state);

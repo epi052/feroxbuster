@@ -6,7 +6,7 @@ use feroxbuster::{
     heuristics, logger,
     progress::{add_bar, BarType},
     reporter,
-    scan_manager::{self, PAUSE_SCAN},
+    scan_manager::{self, ScanStatus, PAUSE_SCAN},
     scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
     statistics::{
         self,
@@ -161,7 +161,7 @@ async fn scan(
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {
                 if let Ok(locked_scan) = scan.lock() {
-                    if locked_scan.complete {
+                    if matches!(locked_scan.status, ScanStatus::Complete) {
                         // these scans are complete, and just need to be shown to the user
                         let pb = add_bar(
                             &locked_scan.url,
@@ -176,6 +176,7 @@ async fn scan(
     }
 
     if CONFIGURATION.extract_links {
+        // todo can i somehow get these to be abortable?
         for target in targets.clone() {
             // modifying the targets vector, so we can't have a reference to it while we borrow
             // it as mutable; thus the clone
@@ -197,14 +198,13 @@ async fn scan(
                     SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
                     send_report(tx_term.clone(), ferox_response);
                 } else {
-                    let (unknown, scan) =
-                        SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
+                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
 
                     if !unknown {
                         // known directory; can skip (unlikely)
                         continue;
                     }
-                    // todo add task to scan
+
                     // unknown directory; add to targets for scanning
                     targets.push(robot_link);
                 }
@@ -268,7 +268,7 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
                 if let Ok(locked_scan) = scan.lock() {
-                    if locked_scan.complete {
+                    if matches!(locked_scan.status, ScanStatus::Complete) {
                         // this one's already done, ignore it
                         continue;
                     }

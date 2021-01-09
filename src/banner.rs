@@ -536,11 +536,11 @@ by Ben "epi" Risher {}                 ver: {}"#,
     // ⏯
     writeln!(
         &mut writer,
-        " {}   Press [{}] to {}|{} your scan",
-        format_emoji("⏯"),
+        " {}  Press [{}] to use the {}™",
+        // format_emoji("🚫"),
+        format_emoji("🏁"),
         style("ENTER").yellow(),
-        style("pause").red(),
-        style("resume").green()
+        style("Scan Cancel Menu").bright().yellow(),
     )
     .unwrap_or_default();
 
@@ -628,6 +628,7 @@ mod tests {
         .await;
     }
 
+    #[ignore]
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// test to show that a new version is available for download
     async fn banner_intialize_with_mismatched_version() {
