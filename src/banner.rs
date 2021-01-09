@@ -537,7 +537,6 @@ by Ben "epi" Risher {}                 ver: {}"#,
     writeln!(
         &mut writer,
         " {}  Press [{}] to use the {}™",
-        // format_emoji("🚫"),
         format_emoji("🏁"),
         style("ENTER").yellow(),
         style("Scan Cancel Menu").bright().yellow(),
