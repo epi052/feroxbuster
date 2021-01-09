@@ -16,6 +16,9 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
+      - name: test ignored tests
+        run: |
+          cargo test -- --ignored
 
   test:
     name: Test Suite
@@ -30,9 +33,8 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test -- --ignored
+
+
   fmt:
     name: Rust fmt
     runs-on: ubuntu-latest
