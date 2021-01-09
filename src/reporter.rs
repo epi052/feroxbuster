@@ -1,6 +1,6 @@
-use crate::scan_manager::PAUSE_SCAN;
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
+    scan_manager::PAUSE_SCAN,
     scanner::RESPONSES,
     statistics::{
         StatCommand::{self, UpdateUsizeField},
@@ -15,11 +15,10 @@ use std::{
     io::Write,
     sync::{Arc, Once, RwLock},
 };
-use tokio::time::Duration;
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
-    time,
+    time::{self, Duration},
 };
 
 /// Singleton buffered file behind an Arc/RwLock; used for file writes from two locations:
