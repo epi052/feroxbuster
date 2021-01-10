@@ -1256,4 +1256,24 @@ mod tests {
             .and(predicate::str::contains("localhost"))
             .eval(&running));
     }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// call FeroxScan::abort, ensure status becomes cancelled
+    async fn ferox_scan_abort() {
+        let mut scan = FeroxScan {
+            id: "".to_string(),
+            url: String::from("http://localhost"),
+            scan_type: Default::default(),
+            num_requests: 0,
+            status: ScanStatus::Running,
+            task: Some(Arc::new(tokio::spawn(async move {
+                sleep(Duration::from_millis(SLEEP_DURATION * 2));
+            }))),
+            progress_bar: None,
+        };
+
+        scan.abort();
+
+        assert!(matches!(scan.status, ScanStatus::Cancelled));
+    }
 }
