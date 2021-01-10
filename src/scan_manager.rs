@@ -118,7 +118,6 @@ impl Default for FeroxScan {
 impl FeroxScan {
     /// Stop a currently running scan
     pub fn abort(&mut self) {
-        // todo test this fn
         if let Some(task) = &self.task {
             self.status = ScanStatus::Cancelled;
             task.abort();
@@ -173,7 +172,6 @@ impl FeroxScan {
 /// Display implementation
 impl fmt::Display for FeroxScan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // todo test this fn
         let status = match self.status {
             ScanStatus::NotStarted => style("not started").bright().blue(),
             ScanStatus::Complete => style("complete").green(),
@@ -244,8 +242,8 @@ impl<'de> Deserialize<'de> for FeroxScan {
                             "NotStarted" => ScanStatus::NotStarted,
                             "Running" => ScanStatus::Running,
                             "Complete" => ScanStatus::Complete,
-                            "Cancelled" => ScanStatus::Cancelled, // todo test
-                            _ => ScanStatus::default(),           // todo test
+                            "Cancelled" => ScanStatus::Cancelled,
+                            _ => ScanStatus::default(),
                         }
                     }
                 }
@@ -255,7 +253,6 @@ impl<'de> Deserialize<'de> for FeroxScan {
                     }
                 }
                 "num_requests" => {
-                    // todo test whole block
                     if let Some(num_requests) = value.as_u64() {
                         scan.num_requests = num_requests;
                     }
@@ -1016,7 +1013,12 @@ mod tests {
         let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
         let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
 
-        scan_two.lock().unwrap().finish(); // one complete, one incomplete
+        if let Ok(mut s2) = scan_two.lock() {
+            s2.finish(); // one complete, one incomplete
+            s2.task = Some(Arc::new(tokio::spawn(async move {
+                sleep(Duration::from_millis(SLEEP_DURATION));
+            })));
+        }
 
         assert_eq!(urls.insert(scan), true);
         let term = Term::stderr();
@@ -1056,7 +1058,7 @@ mod tests {
     fn ferox_scan_deserialize() {
         let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","status":"Complete"}"#;
         let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"Cancelled"}"#;
-        let fs_json_three = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":""}"#;
+        let fs_json_three = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"","num_requests":42}"#;
 
         let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
         let fs_two: FeroxScan = serde_json::from_str(fs_json_two).unwrap();
@@ -1085,6 +1087,7 @@ mod tests {
         assert!(matches!(fs.status, ScanStatus::Complete));
         assert!(matches!(fs_two.status, ScanStatus::Cancelled));
         assert!(matches!(fs_three.status, ScanStatus::NotStarted));
+        assert_eq!(fs_three.num_requests, 42);
         assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
     }
 
