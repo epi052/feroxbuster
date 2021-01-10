@@ -160,8 +160,10 @@ fn spawn_recursion_handler(
 
             let shared_task = Arc::new(future);
 
-            // todo unwrap
-            scan.lock().unwrap().task = Some(shared_task.clone());
+            if let Ok(mut u_scan) = scan.lock() {
+                u_scan.task = Some(shared_task.clone());
+            }
+
             scans.push(shared_task);
         }
         scans

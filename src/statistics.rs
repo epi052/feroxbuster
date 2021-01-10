@@ -515,11 +515,16 @@ pub async fn spawn_statistics_handler(
         match command as StatCommand {
             StatCommand::AddError(err) => {
                 stats.add_error(err);
+                increment_bar(&bar, stats.clone());
             }
             StatCommand::AddStatus(status) => {
                 stats.add_status_code(status);
+                increment_bar(&bar, stats.clone());
             }
-            StatCommand::AddRequest => stats.add_request(),
+            StatCommand::AddRequest => {
+                stats.add_request();
+                increment_bar(&bar, stats.clone());
+            }
             StatCommand::Save => stats.save(start.elapsed().as_secs_f64()),
             StatCommand::UpdateUsizeField(field, value) => {
                 let update_len = matches!(field, StatField::TotalScans);
@@ -542,23 +547,26 @@ pub async fn spawn_statistics_handler(
             }
             StatCommand::Exit => break,
         }
-
-        let msg = format!(
-            "{}:{:<7} {}:{:<7}",
-            style("found").green(),
-            atomic_load!(stats.resources_discovered),
-            style("errors").red(),
-            atomic_load!(stats.errors),
-        );
-
-        bar.set_message(&msg);
-        bar.inc(1);
     }
 
     bar.finish();
 
     log::debug!("{:#?}", *stats);
     log::trace!("exit: spawn_statistics_handler")
+}
+
+/// Wrapper around incrementing the overall scan's progress bar
+fn increment_bar(bar: &ProgressBar, stats: Arc<Stats>) {
+    let msg = format!(
+        "{}:{:<7} {}:{:<7}",
+        style("found").green(),
+        atomic_load!(stats.resources_discovered),
+        style("errors").red(),
+        atomic_load!(stats.errors),
+    );
+
+    bar.set_message(&msg);
+    bar.inc(1);
 }
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
