@@ -118,6 +118,7 @@ impl Default for FeroxScan {
 impl FeroxScan {
     /// Stop a currently running scan
     pub fn abort(&mut self) {
+        // todo test this fn
         if let Some(task) = &self.task {
             self.status = ScanStatus::Cancelled;
             task.abort();
@@ -172,6 +173,7 @@ impl FeroxScan {
 /// Display implementation
 impl fmt::Display for FeroxScan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // todo test this fn
         let status = match self.status {
             ScanStatus::NotStarted => style("not started").bright().blue(),
             ScanStatus::Complete => style("complete").green(),
@@ -242,8 +244,8 @@ impl<'de> Deserialize<'de> for FeroxScan {
                             "NotStarted" => ScanStatus::NotStarted,
                             "Running" => ScanStatus::Running,
                             "Complete" => ScanStatus::Complete,
-                            "Cancelled" => ScanStatus::Cancelled,
-                            _ => ScanStatus::default(),
+                            "Cancelled" => ScanStatus::Cancelled, // todo test
+                            _ => ScanStatus::default(),           // todo test
                         }
                     }
                 }
@@ -253,6 +255,7 @@ impl<'de> Deserialize<'de> for FeroxScan {
                     }
                 }
                 "num_requests" => {
+                    // todo test whole block
                     if let Some(num_requests) = value.as_u64() {
                         scan.num_requests = num_requests;
                     }
@@ -409,6 +412,7 @@ impl FeroxScans {
                     }
 
                     if matches!(unlocked_scan.scan_type, ScanType::Directory) {
+                        // todo test this block
                         // we're only interested in displaying directory scans, as those are
                         // the only ones that make sense to be stopped
                         let scan_msg = format!("{:3}: {}", i, unlocked_scan);
@@ -421,6 +425,8 @@ impl FeroxScans {
 
     /// CLI menu that allows for interactive cancellation of recursed-into directories
     async fn interactive_menu(&self, term: &Term) -> Result<(), Box<dyn std::error::Error>> {
+        // todo test this fn (if possible)
+
         // 1.5 seconds feels right as far as menu timing
         let menu_pause_duration = Duration::from_millis(SLEEP_DURATION * 3);
 
@@ -537,6 +543,8 @@ impl FeroxScans {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
+                // todo test this block (if possible)
+
                 // the first clear screen happens and then there's another tick from the existing
                 // progress bars. A clear, brief pause, clear is used to present the user with a
                 // clean menu
@@ -1209,5 +1217,43 @@ mod tests {
         start_max_time_thread("18446744073709551616m", stats).await; // can't fit in dest u64
 
         assert!(now.elapsed() < delay); // assuming function call will take less than 1second
+    }
+
+    #[test]
+    /// coverage for FeroxScan's Display implementation
+    fn feroxscan_display() {
+        let mut scan = FeroxScan {
+            id: "".to_string(),
+            url: String::from("http://localhost"),
+            scan_type: Default::default(),
+            num_requests: 0,
+            status: Default::default(),
+            task: None,
+            progress_bar: None,
+        };
+
+        let not_started = format!("{}", scan);
+
+        assert!(predicate::str::contains("not started")
+            .and(predicate::str::contains("localhost"))
+            .eval(&not_started));
+
+        scan.status = ScanStatus::Complete;
+        let complete = format!("{}", scan);
+        assert!(predicate::str::contains("complete")
+            .and(predicate::str::contains("localhost"))
+            .eval(&complete));
+
+        scan.status = ScanStatus::Cancelled;
+        let cancelled = format!("{}", scan);
+        assert!(predicate::str::contains("cancelled")
+            .and(predicate::str::contains("localhost"))
+            .eval(&cancelled));
+
+        scan.status = ScanStatus::Running;
+        let running = format!("{}", scan);
+        assert!(predicate::str::contains("running")
+            .and(predicate::str::contains("localhost"))
+            .eval(&running));
     }
 }

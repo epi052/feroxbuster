@@ -116,6 +116,7 @@ async fn spawn_terminal_reporter(
 
     while let Some(mut resp) = resp_chan.recv().await {
         while PAUSE_SCAN.load(std::sync::atomic::Ordering::SeqCst) {
+            // todo this line isn't under test
             time::sleep(Duration::from_millis(SLEEP_DURATION)).await;
         }
 
