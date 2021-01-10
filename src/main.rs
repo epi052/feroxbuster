@@ -2,12 +2,11 @@ use crossterm::event::{self, Event, KeyCode};
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
-    extractor::{extract_robots_txt, request_feroxresponse_from_new_link},
     heuristics, logger,
     progress::{add_bar, BarType},
     reporter,
     scan_manager::{self, ScanStatus, PAUSE_SCAN},
-    scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
+    scanner::{self, scan_url, RESPONSES, SCANNED_URLS},
     statistics::{
         self,
         StatCommand::{self, CreateBar, LoadStats, UpdateUsizeField},
@@ -110,7 +109,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(
-    mut targets: Vec<String>,
+    targets: Vec<String>,
     stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
@@ -170,43 +169,6 @@ async fn scan(
                         );
                         pb.finish();
                     }
-                }
-            }
-        }
-    }
-
-    if CONFIGURATION.extract_links {
-        // todo can i somehow get these to be abortable?
-        for target in targets.clone() {
-            // modifying the targets vector, so we can't have a reference to it while we borrow
-            // it as mutable; thus the clone
-            let robots_links = extract_robots_txt(&target, &CONFIGURATION, tx_stats.clone()).await;
-
-            for robot_link in robots_links {
-                // create a url based on the given command line options, continue on error
-                let ferox_response = match request_feroxresponse_from_new_link(
-                    &robot_link,
-                    tx_stats.clone(),
-                )
-                .await
-                {
-                    Some(resp) => resp,
-                    None => continue,
-                };
-
-                if ferox_response.is_file() {
-                    SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
-                    send_report(tx_term.clone(), ferox_response);
-                } else {
-                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
-
-                    if !unknown {
-                        // known directory; can skip (unlikely)
-                        continue;
-                    }
-
-                    // unknown directory; add to targets for scanning
-                    targets.push(robot_link);
                 }
             }
         }

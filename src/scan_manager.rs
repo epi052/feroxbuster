@@ -1,5 +1,5 @@
 use crate::{
-    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
+    config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
     progress::{add_bar, BarType},
     reporter::safe_file_write,
@@ -9,7 +9,7 @@ use crate::{
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
 use console::{style, Term};
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressDrawTarget};
 use serde::{
     ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -436,6 +436,9 @@ impl FeroxScans {
 
             self.display_scans(&term).await;
 
+            // todo utf8 lines like the banner
+            // todo add a header and not just the scans first thing
+            // todo break out logic from loop for testing
             let border = "==============================================================";
 
             term_write!(term, border);
@@ -450,7 +453,7 @@ impl FeroxScans {
             term_write!(term, &instructions);
             term_write!(term, border);
 
-            let input = term.read_char()?;
+            let input = term.read_char()?; // todo change to line at least for the scan entry
 
             if input == 'r' {
                 term_write!(term, "Resuming scans...");
@@ -540,13 +543,14 @@ impl FeroxScans {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
+                PROGRESS_BAR.set_draw_target(ProgressDrawTarget::hidden());
                 // todo test this block (if possible)
 
                 // the first clear screen happens and then there's another tick from the existing
                 // progress bars. A clear, brief pause, clear is used to present the user with a
                 // clean menu
                 clear_screen!(term);
-                time::sleep(Duration::from_millis(SLEEP_DURATION / 2)).await;
+                time::sleep(Duration::from_millis(SLEEP_DURATION)).await;
                 clear_screen!(term);
 
                 // interactive_menu is a blocking interactive loop
@@ -578,6 +582,7 @@ impl FeroxScans {
 
                 if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 1 {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
+                    PROGRESS_BAR.set_draw_target(ProgressDrawTarget::stdout());
                 }
 
                 log::trace!("exit: pause_scan");

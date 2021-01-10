@@ -1,13 +1,12 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
-    scan_manager::PAUSE_SCAN,
     scanner::RESPONSES,
     statistics::{
         StatCommand::{self, UpdateUsizeField},
         StatField::ResourcesDiscovered,
     },
     utils::{ferox_print, make_request, open_file},
-    FeroxChannel, FeroxResponse, FeroxSerialize, SLEEP_DURATION,
+    FeroxChannel, FeroxResponse, FeroxSerialize,
 };
 use console::strip_ansi_codes;
 use std::{
@@ -18,7 +17,6 @@ use std::{
 use tokio::{
     sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
-    time::{self, Duration},
 };
 
 /// Singleton buffered file behind an Arc/RwLock; used for file writes from two locations:
@@ -115,11 +113,6 @@ async fn spawn_terminal_reporter(
     );
 
     while let Some(mut resp) = resp_chan.recv().await {
-        while PAUSE_SCAN.load(std::sync::atomic::Ordering::SeqCst) {
-            // todo this line isn't under test
-            time::sleep(Duration::from_millis(SLEEP_DURATION)).await;
-        }
-
         log::trace!("received {} on reporting channel", resp.url());
 
         let contains_sentry = CONFIGURATION.status_codes.contains(&resp.status().as_u16());

@@ -1,13 +1,12 @@
-use crate::scan_manager::ScanStatus;
 use crate::{
     config::{Configuration, CONFIGURATION},
-    extractor::{get_links, request_feroxresponse_from_new_link},
+    extractor::{extract_robots_txt, get_links, request_feroxresponse_from_new_link},
     filters::{
         FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
         WildcardFilter, WordsFilter,
     },
     heuristics,
-    scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
+    scan_manager::{FeroxResponses, FeroxScans, ScanStatus, PAUSE_SCAN},
     statistics::{
         StatCommand::{self, UpdateF64Field, UpdateUsizeField},
         StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
@@ -499,6 +498,44 @@ pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: Fero
     log::trace!("exit: send_report");
 }
 
+/// todo
+async fn scan_robots_txt(
+    target_url: &str,
+    stats: Arc<Stats>,
+    tx_term: UnboundedSender<FeroxResponse>,
+    tx_dir: UnboundedSender<String>,
+    tx_stats: UnboundedSender<StatCommand>,
+) {
+    // todo trace
+    let robots_links = extract_robots_txt(&target_url, &CONFIGURATION, tx_stats.clone()).await;
+
+    for robot_link in robots_links {
+        // create a url based on the given command line options, continue on error
+        let ferox_response =
+            match request_feroxresponse_from_new_link(&robot_link, tx_stats.clone()).await {
+                Some(resp) => resp,
+                None => continue,
+            };
+
+        if ferox_response.is_file() {
+            SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
+            send_report(tx_term.clone(), ferox_response);
+        } else {
+            let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
+
+            if !unknown {
+                // known directory; can skip (unlikely)
+                continue;
+            }
+
+            // unknown directory; add to targets for scanning
+            if let Err(e) = tx_dir.send(robot_link) {
+                log::error!("Could not send extracted link to recursion handler: {}", e);
+            }
+        }
+    }
+}
+
 /// Scan a given url using a given wordlist
 ///
 /// This is the primary entrypoint for the scanner
@@ -530,6 +567,20 @@ pub async fn scan_url(
 
     if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets.load(Ordering::Relaxed) {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
+
+        if CONFIGURATION.extract_links && CALL_COUNT.load(Ordering::Relaxed) == 1 {
+            // only grab robots.txt on the first scan_url call. all fresh dirs will be passed
+            // to the recursion thread
+            log::error!("calling robots");
+            scan_robots_txt(
+                target_url,
+                stats.clone(),
+                tx_term.clone(),
+                tx_dir.clone(),
+                tx_stats.clone(),
+            )
+            .await;
+        }
 
         update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
