@@ -1055,10 +1055,12 @@ mod tests {
     /// with the right attributes
     fn ferox_scan_deserialize() {
         let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","status":"Complete"}"#;
-        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"Complete"}"#;
+        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"Cancelled"}"#;
+        let fs_json_three = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":""}"#;
 
         let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
         let fs_two: FeroxScan = serde_json::from_str(fs_json_two).unwrap();
+        let fs_three: FeroxScan = serde_json::from_str(fs_json_three).unwrap();
         assert_eq!(fs.url, "https://spiritanimal.com");
 
         match fs.scan_type {
@@ -1081,6 +1083,8 @@ mod tests {
             }
         }
         assert!(matches!(fs.status, ScanStatus::Complete));
+        assert!(matches!(fs_two.status, ScanStatus::Cancelled));
+        assert!(matches!(fs_three.status, ScanStatus::NotStarted));
         assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
     }
 
