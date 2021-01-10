@@ -8,7 +8,7 @@ use crate::{
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
-use console::{style, Term};
+use console::{measure_text_width, pad_str, style, Alignment, Term};
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use serde::{
     ser::{SerializeSeq, SerializeStruct},
@@ -37,21 +37,6 @@ static INTERACTIVE_BARRIER: AtomicUsize = AtomicUsize::new(0);
 
 /// Atomic boolean flag, used to determine whether or not a scan should pause or resume
 pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
-
-/// Wrapper around console's Term::clear_screen and Term::flush
-macro_rules! clear_screen {
-    ($term:expr) => {
-        $term.clear_screen().unwrap_or_default();
-        $term.flush().unwrap_or_default();
-    };
-}
-
-/// Wrapper around console's Term::write_line
-macro_rules! term_write {
-    ($term:expr, $msg:expr) => {
-        $term.write_line($msg).unwrap_or_default();
-    };
-}
 
 /// Simple enum used to flag a `FeroxScan` as likely a directory or file
 #[derive(Debug, Serialize, Deserialize)]
@@ -120,6 +105,7 @@ impl FeroxScan {
     pub fn abort(&mut self) {
         if let Some(task) = &self.task {
             self.status = ScanStatus::Cancelled;
+            self.stop_progress_bar();
             task.abort();
         }
     }
@@ -289,14 +275,151 @@ impl Default for ScanStatus {
     }
 }
 
+/// Interactive scan cancellation menu
+#[derive(Debug)]
+struct Menu {
+    /// character to use as visual separator of lines
+    separator: String,
+
+    /// name of menu
+    name: String,
+
+    /// header: name surrounded by separators
+    header: String,
+
+    /// instructions
+    instructions: String,
+
+    /// footer: instructions surrounded by separators
+    footer: String,
+
+    /// target for output
+    term: Term,
+}
+
+/// Implementation of Menu
+impl Menu {
+    /// Creates new Menu
+    fn new() -> Self {
+        let separator = "─".to_string();
+
+        let instructions = format!(
+            "Enter a {} list of indexes to {} (ex: 2,3)",
+            style("comma-separated").yellow(),
+            style("cancel").red(),
+        );
+
+        let name = format!(
+            "{} {} {}",
+            "💀",
+            style("Scan Cancel Menu").bright().yellow(),
+            "💀"
+        );
+
+        let longest = measure_text_width(&instructions).max(measure_text_width(&name));
+
+        let border = separator.repeat(longest);
+
+        let padded_name = pad_str(&name, longest, Alignment::Center, None);
+
+        let header = format!("{}\n{}\n{}", border, padded_name, border);
+        let footer = format!("{}\n{}\n{}", border, instructions, border);
+
+        Self {
+            separator,
+            name,
+            header,
+            instructions,
+            footer,
+            term: Term::stderr(),
+        }
+    }
+
+    /// print menu header
+    fn print_header(&self) {
+        self.println(&self.header);
+    }
+
+    /// print menu footer
+    fn print_footer(&self) {
+        self.println(&self.footer);
+    }
+
+    /// set PROGRESS_BAR bar target to hidden
+    fn hide_progress_bars(&self) {
+        PROGRESS_BAR.set_draw_target(ProgressDrawTarget::hidden());
+    }
+
+    /// set PROGRESS_BAR bar target to hidden
+    fn show_progress_bars(&self) {
+        PROGRESS_BAR.set_draw_target(ProgressDrawTarget::stdout());
+    }
+
+    /// Wrapper around console's Term::clear_screen and flush
+    fn clear_screen(&self) {
+        self.term.clear_screen().unwrap_or_default();
+        self.term.flush().unwrap_or_default();
+    }
+
+    /// Wrapper around console's Term::write_line
+    fn println(&self, msg: &str) {
+        self.term.write_line(msg).unwrap_or_default();
+    }
+
+    /// split a string into vec of usizes
+    fn split_to_nums(&self, line: &str) -> Vec<usize> {
+        line.split(',')
+            .map(|s| {
+                s.trim().to_string().parse::<usize>().unwrap_or_else(|e| {
+                    self.println(&format!("Found non-numeric input: {}", e));
+                    0
+                })
+            })
+            .filter(|m| *m != 0)
+            .collect()
+    }
+
+    /// get comma-separated list of scan indexes from the user
+    fn get_scans_from_user(&self) -> Option<Vec<usize>> {
+        if let Ok(line) = self.term.read_line() {
+            Some(self.split_to_nums(&line))
+        } else {
+            None
+        }
+    }
+
+    /// Given a url, confirm with user that we should cancel
+    fn confirm_cancellation(&self, url: &str) -> char {
+        self.println(&format!(
+            "You sure you wanna cancel this scan: {}? [Y/n]",
+            url
+        ));
+
+        self.term.read_char().unwrap_or('n')
+    }
+}
+
+/// Default implementation for Menu
+impl Default for Menu {
+    /// return Menu::new as default
+    fn default() -> Menu {
+        Menu::new()
+    }
+}
+
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
 pub struct FeroxScans {
     /// Internal structure: locked hashset of `FeroxScan`s
     pub scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
+
+    /// menu used for providing a way for users to cancel a scan
+    menu: Menu,
 }
 
 /// Serialize implementation for FeroxScans
+///
+/// purposefully skips menu attribute
 impl Serialize for FeroxScans {
     /// Function that handles serialization of FeroxScans
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -398,7 +521,7 @@ impl FeroxScans {
     ///   0: complete   https://10.129.45.20
     ///   9: complete   https://10.129.45.20/images
     ///  10: complete   https://10.129.45.20/assets
-    pub async fn display_scans(&self, term: &Term) {
+    pub async fn display_scans(&self) {
         if let Ok(scans) = self.scans.lock() {
             for (i, scan) in scans.iter().enumerate() {
                 if let Ok(unlocked_scan) = scan.lock() {
@@ -413,115 +536,61 @@ impl FeroxScans {
                         // we're only interested in displaying directory scans, as those are
                         // the only ones that make sense to be stopped
                         let scan_msg = format!("{:3}: {}", i, unlocked_scan);
-                        term_write!(term, &scan_msg);
+                        self.menu.println(&scan_msg);
                     }
                 }
             }
         }
     }
 
-    /// CLI menu that allows for interactive cancellation of recursed-into directories
-    async fn interactive_menu(&self, term: &Term) -> Result<(), Box<dyn std::error::Error>> {
-        // todo test this fn (if possible)
+    /// Given a list of indexes, cancel their associated FeroxScans
+    fn cancel_scans(&self, indexes: Vec<usize>) {
+        let menu_pause_duration = Duration::from_millis(SLEEP_DURATION);
 
-        // 1.5 seconds feels right as far as menu timing
-        let menu_pause_duration = Duration::from_millis(SLEEP_DURATION * 3);
-
-        clear_screen!(term);
-
-        let mut cancelled_scans = Vec::new();
-
-        loop {
-            clear_screen!(term);
-
-            self.display_scans(&term).await;
-
-            // todo utf8 lines like the banner
-            // todo add a header and not just the scans first thing
-            // todo break out logic from loop for testing
-            let border = "==============================================================";
-
-            term_write!(term, border);
-
-            let instructions = format!(
-                "Select a scan by index to {} or press '{}' to {} scanning",
-                style("stop").red(),
-                style("r").green(),
-                style("resume").green()
-            );
-
-            term_write!(term, &instructions);
-            term_write!(term, border);
-
-            let input = term.read_char()?; // todo change to line at least for the scan entry
-
-            if input == 'r' {
-                term_write!(term, "Resuming scans...");
-                sleep(menu_pause_duration);
-                break;
-            } else {
-                let num = match input.to_string().parse::<usize>() {
-                    Ok(n) => n,
-                    Err(_) => {
-                        term_write!(
-                            term,
-                            &format!("Expected a number or 'r', you provided: {}", input)
-                        );
-
-                        sleep(menu_pause_duration);
-                        continue;
-                    }
-                };
-
-                if let Ok(u_scans) = self.scans.lock() {
-                    // check if number provided is out of range
-                    if num >= u_scans.len() {
-                        // usize can't be negative, just need to handle exceeding bounds
-                        term_write!(term, "The number you provided is not a valid choice.");
-                        sleep(menu_pause_duration);
-                        continue;
-                    }
-
-                    // save a clone to stop the progressbar before resuming the scans
-                    // this is done due to the fact that calling finish_at_current_position
-                    // on a progress bar results in the bar flashing in the display briefly.
-                    // Instead, we'll gather the responses, cancel the scan, but delay the
-                    // progress bar stoppage.
-                    let selected = u_scans.index(num).clone();
-
-                    cancelled_scans.push(selected.clone());
-
-                    if let Ok(mut ferox_scan) = selected.lock() {
-                        term_write!(
-                            term,
-                            &format!(
-                                "You sure you wanna cancel this scan: {}? [Y/n]",
-                                ferox_scan.url
-                            )
-                        );
-
-                        let input = term.read_char()?.to_ascii_lowercase();
-
-                        if input == 'y' || input == '\n' {
-                            term_write!(term, &format!("Stopping {}...", ferox_scan.url));
-                            ferox_scan.abort();
-                        } else {
-                            term_write!(term, "Ok, doing nothing...");
-                        }
-                    }
-
+        for num in indexes {
+            if let Ok(u_scans) = self.scans.lock() {
+                // check if number provided is out of range
+                if num >= u_scans.len() {
+                    // usize can't be negative, just need to handle exceeding bounds
+                    self.menu
+                        .println(&format!("The number {} is not a valid choice.", num));
                     sleep(menu_pause_duration);
+                    continue;
                 }
+
+                let selected = u_scans.index(num).clone();
+
+                if let Ok(mut ferox_scan) = selected.lock() {
+                    let input = self.menu.confirm_cancellation(&ferox_scan.url);
+
+                    if input == 'y' || input == '\n' {
+                        self.menu
+                            .println(&format!("Stopping {}...", ferox_scan.url));
+                        ferox_scan.abort();
+                    } else {
+                        self.menu.println("Ok, doing nothing...");
+                    }
+                }
+
+                sleep(menu_pause_duration);
             }
         }
+    }
 
-        for scan in &cancelled_scans {
-            if let Ok(u_scan) = scan.lock() {
-                u_scan.stop_progress_bar();
-            }
+    /// CLI menu that allows for interactive cancellation of recursed-into directories
+    async fn interactive_menu(&self) {
+        self.menu.hide_progress_bars();
+        self.menu.clear_screen();
+        self.menu.print_header();
+        self.display_scans().await;
+        self.menu.print_footer();
+
+        if let Some(input) = self.menu.get_scans_from_user() {
+            self.cancel_scans(input);
         }
 
-        Ok(())
+        self.menu.clear_screen();
+        self.menu.show_progress_bars();
     }
 
     /// Forced the calling thread into a busy loop
@@ -537,31 +606,12 @@ impl FeroxScans {
         // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
         let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
 
-        let term = Term::stderr();
-
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                PROGRESS_BAR.set_draw_target(ProgressDrawTarget::hidden());
                 // todo test this block (if possible)
-
-                // the first clear screen happens and then there's another tick from the existing
-                // progress bars. A clear, brief pause, clear is used to present the user with a
-                // clean menu
-                clear_screen!(term);
-                time::sleep(Duration::from_millis(SLEEP_DURATION)).await;
-                clear_screen!(term);
-
-                // interactive_menu is a blocking interactive loop
-                match self.interactive_menu(&term).await {
-                    Ok(_) => {}
-                    Err(_) => {
-                        log::error!("Unexpected error within cancel scan menu");
-                    }
-                }
-
-                clear_screen!(term);
+                self.interactive_menu().await;
 
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
 
@@ -582,7 +632,6 @@ impl FeroxScans {
 
                 if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 1 {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
-                    PROGRESS_BAR.set_draw_target(ProgressDrawTarget::stdout());
                 }
 
                 log::trace!("exit: pause_scan");
@@ -1026,8 +1075,8 @@ mod tests {
         }
 
         assert_eq!(urls.insert(scan), true);
-        let term = Term::stderr();
-        urls.display_scans(&term).await;
+
+        urls.display_scans().await;
     }
 
     #[test]
@@ -1287,5 +1336,29 @@ mod tests {
         scan.abort();
 
         assert!(matches!(scan.status, ScanStatus::Cancelled));
+    }
+
+    #[test]
+    /// call a few menu functions for coverage's sake
+    ///
+    /// there's not a trivial way to test these programmatically (at least i'm too lazy rn to do it)
+    /// and their correctness can be verified easily manually; just calling for now
+    fn menu_print_header_and_footer() {
+        let menu = Menu::new();
+        menu.clear_screen();
+        menu.print_header();
+        menu.print_footer();
+        menu.hide_progress_bars();
+        menu.show_progress_bars();
+    }
+
+    #[test]
+    /// ensure spaces are trimmed and numbers are returned from split_to_nums
+    fn split_to_nums_is_correct() {
+        let menu = Menu::new();
+
+        let nums = menu.split_to_nums("1, 3,      4");
+
+        assert_eq!(nums, vec![1, 3, 4]);
     }
 }

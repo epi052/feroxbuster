@@ -500,7 +500,7 @@ pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: Fero
     log::trace!("exit: send_report");
 }
 
-/// todo
+/// Request /robots.txt from given url
 async fn scan_robots_txt(
     target_url: &str,
     stats: Arc<Stats>,
@@ -508,7 +508,15 @@ async fn scan_robots_txt(
     tx_dir: UnboundedSender<String>,
     tx_stats: UnboundedSender<StatCommand>,
 ) {
-    // todo trace
+    log::trace!(
+        "enter: scan_robots_txt({}, {:?}, {:?}, {:?}, {:?})",
+        target_url,
+        stats,
+        tx_term,
+        tx_dir,
+        tx_stats
+    );
+
     let robots_links = extract_robots_txt(&target_url, &CONFIGURATION, tx_stats.clone()).await;
 
     for robot_link in robots_links {
@@ -536,6 +544,7 @@ async fn scan_robots_txt(
             }
         }
     }
+    log::trace!("exit: scan_robots_txt");
 }
 
 /// Scan a given url using a given wordlist
@@ -570,7 +579,7 @@ pub async fn scan_url(
     if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets.load(Ordering::Relaxed) {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
-        if CONFIGURATION.extract_links && CALL_COUNT.load(Ordering::Relaxed) == 1 {
+        if CONFIGURATION.extract_links {
             // only grab robots.txt on the first scan_url call. all fresh dirs will be passed
             // to the recursion thread
             log::error!("calling robots");
