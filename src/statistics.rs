@@ -151,7 +151,8 @@ pub struct Stats {
 
 /// FeroxSerialize implementation for Stats
 impl FeroxSerialize for Stats {
-    /// Simply return debug format of Stats to satisfy as_str
+    /// Simply return empty string here to disable serializing this to the output file as a string
+    /// due to it looking like garbage
     fn as_str(&self) -> String {
         String::new()
     }
@@ -187,8 +188,8 @@ impl Stats {
     }
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
-    fn save(&self, seconds: f64) {
-        let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
+    fn save(&self, seconds: f64, location: &str) {
+        let buffered_file = match get_cached_file_handle(location) {
             Some(file) => file,
             None => {
                 return;
@@ -525,7 +526,7 @@ pub async fn spawn_statistics_handler(
                 stats.add_request();
                 increment_bar(&bar, stats.clone());
             }
-            StatCommand::Save => stats.save(start.elapsed().as_secs_f64()),
+            StatCommand::Save => stats.save(start.elapsed().as_secs_f64(), &CONFIGURATION.output),
             StatCommand::UpdateUsizeField(field, value) => {
                 let update_len = matches!(field, StatField::TotalScans);
                 stats.update_usize_field(field, value);
@@ -595,7 +596,7 @@ pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::write;
+    use std::fs::{read_to_string, write};
     use tempfile::NamedTempFile;
 
     /// simple helper to reduce code reuse
@@ -797,5 +798,35 @@ mod tests {
         // total_runtime not updated in merge_from
         assert_eq!(stats.total_runtime.lock().unwrap().len(), 1);
         assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    /// ensure update runtime overwrites the default 0th entry
+    fn update_runtime_works() {
+        let stats = Stats::new();
+        assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
+        stats.update_runtime(20.2);
+        assert!((stats.total_runtime.lock().unwrap()[0] - 20.2).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    /// Stats::save should write contents of Stats to disk
+    fn save_writes_stats_object_to_disk() {
+        let stats = Stats::new();
+        stats.add_request();
+        stats.add_request();
+        stats.add_request();
+        stats.add_request();
+        stats.add_error(StatError::Timeout);
+        stats.add_error(StatError::Timeout);
+        stats.add_error(StatError::Timeout);
+        stats.add_error(StatError::Timeout);
+        stats.add_status_code(StatusCode::OK);
+        stats.add_status_code(StatusCode::OK);
+        stats.add_status_code(StatusCode::OK);
+        let outfile = "/tmp/stuff";
+        stats.save(174.33, outfile);
+        assert!(stats.as_json().contains("174.33"));
+        assert!(stats.as_str().is_empty());
     }
 }

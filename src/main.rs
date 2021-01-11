@@ -151,11 +151,7 @@ async fn scan(
     if CONFIGURATION.resumed {
         update_stat!(tx_stats, LoadStats(CONFIGURATION.resume_from.clone()));
 
-        if let Ok(responses) = RESPONSES.responses.read() {
-            for response in responses.iter() {
-                PROGRESS_PRINTER.println(response.as_str());
-            }
-        }
+        SCANNED_URLS.print_known_responses();
 
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {

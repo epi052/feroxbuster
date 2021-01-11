@@ -593,6 +593,15 @@ impl FeroxScans {
         self.menu.show_progress_bars();
     }
 
+    /// prints all known responses that the scanner has already seen
+    pub fn print_known_responses(&self) {
+        if let Ok(responses) = RESPONSES.responses.read() {
+            for response in responses.iter() {
+                PROGRESS_PRINTER.println(response.as_str());
+            }
+        }
+    }
+
     /// Forced the calling thread into a busy loop
     ///
     /// Every `SLEEP_DURATION` milliseconds, the function examines the result stored in `PAUSE_SCAN`
@@ -610,16 +619,9 @@ impl FeroxScans {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                // todo test this block (if possible)
                 self.interactive_menu().await;
-
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
-
-                if let Ok(responses) = RESPONSES.responses.read() {
-                    for response in responses.iter() {
-                        PROGRESS_PRINTER.println(response.as_str());
-                    }
-                }
+                self.print_known_responses();
             }
         }
 
@@ -1075,6 +1077,7 @@ mod tests {
         }
 
         assert_eq!(urls.insert(scan), true);
+        assert_eq!(urls.insert(scan_two), true);
 
         urls.display_scans().await;
     }
