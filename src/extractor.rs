@@ -52,18 +52,25 @@ fn get_sub_paths_from_path(path: &str) -> Vec<String> {
 
     let length = parts.len();
 
-    for _ in 0..length {
+    for i in 0..length {
         // iterate over all parts of the path
         if parts.is_empty() {
             // pop left us with an empty vector, we're done
             break;
         }
 
-        let possible_path = parts.join("/");
+        let mut possible_path = parts.join("/");
 
         if possible_path.is_empty() {
             // .join can result in an empty string, which we don't need, ignore
             continue;
+        }
+
+        if i > 0 {
+            // this isn't the last index of the parts array
+            // ex: /buried/misc/stupidfile.php
+            // this block skips the file but sees all parent folders
+            possible_path = format!("{}/", possible_path);
         }
 
         paths.push(possible_path); // good sub-path found
@@ -355,10 +362,10 @@ mod tests {
         let path = "homepage/assets/img/icons/handshake.svg";
         let paths = get_sub_paths_from_path(&path);
         let expected = vec![
-            "homepage",
-            "homepage/assets",
-            "homepage/assets/img",
-            "homepage/assets/img/icons",
+            "homepage/",
+            "homepage/assets/",
+            "homepage/assets/img/",
+            "homepage/assets/img/icons/",
             "homepage/assets/img/icons/handshake.svg",
         ];
 
@@ -375,7 +382,7 @@ mod tests {
     fn extractor_get_sub_paths_from_path_with_enclosing_slashes() {
         let path = "/homepage/assets/";
         let paths = get_sub_paths_from_path(&path);
-        let expected = vec!["homepage", "homepage/assets"];
+        let expected = vec!["homepage/", "homepage/assets"];
 
         assert_eq!(paths.len(), expected.len());
         for expected_path in expected {

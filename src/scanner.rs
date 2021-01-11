@@ -503,14 +503,16 @@ pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: Fero
 /// Request /robots.txt from given url
 async fn scan_robots_txt(
     target_url: &str,
+    base_depth: usize,
     stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_dir: UnboundedSender<String>,
     tx_stats: UnboundedSender<StatCommand>,
 ) {
     log::trace!(
-        "enter: scan_robots_txt({}, {:?}, {:?}, {:?}, {:?})",
+        "enter: scan_robots_txt({}, {}, {:?}, {:?}, {:?}, {:?})",
         target_url,
+        base_depth,
         stats,
         tx_term,
         tx_dir,
@@ -521,27 +523,29 @@ async fn scan_robots_txt(
 
     for robot_link in robots_links {
         // create a url based on the given command line options, continue on error
-        let ferox_response =
+        let mut ferox_response =
             match request_feroxresponse_from_new_link(&robot_link, tx_stats.clone()).await {
                 Some(resp) => resp,
                 None => continue,
             };
 
+        if should_filter_response(&ferox_response, tx_stats.clone()) {
+            continue;
+        }
+
         if ferox_response.is_file() {
+            log::debug!("File extracted from robots.txt: {}", ferox_response);
             SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
             send_report(tx_term.clone(), ferox_response);
-        } else {
-            let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
-
-            if !unknown {
-                // known directory; can skip (unlikely)
-                continue;
+        } else if !CONFIGURATION.no_recursion {
+            log::debug!("Directory extracted from robots.txt: {}", ferox_response);
+            // todo this code is essentially the same as another piece around ~467 of this file
+            if ferox_response.status().is_success() && !ferox_response.url().as_str().ends_with('/')
+            {
+                ferox_response.set_url(&format!("{}/", ferox_response.url()));
             }
 
-            // unknown directory; add to targets for scanning
-            if let Err(e) = tx_dir.send(robot_link) {
-                log::error!("Could not send extracted link to recursion handler: {}", e);
-            }
+            try_recursion(&ferox_response, base_depth, tx_dir.clone()).await;
         }
     }
     log::trace!("exit: scan_robots_txt");
@@ -580,11 +584,11 @@ pub async fn scan_url(
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
         if CONFIGURATION.extract_links {
-            // only grab robots.txt on the first scan_url call. all fresh dirs will be passed
-            // to the recursion thread
-            log::error!("calling robots");
+            // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
+            // to try_recursion
             scan_robots_txt(
                 target_url,
+                base_depth,
                 stats.clone(),
                 tx_term.clone(),
                 tx_dir.clone(),

@@ -389,7 +389,7 @@ async fn wrapped_main() {
     )
     .await;
 
-    log::trace!("exit: main");
+    log::trace!("exit: wrapped_main");
 }
 
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
@@ -413,6 +413,7 @@ async fn clean_up(
         stats_handle,
         save_output
     );
+    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
 
     drop(tx_term);
     log::trace!("dropped terminal output handler's transmitter");
@@ -445,8 +446,6 @@ async fn clean_up(
         log::trace!("done awaiting file output handler's receiver");
     }
 
-    log::trace!("tx_stats: {:?}", tx_stats);
-    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
     stats_handle.await.unwrap_or_default();
 
     // mark all scans complete so the terminal input handler will exit cleanly
@@ -455,6 +454,8 @@ async fn clean_up(
     // clean-up function for the MultiProgress bar; must be called last in order to still see
     // the final trace messages above
     PROGRESS_PRINTER.finish();
+
+    drop(tx_stats);
 
     log::trace!("exit: clean_up");
 }
@@ -474,4 +475,6 @@ fn main() {
         let future = wrapped_main();
         runtime.block_on(future);
     }
+
+    log::trace!("exit: main");
 }
