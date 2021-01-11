@@ -596,7 +596,7 @@ pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{read_to_string, write};
+    use std::fs::write;
     use tempfile::NamedTempFile;
 
     /// simple helper to reduce code reuse

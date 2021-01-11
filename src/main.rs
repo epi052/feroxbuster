@@ -6,7 +6,7 @@ use feroxbuster::{
     progress::{add_bar, BarType},
     reporter,
     scan_manager::{self, ScanStatus, PAUSE_SCAN},
-    scanner::{self, scan_url, RESPONSES, SCANNED_URLS},
+    scanner::{self, scan_url, SCANNED_URLS},
     statistics::{
         self,
         StatCommand::{self, CreateBar, LoadStats, UpdateUsizeField},
@@ -15,7 +15,7 @@ use feroxbuster::{
     },
     update_stat,
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
+    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
