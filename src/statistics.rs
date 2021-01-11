@@ -826,7 +826,8 @@ mod tests {
         stats.add_status_code(StatusCode::OK);
         let outfile = "/tmp/stuff";
         stats.save(174.33, outfile);
-        assert!(stats.as_json().contains("174.33"));
+        assert!(stats.as_json().contains("statistics"));
+        assert!(stats.as_json().contains("11")); // requests made
         assert!(stats.as_str().is_empty());
     }
 }
