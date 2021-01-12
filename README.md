@@ -101,6 +101,7 @@ Enumeration.
     - [Enforce a Time Limit on Your Scan (new in `v1.10.0`)](#enforce-a-time-limit-on-your-scan-new-in-v1100)
     - [Extract Links from robots.txt (New in `v1.10.2`)](#extract-links-from-robotstxt-new-in-v1102)
     - [Filter Response by Similarity to A Given Page (fuzzy filter) (new in `v1.11.0`)](#filter-response-by-similarity-to-a-given-page-fuzzy-filter-new-in-v1110)
+    - [Cancel a Recursive Scan Interactively (new in `v1.12.0`)](#cancel-a-recursive-scan-interactively-new-in-v1120)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -596,9 +597,11 @@ is checked against a list of known filters and either displayed or not according
 
 ### Pause an Active Scan (new in `v1.4.0`)
 
-Scans can be paused and resumed by pressing the ENTER key (shown below)
+**NOTE**: [v1.12.0](#cancel-a-recursive-scan-interactively-new-in-v1120) added an interactive menu to the pause/resume
+functionality.  Active scans can still be paused, however, now you're presented with the option to cancel a scan instead
+of simply seeing a spinner.
 
-![pause-resume-demo](img/pause-resume-demo.gif)
+Scans can be paused and resumed by pressing the ENTER key (~~shown below~~, please see [v1.12.0](#cancel-a-recursive-scan-interactively-new-in-v1120)'s entry for the latest visual representation)
 
 ### Replay Responses to a Proxy based on Status Code (new in `v1.5.0`)
 
@@ -768,6 +771,27 @@ magnitude slower on requests/second).
   - The lack of accuracy with very small responses is considered a fair trade-off for not negatively impacting performance
 - Using a bunch of `--filter-similar-to` values **may** negatively impact performance
 
+### Cancel a Recursive Scan Interactively (new in `v1.12.0`)
+
+Version 1.12.0 expanded the pause/resume functionality introduced in [v1.4.0](#pause-an-active-scan-new-in-v140) by 
+adding an interactive menu from which currently running recursive scans can be cancelled, without affecting the overall scan.  Scans can still be paused indefinitely by pressing `ENTER`, however, the   
+
+Scans that are started via `-u` or passed in through `--stdin` cannot be cancelled, only scans found via `--extract-links` or recursion are eligible.
+
+Below is an example of the Scan Cancel Menu™.
+
+![cancel-menu](img/cancel-menu.png)
+
+Using the menu is pretty simple:
+- Press `ENTER` to view the menu
+- Choose a scan to cancel by entering its scan index (`1`)
+  - more than one scan can be selected by using a comma-separated list (`1,2,3` ... etc)
+- Confirm selections, after which all non-cancelled scans will resume
+
+Here is a short demonstration of cancelling two in-progress scans found via recursion.
+
+![cancel-scan](img/cancel-scan.gif)
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery. Burp Suite Pro, Dirb, Dirbuster, etc...
@@ -813,6 +837,7 @@ few of the use-cases in which feroxbuster may be a better fit:
 | maximum run time limit (`v1.10.0`)                                           | ✔ |   | ✔ |
 | use robots.txt to increase scan coverage (`v1.10.2`)                         | ✔ |   |   |
 | use example page's response to fuzzily filter similar pages  (`v1.11.0`)     | ✔ |   |   |
+| cancel a recursive scan interactively (`v1.12.0`)                            | ✔ |   |   |
 | **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I
