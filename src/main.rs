@@ -2,12 +2,11 @@ use crossterm::event::{self, Event, KeyCode};
 use feroxbuster::{
     banner,
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
-    extractor::{extract_robots_txt, request_feroxresponse_from_new_link},
     heuristics, logger,
     progress::{add_bar, BarType},
     reporter,
-    scan_manager::{self, PAUSE_SCAN},
-    scanner::{self, scan_url, send_report, RESPONSES, SCANNED_URLS},
+    scan_manager::{self, ScanStatus, PAUSE_SCAN},
+    scanner::{self, scan_url, SCANNED_URLS},
     statistics::{
         self,
         StatCommand::{self, CreateBar, LoadStats, UpdateUsizeField},
@@ -16,7 +15,7 @@ use feroxbuster::{
     },
     update_stat,
     utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, FeroxSerialize, SLEEP_DURATION, VERSION,
+    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
@@ -31,6 +30,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    thread::sleep,
     time::Duration,
 };
 use tokio::{io, sync::mpsc::UnboundedSender, task::JoinHandle};
@@ -44,17 +44,20 @@ fn terminal_input_handler() {
     log::trace!("enter: terminal_input_handler");
 
     loop {
-        if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
+        if PAUSE_SCAN.load(Ordering::Relaxed) {
+            // if the scan is already paused, we don't want this event poller fighting the user
+            // over stdin
+            sleep(Duration::from_millis(SLEEP_DURATION));
+        } else if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
             // It's guaranteed that the `read()` won't block when the `poll()`
             // function returns `true`
 
             if let Ok(key_pressed) = event::read() {
+                // ignore any other keys
                 if key_pressed == Event::Key(KeyCode::Enter.into()) {
-                    // if the user presses Enter, toggle the value stored in PAUSE_SCAN
-                    // ignore any other keys
-                    let current = PAUSE_SCAN.load(Ordering::Acquire);
-
-                    PAUSE_SCAN.store(!current, Ordering::Release);
+                    // if the user presses Enter, set PAUSE_SCAN to true. The interactive menu
+                    // will be triggered and will handle setting PAUSE_SCAN to false
+                    PAUSE_SCAN.store(true, Ordering::Release);
                 }
             }
         } else {
@@ -106,7 +109,7 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(
-    mut targets: Vec<String>,
+    targets: Vec<String>,
     stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
@@ -148,16 +151,12 @@ async fn scan(
     if CONFIGURATION.resumed {
         update_stat!(tx_stats, LoadStats(CONFIGURATION.resume_from.clone()));
 
-        if let Ok(responses) = RESPONSES.responses.read() {
-            for response in responses.iter() {
-                PROGRESS_PRINTER.println(response.as_str());
-            }
-        }
+        SCANNED_URLS.print_known_responses();
 
         if let Ok(scans) = SCANNED_URLS.scans.lock() {
             for scan in scans.iter() {
                 if let Ok(locked_scan) = scan.lock() {
-                    if locked_scan.complete {
+                    if matches!(locked_scan.status, ScanStatus::Complete) {
                         // these scans are complete, and just need to be shown to the user
                         let pb = add_bar(
                             &locked_scan.url,
@@ -166,42 +165,6 @@ async fn scan(
                         );
                         pb.finish();
                     }
-                }
-            }
-        }
-    }
-
-    if CONFIGURATION.extract_links {
-        for target in targets.clone() {
-            // modifying the targets vector, so we can't have a reference to it while we borrow
-            // it as mutable; thus the clone
-            let robots_links = extract_robots_txt(&target, &CONFIGURATION, tx_stats.clone()).await;
-
-            for robot_link in robots_links {
-                // create a url based on the given command line options, continue on error
-                let ferox_response = match request_feroxresponse_from_new_link(
-                    &robot_link,
-                    tx_stats.clone(),
-                )
-                .await
-                {
-                    Some(resp) => resp,
-                    None => continue,
-                };
-
-                if ferox_response.is_file() {
-                    SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
-                    send_report(tx_term.clone(), ferox_response);
-                } else {
-                    let (unknown, _) = SCANNED_URLS.add_directory_scan(&robot_link, stats.clone());
-
-                    if !unknown {
-                        // known directory; can skip (unlikely)
-                        continue;
-                    }
-
-                    // unknown directory; add to targets for scanning
-                    targets.push(robot_link);
                 }
             }
         }
@@ -263,7 +226,7 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
                 if let Ok(locked_scan) = scan.lock() {
-                    if locked_scan.complete {
+                    if matches!(locked_scan.status, ScanStatus::Complete) {
                         // this one's already done, ignore it
                         continue;
                     }
@@ -422,7 +385,7 @@ async fn wrapped_main() {
     )
     .await;
 
-    log::trace!("exit: main");
+    log::trace!("exit: wrapped_main");
 }
 
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
@@ -446,6 +409,7 @@ async fn clean_up(
         stats_handle,
         save_output
     );
+    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
 
     drop(tx_term);
     log::trace!("dropped terminal output handler's transmitter");
@@ -478,8 +442,6 @@ async fn clean_up(
         log::trace!("done awaiting file output handler's receiver");
     }
 
-    log::trace!("tx_stats: {:?}", tx_stats);
-    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
     stats_handle.await.unwrap_or_default();
 
     // mark all scans complete so the terminal input handler will exit cleanly
@@ -488,6 +450,8 @@ async fn clean_up(
     // clean-up function for the MultiProgress bar; must be called last in order to still see
     // the final trace messages above
     PROGRESS_PRINTER.finish();
+
+    drop(tx_stats);
 
     log::trace!("exit: clean_up");
 }
@@ -500,8 +464,13 @@ fn main() {
     #[cfg(not(target_os = "windows"))]
     set_open_file_limit(DEFAULT_OPEN_FILE_LIMIT);
 
-    if let Ok(mut runtime) = tokio::runtime::Runtime::new() {
+    if let Ok(runtime) = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
         let future = wrapped_main();
         runtime.block_on(future);
     }
+
+    log::trace!("exit: main");
 }

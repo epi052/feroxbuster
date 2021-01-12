@@ -14,8 +14,10 @@ use std::{
     io::Write,
     sync::{Arc, Once, RwLock},
 };
-use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use tokio::task::JoinHandle;
+use tokio::{
+    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
 
 /// Singleton buffered file behind an Arc/RwLock; used for file writes from two locations:
 ///     - [logger::initialize](../logger/fn.initialize.html) (specifically a closure on the global logger instance)

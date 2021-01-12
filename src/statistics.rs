@@ -151,7 +151,8 @@ pub struct Stats {
 
 /// FeroxSerialize implementation for Stats
 impl FeroxSerialize for Stats {
-    /// Simply return debug format of Stats to satisfy as_str
+    /// Simply return empty string here to disable serializing this to the output file as a string
+    /// due to it looking like garbage
     fn as_str(&self) -> String {
         String::new()
     }
@@ -187,8 +188,8 @@ impl Stats {
     }
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
-    fn save(&self, seconds: f64) {
-        let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
+    fn save(&self, seconds: f64, location: &str) {
+        let buffered_file = match get_cached_file_handle(location) {
             Some(file) => file,
             None => {
                 return;
@@ -515,12 +516,17 @@ pub async fn spawn_statistics_handler(
         match command as StatCommand {
             StatCommand::AddError(err) => {
                 stats.add_error(err);
+                increment_bar(&bar, stats.clone());
             }
             StatCommand::AddStatus(status) => {
                 stats.add_status_code(status);
+                increment_bar(&bar, stats.clone());
             }
-            StatCommand::AddRequest => stats.add_request(),
-            StatCommand::Save => stats.save(start.elapsed().as_secs_f64()),
+            StatCommand::AddRequest => {
+                stats.add_request();
+                increment_bar(&bar, stats.clone());
+            }
+            StatCommand::Save => stats.save(start.elapsed().as_secs_f64(), &CONFIGURATION.output),
             StatCommand::UpdateUsizeField(field, value) => {
                 let update_len = matches!(field, StatField::TotalScans);
                 stats.update_usize_field(field, value);
@@ -542,23 +548,26 @@ pub async fn spawn_statistics_handler(
             }
             StatCommand::Exit => break,
         }
-
-        let msg = format!(
-            "{}:{:<7} {}:{:<7}",
-            style("found").green(),
-            atomic_load!(stats.resources_discovered),
-            style("errors").red(),
-            atomic_load!(stats.errors),
-        );
-
-        bar.set_message(&msg);
-        bar.inc(1);
     }
 
     bar.finish();
 
     log::debug!("{:#?}", *stats);
     log::trace!("exit: spawn_statistics_handler")
+}
+
+/// Wrapper around incrementing the overall scan's progress bar
+fn increment_bar(bar: &ProgressBar, stats: Arc<Stats>) {
+    let msg = format!(
+        "{}:{:<7} {}:{:<7}",
+        style("found").green(),
+        atomic_load!(stats.resources_discovered),
+        style("errors").red(),
+        atomic_load!(stats.errors),
+    );
+
+    bar.set_message(&msg);
+    bar.inc(1);
 }
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
@@ -603,7 +612,7 @@ mod tests {
         handle.await.unwrap();
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::Exit, function should exit its while loop (runs forever otherwise)
     async fn statistics_handler_exits() {
         let (_, sender, handle) = setup_stats_test();
@@ -615,7 +624,7 @@ mod tests {
         // if we've made it here, the test has succeeded
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     async fn statistics_handler_increments_requests() {
         let (stats, tx, handle) = setup_stats_test();
@@ -629,7 +638,7 @@ mod tests {
         assert_eq!(stats.requests.load(Ordering::Relaxed), 3);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
@@ -653,7 +662,7 @@ mod tests {
         assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
     ///
     /// incrementing a 403 (tracked in status_403s) should also increment:
@@ -675,7 +684,7 @@ mod tests {
         assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddStatus, stats object should reflect the change
     ///
     /// incrementing a 500 (tracked in server_errors) should also increment:
@@ -789,5 +798,36 @@ mod tests {
         // total_runtime not updated in merge_from
         assert_eq!(stats.total_runtime.lock().unwrap().len(), 1);
         assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    /// ensure update runtime overwrites the default 0th entry
+    fn update_runtime_works() {
+        let stats = Stats::new();
+        assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
+        stats.update_runtime(20.2);
+        assert!((stats.total_runtime.lock().unwrap()[0] - 20.2).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    /// Stats::save should write contents of Stats to disk
+    fn save_writes_stats_object_to_disk() {
+        let stats = Stats::new();
+        stats.add_request();
+        stats.add_request();
+        stats.add_request();
+        stats.add_request();
+        stats.add_error(StatError::Timeout);
+        stats.add_error(StatError::Timeout);
+        stats.add_error(StatError::Timeout);
+        stats.add_error(StatError::Timeout);
+        stats.add_status_code(StatusCode::OK);
+        stats.add_status_code(StatusCode::OK);
+        stats.add_status_code(StatusCode::OK);
+        let outfile = "/tmp/stuff";
+        stats.save(174.33, outfile);
+        assert!(stats.as_json().contains("statistics"));
+        assert!(stats.as_json().contains("11")); // requests made
+        assert!(stats.as_str().is_empty());
     }
 }

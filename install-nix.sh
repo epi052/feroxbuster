@@ -36,17 +36,22 @@ elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
         rm "${LIN64_ZIP}"
     fi
 
-    echo "[=] Installing Noto Emoji Font"
-    mkdir -p ~/.fonts
-    pushd ~/.fonts 2>&1 >/dev/null
+    if [[ -e ~/.fonts/NotoColorEmoji.ttf ]]; then
+       echo "[=] Found Noto Emoji Font, skipping install" 
+    else 
+        echo "[=] Installing Noto Emoji Font"
+        mkdir -p ~/.fonts
+        pushd ~/.fonts 2>&1 >/dev/null
 
-    curl -sLO "${EMOJI_URL}"
+        curl -sLO "${EMOJI_URL}"
 
-    fc-cache -f -v >/dev/null
+        fc-cache -f -v >/dev/null
 
-    popd 2>&1 >/dev/null
-    echo "[+] Noto Emoji Font installed"
+        popd 2>&1 >/dev/null
+        echo "[+] Noto Emoji Font installed"
+    fi
 fi
+
 
 chmod +x ./feroxbuster
 

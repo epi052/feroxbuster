@@ -1,16 +1,16 @@
-use crate::statistics::Stats;
 use crate::{
     config::{Configuration, CONFIGURATION},
-    extractor::{get_links, request_feroxresponse_from_new_link},
+    extractor::{extract_robots_txt, get_links, request_feroxresponse_from_new_link},
     filters::{
         FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
         WildcardFilter, WordsFilter,
     },
     heuristics,
-    scan_manager::{FeroxResponses, FeroxScans, PAUSE_SCAN},
+    scan_manager::{FeroxResponses, FeroxScans, ScanStatus, PAUSE_SCAN},
     statistics::{
         StatCommand::{self, UpdateF64Field, UpdateUsizeField},
         StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
+        Stats,
     },
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
@@ -60,6 +60,8 @@ lazy_static! {
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
+
+
 }
 
 /// Adds the given FeroxFilter to the given list of FeroxFilter implementors
@@ -109,7 +111,7 @@ fn spawn_recursion_handler(
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
     tx_stats: UnboundedSender<StatCommand>,
-) -> BoxFuture<'static, Vec<JoinHandle<()>>> {
+) -> BoxFuture<'static, Vec<Arc<JoinHandle<()>>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
         recursion_channel,
@@ -125,7 +127,7 @@ fn spawn_recursion_handler(
         let mut scans = vec![];
 
         while let Some(resp) = recursion_channel.recv().await {
-            let (unknown, _) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
+            let (unknown, scan) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
 
             if !unknown {
                 // not unknown, i.e. we've seen the url before and don't need to scan again
@@ -156,7 +158,13 @@ fn spawn_recursion_handler(
                 .await
             });
 
-            scans.push(future);
+            let shared_task = Arc::new(future);
+
+            if let Ok(mut u_scan) = scan.lock() {
+                u_scan.task = Some(shared_task.clone());
+            }
+
+            scans.push(shared_task);
         }
         scans
     }
@@ -492,6 +500,57 @@ pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: Fero
     log::trace!("exit: send_report");
 }
 
+/// Request /robots.txt from given url
+async fn scan_robots_txt(
+    target_url: &str,
+    base_depth: usize,
+    stats: Arc<Stats>,
+    tx_term: UnboundedSender<FeroxResponse>,
+    tx_dir: UnboundedSender<String>,
+    tx_stats: UnboundedSender<StatCommand>,
+) {
+    log::trace!(
+        "enter: scan_robots_txt({}, {}, {:?}, {:?}, {:?}, {:?})",
+        target_url,
+        base_depth,
+        stats,
+        tx_term,
+        tx_dir,
+        tx_stats
+    );
+
+    let robots_links = extract_robots_txt(&target_url, &CONFIGURATION, tx_stats.clone()).await;
+
+    for robot_link in robots_links {
+        // create a url based on the given command line options, continue on error
+        let mut ferox_response =
+            match request_feroxresponse_from_new_link(&robot_link, tx_stats.clone()).await {
+                Some(resp) => resp,
+                None => continue,
+            };
+
+        if should_filter_response(&ferox_response, tx_stats.clone()) {
+            continue;
+        }
+
+        if ferox_response.is_file() {
+            log::debug!("File extracted from robots.txt: {}", ferox_response);
+            SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
+            send_report(tx_term.clone(), ferox_response);
+        } else if !CONFIGURATION.no_recursion {
+            log::debug!("Directory extracted from robots.txt: {}", ferox_response);
+            // todo this code is essentially the same as another piece around ~467 of this file
+            if ferox_response.status().is_success() && !ferox_response.url().as_str().ends_with('/')
+            {
+                ferox_response.set_url(&format!("{}/", ferox_response.url()));
+            }
+
+            try_recursion(&ferox_response, base_depth, tx_dir.clone()).await;
+        }
+    }
+    log::trace!("exit: scan_robots_txt");
+}
+
 /// Scan a given url using a given wordlist
 ///
 /// This is the primary entrypoint for the scanner
@@ -524,6 +583,20 @@ pub async fn scan_url(
     if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets.load(Ordering::Relaxed) {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
+        if CONFIGURATION.extract_links {
+            // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
+            // to try_recursion
+            scan_robots_txt(
+                target_url,
+                base_depth,
+                stats.clone(),
+                tx_term.clone(),
+                tx_dir.clone(),
+                tx_stats.clone(),
+            )
+            .await;
+        }
+
         update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
@@ -532,7 +605,12 @@ pub async fn scan_url(
     }
 
     let ferox_scan = match SCANNED_URLS.get_scan_by_url(&target_url) {
-        Some(scan) => scan,
+        Some(scan) => {
+            if let Ok(mut u_scan) = scan.lock() {
+                u_scan.status = ScanStatus::Running;
+            }
+            scan
+        }
         None => {
             log::error!(
                 "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
@@ -610,9 +688,7 @@ pub async fn scan_url(
                         // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
                         // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                         // to false
-
-                        // todo change to true when issue #107 is resolved
-                        SCANNED_URLS.pause(false).await;
+                        SCANNED_URLS.pause(true).await;
                     }
                     make_requests(&tgt, &word, base_depth, lst, txd, txr, txs).await
                 }),
@@ -651,10 +727,10 @@ pub async fn scan_url(
     log::trace!("dropped recursion handler's transmitter");
     drop(tx_dir);
 
-    // await rx tasks
-    log::trace!("awaiting recursive scan receiver/scans");
-    futures::future::join_all(recurser.await.unwrap()).await;
-    log::trace!("done awaiting recursive scan receiver/scans");
+    // note: in v1.11.2 i removed the join_all call that used to handle the recurser handles.
+    // nothing appears to change by having them removed, however, if ever a revert is needed
+    // this is the place and anything prior to 1.11.2 will have the code to do so
+    let _ = recurser.await.unwrap_or_default();
 
     log::trace!("exit: scan_url");
 }
@@ -887,7 +963,7 @@ mod tests {
         assert!(result);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
     async fn initialize_panics_on_bad_regex() {

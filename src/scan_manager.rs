@@ -1,5 +1,5 @@
 use crate::{
-    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
+    config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
     progress::{add_bar, BarType},
     reporter::safe_file_write,
@@ -8,9 +8,8 @@ use crate::{
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
-use console::style;
-use indicatif::{ProgressBar, ProgressStyle};
-use lazy_static::lazy_static;
+use console::{measure_text_width, pad_str, style, Alignment, Term};
+use indicatif::{ProgressBar, ProgressDrawTarget};
 use serde::{
     ser::{SerializeSeq, SerializeStruct},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -22,19 +21,15 @@ use std::{
     fmt,
     fs::File,
     io::BufReader,
-    io::{stderr, Write},
+    ops::Index,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Mutex, RwLock},
+    thread::sleep,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::time::Duration;
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
-
-lazy_static! {
-    /// A clock spinner protected with a RwLock to allow for a single thread to use at a time
-    // todo remove this when issue #107 is resolved
-    static ref SINGLE_SPINNER: RwLock<ProgressBar> = RwLock::new(get_single_spinner());
-}
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
 /// when pausing a scan
@@ -76,11 +71,11 @@ pub struct FeroxScan {
     /// Number of requests to populate the progress bar with
     pub num_requests: u64,
 
-    /// Whether or not this scan has completed
-    pub complete: bool,
+    /// Status of this scan
+    pub status: ScanStatus,
 
     /// The spawned tokio task performing this scan
-    pub task: Option<JoinHandle<()>>,
+    pub task: Option<Arc<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
     pub progress_bar: Option<ProgressBar>,
@@ -95,7 +90,7 @@ impl Default for FeroxScan {
         FeroxScan {
             id: new_id,
             task: None,
-            complete: false,
+            status: ScanStatus::default(),
             num_requests: 0,
             url: String::new(),
             progress_bar: None,
@@ -107,18 +102,18 @@ impl Default for FeroxScan {
 /// Implementation of FeroxScan
 impl FeroxScan {
     /// Stop a currently running scan
-    pub fn abort(&self) {
-        self.stop_progress_bar();
-
-        if let Some(_task) = &self.task {
-            // task.abort();  todo uncomment once upgraded to tokio 0.3 (issue #107)
+    pub fn abort(&mut self) {
+        if let Some(task) = &self.task {
+            self.status = ScanStatus::Cancelled;
+            self.stop_progress_bar();
+            task.abort();
         }
     }
 
     /// Simple helper to call .finish on the scan's progress bar
     fn stop_progress_bar(&self) {
         if let Some(pb) = &self.progress_bar {
-            pb.finish();
+            pb.finish_at_current_pos();
         }
     }
 
@@ -155,7 +150,7 @@ impl FeroxScan {
 
     /// Mark the scan as complete and stop the scan's progress bar
     pub fn finish(&mut self) {
-        self.complete = true;
+        self.status = ScanStatus::Complete;
         self.stop_progress_bar();
     }
 }
@@ -163,13 +158,14 @@ impl FeroxScan {
 /// Display implementation
 impl fmt::Display for FeroxScan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let complete = if self.complete {
-            style("complete").green()
-        } else {
-            style("incomplete").red()
+        let status = match self.status {
+            ScanStatus::NotStarted => style("not started").bright().blue(),
+            ScanStatus::Complete => style("complete").green(),
+            ScanStatus::Cancelled => style("cancelled").red(),
+            ScanStatus::Running => style("running").bright().yellow(),
         };
 
-        write!(f, "{:10} {}", complete, self.url)
+        write!(f, "{:12} {}", status, self.url)
     }
 }
 
@@ -192,7 +188,7 @@ impl Serialize for FeroxScan {
         state.serialize_field("id", &self.id)?;
         state.serialize_field("url", &self.url)?;
         state.serialize_field("scan_type", &self.scan_type)?;
-        state.serialize_field("complete", &self.complete)?;
+        state.serialize_field("status", &self.status)?;
         state.serialize_field("num_requests", &self.num_requests)?;
 
         state.end()
@@ -226,9 +222,15 @@ impl<'de> Deserialize<'de> for FeroxScan {
                         }
                     }
                 }
-                "complete" => {
-                    if let Some(complete) = value.as_bool() {
-                        scan.complete = complete;
+                "status" => {
+                    if let Some(status) = value.as_str() {
+                        scan.status = match status {
+                            "NotStarted" => ScanStatus::NotStarted,
+                            "Running" => ScanStatus::Running,
+                            "Complete" => ScanStatus::Complete,
+                            "Cancelled" => ScanStatus::Cancelled,
+                            _ => ScanStatus::default(),
+                        }
                     }
                 }
                 "url" => {
@@ -249,14 +251,175 @@ impl<'de> Deserialize<'de> for FeroxScan {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+/// Simple enum to represent a scan's current status ([in]complete, cancelled)
+pub enum ScanStatus {
+    /// Scan hasn't started yet
+    NotStarted,
+
+    /// Scan finished normally
+    Complete,
+
+    /// Scan was cancelled by the user
+    Cancelled,
+
+    /// Scan has started, but hasn't finished, nor been cancelled
+    Running,
+}
+
+/// Default implementation for ScanStatus
+impl Default for ScanStatus {
+    /// Default variant for ScanStatus is NotStarted
+    fn default() -> Self {
+        Self::NotStarted
+    }
+}
+
+/// Interactive scan cancellation menu
+#[derive(Debug)]
+struct Menu {
+    /// character to use as visual separator of lines
+    separator: String,
+
+    /// name of menu
+    name: String,
+
+    /// header: name surrounded by separators
+    header: String,
+
+    /// instructions
+    instructions: String,
+
+    /// footer: instructions surrounded by separators
+    footer: String,
+
+    /// target for output
+    term: Term,
+}
+
+/// Implementation of Menu
+impl Menu {
+    /// Creates new Menu
+    fn new() -> Self {
+        let separator = "─".to_string();
+
+        let instructions = format!(
+            "Enter a {} list of indexes to {} (ex: 2,3)",
+            style("comma-separated").yellow(),
+            style("cancel").red(),
+        );
+
+        let name = format!(
+            "{} {} {}",
+            "💀",
+            style("Scan Cancel Menu").bright().yellow(),
+            "💀"
+        );
+
+        let longest = measure_text_width(&instructions).max(measure_text_width(&name));
+
+        let border = separator.repeat(longest);
+
+        let padded_name = pad_str(&name, longest, Alignment::Center, None);
+
+        let header = format!("{}\n{}\n{}", border, padded_name, border);
+        let footer = format!("{}\n{}\n{}", border, instructions, border);
+
+        Self {
+            separator,
+            name,
+            header,
+            instructions,
+            footer,
+            term: Term::stderr(),
+        }
+    }
+
+    /// print menu header
+    fn print_header(&self) {
+        self.println(&self.header);
+    }
+
+    /// print menu footer
+    fn print_footer(&self) {
+        self.println(&self.footer);
+    }
+
+    /// set PROGRESS_BAR bar target to hidden
+    fn hide_progress_bars(&self) {
+        PROGRESS_BAR.set_draw_target(ProgressDrawTarget::hidden());
+    }
+
+    /// set PROGRESS_BAR bar target to hidden
+    fn show_progress_bars(&self) {
+        PROGRESS_BAR.set_draw_target(ProgressDrawTarget::stdout());
+    }
+
+    /// Wrapper around console's Term::clear_screen and flush
+    fn clear_screen(&self) {
+        self.term.clear_screen().unwrap_or_default();
+        self.term.flush().unwrap_or_default();
+    }
+
+    /// Wrapper around console's Term::write_line
+    fn println(&self, msg: &str) {
+        self.term.write_line(msg).unwrap_or_default();
+    }
+
+    /// split a string into vec of usizes
+    fn split_to_nums(&self, line: &str) -> Vec<usize> {
+        line.split(',')
+            .map(|s| {
+                s.trim().to_string().parse::<usize>().unwrap_or_else(|e| {
+                    self.println(&format!("Found non-numeric input: {}", e));
+                    0
+                })
+            })
+            .filter(|m| *m != 0)
+            .collect()
+    }
+
+    /// get comma-separated list of scan indexes from the user
+    fn get_scans_from_user(&self) -> Option<Vec<usize>> {
+        if let Ok(line) = self.term.read_line() {
+            Some(self.split_to_nums(&line))
+        } else {
+            None
+        }
+    }
+
+    /// Given a url, confirm with user that we should cancel
+    fn confirm_cancellation(&self, url: &str) -> char {
+        self.println(&format!(
+            "You sure you wanna cancel this scan: {}? [Y/n]",
+            url
+        ));
+
+        self.term.read_char().unwrap_or('n')
+    }
+}
+
+/// Default implementation for Menu
+impl Default for Menu {
+    /// return Menu::new as default
+    fn default() -> Menu {
+        Menu::new()
+    }
+}
+
 /// Container around a locked hashset of `FeroxScan`s, adds wrappers for insertion and searching
 #[derive(Debug, Default)]
 pub struct FeroxScans {
     /// Internal structure: locked hashset of `FeroxScan`s
     pub scans: Mutex<Vec<Arc<Mutex<FeroxScan>>>>,
+
+    /// menu used for providing a way for users to cancel a scan
+    menu: Menu,
 }
 
 /// Serialize implementation for FeroxScans
+///
+/// purposefully skips menu attribute
 impl Serialize for FeroxScans {
     /// Function that handles serialization of FeroxScans
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -362,16 +525,78 @@ impl FeroxScans {
         if let Ok(scans) = self.scans.lock() {
             for (i, scan) in scans.iter().enumerate() {
                 if let Ok(unlocked_scan) = scan.lock() {
-                    match unlocked_scan.scan_type {
-                        ScanType::Directory => {
-                            PROGRESS_PRINTER.println(format!("{:3}: {}", i, unlocked_scan));
-                        }
-                        ScanType::File => {
-                            // we're only interested in displaying directory scans, as those are
-                            // the only ones that make sense to be stopped
-                        }
+                    if unlocked_scan.task.is_none() {
+                        // no JoinHandle associated with this FeroxScan, meaning it was an original
+                        // target passed in via either -u or --stdin
+                        continue;
+                    }
+
+                    if matches!(unlocked_scan.scan_type, ScanType::Directory) {
+                        // we're only interested in displaying directory scans, as those are
+                        // the only ones that make sense to be stopped
+                        let scan_msg = format!("{:3}: {}", i, unlocked_scan);
+                        self.menu.println(&scan_msg);
                     }
                 }
+            }
+        }
+    }
+
+    /// Given a list of indexes, cancel their associated FeroxScans
+    fn cancel_scans(&self, indexes: Vec<usize>) {
+        let menu_pause_duration = Duration::from_millis(SLEEP_DURATION);
+
+        for num in indexes {
+            if let Ok(u_scans) = self.scans.lock() {
+                // check if number provided is out of range
+                if num >= u_scans.len() {
+                    // usize can't be negative, just need to handle exceeding bounds
+                    self.menu
+                        .println(&format!("The number {} is not a valid choice.", num));
+                    sleep(menu_pause_duration);
+                    continue;
+                }
+
+                let selected = u_scans.index(num).clone();
+
+                if let Ok(mut ferox_scan) = selected.lock() {
+                    let input = self.menu.confirm_cancellation(&ferox_scan.url);
+
+                    if input == 'y' || input == '\n' {
+                        self.menu
+                            .println(&format!("Stopping {}...", ferox_scan.url));
+                        ferox_scan.abort();
+                    } else {
+                        self.menu.println("Ok, doing nothing...");
+                    }
+                }
+
+                sleep(menu_pause_duration);
+            }
+        }
+    }
+
+    /// CLI menu that allows for interactive cancellation of recursed-into directories
+    async fn interactive_menu(&self) {
+        self.menu.hide_progress_bars();
+        self.menu.clear_screen();
+        self.menu.print_header();
+        self.display_scans();
+        self.menu.print_footer();
+
+        if let Some(input) = self.menu.get_scans_from_user() {
+            self.cancel_scans(input);
+        }
+
+        self.menu.clear_screen();
+        self.menu.show_progress_bars();
+    }
+
+    /// prints all known responses that the scanner has already seen
+    pub fn print_known_responses(&self) {
+        if let Ok(responses) = RESPONSES.responses.read() {
+            for response in responses.iter() {
+                PROGRESS_PRINTER.println(response.as_str());
             }
         }
     }
@@ -389,36 +614,14 @@ impl FeroxScans {
         // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
         let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
 
-        // ignore any error returned
-        let _ = stderr().flush();
-
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                self.display_scans();
-
-                let mut user_input = String::new();
-                std::io::stdin().read_line(&mut user_input).unwrap();
-                // todo (issue #107) actual logic for parsing user input in a way that allows for
-                // calling .abort on the scan retrieved based on the input
+                self.interactive_menu().await;
+                PAUSE_SCAN.store(false, Ordering::Relaxed);
+                self.print_known_responses();
             }
-        }
-
-        if SINGLE_SPINNER.read().unwrap().is_finished() {
-            // todo remove this when issue #107 is resolved
-
-            // in order to not leave draw artifacts laying around in the terminal, we call
-            // finish_and_clear on the progress bar when resuming scans. For this reason, we need to
-            // check if the spinner is finished, and repopulate the RwLock with a new spinner if
-            // necessary
-            if let Ok(mut guard) = SINGLE_SPINNER.write() {
-                *guard = get_single_spinner();
-            }
-        }
-
-        if let Ok(spinner) = SINGLE_SPINNER.write() {
-            spinner.enable_steady_tick(120);
         }
 
         loop {
@@ -431,13 +634,6 @@ impl FeroxScans {
                 if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 1 {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
                 }
-
-                if let Ok(spinner) = SINGLE_SPINNER.write() {
-                    // todo remove this when issue #107 is resolved
-                    spinner.finish_and_clear();
-                }
-
-                let _ = stderr().flush();
 
                 log::trace!("exit: pause_scan");
                 return;
@@ -499,26 +695,6 @@ impl FeroxScans {
     pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<Mutex<FeroxScan>>) {
         self.add_scan(&url, ScanType::File, stats)
     }
-}
-
-/// Return a clock spinner, used when scans are paused
-// todo remove this when issue #107 is resolved
-fn get_single_spinner() -> ProgressBar {
-    log::trace!("enter: get_single_spinner");
-
-    let spinner = ProgressBar::new_spinner().with_style(
-        ProgressStyle::default_spinner()
-            .tick_strings(&[
-                "🕛", "🕐", "🕑", "🕒", "🕓", "🕔", "🕕", "🕖", "🕗", "🕘", "🕙", "🕚",
-            ])
-            .template(&format!(
-                "\t-= All Scans {{spinner}} {} =-",
-                style("Paused").red()
-            )),
-    );
-
-    log::trace!("exit: get_single_spinner -> {:?}", spinner);
-    spinner
 }
 
 /// Container around a locked vector of `FeroxResponse`s, adds wrappers for insertion and search
@@ -640,7 +816,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
             length_in_secs
         );
 
-        time::delay_for(time::Duration::new(length_in_secs, 0)).await;
+        time::sleep(time::Duration::new(length_in_secs, 0)).await;
 
         log::trace!("exit: start_max_time_thread");
 
@@ -785,15 +961,7 @@ mod tests {
         }
     }
 
-    #[test]
-    /// test that get_single_spinner returns the correct spinner
-    // todo remove this when issue #107 is resolved
-    fn scanner_get_single_spinner_returns_spinner() {
-        let spinner = get_single_spinner();
-        assert!(!spinner.is_finished());
-    }
-
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// tests that pause_scan pauses execution and releases execution when PAUSE_SCAN is toggled
     /// the spinner used during the test has had .finish_and_clear called on it, meaning that
     /// a new one will be created, taking the if branch within the function
@@ -806,7 +974,7 @@ mod tests {
         let expected = time::Duration::from_secs(2);
 
         tokio::spawn(async move {
-            time::delay_for(expected).await;
+            time::sleep(expected).await;
             PAUSE_SCAN.store(false, Ordering::Relaxed);
         });
 
@@ -843,8 +1011,8 @@ mod tests {
     }
 
     #[test]
-    /// abort should call stop_progress_bar, marking it as finished
-    fn abort_stops_progress_bar() {
+    /// stop_progress_bar should stop the progress bar
+    fn stop_progress_bar_stops_bar() {
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
 
@@ -860,7 +1028,7 @@ mod tests {
             false
         );
 
-        scan.lock().unwrap().abort();
+        scan.lock().unwrap().stop_progress_bar();
 
         assert_eq!(
             scan.lock()
@@ -889,9 +1057,9 @@ mod tests {
         assert_eq!(result, false);
     }
 
-    #[test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// just increasing coverage, no real expectations
-    fn call_display_scans() {
+    async fn call_display_scans() {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let pb_two = ProgressBar::new(2);
@@ -900,9 +1068,15 @@ mod tests {
         let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
         let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
 
-        scan_two.lock().unwrap().finish(); // one complete, one incomplete
+        if let Ok(mut s2) = scan_two.lock() {
+            s2.finish(); // one complete, one incomplete
+            s2.task = Some(Arc::new(tokio::spawn(async move {
+                sleep(Duration::from_millis(SLEEP_DURATION));
+            })));
+        }
 
         assert_eq!(urls.insert(scan), true);
+        assert_eq!(urls.insert(scan_two), true);
 
         urls.display_scans();
     }
@@ -938,11 +1112,13 @@ mod tests {
     /// given a JSON entry representing a FeroxScan, test that it deserializes into the proper type
     /// with the right attributes
     fn ferox_scan_deserialize() {
-        let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","complete":true}"#;
-        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","complete":true}"#;
+        let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","status":"Complete"}"#;
+        let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"Cancelled"}"#;
+        let fs_json_three = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"","num_requests":42}"#;
 
         let fs: FeroxScan = serde_json::from_str(fs_json).unwrap();
         let fs_two: FeroxScan = serde_json::from_str(fs_json_two).unwrap();
+        let fs_three: FeroxScan = serde_json::from_str(fs_json_three).unwrap();
         assert_eq!(fs.url, "https://spiritanimal.com");
 
         match fs.scan_type {
@@ -964,7 +1140,10 @@ mod tests {
                 panic!();
             }
         }
-        assert_eq!(fs.complete, true);
+        assert!(matches!(fs.status, ScanStatus::Complete));
+        assert!(matches!(fs_two.status, ScanStatus::Cancelled));
+        assert!(matches!(fs_three.status, ScanStatus::NotStarted));
+        assert_eq!(fs_three.num_requests, 42);
         assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
     }
 
@@ -973,7 +1152,7 @@ mod tests {
     fn ferox_scan_serialize() {
         let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let fs_json = format!(
-            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}"#,
+            r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
             fs.lock().unwrap().id
         );
         assert_eq!(
@@ -988,7 +1167,7 @@ mod tests {
         let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
-            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}]"#,
+            r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
             ferox_scan.lock().unwrap().id
         );
         ferox_scans.scans.lock().unwrap().push(ferox_scan);
@@ -1068,7 +1247,7 @@ mod tests {
 
         let json_state = ferox_state.as_json();
         let expected = format!(
-            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","complete":false,"num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
+            r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
             saved_id, VERSION
         );
         println!("{}\n{}", expected, json_state);
@@ -1076,7 +1255,7 @@ mod tests {
     }
 
     #[should_panic]
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// call start_max_time_thread with a valid timespec, expect a panic, but only after a certain
     /// number of seconds
     async fn start_max_time_thread_panics_after_delay() {
@@ -1089,7 +1268,7 @@ mod tests {
         assert!(now.elapsed() > delay);
     }
 
-    #[tokio::test(core_threads = 1)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// call start_max_time_thread with a timespec that's too large to be parsed correctly, expect
     /// immediate return and no panic, as the sigint handler is never called
     async fn start_max_time_thread_returns_immediately_with_too_large_input() {
@@ -1101,5 +1280,87 @@ mod tests {
         start_max_time_thread("18446744073709551616m", stats).await; // can't fit in dest u64
 
         assert!(now.elapsed() < delay); // assuming function call will take less than 1second
+    }
+
+    #[test]
+    /// coverage for FeroxScan's Display implementation
+    fn feroxscan_display() {
+        let mut scan = FeroxScan {
+            id: "".to_string(),
+            url: String::from("http://localhost"),
+            scan_type: Default::default(),
+            num_requests: 0,
+            status: Default::default(),
+            task: None,
+            progress_bar: None,
+        };
+
+        let not_started = format!("{}", scan);
+
+        assert!(predicate::str::contains("not started")
+            .and(predicate::str::contains("localhost"))
+            .eval(&not_started));
+
+        scan.status = ScanStatus::Complete;
+        let complete = format!("{}", scan);
+        assert!(predicate::str::contains("complete")
+            .and(predicate::str::contains("localhost"))
+            .eval(&complete));
+
+        scan.status = ScanStatus::Cancelled;
+        let cancelled = format!("{}", scan);
+        assert!(predicate::str::contains("cancelled")
+            .and(predicate::str::contains("localhost"))
+            .eval(&cancelled));
+
+        scan.status = ScanStatus::Running;
+        let running = format!("{}", scan);
+        assert!(predicate::str::contains("running")
+            .and(predicate::str::contains("localhost"))
+            .eval(&running));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// call FeroxScan::abort, ensure status becomes cancelled
+    async fn ferox_scan_abort() {
+        let mut scan = FeroxScan {
+            id: "".to_string(),
+            url: String::from("http://localhost"),
+            scan_type: Default::default(),
+            num_requests: 0,
+            status: ScanStatus::Running,
+            task: Some(Arc::new(tokio::spawn(async move {
+                sleep(Duration::from_millis(SLEEP_DURATION * 2));
+            }))),
+            progress_bar: None,
+        };
+
+        scan.abort();
+
+        assert!(matches!(scan.status, ScanStatus::Cancelled));
+    }
+
+    #[test]
+    /// call a few menu functions for coverage's sake
+    ///
+    /// there's not a trivial way to test these programmatically (at least i'm too lazy rn to do it)
+    /// and their correctness can be verified easily manually; just calling for now
+    fn menu_print_header_and_footer() {
+        let menu = Menu::new();
+        menu.clear_screen();
+        menu.print_header();
+        menu.print_footer();
+        menu.hide_progress_bars();
+        menu.show_progress_bars();
+    }
+
+    #[test]
+    /// ensure spaces are trimmed and numbers are returned from split_to_nums
+    fn split_to_nums_is_correct() {
+        let menu = Menu::new();
+
+        let nums = menu.split_to_nums("1, 3,      4");
+
+        assert_eq!(nums, vec![1, 3, 4]);
     }
 }

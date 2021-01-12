@@ -252,9 +252,18 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
         then.status(200).body("im a little teapot too"); // 22
     });
 
-    let mock_dir = srv.mock(|when, then| {
-        when.method(GET).path("/disallowed-subdir/LICENSE");
+    let mock_scanned_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/LICENSE");
         then.status(200).body("i too, am a container for tea"); // 29
+    });
+
+    let mock_dir = srv.mock(|when, _| {
+        when.method(GET).path("/misc/");
+    });
+
+    let mock_disallowed = srv.mock(|when, then| {
+        when.method(GET).path("/disallowed-subdir");
+        then.status(404);
     });
 
     let cmd = Command::cargo_bin("feroxbuster")
@@ -273,7 +282,7 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
             .and(predicate::str::contains("18c"))
             .and(predicate::str::contains("/misc/stupidfile.php"))
             .and(predicate::str::contains("22c"))
-            .and(predicate::str::contains("/disallowed-subdir/LICENSE"))
+            .and(predicate::str::contains("/misc/LICENSE"))
             .and(predicate::str::contains("29c"))
             .and(predicate::str::contains("200").count(3)),
     );
@@ -282,5 +291,7 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
     assert_eq!(mock_dir.hits(), 1);
     assert_eq!(mock_two.hits(), 1);
     assert_eq!(mock_file.hits(), 1);
+    assert_eq!(mock_disallowed.hits(), 1);
+    assert_eq!(mock_scanned_file.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
