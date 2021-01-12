@@ -521,7 +521,7 @@ impl FeroxScans {
     ///   0: complete   https://10.129.45.20
     ///   9: complete   https://10.129.45.20/images
     ///  10: complete   https://10.129.45.20/assets
-    pub async fn display_scans(&self) {
+    pub fn display_scans(&self) {
         if let Ok(scans) = self.scans.lock() {
             for (i, scan) in scans.iter().enumerate() {
                 if let Ok(unlocked_scan) = scan.lock() {
@@ -532,7 +532,6 @@ impl FeroxScans {
                     }
 
                     if matches!(unlocked_scan.scan_type, ScanType::Directory) {
-                        // todo test this block
                         // we're only interested in displaying directory scans, as those are
                         // the only ones that make sense to be stopped
                         let scan_msg = format!("{:3}: {}", i, unlocked_scan);
@@ -582,7 +581,7 @@ impl FeroxScans {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
-        self.display_scans().await;
+        self.display_scans();
         self.menu.print_footer();
 
         if let Some(input) = self.menu.get_scans_from_user() {
@@ -1079,7 +1078,7 @@ mod tests {
         assert_eq!(urls.insert(scan), true);
         assert_eq!(urls.insert(scan_two), true);
 
-        urls.display_scans().await;
+        urls.display_scans();
     }
 
     #[test]

@@ -20,7 +20,6 @@ use feroxbuster::{
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use futures::StreamExt;
-use std::thread::sleep;
 use std::{
     collections::HashSet,
     convert::TryInto,
@@ -31,6 +30,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    thread::sleep,
     time::Duration,
 };
 use tokio::{io, sync::mpsc::UnboundedSender, task::JoinHandle};
