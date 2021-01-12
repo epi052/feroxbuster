@@ -193,7 +193,7 @@ fn filters_size_should_filter_response() {
 #[test]
 /// create a FeroxResponse that should elicit a true from
 /// SimilarityFilter::should_filter_response
-fn filter_similar_should_filter_response() {
+fn filters_similar_should_filter_response() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(
         &["not-similar".to_string(), "similar".to_string()],
