@@ -1,6 +1,6 @@
 use super::*;
-use ::fuzzyhash::FuzzyHash;
-use ::regex::Regex;
+use fuzzyhash::FuzzyHash;
+use regex::Regex;
 use reqwest::Url;
 
 #[test]
