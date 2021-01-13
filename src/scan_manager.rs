@@ -1,3 +1,4 @@
+use crate::utils::fmt_err;
 use crate::{
     config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
@@ -8,6 +9,7 @@ use crate::{
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
+use anyhow::{Context, Result};
 use console::{measure_text_width, pad_str, style, Alignment, Term};
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use serde::{
@@ -652,7 +654,7 @@ impl FeroxScans {
         scan_type: ScanType,
         stats: Arc<Stats>,
     ) -> (bool, Arc<Mutex<FeroxScan>>) {
-        let num_requests = stats.expected_per_scan.load(Ordering::Relaxed) as u64;
+        let num_requests = stats.expected_per_scan() as u64;
 
         let bar = match scan_type {
             ScanType::Directory => {
@@ -782,8 +784,9 @@ impl FeroxSerialize for FeroxState {
     }
 
     /// Simple call to produce a JSON string using the given FeroxState
-    fn as_json(&self) -> String {
-        serde_json::to_string(&self).unwrap_or_default()
+    fn as_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self)
+            .with_context(|| fmt_err("Could not convert scan's running state to JSON"))?)
     }
 }
 
@@ -1245,7 +1248,7 @@ mod tests {
 
         assert!(expected_strs.eval(&ferox_state.as_str()));
 
-        let json_state = ferox_state.as_json();
+        let json_state = ferox_state.as_json().unwrap();
         let expected = format!(
             r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
             saved_id, VERSION

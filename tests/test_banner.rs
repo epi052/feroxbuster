@@ -615,7 +615,9 @@ fn banner_doesnt_print() -> Result<(), Box<dyn std::error::Error>> {
         .arg("-q")
         .assert()
         .success()
-        .stderr(predicate::str::is_empty());
+        .stderr(predicate::str::contains(
+            "Could not find any live targets to scan",
+        ));
     Ok(())
 }
 

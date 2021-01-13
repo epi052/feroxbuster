@@ -1,6 +1,6 @@
 mod error;
 mod macros;
-mod data;
+mod container;
 mod command;
 mod field;
 mod init;
@@ -8,7 +8,7 @@ mod init;
 mod tests;
 
 pub use self::command::StatCommand;
-pub use self::data::Stats;
+pub use self::container::Stats;
 pub use self::error::StatError;
 pub use self::field::StatField;
 pub use self::init::initialize;

@@ -2,8 +2,10 @@ use super::{error::StatError, field::StatField};
 use crate::{
     config::CONFIGURATION,
     reporter::{get_cached_file_handle, safe_file_write},
+    utils::status_colorizer,
     FeroxSerialize,
 };
+use anyhow::{Context, Result};
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -32,14 +34,14 @@ pub struct Stats {
     ///
     /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
     /// indicative of the current expectation at any given time, but is a moving target.  
-    pub expected_per_scan: AtomicUsize,
+    expected_per_scan: AtomicUsize,
 
     /// tracker for accumulating total number of requests expected (i.e. as a new scan is started
     /// this value should increase by `expected_requests`
-    pub total_expected: AtomicUsize,
+    total_expected: AtomicUsize,
 
     /// tracker for total number of errors encountered by the client
-    pub errors: AtomicUsize,
+    errors: AtomicUsize,
 
     /// tracker for overall number of 2xx status codes seen by the client
     successes: AtomicUsize,
@@ -58,7 +60,7 @@ pub struct Stats {
     total_scans: AtomicUsize,
 
     /// tracker for initial number of requested targets
-    pub initial_targets: AtomicUsize,
+    initial_targets: AtomicUsize,
 
     /// tracker for number of links extracted when `--extract-links` is used; sources are
     /// response bodies and robots.txt as of v1.11.0
@@ -101,7 +103,7 @@ pub struct Stats {
     responses_filtered: AtomicUsize,
 
     /// tracker for number of files found
-    pub resources_discovered: AtomicUsize,
+    resources_discovered: AtomicUsize,
 
     /// tracker for number of errors triggered during URL formatting
     url_format_errors: AtomicUsize,
@@ -131,8 +133,8 @@ impl FeroxSerialize for Stats {
     }
 
     /// Simple call to produce a JSON string using the given Stats object
-    fn as_json(&self) -> String {
-        serde_json::to_string(&self).unwrap_or_default()
+    fn as_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self)?)
     }
 }
 
@@ -148,6 +150,31 @@ impl Stats {
         }
     }
 
+    /// public getter for expected_per_scan
+    pub fn expected_per_scan(&self) -> usize {
+        atomic_load!(self.expected_per_scan)
+    }
+
+    /// public getter for resources_discovered
+    pub fn resources_discovered(&self) -> usize {
+        atomic_load!(self.resources_discovered)
+    }
+
+    /// public getter for errors
+    pub fn errors(&self) -> usize {
+        atomic_load!(self.errors)
+    }
+
+    /// public getter for total_expected
+    pub fn total_expected(&self) -> usize {
+        atomic_load!(self.total_expected)
+    }
+
+    /// public getter for initial_targets
+    pub fn initial_targets(&self) -> usize {
+        atomic_load!(self.initial_targets)
+    }
+
     /// increment `requests` field by one
     pub fn add_request(&self) {
         atomic_increment!(self.requests);
@@ -161,17 +188,16 @@ impl Stats {
     }
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
-    pub fn save(&self, seconds: f64, location: &str) {
-        let buffered_file = match get_cached_file_handle(location) {
-            Some(file) => file,
-            None => {
-                return;
-            }
-        };
+    pub fn save(&self, seconds: f64, location: &str) -> Result<()> {
+        let buffered_file = get_cached_file_handle(location).with_context(|| {
+            format!("{}: Could not open {}", status_colorizer("ERROR"), location)
+        })?;
 
         self.update_runtime(seconds);
 
         safe_file_write(self, buffered_file, CONFIGURATION.json);
+
+        Ok(())
     }
 
     /// Inspect the given `StatError` and increment the appropriate fields

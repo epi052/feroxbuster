@@ -1,5 +1,6 @@
-use super::{command::StatCommand, data::Stats};
+use super::{command::StatCommand, container::Stats};
 use crate::{event_handlers::StatsHandler, FeroxChannel};
+use anyhow::Result;
 use std::sync::Arc;
 use tokio::{
     sync::mpsc::{self, UnboundedSender},
@@ -8,7 +9,11 @@ use tokio::{
 
 /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
 /// updates to the aforementioned object.
-pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
+pub fn initialize() -> (
+    Arc<Stats>,
+    UnboundedSender<StatCommand>,
+    JoinHandle<Result<()>>,
+) {
     log::trace!("enter: initialize");
 
     let stats_tracker = Arc::new(Stats::new());

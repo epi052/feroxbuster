@@ -1,3 +1,4 @@
+use anyhow::{bail, Context, Result};
 use crossterm::event::{self, Event, KeyCode};
 use feroxbuster::{
     banner,
@@ -14,7 +15,7 @@ use feroxbuster::{
         Stats,
     },
     update_stat,
-    utils::{ferox_print, get_current_depth, module_colorizer, status_colorizer},
+    utils::{ferox_print, fmt_err, get_current_depth, status_colorizer},
     FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
 };
 #[cfg(not(target_os = "windows"))]
@@ -245,7 +246,7 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
 
 /// async main called from real main, broken out in this way to allow for some synchronous code
 /// to be executed before bringing the tokio runtime online
-async fn wrapped_main() {
+async fn wrapped_main() -> Result<()> {
     // join can only be called once, otherwise it causes the thread to panic
     tokio::task::spawn_blocking(move || {
         // ok, lazy_static! uses (unsurprisingly in retrospect) a lazy loading model where the
@@ -295,7 +296,6 @@ async fn wrapped_main() {
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
-            log::error!("{} {}", module_colorizer("main::get_targets"), e);
             clean_up(
                 tx_term,
                 term_handle,
@@ -305,8 +305,8 @@ async fn wrapped_main() {
                 stats_handle,
                 save_output,
             )
-            .await;
-            return;
+            .await?;
+            bail!("Could not get determine initial targets: {}", e);
         }
     };
 
@@ -338,8 +338,8 @@ async fn wrapped_main() {
             stats_handle,
             save_output,
         )
-        .await;
-        return;
+        .await?;
+        bail!(fmt_err("Could not find any live targets to scan"));
     }
 
     // kick off a scan against any targets determined to be responsive
@@ -356,6 +356,7 @@ async fn wrapped_main() {
             log::info!("All scans complete!");
         }
         Err(e) => {
+            // todo status colorizer here and print is likely not needed
             ferox_print(
                 &format!("{} while scanning: {}", status_colorizer("Error"), e),
                 &PROGRESS_PRINTER,
@@ -369,7 +370,8 @@ async fn wrapped_main() {
                 stats_handle,
                 save_output,
             )
-            .await;
+            .await?;
+            // todo bail?
             process::exit(1);
         }
     };
@@ -383,9 +385,10 @@ async fn wrapped_main() {
         stats_handle,
         save_output,
     )
-    .await;
+    .await?;
 
     log::trace!("exit: wrapped_main");
+    Ok(())
 }
 
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
@@ -396,9 +399,9 @@ async fn clean_up(
     tx_file: UnboundedSender<FeroxResponse>,
     file_handle: Option<JoinHandle<()>>,
     tx_stats: UnboundedSender<StatCommand>,
-    stats_handle: JoinHandle<()>,
+    stats_handle: JoinHandle<Result<()>>,
     save_output: bool,
-) {
+) -> Result<()> {
     log::trace!(
         "enter: clean_up({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {})",
         tx_term,
@@ -414,12 +417,9 @@ async fn clean_up(
 
     log::trace!("awaiting terminal output handler's receiver");
     // after dropping tx, we can await the future where rx lived
-    match term_handle.await {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("error awaiting terminal output handler's receiver: {}", e);
-        }
-    }
+    term_handle
+        .await
+        .with_context(|| fmt_err("Could not await terminal output handler's receiver"))?;
     log::trace!("done awaiting terminal output handler's receiver");
 
     log::trace!("tx_file: {:?}", tx_file);
@@ -431,17 +431,17 @@ async fn clean_up(
     if save_output {
         // but we only await if -o was specified
         log::trace!("awaiting file output handler's receiver");
-        match file_handle.unwrap().await {
-            Ok(_) => {}
-            Err(e) => {
-                log::error!("error awaiting file output handler's receiver: {}", e);
-            }
-        }
+        file_handle
+            .unwrap()
+            .await
+            .with_context(|| fmt_err("Could not await file output handler's receiver"))?;
         log::trace!("done awaiting file output handler's receiver");
     }
 
     update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
-    stats_handle.await.unwrap_or_default();
+    stats_handle
+        .await?
+        .with_context(|| fmt_err("Could not await statistics handler's receiver"))?;
 
     // mark all scans complete so the terminal input handler will exit cleanly
     SCAN_COMPLETE.store(true, Ordering::Relaxed);
@@ -453,6 +453,7 @@ async fn clean_up(
     drop(tx_stats);
 
     log::trace!("exit: clean_up");
+    Ok(())
 }
 
 fn main() {
@@ -468,7 +469,9 @@ fn main() {
         .build()
     {
         let future = wrapped_main();
-        runtime.block_on(future);
+        if let Err(e) = runtime.block_on(future) {
+            eprintln!("{}", e);
+        };
     }
 
     log::trace!("exit: main");

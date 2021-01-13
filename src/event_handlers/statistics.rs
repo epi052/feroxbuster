@@ -1,15 +1,12 @@
 use crate::{
-    atomic_load,
     config::CONFIGURATION,
     progress::{add_bar, BarType},
     statistics::{StatCommand, StatField, Stats},
 };
+use anyhow::Result;
 use console::style;
 use indicatif::ProgressBar;
-use std::{
-    sync::{atomic::Ordering, Arc},
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 /// event handler struct for updating statistics
@@ -42,8 +39,8 @@ impl StatsHandler {
     /// Start a single consumer task (sc side of mpsc)
     ///
     /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
-    pub async fn start(&mut self) {
-        log::trace!("enter: statistics::start({:?})", self);
+    pub async fn start(&mut self) -> Result<()> {
+        log::trace!("enter: start({:?})", self);
 
         let start = Instant::now();
 
@@ -61,27 +58,23 @@ impl StatsHandler {
                     self.stats.add_request();
                     self.increment_bar();
                 }
-                StatCommand::Save => self
-                    .stats
-                    .save(start.elapsed().as_secs_f64(), &CONFIGURATION.output),
+                StatCommand::Save => {
+                    self.stats
+                        .save(start.elapsed().as_secs_f64(), &CONFIGURATION.output)?;
+                }
                 StatCommand::UpdateUsizeField(field, value) => {
                     let update_len = matches!(field, StatField::TotalScans);
                     self.stats.update_usize_field(field, value);
 
                     if update_len {
-                        self.bar
-                            .set_length(atomic_load!(self.stats.total_expected) as u64)
+                        self.bar.set_length(self.stats.total_expected() as u64)
                     }
                 }
                 StatCommand::UpdateF64Field(field, value) => {
                     self.stats.update_f64_field(field, value)
                 }
                 StatCommand::CreateBar => {
-                    self.bar = add_bar(
-                        "",
-                        atomic_load!(self.stats.total_expected) as u64,
-                        BarType::Total,
-                    );
+                    self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
                 }
                 StatCommand::LoadStats(filename) => {
                     self.stats.merge_from(&filename);
@@ -93,7 +86,8 @@ impl StatsHandler {
         self.bar.finish();
 
         log::debug!("{:#?}", *self.stats);
-        log::trace!("exit: statistics::start")
+        log::trace!("exit: start");
+        Ok(())
     }
 
     /// Wrapper around incrementing the overall scan's progress bar
@@ -101,9 +95,9 @@ impl StatsHandler {
         let msg = format!(
             "{}:{:<7} {}:{:<7}",
             style("found").green(),
-            atomic_load!(self.stats.resources_discovered),
+            self.stats.resources_discovered(),
             style("errors").red(),
-            atomic_load!(self.stats.errors),
+            self.stats.errors(),
         );
 
         self.bar.set_message(&msg);

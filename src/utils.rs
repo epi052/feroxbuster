@@ -7,6 +7,7 @@ use crate::{
     },
     FeroxError, FeroxResult,
 };
+use anyhow::Context;
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::{Client, Response, Url};
@@ -22,25 +23,19 @@ use tokio::sync::mpsc::UnboundedSender;
 pub fn open_file(filename: &str) -> Option<Arc<RwLock<io::BufWriter<fs::File>>>> {
     log::trace!("enter: open_file({})", filename);
 
-    match fs::OpenOptions::new() // std fs
+    let file = fs::OpenOptions::new() // std fs
         .create(true)
         .append(true)
         .open(filename)
-    {
-        Ok(file) => {
-            let writer = io::BufWriter::new(file); // std io
+        .with_context(|| fmt_err(&format!("Could not open {}", filename)))
+        .ok()?;
 
-            let locked_file = Some(Arc::new(RwLock::new(writer)));
+    let writer = io::BufWriter::new(file); // std io
 
-            log::trace!("exit: open_file -> {:?}", locked_file);
-            locked_file
-        }
-        Err(e) => {
-            log::error!("{}", e);
-            log::trace!("exit: open_file -> None");
-            None
-        }
-    }
+    let locked_file = Arc::new(RwLock::new(writer));
+
+    log::trace!("exit: open_file -> {:?}", locked_file);
+    Some(locked_file)
 }
 
 /// Helper function that determines the current depth of a given url
@@ -103,6 +98,11 @@ pub fn status_colorizer(status: &str) -> String {
         Some('E') => style(status).red().to_string(),  // error
         _ => status.to_string(),                       // ¯\_(ツ)_/¯
     }
+}
+
+/// simple wrapper to stay DRY
+pub fn fmt_err(msg: &str) -> String {
+    format!("{}: {}", status_colorizer("ERROR"), msg)
 }
 
 /// Takes in a string and colors it using console::style
