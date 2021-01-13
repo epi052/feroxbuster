@@ -12,6 +12,7 @@ pub mod reporter;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
+mod event_handlers;
 
 use crate::utils::{get_url_path_length, status_colorizer};
 use console::{style, Color};
