@@ -22,7 +22,7 @@ use futures::{
 use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::Url;
+use reqwest::{StatusCode, Url};
 #[cfg(not(test))]
 use std::process::exit;
 use std::{
@@ -260,8 +260,9 @@ fn response_is_directory(response: &FeroxResponse) -> bool {
                 return false;
             }
         }
-    } else if response.status().is_success() {
-        // status code is 2xx, need to check if it ends in /
+    } else if response.status().is_success() || matches!(response.status(), &StatusCode::FORBIDDEN)
+    {
+        // status code is 2xx or 403, need to check if it ends in /
 
         if response.url().as_str().ends_with('/') {
             log::debug!("{} is directory suitable for recursion", response.url());
@@ -464,10 +465,14 @@ async fn make_requests(
                     if !CONFIGURATION.no_recursion {
                         log::debug!("Recursive extraction: {}", new_ferox_response);
 
-                        if new_ferox_response.status().is_success()
-                            && !new_ferox_response.url().as_str().ends_with('/')
+                        if !new_ferox_response.url().as_str().ends_with('/')
+                            && (new_ferox_response.status().is_success()
+                                || matches!(new_ferox_response.status(), &StatusCode::FORBIDDEN))
                         {
-                            // since all of these are 2xx, recursion is only attempted if the
+                            // if the url doesn't end with a /
+                            // and the response code is either a 2xx or 403
+
+                            // since all of these are 2xx or 403, recursion is only attempted if the
                             // url ends in a /. I am actually ok with adding the slash and not
                             // adding it, as both have merit.  Leaving it in for now to see how
                             // things turn out (current as of: v1.1.0)
@@ -540,8 +545,12 @@ async fn scan_robots_txt(
         } else if !CONFIGURATION.no_recursion {
             log::debug!("Directory extracted from robots.txt: {}", ferox_response);
             // todo this code is essentially the same as another piece around ~467 of this file
-            if ferox_response.status().is_success() && !ferox_response.url().as_str().ends_with('/')
+            if !ferox_response.url().as_str().ends_with('/')
+                && (ferox_response.status().is_success()
+                    || matches!(ferox_response.status(), &StatusCode::FORBIDDEN))
             {
+                // if the url doesn't end with a /
+                // and the response code is either a 2xx or 403
                 ferox_response.set_url(&format!("{}/", ferox_response.url()));
             }
 
