@@ -295,3 +295,54 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
     assert_eq!(mock_scanned_file.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// send a request to a page that contains a link that contains a directory that returns a 403
+/// --extract-links should find the link and make recurse into the 403 directory, finding LICENSE
+fn extractor_recurses_into_403_directories() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200)
+            .body(&srv.url("'/homepage/assets/img/icons/handshake.svg'"));
+    });
+
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/homepage/assets/img/icons/LICENSE");
+        then.status(200).body("that's just like, your opinion man");
+    });
+
+    let forbidden_dir = srv.mock(|when, then| {
+        when.method(GET).path("/homepage/assets/img/icons/");
+        then.status(403);
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--extract-links")
+        .arg("--depth") // need to go past default 4 directories
+        .arg("0")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .count(2)
+            .and(predicate::str::contains("1w")) // link in /LICENSE
+            .and(predicate::str::contains("34c")) // recursed LICENSE
+            .and(predicate::str::contains(
+                "/homepage/assets/img/icons/LICENSE",
+            )),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(forbidden_dir.hits(), 1);
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}

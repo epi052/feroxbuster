@@ -546,3 +546,53 @@ fn scanner_single_request_scan_with_regex_filtered_result() {
     assert_eq!(filtered_mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// send a request to a 403 directory, expect recursion to work into the 403
+fn scanner_recursion_works_with_403_directories() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) =
+        setup_tmp_directory(&["LICENSE".to_string(), "ignored/".to_string()], "wordlist").unwrap();
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
+
+    let forbidden_dir = srv.mock(|when, then| {
+        when.method(GET).path("/ignored/");
+        then.status(403);
+    });
+
+    let found_anyway = srv.mock(|when, then| {
+        when.method(GET).path("/ignored/LICENSE");
+        then.status(200)
+            .body("this is a test\nThat rug really tied the room together");
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .count(2)
+            .and(predicate::str::contains("200").count(2))
+            .and(predicate::str::contains("403"))
+            .and(predicate::str::contains("53c"))
+            .and(predicate::str::contains("14c"))
+            .and(predicate::str::contains("0c"))
+            .and(predicate::str::contains("ignored").count(2))
+            .and(predicate::str::contains("/ignored/LICENSE")),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(found_anyway.hits(), 1);
+    assert_eq!(forbidden_dir.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir);
+}

@@ -2,7 +2,6 @@
 mod traits;
 mod wildcard;
 mod status_code;
-mod shared;
 mod words;
 mod lines;
 mod size;
@@ -23,5 +22,3 @@ pub use self::words::WordsFilter;
 use crate::{config::CONFIGURATION, utils::get_url_path_length, FeroxResponse, FeroxSerialize};
 use std::any::Any;
 use std::fmt::Debug;
-
-// try using pub(in self) or w/e
