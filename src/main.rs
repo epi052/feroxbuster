@@ -409,8 +409,6 @@ async fn clean_up(
         stats_handle,
         save_output
     );
-    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
-
     drop(tx_term);
     log::trace!("dropped terminal output handler's transmitter");
 
@@ -442,6 +440,7 @@ async fn clean_up(
         log::trace!("done awaiting file output handler's receiver");
     }
 
+    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
     stats_handle.await.unwrap_or_default();
 
     // mark all scans complete so the terminal input handler will exit cleanly
