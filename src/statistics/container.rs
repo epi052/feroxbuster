@@ -1,4 +1,5 @@
 use super::{error::StatError, field::StatField};
+use crate::utils::fmt_err;
 use crate::{
     config::CONFIGURATION,
     reporter::{get_cached_file_handle, safe_file_write},
@@ -339,65 +340,65 @@ impl Stats {
     /// Merge a given `Stats` object from a json entry written to disk when handling a Ctrl+c
     ///
     /// This is only ever called when resuming a scan from disk
-    pub fn merge_from(&self, filename: &str) {
-        if let Ok(file) = File::open(filename) {
-            let reader = BufReader::new(file);
-            let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
+    pub fn merge_from(&self, filename: &str) -> Result<()> {
+        let file =
+            File::open(filename).with_context(fmt_err(&format!("Could not open {}", filename)))?;
+        let reader = BufReader::new(file);
+        let state: serde_json::Value = serde_json::from_reader(reader)?;
 
-            if let Some(state_stats) = state.get("statistics") {
-                if let Ok(d_stats) = serde_json::from_value::<Stats>(state_stats.clone()) {
-                    atomic_increment!(self.successes, atomic_load!(d_stats.successes));
-                    atomic_increment!(self.timeouts, atomic_load!(d_stats.timeouts));
-                    atomic_increment!(self.requests, atomic_load!(d_stats.requests));
-                    atomic_increment!(self.errors, atomic_load!(d_stats.errors));
-                    atomic_increment!(self.redirects, atomic_load!(d_stats.redirects));
-                    atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
-                    atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
-                    atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
-                    atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
-                    atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
-                    atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
-                    atomic_increment!(self.status_401s, atomic_load!(d_stats.status_401s));
-                    atomic_increment!(self.status_403s, atomic_load!(d_stats.status_403s));
-                    atomic_increment!(self.status_429s, atomic_load!(d_stats.status_429s));
-                    atomic_increment!(self.status_500s, atomic_load!(d_stats.status_500s));
-                    atomic_increment!(self.status_503s, atomic_load!(d_stats.status_503s));
-                    atomic_increment!(self.status_504s, atomic_load!(d_stats.status_504s));
-                    atomic_increment!(self.status_508s, atomic_load!(d_stats.status_508s));
-                    atomic_increment!(
-                        self.wildcards_filtered,
-                        atomic_load!(d_stats.wildcards_filtered)
-                    );
-                    atomic_increment!(
-                        self.responses_filtered,
-                        atomic_load!(d_stats.responses_filtered)
-                    );
-                    atomic_increment!(
-                        self.resources_discovered,
-                        atomic_load!(d_stats.resources_discovered)
-                    );
-                    atomic_increment!(
-                        self.url_format_errors,
-                        atomic_load!(d_stats.url_format_errors)
-                    );
-                    atomic_increment!(
-                        self.connection_errors,
-                        atomic_load!(d_stats.connection_errors)
-                    );
-                    atomic_increment!(
-                        self.redirection_errors,
-                        atomic_load!(d_stats.redirection_errors)
-                    );
-                    atomic_increment!(self.request_errors, atomic_load!(d_stats.request_errors));
+        if let Some(state_stats) = state.get("statistics") {
+            let d_stats = serde_json::from_value::<Stats>(state_stats.clone())?;
+            atomic_increment!(self.successes, atomic_load!(d_stats.successes));
+            atomic_increment!(self.timeouts, atomic_load!(d_stats.timeouts));
+            atomic_increment!(self.requests, atomic_load!(d_stats.requests));
+            atomic_increment!(self.errors, atomic_load!(d_stats.errors));
+            atomic_increment!(self.redirects, atomic_load!(d_stats.redirects));
+            atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
+            atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
+            atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
+            atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
+            atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
+            atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
+            atomic_increment!(self.status_401s, atomic_load!(d_stats.status_401s));
+            atomic_increment!(self.status_403s, atomic_load!(d_stats.status_403s));
+            atomic_increment!(self.status_429s, atomic_load!(d_stats.status_429s));
+            atomic_increment!(self.status_500s, atomic_load!(d_stats.status_500s));
+            atomic_increment!(self.status_503s, atomic_load!(d_stats.status_503s));
+            atomic_increment!(self.status_504s, atomic_load!(d_stats.status_504s));
+            atomic_increment!(self.status_508s, atomic_load!(d_stats.status_508s));
+            atomic_increment!(
+                self.wildcards_filtered,
+                atomic_load!(d_stats.wildcards_filtered)
+            );
+            atomic_increment!(
+                self.responses_filtered,
+                atomic_load!(d_stats.responses_filtered)
+            );
+            atomic_increment!(
+                self.resources_discovered,
+                atomic_load!(d_stats.resources_discovered)
+            );
+            atomic_increment!(
+                self.url_format_errors,
+                atomic_load!(d_stats.url_format_errors)
+            );
+            atomic_increment!(
+                self.connection_errors,
+                atomic_load!(d_stats.connection_errors)
+            );
+            atomic_increment!(
+                self.redirection_errors,
+                atomic_load!(d_stats.redirection_errors)
+            );
+            atomic_increment!(self.request_errors, atomic_load!(d_stats.request_errors));
 
-                    if let Ok(scan_times) = d_stats.directory_scan_times.lock() {
-                        for scan_time in scan_times.iter() {
-                            self.update_f64_field(StatField::DirScanTimes, *scan_time);
-                        }
-                    }
+            if let Ok(scan_times) = d_stats.directory_scan_times.lock() {
+                for scan_time in scan_times.iter() {
+                    self.update_f64_field(StatField::DirScanTimes, *scan_time);
                 }
             }
         }
+        Ok(())
     }
 }
 
