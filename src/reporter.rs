@@ -220,7 +220,7 @@ pub fn safe_file_write<T>(
     // the second log entry being injected into the first.
 
     let contents = if convert_to_json {
-        value.as_json()
+        value.as_json().unwrap_or_default() // todo this fn should return result
     } else {
         value.as_str()
     };
