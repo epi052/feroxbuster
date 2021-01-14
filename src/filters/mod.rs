@@ -1,4 +1,4 @@
-//! module containing all of feroxbuster's filters
+//! contains all of feroxbuster's filters
 mod traits;
 mod wildcard;
 mod status_code;

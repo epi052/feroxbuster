@@ -1,5 +1,4 @@
 pub mod utils;
-pub mod banner;
 pub mod client;
 pub mod config;
 pub mod extractor;
@@ -13,6 +12,7 @@ pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
 mod event_handlers;
+pub mod banner;
 
 use crate::utils::{fmt_err, get_url_path_length, status_colorizer};
 use anyhow::{Context, Result};
