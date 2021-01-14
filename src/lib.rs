@@ -12,8 +12,10 @@ pub mod reporter;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
+mod event_handlers;
 
-use crate::utils::{get_url_path_length, status_colorizer};
+use crate::utils::{fmt_err, get_url_path_length, status_colorizer};
+use anyhow::{Context, Result};
 use console::{style, Color};
 use reqwest::header::{HeaderName, HeaderValue};
 use reqwest::{header::HeaderMap, Response, StatusCode, Url};
@@ -102,7 +104,7 @@ pub trait FeroxSerialize: Serialize {
     fn as_str(&self) -> String;
 
     /// Return an NDJSON representation of the object
-    fn as_json(&self) -> String;
+    fn as_json(&self) -> Result<String>;
 }
 
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
@@ -342,13 +344,11 @@ impl FeroxSerialize for FeroxResponse {
     ///       "access-control-allow-origin":"https://localhost.com"
     ///    }
     /// }\n
-    fn as_json(&self) -> String {
-        if let Ok(mut json) = serde_json::to_string(&self) {
-            json.push('\n');
-            json
-        } else {
-            format!("{{\"error\":\"could not convert {} to json\"}}", self.url())
-        }
+    fn as_json(&self) -> Result<String> {
+        let mut json = serde_json::to_string(&self)
+            .with_context(|| fmt_err(&format!("Could not convert {} to JSON", self.url())))?;
+        json.push('\n');
+        Ok(json)
     }
 }
 
@@ -487,26 +487,6 @@ pub struct FeroxMessage {
 
 /// Implementation of FeroxMessage
 impl FeroxSerialize for FeroxMessage {
-    /// Create an NDJSON representation of the log message
-    ///
-    /// (expanded for clarity)
-    /// ex:
-    /// {
-    ///   "type": "log",
-    ///   "message": "Sent https://localhost/api to file handler",
-    ///   "level": "DEBUG",
-    ///   "time_offset": 0.86333454,
-    ///   "module": "feroxbuster::reporter"
-    /// }\n
-    fn as_json(&self) -> String {
-        if let Ok(mut json) = serde_json::to_string(&self) {
-            json.push('\n');
-            json
-        } else {
-            String::from("{\"error\":\"could not convert to json\"}")
-        }
-    }
-
     /// Create a string representation of the log message
     ///
     /// ex:  301       10l       16w      173c https://localhost/api
@@ -528,6 +508,28 @@ impl FeroxSerialize for FeroxMessage {
             self.module,
             style(&self.message).dim(),
         )
+    }
+
+    /// Create an NDJSON representation of the log message
+    ///
+    /// (expanded for clarity)
+    /// ex:
+    /// {
+    ///   "type": "log",
+    ///   "message": "Sent https://localhost/api to file handler",
+    ///   "level": "DEBUG",
+    ///   "time_offset": 0.86333454,
+    ///   "module": "feroxbuster::reporter"
+    /// }\n
+    fn as_json(&self) -> Result<String> {
+        let mut json = serde_json::to_string(&self).with_context(|| {
+            fmt_err(&format!(
+                "Could not convert {}:{} to JSON",
+                self.level, self.message
+            ))
+        })?;
+        json.push('\n');
+        Ok(json)
     }
 }
 
@@ -586,7 +588,7 @@ mod tests {
             kind: "log".to_string(),
         };
 
-        let message_str = message.as_json();
+        let message_str = message.as_json().unwrap();
 
         let error_margin = f32::EPSILON;
 

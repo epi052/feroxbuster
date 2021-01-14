@@ -2,9 +2,10 @@ use crate::{
     client, parser,
     progress::{add_bar, BarType},
     scan_manager::resume_scan,
-    utils::{module_colorizer, status_colorizer},
+    utils::{fmt_err, module_colorizer, status_colorizer},
     FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
 };
+use anyhow::{Context, Result};
 use clap::{value_t, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use lazy_static::lazy_static;
@@ -875,13 +876,11 @@ impl FeroxSerialize for Configuration {
     ///    ],
     /// ...
     /// }\n
-    fn as_json(&self) -> String {
-        if let Ok(mut json) = serde_json::to_string(&self) {
-            json.push('\n');
-            json
-        } else {
-            String::from("{\"error\":\"could not Configuration convert to json\"}")
-        }
+    fn as_json(&self) -> Result<String> {
+        let mut json = serde_json::to_string(&self)
+            .with_context(|| fmt_err("Could not convert Configuration to JSON"))?;
+        json.push('\n');
+        Ok(json)
     }
 }
 
@@ -1238,7 +1237,7 @@ mod tests {
         let mut config = Configuration::new();
         config.timeout = 12;
         config.depth = 2;
-        let config_str = config.as_json();
+        let config_str = config.as_json().unwrap();
         let json: Configuration = serde_json::from_str(&config_str).unwrap();
         assert_eq!(json.config, config.config);
         assert_eq!(json.wordlist, config.wordlist);

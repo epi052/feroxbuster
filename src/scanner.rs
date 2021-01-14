@@ -589,7 +589,7 @@ pub async fn scan_url(
 
     let (tx_dir, rx_dir): FeroxChannel<String> = mpsc::unbounded_channel();
 
-    if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets.load(Ordering::Relaxed) {
+    if CALL_COUNT.load(Ordering::Relaxed) < stats.initial_targets() {
         CALL_COUNT.fetch_add(1, Ordering::Relaxed);
 
         if CONFIGURATION.extract_links {
