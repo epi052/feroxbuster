@@ -3,51 +3,20 @@ use crate::{
     statistics::StatCommand,
     utils::{make_request, status_colorizer},
 };
+use anyhow::Result;
 use console::{style, Emoji};
 use reqwest::{Client, Url};
+use serde::export::Formatter;
 use serde_json::Value;
+use std::fmt::{self, Display};
 use std::io::Write;
 use tokio::sync::mpsc::UnboundedSender;
 
-/// macro helper to abstract away repetitive string formatting
-macro_rules! format_banner_entry_helper {
-    // \u{0020} -> unicode space
-    // \u{2502} -> vertical box drawing character, i.e. │
-    ($rune:expr, $name:expr, $value:expr, $indent:expr, $col_width:expr) => {
-        format!(
-            "\u{0020}{:\u{0020}<indent$}{:\u{0020}<col_w$}\u{2502}\u{0020}{}",
-            $rune,
-            $name,
-            $value,
-            indent = $indent,
-            col_w = $col_width
-        )
-    };
-    ($rune:expr, $name:expr, $value:expr, $value2:expr, $indent:expr, $col_width:expr) => {
-        format!(
-            "\u{0020}{:\u{0020}<indent$}{:\u{0020}<col_w$}\u{2502}\u{0020}{}:\u{0020}{}",
-            $rune,
-            $name,
-            $value,
-            $value2,
-            indent = $indent,
-            col_w = $col_width
-        )
-    };
-}
+/// Initial visual indentation size used in formatting banner entries
+const INDENT: usize = 3;
 
-/// macro that wraps another macro helper to abstract away repetitive string formatting
-macro_rules! format_banner_entry {
-    // 4 -> unicode emoji padding width
-    // 22 -> column width (when unicode rune is 4 bytes wide, 23 when it's 3)
-    // hardcoded since macros don't allow let statements
-    ($rune:expr, $name:expr, $value:expr) => {
-        format_banner_entry_helper!($rune, $name, $value, 3, 22)
-    };
-    ($rune:expr, $name:expr, $value1:expr, $value2:expr) => {
-        format_banner_entry_helper!($rune, $name, $value1, $value2, 3, 22)
-    };
-}
+/// Column width used in formatting banner entries
+const COL_WIDTH: usize = 22;
 
 /// Url used to query github's api; specifically used to look for the latest tagged release name
 const UPDATE_URL: &str = "https://api.github.com/repos/epi052/feroxbuster/releases/latest";
@@ -63,6 +32,55 @@ enum UpdateStatus {
 
     /// some error occurred during version check
     Unknown,
+}
+
+/// Represents a single line on the banner
+#[derive(Default)]
+struct BannerEntry {
+    /// emoji used in the banner entry
+    emoji: String,
+
+    /// title used in the banner entry
+    title: String,
+
+    /// value passed in via config/cli/defaults
+    value: String,
+}
+
+/// implementation of a banner entry
+impl BannerEntry {
+    /// Create a new banner entry from given fields
+    pub fn new(emoji: &str, title: &str, value: &str) -> Self {
+        BannerEntry {
+            emoji: emoji.to_string(),
+            title: title.to_string(),
+            value: value.to_string(),
+        }
+    }
+
+    /// Simple wrapper for emoji or fallback when terminal doesn't support emoji
+    fn format_emoji(&self) -> String {
+        let width = console::measure_text_width(&self.emoji);
+        let pad_len = width * width;
+        let pad = format!("{:<pad_len$}", "\u{0020}", pad_len = pad_len);
+        Emoji(&self.emoji, &pad).to_string()
+    }
+}
+
+/// Display implementation for a banner entry
+impl Display for BannerEntry {
+    /// Display formatter for the given banner entry
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "\u{0020}{:\u{0020}<indent$}{:\u{0020}<width$}\u{2502}\u{0020}{}",
+            self.format_emoji(),
+            self.title,
+            self.value,
+            indent = INDENT,
+            width = COL_WIDTH
+        )
+    }
 }
 
 /// Makes a request to the given url, expecting to receive a JSON response that contains a field
@@ -135,14 +153,6 @@ async fn needs_update(
     unknown
 }
 
-/// Simple wrapper for emoji or fallback when terminal doesn't support emoji
-fn format_emoji(emoji: &str) -> String {
-    let width = console::measure_text_width(emoji);
-    let pad_len = width * width;
-    let pad = format!("{:<pad_len$}", "\u{0020}", pad_len = pad_len);
-    Emoji(emoji, &pad).to_string()
-}
-
 /// Prints the banner to stdout.
 ///
 /// Only prints those settings which are either always present, or passed in by the user.
@@ -152,7 +162,8 @@ pub async fn initialize<W>(
     version: &str,
     mut writer: W,
     tx_stats: UnboundedSender<StatCommand>,
-) where
+) -> Result<()>
+where
     W: Write,
 {
     let artwork = format!(
@@ -170,17 +181,13 @@ by Ben "epi" Risher {}                 ver: {}"#,
     let addl_section = "──────────────────────────────────────────────────";
     let bottom = "───────────────────────────┴──────────────────────";
 
-    writeln!(&mut writer, "{}", artwork).unwrap_or_default();
-    writeln!(&mut writer, "{}", top).unwrap_or_default();
+    writeln!(&mut writer, "{}", artwork)?;
+    writeln!(&mut writer, "{}", top)?;
 
     // begin with always printed items
     for target in targets {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🎯"), "Target Url", target)
-        )
-        .unwrap_or_default(); // 🎯
+        let tgt = BannerEntry::new("🎯", "Target Url", target);
+        writeln!(&mut writer, "{}", tgt)?;
     }
 
     let mut codes = vec![];
@@ -189,30 +196,14 @@ by Ben "epi" Risher {}                 ver: {}"#,
         codes.push(status_colorizer(&code.to_string()))
     }
 
-    writeln!(
-        &mut writer,
-        "{}",
-        format_banner_entry!(format_emoji("🚀"), "Threads", config.threads)
-    )
-    .unwrap_or_default(); // 🚀
+    let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
+    writeln!(&mut writer, "{}", threads)?;
 
-    writeln!(
-        &mut writer,
-        "{}",
-        format_banner_entry!(format_emoji("📖"), "Wordlist", config.wordlist)
-    )
-    .unwrap_or_default(); // 📖
+    let words = BannerEntry::new("📖", "Wordlist", &config.wordlist);
+    writeln!(&mut writer, "{}", words)?;
 
-    writeln!(
-        &mut writer,
-        "{}",
-        format_banner_entry!(
-            format_emoji("🆗"),
-            "Status Codes",
-            format!("[{}]", codes.join(", "))
-        )
-    )
-    .unwrap_or_default(); // 🆗
+    let status_codes = BannerEntry::new("👌", "Status Codes", &format!("[{}]", codes.join(", ")));
+    writeln!(&mut writer, "{}", status_codes)?;
 
     if !config.filter_status.is_empty() {
         // exception here for optional print due to me wanting the allows and denys to be printed
@@ -223,49 +214,30 @@ by Ben "epi" Risher {}                 ver: {}"#,
             code_filters.push(status_colorizer(&code.to_string()))
         }
 
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(
-                format_emoji("🗑"),
-                "Status Code Filters",
-                format!("[{}]", code_filters.join(", "))
-            )
-        )
-        .unwrap_or_default(); // 🗑
+        let banner_cfs = BannerEntry::new(
+            "🗑",
+            "Status Code Filters",
+            &format!("[{}]", code_filters.join(", ")),
+        );
+
+        writeln!(&mut writer, "{}", banner_cfs)?;
     }
 
-    writeln!(
-        &mut writer,
-        "{}",
-        format_banner_entry!(format_emoji("💥"), "Timeout (secs)", config.timeout)
-    )
-    .unwrap_or_default(); // 💥
+    let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
+    writeln!(&mut writer, "{}", timeout)?;
 
-    writeln!(
-        &mut writer,
-        "{}",
-        format_banner_entry!(format_emoji("🦡"), "User-Agent", config.user_agent)
-    )
-    .unwrap_or_default(); // 🦡
+    let user_agent = BannerEntry::new("🦡", "User-Agent", &config.user_agent);
+    writeln!(&mut writer, "{}", user_agent)?;
 
     // followed by the maybe printed or variably displayed values
     if !config.config.is_empty() {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("💉"), "Config File", config.config)
-        )
-        .unwrap_or_default(); // 💉
+        let banner_cfg = BannerEntry::new("💉", "Config File", &config.config);
+        writeln!(&mut writer, "{}", banner_cfg)?;
     }
 
     if !config.proxy.is_empty() {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("💎"), "Proxy", config.proxy)
-        )
-        .unwrap_or_default(); // 💎
+        let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
+        writeln!(&mut writer, "{}", proxy)?;
     }
 
     if !config.replay_proxy.is_empty() {
@@ -274,276 +246,166 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let mut replay_codes = vec![];
 
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🎥"), "Replay Proxy", config.replay_proxy)
-        )
-        .unwrap_or_default(); // 🎥
-
         for code in &config.replay_codes {
             replay_codes.push(status_colorizer(&code.to_string()))
         }
 
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(
-                format_emoji("📼"),
-                "Replay Proxy Codes",
-                format!("[{}]", replay_codes.join(", "))
-            )
-        )
-        .unwrap_or_default(); // 📼
+        let banner_rcs = BannerEntry::new(
+            "📼",
+            "Replay Proxy Codes",
+            &format!("[{}]", replay_codes.join(", ")),
+        );
+
+        let rproxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
+
+        writeln!(&mut writer, "{}", rproxy)?;
+        writeln!(&mut writer, "{}", banner_rcs)?;
     }
 
-    if !config.headers.is_empty() {
-        for (name, value) in &config.headers {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("🤯"), "Header", name, value)
-            )
-            .unwrap_or_default(); // 🤯
-        }
+    for (name, value) in &config.headers {
+        let header = BannerEntry::new("🤯", "Header", &format!("{}: {}", name, value));
+        writeln!(&mut writer, "{}", header)?;
     }
 
-    if !config.filter_size.is_empty() {
-        for filter in &config.filter_size {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("💢"), "Size Filter", filter)
-            )
-            .unwrap_or_default(); // 💢
-        }
+    for filter in &config.filter_size {
+        let sz_filter = BannerEntry::new("💢", "Size Filter", &filter.to_string());
+        writeln!(&mut writer, "{}", sz_filter)?;
     }
 
-    if !config.filter_similar.is_empty() {
-        for filter in &config.filter_similar {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("💢"), "Similarity Filter", filter)
-            )
-            .unwrap_or_default(); // 💢
-        }
+    for filter in &config.filter_similar {
+        let sim_filter = BannerEntry::new("💢", "Similarity Filter", filter);
+        writeln!(&mut writer, "{}", sim_filter)?;
     }
 
     for filter in &config.filter_word_count {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("💢"), "Word Count Filter", filter)
-        )
-        .unwrap_or_default(); // 💢
+        let wc_filter = BannerEntry::new("💢", "Word Count Filter", &filter.to_string());
+        writeln!(&mut writer, "{}", wc_filter)?;
     }
 
     for filter in &config.filter_line_count {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("💢"), "Line Count Filter", filter)
-        )
-        .unwrap_or_default(); // 💢
+        let lc_filter = BannerEntry::new("💢", "Line Count Filter", &filter.to_string());
+        writeln!(&mut writer, "{}", lc_filter)?;
     }
 
     for filter in &config.filter_regex {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("💢"), "Regex Filter", filter)
-        )
-        .unwrap_or_default(); // 💢
+        let reg_filter = BannerEntry::new("💢", "Regex Filter", filter);
+        writeln!(&mut writer, "{}", reg_filter)?;
     }
 
     if config.extract_links {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🔎"), "Extract Links", config.extract_links)
-        )
-        .unwrap_or_default(); // 🔎
+        let ext_links = BannerEntry::new("🔎", "Extract Links", &config.extract_links.to_string());
+        writeln!(&mut writer, "{}", ext_links)?;
     }
 
     if config.json {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🧔"), "JSON Output", config.json)
-        )
-        .unwrap_or_default(); // 🧔
+        let json = BannerEntry::new("🧔", "JSON Output", &config.json.to_string());
+        writeln!(&mut writer, "{}", json)?;
     }
 
-    if !config.queries.is_empty() {
-        for query in &config.queries {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(
-                    format_emoji("🤔"),
-                    "Query Parameter",
-                    format!("{}={}", query.0, query.1)
-                )
-            )
-            .unwrap_or_default(); // 🤔
-        }
+    for query in &config.queries {
+        let query = BannerEntry::new("🤔", "Query Parameter", &format!("{}={}", query.0, query.1));
+        writeln!(&mut writer, "{}", query)?;
     }
 
     if !config.output.is_empty() {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("💾"), "Output File", config.output)
-        )
-        .unwrap_or_default(); // 💾
+        let out = BannerEntry::new("💾", "Output File", &config.output);
+        writeln!(&mut writer, "{}", out)?;
     }
 
     if !config.debug_log.is_empty() {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🪲"), "Debugging Log", config.debug_log)
-        )
-        .unwrap_or_default(); // 🪲
+        let debug_log = BannerEntry::new("🪲", "Debugging Log", &config.debug_log);
+        writeln!(&mut writer, "{}", debug_log)?;
     }
 
     if !config.extensions.is_empty() {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(
-                format_emoji("💲"),
-                "Extensions",
-                format!("[{}]", config.extensions.join(", "))
-            )
-        )
-        .unwrap_or_default(); // 💲
+        let b_exts = BannerEntry::new(
+            "💲",
+            "Extensions",
+            &format!("[{}]", config.extensions.join(", ")),
+        );
+        writeln!(&mut writer, "{}", b_exts)?;
     }
 
     if config.insecure {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🔓"), "Insecure", config.insecure)
-        )
-        .unwrap_or_default(); // 🔓
+        let b_insec = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
+        writeln!(&mut writer, "{}", b_insec)?;
     }
 
     if config.redirects {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("📍"), "Follow Redirects", config.redirects)
-        )
-        .unwrap_or_default(); // 📍
+        let b_follow = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
+        writeln!(&mut writer, "{}", b_follow)?;
     }
 
     if config.dont_filter {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🤪"), "Filter Wildcards", !config.dont_filter)
-        )
-        .unwrap_or_default(); // 🤪
+        let b_wild = BannerEntry::new("🤪", "Filter Wildcards", &(!config.dont_filter).to_string());
+        writeln!(&mut writer, "{}", b_wild)?;
     }
 
     let volume = ["🔈", "🔉", "🔊", "📢"];
     if let 1..=4 = config.verbosity {
         //speaker medium volume (increasing with verbosity to loudspeaker)
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(
-                format_emoji(volume[config.verbosity as usize - 1]),
-                "Verbosity",
-                config.verbosity
-            )
-        )
-        .unwrap_or_default();
+        let vol = BannerEntry::new(
+            volume[config.verbosity as usize - 1],
+            "Verbosity",
+            &config.verbosity.to_string(),
+        );
+        writeln!(&mut writer, "{}", vol)?;
     }
 
     if config.add_slash {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🪓"), "Add Slash", config.add_slash)
-        )
-        .unwrap_or_default(); // 🪓
+        let add = BannerEntry::new("🪓", "Add Slash", &config.add_slash.to_string());
+        writeln!(&mut writer, "{}", add)?;
     }
 
-    if !config.no_recursion {
-        if config.depth == 0 {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("🔃"), "Recursion Depth", "INFINITE")
-            )
-            .unwrap_or_default(); // 🔃
+    let b_recurse = if !config.no_recursion {
+        let depth = if config.depth == 0 {
+            "INFINITE".to_string()
         } else {
-            writeln!(
-                &mut writer,
-                "{}",
-                format_banner_entry!(format_emoji("🔃"), "Recursion Depth", config.depth)
-            )
-            .unwrap_or_default(); // 🔃
-        }
+            config.depth.to_string()
+        };
+
+        BannerEntry::new("🔃", "Recursion Depth", &depth)
     } else {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🚫"), "Do Not Recurse", config.no_recursion)
-        )
-        .unwrap_or_default(); // 🚫
+        BannerEntry::new("🚫", "Do Not Recurse", &config.no_recursion.to_string())
+    };
+
+    writeln!(&mut writer, "{}", b_recurse)?;
+
+    if config.scan_limit > 0 {
+        let s_lim = BannerEntry::new(
+            "🦥",
+            "Concurrent Scan Limit",
+            &config.scan_limit.to_string(),
+        );
+        writeln!(&mut writer, "{}", s_lim)?;
     }
 
-    if CONFIGURATION.scan_limit > 0 {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(
-                format_emoji("🦥"),
-                "Concurrent Scan Limit",
-                config.scan_limit
-            )
-        )
-        .unwrap_or_default(); // 🦥
-    }
-
-    if !CONFIGURATION.time_limit.is_empty() {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(format_emoji("🕖"), "Time Limit", config.time_limit)
-        )
-        .unwrap_or_default(); // 🕖
+    if !config.time_limit.is_empty() {
+        let t_lim = BannerEntry::new("🕖", "Time Limit", &config.time_limit);
+        writeln!(&mut writer, "{}", t_lim)?;
     }
 
     if matches!(status, UpdateStatus::OutOfDate) {
-        writeln!(
-            &mut writer,
-            "{}",
-            format_banner_entry!(
-                format_emoji("🎉"),
-                "New Version Available",
-                "https://github.com/epi052/feroxbuster/releases/latest"
-            )
-        )
-        .unwrap_or_default(); // 🎉
+        let update = BannerEntry::new(
+            "🎉",
+            "New Version Available",
+            "https://github.com/epi052/feroxbuster/releases/latest",
+        );
+        writeln!(&mut writer, "{}", update)?;
     }
 
-    writeln!(&mut writer, "{}", bottom).unwrap_or_default();
-    // ⏯
+    writeln!(&mut writer, "{}", bottom)?;
+
     writeln!(
         &mut writer,
-        " {}  Press [{}] to use the {}™",
-        format_emoji("🏁"),
+        " 🏁  Press [{}] to use the {}™",
         style("ENTER").yellow(),
         style("Scan Cancel Menu").bright().yellow(),
-    )
-    .unwrap_or_default();
+    )?;
 
-    writeln!(&mut writer, "{}", addl_section).unwrap_or_default();
+    writeln!(&mut writer, "{}", addl_section)?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -564,7 +426,9 @@ mod tests {
         let config = Configuration::default();
         let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
 
-        initialize(&[], &config, VERSION, stderr(), tx).await;
+        initialize(&[], &config, VERSION, stderr(), tx)
+            .await
+            .unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -584,7 +448,8 @@ mod tests {
             stderr(),
             tx,
         )
-        .await;
+        .await
+        .unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -604,7 +469,8 @@ mod tests {
             stderr(),
             tx,
         )
-        .await;
+        .await
+        .unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -624,7 +490,8 @@ mod tests {
             stderr(),
             tx,
         )
-        .await;
+        .await
+        .unwrap();
     }
 
     #[ignore]
@@ -642,7 +509,8 @@ mod tests {
             &file,
             tx,
         )
-        .await;
+        .await
+        .unwrap();
         let contents = read_to_string(file.path()).unwrap();
         println!("contents: {}", contents);
         assert!(contents.contains("New Version Available"));

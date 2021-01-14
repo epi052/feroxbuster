@@ -322,7 +322,7 @@ async fn wrapped_main() -> Result<()> {
             std_stderr,
             tx_stats.clone(),
         )
-        .await;
+        .await?;
     }
 
     // discard non-responsive targets
