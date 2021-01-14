@@ -2,8 +2,8 @@ use crate::{
     config::{Configuration, CONFIGURATION},
     extractor::{extract_robots_txt, get_links, request_feroxresponse_from_new_link},
     filters::{
-        FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-        WildcardFilter, WordsFilter,
+        LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
+        WordsFilter,
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, ScanStatus, PAUSE_SCAN},
@@ -12,6 +12,7 @@ use crate::{
         StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
         Stats,
     },
+    traits::FeroxFilter,
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
