@@ -7,7 +7,7 @@ use crate::{
     },
     FeroxError, FeroxResult,
 };
-use anyhow::Context;
+use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::{Client, Response, Url};
@@ -285,7 +285,7 @@ pub async fn make_request(
     client: &Client,
     url: &Url,
     tx_stats: UnboundedSender<StatCommand>,
-) -> FeroxResult<Response> {
+) -> Result<Response> {
     log::trace!(
         "enter: make_request(CONFIGURATION.Client, {}, {:?})",
         url,
@@ -331,7 +331,7 @@ pub async fn make_request(
                 log::warn!("Error while making request: {}", e);
             }
 
-            Err(Box::new(e))
+            bail!("{}", e)
         }
         Ok(resp) => {
             log::trace!("exit: make_request -> {:?}", resp);

@@ -16,7 +16,7 @@ use feroxbuster::{
     },
     update_stat,
     utils::{ferox_print, fmt_err, get_current_depth, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION, VERSION,
+    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
@@ -315,14 +315,12 @@ async fn wrapped_main() -> Result<()> {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
-        banner::initialize(
-            &targets,
-            &CONFIGURATION,
-            &VERSION,
-            std_stderr,
-            tx_stats.clone(),
-        )
-        .await?;
+        let mut bnr = banner::Banner::new(&targets, &CONFIGURATION);
+        // only interested in the side-effect
+        let _ = bnr
+            .check_for_updates(&CONFIGURATION.client, banner::UPDATE_URL, tx_stats.clone())
+            .await;
+        bnr.print_to(std_stderr, &CONFIGURATION)?;
     }
 
     // discard non-responsive targets
