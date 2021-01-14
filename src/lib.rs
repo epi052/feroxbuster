@@ -1,5 +1,4 @@
 pub mod utils;
-pub mod banner;
 pub mod client;
 pub mod config;
 pub mod extractor;
@@ -13,8 +12,13 @@ pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
 mod event_handlers;
+pub mod banner;
+mod traits;
 
-use crate::utils::{fmt_err, get_url_path_length, status_colorizer};
+use crate::{
+    traits::FeroxSerialize,
+    utils::{fmt_err, get_url_path_length, status_colorizer},
+};
 use anyhow::{Context, Result};
 use console::{style, Color};
 use reqwest::header::{HeaderName, HeaderValue};
@@ -95,17 +99,6 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
 ///
 /// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
-
-/// FeroxSerialize trait; represents different types that are Serialize and also implement
-/// as_str / as_json methods
-pub trait FeroxSerialize: Serialize {
-    /// Return a String representation of the object, generally the human readable version of the
-    /// implementor
-    fn as_str(&self) -> String;
-
-    /// Return an NDJSON representation of the object
-    fn as_json(&self) -> Result<String>;
-}
 
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
 #[derive(Debug, Clone)]

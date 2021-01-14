@@ -1,3 +1,4 @@
+use super::entry::BannerEntry;
 use crate::{
     config::Configuration,
     statistics::StatCommand,
@@ -8,22 +9,15 @@ use anyhow::{bail, Result};
 use console::{style, Emoji};
 use reqwest::{Client, Url};
 use serde_json::Value;
-use std::fmt::{self, Display};
 use std::io::Write;
 use tokio::sync::mpsc::UnboundedSender;
-
-/// Initial visual indentation size used in formatting banner entries
-const INDENT: usize = 3;
-
-/// Column width used in formatting banner entries
-const COL_WIDTH: usize = 22;
 
 /// Url used to query github's api; specifically used to look for the latest tagged release name
 pub const UPDATE_URL: &str = "https://api.github.com/repos/epi052/feroxbuster/releases/latest";
 
 /// Simple enum to hold three different update states
 #[derive(Debug)]
-enum UpdateStatus {
+pub(super) enum UpdateStatus {
     /// this version and latest release are the same
     UpToDate,
 
@@ -32,55 +26,6 @@ enum UpdateStatus {
 
     /// some error occurred during version check
     Unknown,
-}
-
-/// Represents a single line on the banner
-#[derive(Default)]
-struct BannerEntry {
-    /// emoji used in the banner entry
-    emoji: String,
-
-    /// title used in the banner entry
-    title: String,
-
-    /// value passed in via config/cli/defaults
-    value: String,
-}
-
-/// implementation of a banner entry
-impl BannerEntry {
-    /// Create a new banner entry from given fields
-    pub fn new(emoji: &str, title: &str, value: &str) -> Self {
-        BannerEntry {
-            emoji: emoji.to_string(),
-            title: title.to_string(),
-            value: value.to_string(),
-        }
-    }
-
-    /// Simple wrapper for emoji or fallback when terminal doesn't support emoji
-    fn format_emoji(&self) -> String {
-        let width = console::measure_text_width(&self.emoji);
-        let pad_len = width * width;
-        let pad = format!("{:<pad_len$}", "\u{0020}", pad_len = pad_len);
-        Emoji(&self.emoji, &pad).to_string()
-    }
-}
-
-/// Display implementation for a banner entry
-impl Display for BannerEntry {
-    /// Display formatter for the given banner entry
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "\u{0020}{:\u{0020}<indent$}{:\u{0020}<width$}\u{2502}\u{0020}{}",
-            self.format_emoji(),
-            self.title,
-            self.value,
-            indent = INDENT,
-            width = COL_WIDTH
-        )
-    }
 }
 
 /// Banner object, contains multiple BannerEntry's and knows how to display itself
@@ -179,10 +124,10 @@ pub struct Banner {
     time_limit: BannerEntry,
 
     /// current version of feroxbuster
-    version: String,
+    pub(super) version: String,
 
     /// whether or not there is a known new version
-    update_status: UpdateStatus,
+    pub(super) update_status: UpdateStatus,
 }
 
 /// implementation of Banner
@@ -571,190 +516,5 @@ by Ben "epi" Risher {}                 ver: {}"#,
         writeln!(&mut writer, "{}", self.footer())?;
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{config::CONFIGURATION, FeroxChannel};
-    use httpmock::Method::GET;
-    use httpmock::MockServer;
-    use std::io::stderr;
-    use std::time::Duration;
-    use tokio::sync::mpsc;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test to hit no execution of targets for loop in banner
-    async fn banner_intialize_without_targets() {
-        let config = Configuration::default();
-        let banner = Banner::new(&[], &config);
-        banner.print_to(stderr(), &config).unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test to hit no execution of statuscode for loop in banner
-    async fn banner_intialize_without_status_codes() {
-        let config = Configuration {
-            status_codes: vec![],
-            ..Default::default()
-        };
-
-        let banner = Banner::new(&[String::from("http://localhost")], &config);
-        banner.print_to(stderr(), &config).unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test to hit an empty config file
-    async fn banner_intialize_without_config_file() {
-        let config = Configuration {
-            config: String::new(),
-            ..Default::default()
-        };
-
-        let banner = Banner::new(&[String::from("http://localhost")], &config);
-        banner.print_to(stderr(), &config).unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test to hit an empty queries
-    async fn banner_intialize_without_queries() {
-        let config = Configuration {
-            queries: vec![(String::new(), String::new())],
-            ..Default::default()
-        };
-
-        let banner = Banner::new(&[String::from("http://localhost")], &config);
-        banner.print_to(stderr(), &config).unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test that
-    async fn banner_needs_update_returns_unknown_with_bad_url() {
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-
-        let mut banner = Banner::new(&[String::from("http://localhost")], &CONFIGURATION);
-
-        let _ = banner
-            .check_for_updates(&CONFIGURATION.client, &"", tx)
-            .await;
-
-        assert!(matches!(banner.update_status, UpdateStatus::Unknown));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test return value of good url to needs_update
-    async fn banner_needs_update_returns_up_to_date() {
-        let srv = MockServer::start();
-
-        let mock = srv.mock(|when, then| {
-            when.method(GET).path("/latest");
-            then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
-        });
-
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-
-        let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
-        banner.version = String::from("1.1.0");
-
-        let _ = banner
-            .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-            .await;
-
-        assert_eq!(mock.hits(), 1);
-        assert!(matches!(banner.update_status, UpdateStatus::UpToDate));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test return value of good url to needs_update that returns a newer version than current
-    async fn banner_needs_update_returns_out_of_date() {
-        let srv = MockServer::start();
-
-        let mock = srv.mock(|when, then| {
-            when.method(GET).path("/latest");
-            then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
-        });
-
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-
-        let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
-        banner.version = String::from("1.0.1");
-
-        let _ = banner
-            .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-            .await;
-
-        assert_eq!(mock.hits(), 1);
-        assert!(matches!(banner.update_status, UpdateStatus::OutOfDate));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test return value of good url that times out
-    async fn banner_needs_update_returns_unknown_on_timeout() {
-        let srv = MockServer::start();
-
-        let mock = srv.mock(|when, then| {
-            when.method(GET).path("/latest");
-            then.status(200)
-                .body("{\"tag_name\":\"v1.1.0\"}")
-                .delay(Duration::from_secs(8));
-        });
-
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-
-        let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
-
-        let _ = banner
-            .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-            .await;
-
-        assert_eq!(mock.hits(), 1);
-        assert!(matches!(banner.update_status, UpdateStatus::Unknown));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test return value of good url with bad json response
-    async fn banner_needs_update_returns_unknown_on_bad_json_response() {
-        let srv = MockServer::start();
-
-        let mock = srv.mock(|when, then| {
-            when.method(GET).path("/latest");
-            then.status(200).body("not json");
-        });
-
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-
-        let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
-
-        let _ = banner
-            .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-            .await;
-
-        assert_eq!(mock.hits(), 1);
-        assert!(matches!(banner.update_status, UpdateStatus::Unknown));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// test return value of good url with json response that lacks the tag_name field
-    async fn banner_needs_update_returns_unknown_on_json_without_correct_tag() {
-        let srv = MockServer::start();
-
-        let mock = srv.mock(|when, then| {
-            when.method(GET).path("/latest");
-            then.status(200)
-                .body("{\"no tag_name\": \"doesn't exist\"}");
-        });
-
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-
-        let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
-        banner.version = String::from("1.0.1");
-
-        let _ = banner
-            .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-            .await;
-
-        assert_eq!(mock.hits(), 1);
-        assert!(matches!(banner.update_status, UpdateStatus::Unknown));
     }
 }
