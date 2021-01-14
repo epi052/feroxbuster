@@ -77,7 +77,7 @@ impl StatsHandler {
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
                 }
                 StatCommand::LoadStats(filename) => {
-                    self.stats.merge_from(&filename);
+                    self.stats.merge_from(&filename)?;
                 }
                 StatCommand::Exit => break,
             }

@@ -341,8 +341,8 @@ impl Stats {
     ///
     /// This is only ever called when resuming a scan from disk
     pub fn merge_from(&self, filename: &str) -> Result<()> {
-        let file =
-            File::open(filename).with_context(fmt_err(&format!("Could not open {}", filename)))?;
+        let file = File::open(filename)
+            .with_context(|| fmt_err(&format!("Could not open {}", filename)))?;
         let reader = BufReader::new(file);
         let state: serde_json::Value = serde_json::from_reader(reader)?;
 
@@ -396,7 +396,7 @@ impl Stats {
                 for scan_time in scan_times.iter() {
                     self.update_f64_field(StatField::DirScanTimes, *scan_time);
                 }
-            }
+            };
         }
         Ok(())
     }
@@ -543,7 +543,7 @@ mod tests {
         let tfile = NamedTempFile::new().unwrap();
         write(&tfile, contents).unwrap();
 
-        stats.merge_from(tfile.path().to_str().unwrap());
+        stats.merge_from(tfile.path().to_str().unwrap()).unwrap();
 
         // as of 1.11.1; all Stats fields are accounted for whether they're updated in merge_from
         // or not
