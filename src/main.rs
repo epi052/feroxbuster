@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use crossterm::event::{self, Event, KeyCode};
 use feroxbuster::{
-    banner,
+    banner::{Banner, UPDATE_URL},
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     heuristics, logger,
     progress::{add_bar, BarType},
@@ -315,12 +315,15 @@ async fn wrapped_main() -> Result<()> {
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
-        let mut bnr = banner::Banner::new(&targets, &CONFIGURATION);
-        // only interested in the side-effect
-        let _ = bnr
-            .check_for_updates(&CONFIGURATION.client, banner::UPDATE_URL, tx_stats.clone())
+
+        let mut banner = Banner::new(&targets, &CONFIGURATION);
+
+        // only interested in the side-effect that sets banner.update_status
+        let _ = banner
+            .check_for_updates(&CONFIGURATION.client, UPDATE_URL, tx_stats.clone())
             .await;
-        bnr.print_to(std_stderr, &CONFIGURATION)?;
+
+        banner.print_to(std_stderr, &CONFIGURATION)?;
     }
 
     // discard non-responsive targets

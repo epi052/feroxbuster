@@ -7,7 +7,6 @@ use crate::{
 use anyhow::{bail, Result};
 use console::{style, Emoji};
 use reqwest::{Client, Url};
-use serde::export::Formatter;
 use serde_json::Value;
 use std::fmt::{self, Display};
 use std::io::Write;
@@ -71,7 +70,7 @@ impl BannerEntry {
 /// Display implementation for a banner entry
 impl Display for BannerEntry {
     /// Display formatter for the given banner entry
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "\u{0020}{:\u{0020}<indent$}{:\u{0020}<width$}\u{2502}\u{0020}{}",
