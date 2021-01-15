@@ -227,12 +227,12 @@ by Ben "epi" Risher {}                 ver: {}"#,
             &mut writer,
             "{}",
             format_banner_entry!(
-                format_emoji("🗑"),
+                format_emoji("💢"),
                 "Status Code Filters",
                 format!("[{}]", code_filters.join(", "))
             )
         )
-        .unwrap_or_default(); // 🗑
+        .unwrap_or_default(); // 💢
     }
 
     writeln!(
