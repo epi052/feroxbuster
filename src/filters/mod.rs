@@ -8,7 +8,6 @@ mod regex;
 mod similarity;
 #[cfg(test)]
 mod tests;
-mod helpers;
 
 pub use self::lines::LinesFilter;
 pub use self::regex::RegexFilter;
