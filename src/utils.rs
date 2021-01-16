@@ -5,7 +5,7 @@ use crate::{
         StatCommand::{self, AddError, AddStatus},
         StatError::{Connection, Other, Redirection, Request, Timeout, UrlFormat},
     },
-    FeroxError, FeroxResult,
+    FeroxError,
 };
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
@@ -184,7 +184,7 @@ pub fn format_url(
     queries: &[(String, String)],
     extension: Option<&str>,
     tx_stats: UnboundedSender<StatCommand>,
-) -> FeroxResult<Url> {
+) -> Result<Url> {
     log::trace!(
         "enter: format_url({}, {}, {}, {:?} {:?}, {:?})",
         url,
@@ -214,7 +214,7 @@ pub fn format_url(
         update_stat!(tx_stats, AddError(UrlFormat));
 
         log::trace!("exit: format_url -> {}", err);
-        return Err(Box::new(err));
+        bail!("{}", err);
     }
 
     // from reqwest::Url::join
@@ -242,6 +242,15 @@ pub fn format_url(
     } else if add_slash && !word.ends_with('/') {
         // -f used, and word doesn't already end with a /
         format!("{}/", word)
+    } else if word.starts_with("//") {
+        // bug ID'd by @Sicks3c, when a wordlist contains words that begin with 2 forward slashes
+        // i.e. //1_40_0/static/js, it gets joined onto the base url in a surprising way
+        // ex: https://localhost/ + //1_40_0/static/js -> https://1_40_0/static/js
+        // this is due to the fact that //... is a valid url. The fix is introduced here in 1.12.2
+        // and simply removes prefixed forward slashes if there are two of them. Additionally,
+        // trim_start_matches will trim the pattern until it's gone, so even if there are more than
+        // 2 /'s, they'll still be trimmed
+        word.trim_start_matches('/').to_string()
     } else {
         String::from(word)
     };
@@ -275,7 +284,7 @@ pub fn format_url(
             update_stat!(tx_stats, AddError(UrlFormat));
             log::trace!("exit: format_url -> {}", e);
             log::error!("Could not join {} with {}", word, base_url);
-            Err(Box::new(e))
+            bail!("{}", e)
         }
     }
 }
@@ -582,6 +591,27 @@ mod tests {
         assert_eq!(
             format_url("http://localhost", "stuff/", false, &Vec::new(), None, tx).unwrap(),
             reqwest::Url::parse("http://localhost/stuff/").unwrap()
+        );
+    }
+
+    #[test]
+    /// word with two prepended slashes doesn't discard the entire domain
+    fn format_url_word_with_two_prepended_slashes() {
+        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+
+        let result = format_url(
+            "http://localhost",
+            "//upload/img",
+            false,
+            &Vec::new(),
+            None,
+            tx,
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            reqwest::Url::parse("http://localhost/upload/img").unwrap()
         );
     }
 
