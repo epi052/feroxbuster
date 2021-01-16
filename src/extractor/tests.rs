@@ -55,11 +55,11 @@ fn setup_extractor(target: ExtractionTarget) -> Extractor<'static> {
         .target(target)
         .depth(4)
         .config(&CONFIG)
-        .recursion_transmitter(tx_dir.clone())
-        .stats_transmitter(tx_stats.clone())
-        .reporter_transmitter(tx_term.clone())
+        .recursion_transmitter(tx_dir)
+        .stats_transmitter(tx_stats)
+        .reporter_transmitter(tx_term)
         .scanned_urls(&SCANS)
-        .stats(stats.clone())
+        .stats(stats)
         .build()
         .unwrap()
 }
@@ -149,11 +149,11 @@ fn extractor_builder_bails_when_neither_required_field_is_set() {
         .target(ExtractionTarget::ResponseBody)
         .depth(4)
         .config(&CONFIG)
-        .recursion_transmitter(tx_dir.clone())
-        .stats_transmitter(tx_stats.clone())
-        .reporter_transmitter(tx_term.clone())
+        .recursion_transmitter(tx_dir)
+        .stats_transmitter(tx_stats)
+        .reporter_transmitter(tx_term)
         .scanned_urls(&SCANS)
-        .stats(stats.clone())
+        .stats(stats)
         .build();
 
     assert!(extractor.is_err());
@@ -232,11 +232,11 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         .target(ExtractionTarget::ResponseBody)
         .depth(4)
         .config(&CONFIG)
-        .recursion_transmitter(tx_dir.clone())
-        .stats_transmitter(tx_stats.clone())
-        .reporter_transmitter(tx_term.clone())
+        .recursion_transmitter(tx_dir)
+        .stats_transmitter(tx_stats)
+        .reporter_transmitter(tx_term)
         .scanned_urls(&SCANS)
-        .stats(stats.clone())
+        .stats(stats)
         .build()?;
 
     let links = extractor.extract_from_body().await?;
@@ -267,11 +267,11 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
         .target(ExtractionTarget::RobotsTxt)
         .depth(4)
         .config(&config)
-        .recursion_transmitter(tx_dir.clone())
-        .stats_transmitter(tx_stats.clone())
-        .reporter_transmitter(tx_term.clone())
+        .recursion_transmitter(tx_dir)
+        .stats_transmitter(tx_stats)
+        .reporter_transmitter(tx_term)
         .scanned_urls(&SCANS)
-        .stats(stats.clone())
+        .stats(stats)
         .build()?;
 
     let resp = extractor.request_robots_txt().await?;
@@ -307,11 +307,11 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
         .target(ExtractionTarget::RobotsTxt)
         .depth(4)
         .config(&config)
-        .recursion_transmitter(tx_dir.clone())
-        .stats_transmitter(tx_stats.clone())
-        .reporter_transmitter(tx_term.clone())
+        .recursion_transmitter(tx_dir)
+        .stats_transmitter(tx_stats)
+        .reporter_transmitter(tx_term)
         .scanned_urls(&SCANS)
-        .stats(stats.clone())
+        .stats(stats)
         .build()?;
 
     let resp = extractor.request_robots_txt().await?;
