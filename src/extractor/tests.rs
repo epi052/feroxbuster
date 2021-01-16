@@ -260,7 +260,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
         response: Some(&ferox_response),
         url: String::new(),
-        config: &config,
+        config: &CONFIG,
         tx_stats,
         tx_recursion: tx_dir,
         tx_reporter: tx_term,

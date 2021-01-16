@@ -1,6 +1,6 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
-    extractor::{ExtractionTarget, ExtractorBuilder},
+    extractor::ExtractorBuilder,
     filters::{
         LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
         WordsFilter,
