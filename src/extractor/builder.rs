@@ -4,12 +4,12 @@ use anyhow::{bail, Result};
 /// Regular expression used in [LinkFinder](https://github.com/GerbenJavado/LinkFinder)
 ///
 /// Incorporates change from this [Pull Request](https://github.com/GerbenJavado/LinkFinder/pull/66/files)
-const LINKFINDER_REGEX: &str = r#"(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-.]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')"#;
+pub(super) const LINKFINDER_REGEX: &str = r#"(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-.]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')"#;
 
 /// Regular expression to pull url paths from robots.txt
 ///
 /// ref: https://developers.google.com/search/reference/robots_txt
-const ROBOTS_TXT_REGEX: &str =
+pub(super) const ROBOTS_TXT_REGEX: &str =
     r#"(?m)^ *(Allow|Disallow): *(?P<url_path>[a-zA-Z0-9._/?#@!&'()+,;%=-]+?)$"#; // multi-line (?m)
 
 /// Which type of extraction should be performed
@@ -52,7 +52,7 @@ pub struct ExtractorBuilder<'a> {
     stats: Option<Arc<Stats>>,
 
     /// type of extraction to be performed
-    target: Option<ExtractionTarget>,
+    target: ExtractionTarget,
 }
 
 /// ExtractorBuilder implementation
@@ -71,7 +71,7 @@ impl<'a> ExtractorBuilder<'a> {
             scanned_urls: None,
             depth: None,
             stats: None,
-            target: None,
+            target: ExtractionTarget::ResponseBody,
         }
     }
 
@@ -89,7 +89,7 @@ impl<'a> ExtractorBuilder<'a> {
             scanned_urls: None,
             depth: None,
             stats: None,
-            target: None,
+            target: ExtractionTarget::RobotsTxt,
         }
     }
 
@@ -138,12 +138,6 @@ impl<'a> ExtractorBuilder<'a> {
         self
     }
 
-    /// builder call to set `target`
-    pub fn target(&mut self, target: ExtractionTarget) -> &mut Self {
-        self.target = Some(target);
-        self
-    }
-
     pub fn build(&self) -> Result<Extractor<'a>> {
         if self.url.is_empty() && self.response.is_none() {
             bail!("Extractor requires either a URL or a FeroxResponse be specified")
@@ -165,7 +159,7 @@ impl<'a> ExtractorBuilder<'a> {
             scanned_urls: self.scanned_urls.unwrap(),
             depth: self.depth.unwrap(),
             stats: self.stats.as_ref().unwrap().clone(),
-            target: self.target.unwrap(),
+            target: self.target,
         })
     }
 }

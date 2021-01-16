@@ -1,3 +1,4 @@
+use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX};
 use super::*;
 use crate::utils::make_request;
 use crate::FeroxChannel;
@@ -52,7 +53,6 @@ fn setup_extractor(target: ExtractionTarget) -> Extractor<'static> {
     };
 
     builder
-        .target(target)
         .depth(4)
         .config(&CONFIG)
         .recursion_transmitter(tx_dir)
@@ -147,7 +147,6 @@ fn extractor_builder_bails_when_neither_required_field_is_set() {
     let stats = Arc::new(Stats::new());
 
     let extractor = ExtractorBuilder::with_url("")
-        .target(ExtractionTarget::ResponseBody)
         .depth(4)
         .config(&CONFIG)
         .recursion_transmitter(tx_dir)
@@ -172,7 +171,6 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
     let stats = Arc::new(Stats::new());
 
     let extractor = ExtractorBuilder::with_url("\\\\\\")
-        .target(ExtractionTarget::RobotsTxt)
         .depth(4)
         .config(&CONFIG)
         .recursion_transmitter(tx_dir)
@@ -257,16 +255,20 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
 
     let ferox_response = FeroxResponse::from(response, true).await;
 
-    let extractor = ExtractorBuilder::with_response(&ferox_response)
-        .target(ExtractionTarget::ResponseBody)
-        .depth(4)
-        .config(&CONFIG)
-        .recursion_transmitter(tx_dir)
-        .stats_transmitter(tx_stats)
-        .reporter_transmitter(tx_term)
-        .scanned_urls(&SCANS)
-        .stats(stats)
-        .build()?;
+    let extractor = Extractor {
+        links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
+        robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
+        response: Some(&ferox_response),
+        url: String::new(),
+        config: &config,
+        tx_stats,
+        tx_recursion: tx_dir,
+        tx_reporter: tx_term,
+        scanned_urls: &SCANS,
+        depth: 4,
+        stats,
+        target: ExtractionTarget::ResponseBody,
+    };
 
     let links = extractor.extract_from_body().await?;
 
@@ -292,16 +294,20 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
         then.status(200).body("this is a test");
     });
 
-    let extractor = ExtractorBuilder::with_url(&srv.url("/api/users/stuff/things"))
-        .target(ExtractionTarget::RobotsTxt)
-        .depth(4)
-        .config(&config)
-        .recursion_transmitter(tx_dir)
-        .stats_transmitter(tx_stats)
-        .reporter_transmitter(tx_term)
-        .scanned_urls(&SCANS)
-        .stats(stats)
-        .build()?;
+    let extractor = Extractor {
+        links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
+        robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
+        response: None,
+        url: srv.url("/api/users/stuff/things"),
+        config: &config,
+        tx_stats,
+        tx_recursion: tx_dir,
+        tx_reporter: tx_term,
+        scanned_urls: &SCANS,
+        depth: 4,
+        stats,
+        target: ExtractionTarget::RobotsTxt,
+    };
 
     let resp = extractor.request_robots_txt().await?;
 
@@ -334,7 +340,6 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
     config.no_recursion = true;
 
     let extractor = ExtractorBuilder::with_url(&srv.url("/api/different/path"))
-        .target(ExtractionTarget::RobotsTxt)
         .depth(4)
         .config(&config)
         .recursion_transmitter(tx_dir)

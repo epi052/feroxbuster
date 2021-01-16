@@ -436,7 +436,6 @@ async fn make_requests(
 
             if CONFIGURATION.extract_links && !ferox_response.status().is_redirection() {
                 let extractor = ExtractorBuilder::with_response(&ferox_response)
-                    .target(ExtractionTarget::ResponseBody)
                     .depth(base_depth)
                     .config(&CONFIGURATION)
                     .recursion_transmitter(dir_chan.clone())
@@ -508,7 +507,6 @@ pub async fn scan_url(
             // to try_recursion
 
             let extractor = ExtractorBuilder::with_url(target_url)
-                .target(ExtractionTarget::RobotsTxt)
                 .depth(base_depth)
                 .config(&CONFIGURATION)
                 .recursion_transmitter(tx_dir.clone())
