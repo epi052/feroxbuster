@@ -137,6 +137,7 @@ fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
         assert_eq!(b_paths.contains(&expected_path.to_string()), true);
     }
 }
+
 #[test]
 /// test that an ExtractorBuilder without a FeroxResponse and without a URL bails
 fn extractor_builder_bails_when_neither_required_field_is_set() {
@@ -157,6 +158,34 @@ fn extractor_builder_bails_when_neither_required_field_is_set() {
         .build();
 
     assert!(extractor.is_err());
+}
+
+#[test]
+/// Extractor with a non-base url bails
+fn extractor_with_non_base_url_bails() -> Result<()> {
+    let mut links = HashSet::<String>::new();
+    let link = "admin";
+
+    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_stats, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let stats = Arc::new(Stats::new());
+
+    let extractor = ExtractorBuilder::with_url("\\\\\\")
+        .target(ExtractionTarget::RobotsTxt)
+        .depth(4)
+        .config(&CONFIG)
+        .recursion_transmitter(tx_dir)
+        .stats_transmitter(tx_stats)
+        .reporter_transmitter(tx_term)
+        .scanned_urls(&SCANS)
+        .stats(stats)
+        .build()?;
+
+    let result = extractor.add_link_to_set_of_links(link, &mut links);
+
+    assert!(result.is_err());
+    Ok(())
 }
 
 #[test]
@@ -302,6 +331,7 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
     // note: the proxy doesn't actually do anything other than hit a different code branch
     // in this unit test; it would however have an effect on an integration test
     config.proxy = srv.url("/ima-proxy");
+    config.no_recursion = true;
 
     let extractor = ExtractorBuilder::with_url(&srv.url("/api/different/path"))
         .target(ExtractionTarget::RobotsTxt)
