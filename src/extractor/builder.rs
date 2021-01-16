@@ -138,6 +138,9 @@ impl<'a> ExtractorBuilder<'a> {
         self
     }
 
+    /// finalize configuration of ExtratorBuilder and return an Extractor
+    ///
+    /// requires either with_url or with_response to have been used in the build process
     pub fn build(&self) -> Result<Extractor<'a>> {
         if self.url.is_empty() && self.response.is_none() {
             bail!("Extractor requires either a URL or a FeroxResponse be specified")
