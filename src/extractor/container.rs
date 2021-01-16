@@ -80,7 +80,7 @@ impl<'a> Extractor<'a> {
 
         for link in links {
             // todo rename get_feroxresponse_from_link
-            let mut resp = match self.get_feroxresponse_from_link(&link).await {
+            let mut resp = match self.request_link(&link).await {
                 Ok(resp) => resp,
                 Err(_) => continue,
             };
@@ -286,7 +286,7 @@ impl<'a> Extractor<'a> {
     ///   - create a new Url object based on cli options/args
     ///   - check if the new Url has already been seen/scanned -> None
     ///   - make a request to the new Url ? -> Some(response) : None
-    pub(super) async fn get_feroxresponse_from_link(&self, url: &str) -> Result<FeroxResponse> {
+    pub(super) async fn request_link(&self, url: &str) -> Result<FeroxResponse> {
         log::trace!("enter: get_feroxresponse_from_link({})", url);
 
         // create a url based on the given command line options, return None on error

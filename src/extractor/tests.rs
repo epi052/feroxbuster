@@ -27,6 +27,7 @@ lazy_static! {
     static ref RESPONSE: FeroxResponse = get_test_response();
 }
 
+/// constructor for the default FeroxResponse used during testing
 fn get_test_response() -> FeroxResponse {
     FeroxResponse {
         text: String::new(),
@@ -367,12 +368,8 @@ async fn get_feroxresponse_from_link_happy_path() -> Result<()> {
         then.status(200).body("this is a test");
     });
 
-    let r_resp = ROBOTS_EXT
-        .get_feroxresponse_from_link(&srv.url("/login.php"))
-        .await?;
-    let b_resp = BODY_EXT
-        .get_feroxresponse_from_link(&srv.url("/login.php"))
-        .await?;
+    let r_resp = ROBOTS_EXT.request_link(&srv.url("/login.php")).await?;
+    let b_resp = BODY_EXT.request_link(&srv.url("/login.php")).await?;
 
     assert!(matches!(r_resp.status(), &StatusCode::OK));
     assert!(matches!(b_resp.status(), &StatusCode::OK));
@@ -397,8 +394,8 @@ async fn get_feroxresponse_from_link_bails_on_seen_url() -> Result<()> {
 
     SCANS.add_file_scan(&served, ROBOTS_EXT.stats.clone());
 
-    let r_resp = ROBOTS_EXT.get_feroxresponse_from_link(&served).await;
-    let b_resp = BODY_EXT.get_feroxresponse_from_link(&served).await;
+    let r_resp = ROBOTS_EXT.request_link(&served).await;
+    let b_resp = BODY_EXT.request_link(&served).await;
 
     assert!(r_resp.is_err());
     assert!(b_resp.is_err());
