@@ -5,7 +5,7 @@ use crate::{
         StatCommand::{self, AddError, AddStatus},
         StatError::{Connection, Other, Redirection, Request, Timeout, UrlFormat},
     },
-    FeroxError, FeroxResult,
+    FeroxError,
 };
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
@@ -184,7 +184,7 @@ pub fn format_url(
     queries: &[(String, String)],
     extension: Option<&str>,
     tx_stats: UnboundedSender<StatCommand>,
-) -> FeroxResult<Url> {
+) -> Result<Url> {
     log::trace!(
         "enter: format_url({}, {}, {}, {:?} {:?}, {:?})",
         url,
@@ -214,7 +214,7 @@ pub fn format_url(
         update_stat!(tx_stats, AddError(UrlFormat));
 
         log::trace!("exit: format_url -> {}", err);
-        return Err(Box::new(err));
+        bail!("{}", err);
     }
 
     // from reqwest::Url::join
@@ -284,7 +284,7 @@ pub fn format_url(
             update_stat!(tx_stats, AddError(UrlFormat));
             log::trace!("exit: format_url -> {}", e);
             log::error!("Could not join {} with {}", word, base_url);
-            Err(Box::new(e))
+            bail!("{}", e)
         }
     }
 }

@@ -5,9 +5,11 @@ use crate::{
         StatCommand::{self, UpdateUsizeField},
         StatField::ResourcesDiscovered,
     },
+    update_stat,
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
+
 use console::strip_ansi_codes;
 use std::{
     fs, io,

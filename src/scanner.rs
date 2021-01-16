@@ -1,6 +1,6 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
-    extractor::{extract_robots_txt, get_links, request_feroxresponse_from_new_link},
+    extractor::{ExtractionTarget, ExtractorBuilder},
     filters::{
         LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
         WordsFilter,
@@ -13,6 +13,7 @@ use crate::{
         Stats,
     },
     traits::FeroxFilter,
+    update_stat,
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
@@ -307,11 +308,12 @@ fn reached_max_depth(url: &Url, base_depth: usize, max_depth: usize) -> bool {
 /// Helper function that wraps logic to check for recursion opportunities
 ///
 /// When a recursion opportunity is found, the new url is sent across the recursion channel
-async fn try_recursion(
+pub async fn try_recursion(
     response: &FeroxResponse,
     base_depth: usize,
     transmitter: UnboundedSender<String>,
 ) {
+    // todo this should be part of the recursion handler
     log::trace!(
         "enter: try_recursion({}, {}, {:?})",
         response,
@@ -433,56 +435,19 @@ async fn make_requests(
             }
 
             if CONFIGURATION.extract_links && !ferox_response.status().is_redirection() {
-                let new_links = get_links(&ferox_response, tx_stats.clone()).await;
+                let extractor = ExtractorBuilder::with_response(&ferox_response)
+                    .target(ExtractionTarget::ResponseBody)
+                    .depth(base_depth)
+                    .config(&CONFIGURATION)
+                    .recursion_transmitter(dir_chan.clone())
+                    .stats_transmitter(tx_stats.clone())
+                    .reporter_transmitter(report_chan.clone())
+                    .scanned_urls(&SCANNED_URLS)
+                    .stats(stats.clone())
+                    .build()
+                    .unwrap(); // todo change once this function returns Result
 
-                for new_link in new_links {
-                    let mut new_ferox_response = match request_feroxresponse_from_new_link(
-                        &new_link,
-                        tx_stats.clone(),
-                    )
-                    .await
-                    {
-                        Some(resp) => resp,
-                        None => continue,
-                    };
-
-                    // filter if necessary
-                    if should_filter_response(&new_ferox_response, tx_stats.clone()) {
-                        continue;
-                    }
-
-                    if new_ferox_response.is_file() {
-                        // very likely a file, simply request and report
-                        log::debug!("Singular extraction: {}", new_ferox_response);
-
-                        SCANNED_URLS
-                            .add_file_scan(&new_ferox_response.url().to_string(), stats.clone());
-
-                        send_report(report_chan.clone(), new_ferox_response);
-
-                        continue;
-                    }
-
-                    if !CONFIGURATION.no_recursion {
-                        log::debug!("Recursive extraction: {}", new_ferox_response);
-
-                        if !new_ferox_response.url().as_str().ends_with('/')
-                            && (new_ferox_response.status().is_success()
-                                || matches!(new_ferox_response.status(), &StatusCode::FORBIDDEN))
-                        {
-                            // if the url doesn't end with a /
-                            // and the response code is either a 2xx or 403
-
-                            // since all of these are 2xx or 403, recursion is only attempted if the
-                            // url ends in a /. I am actually ok with adding the slash and not
-                            // adding it, as both have merit.  Leaving it in for now to see how
-                            // things turn out (current as of: v1.1.0)
-                            new_ferox_response.set_url(&format!("{}/", new_ferox_response.url()));
-                        }
-
-                        try_recursion(&new_ferox_response, base_depth, dir_chan.clone()).await;
-                    }
-                }
+                let _ = extractor.extract().await;
             }
 
             // everything else should be reported
@@ -504,61 +469,6 @@ pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: Fero
     }
 
     log::trace!("exit: send_report");
-}
-
-/// Request /robots.txt from given url
-async fn scan_robots_txt(
-    target_url: &str,
-    base_depth: usize,
-    stats: Arc<Stats>,
-    tx_term: UnboundedSender<FeroxResponse>,
-    tx_dir: UnboundedSender<String>,
-    tx_stats: UnboundedSender<StatCommand>,
-) {
-    log::trace!(
-        "enter: scan_robots_txt({}, {}, {:?}, {:?}, {:?}, {:?})",
-        target_url,
-        base_depth,
-        stats,
-        tx_term,
-        tx_dir,
-        tx_stats
-    );
-
-    let robots_links = extract_robots_txt(&target_url, &CONFIGURATION, tx_stats.clone()).await;
-
-    for robot_link in robots_links {
-        // create a url based on the given command line options, continue on error
-        let mut ferox_response =
-            match request_feroxresponse_from_new_link(&robot_link, tx_stats.clone()).await {
-                Some(resp) => resp,
-                None => continue,
-            };
-
-        if should_filter_response(&ferox_response, tx_stats.clone()) {
-            continue;
-        }
-
-        if ferox_response.is_file() {
-            log::debug!("File extracted from robots.txt: {}", ferox_response);
-            SCANNED_URLS.add_file_scan(&robot_link, stats.clone());
-            send_report(tx_term.clone(), ferox_response);
-        } else if !CONFIGURATION.no_recursion {
-            log::debug!("Directory extracted from robots.txt: {}", ferox_response);
-            // todo this code is essentially the same as another piece around ~467 of this file
-            if !ferox_response.url().as_str().ends_with('/')
-                && (ferox_response.status().is_success()
-                    || matches!(ferox_response.status(), &StatusCode::FORBIDDEN))
-            {
-                // if the url doesn't end with a /
-                // and the response code is either a 2xx or 403
-                ferox_response.set_url(&format!("{}/", ferox_response.url()));
-            }
-
-            try_recursion(&ferox_response, base_depth, tx_dir.clone()).await;
-        }
-    }
-    log::trace!("exit: scan_robots_txt");
 }
 
 /// Scan a given url using a given wordlist
@@ -596,15 +506,20 @@ pub async fn scan_url(
         if CONFIGURATION.extract_links {
             // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
             // to try_recursion
-            scan_robots_txt(
-                target_url,
-                base_depth,
-                stats.clone(),
-                tx_term.clone(),
-                tx_dir.clone(),
-                tx_stats.clone(),
-            )
-            .await;
+
+            let extractor = ExtractorBuilder::with_url(target_url)
+                .target(ExtractionTarget::RobotsTxt)
+                .depth(base_depth)
+                .config(&CONFIGURATION)
+                .recursion_transmitter(tx_dir.clone())
+                .stats_transmitter(tx_stats.clone())
+                .reporter_transmitter(tx_term.clone())
+                .scanned_urls(&SCANNED_URLS)
+                .stats(stats.clone())
+                .build()
+                .unwrap(); // todo change once this function returns Result
+
+            let _ = extractor.extract().await;
         }
 
         update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));

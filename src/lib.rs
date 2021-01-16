@@ -1,19 +1,19 @@
-pub mod utils;
-pub mod client;
+pub mod banner;
 pub mod config;
-pub mod extractor;
-pub mod filters;
+mod client;
+mod event_handlers;
+mod filters;
 pub mod heuristics;
 pub mod logger;
-pub mod parser;
+mod parser;
 pub mod progress;
 pub mod reporter;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
-mod event_handlers;
-pub mod banner;
 mod traits;
+pub mod utils;
+mod extractor;
 
 use crate::{
     traits::FeroxSerialize,
