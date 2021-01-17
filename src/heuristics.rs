@@ -1,8 +1,8 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
+    event_handlers::Command,
     filters::WildcardFilter,
     scanner::should_filter_response,
-    statistics::StatCommand,
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     FeroxResponse,
 };
@@ -41,7 +41,7 @@ pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
     tx_term: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> Option<WildcardFilter> {
     log::trace!(
         "enter: wildcard_test({:?}, {:?}, {:?}, {:?})",
@@ -147,7 +147,7 @@ async fn make_wildcard_request(
     target_url: &str,
     length: usize,
     tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> Option<FeroxResponse> {
     log::trace!(
         "enter: make_wildcard_request({}, {}, {:?}, {:?})",
@@ -220,7 +220,7 @@ async fn make_wildcard_request(
 /// Any urls that are found to be alive are returned to the caller.
 pub async fn connectivity_test(
     target_urls: &[String],
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> Vec<String> {
     log::trace!(
         "enter: connectivity_test({:?}, {:?})",

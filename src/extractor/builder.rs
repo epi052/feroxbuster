@@ -34,7 +34,7 @@ pub struct ExtractorBuilder<'a> {
     config: Option<&'a Configuration>,
 
     /// transmitter to the mpsc that handles statistics gathering
-    tx_stats: Option<UnboundedSender<StatCommand>>,
+    tx_stats: Option<UnboundedSender<Command>>,
 
     /// transmitter to the mpsc that handles recursive scan calls
     tx_recursion: Option<UnboundedSender<String>>,
@@ -106,7 +106,7 @@ impl<'a> ExtractorBuilder<'a> {
     }
 
     /// builder call to set `tx_stats`
-    pub fn stats_transmitter(&mut self, tx_stats: UnboundedSender<StatCommand>) -> &mut Self {
+    pub fn stats_transmitter(&mut self, tx_stats: UnboundedSender<Command>) -> &mut Self {
         self.tx_stats = Some(tx_stats);
         self
     }

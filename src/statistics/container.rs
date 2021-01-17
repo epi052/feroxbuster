@@ -414,9 +414,9 @@ mod tests {
     async fn statistics_handler_increments_requests() {
         let (stats, tx, handle) = setup_stats_test();
 
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
+        tx.send(Command::AddRequest).unwrap_or_default();
+        tx.send(Command::AddRequest).unwrap_or_default();
+        tx.send(Command::AddRequest).unwrap_or_default();
 
         teardown_stats_test(tx, handle).await;
 
@@ -433,8 +433,8 @@ mod tests {
     async fn statistics_handler_increments_403() {
         let (stats, tx, handle) = setup_stats_test();
 
-        let err = StatCommand::AddError(StatError::Status403);
-        let err2 = StatCommand::AddError(StatError::Status403);
+        let err = Command::AddError(StatError::Status403);
+        let err2 = Command::AddError(StatError::Status403);
 
         tx.send(err).unwrap_or_default();
         tx.send(err2).unwrap_or_default();
@@ -456,8 +456,8 @@ mod tests {
     async fn statistics_handler_increments_403_via_status_code() {
         let (stats, tx, handle) = setup_stats_test();
 
-        let err = StatCommand::AddStatus(reqwest::StatusCode::FORBIDDEN);
-        let err2 = StatCommand::AddStatus(reqwest::StatusCode::FORBIDDEN);
+        let err = Command::AddStatus(reqwest::StatusCode::FORBIDDEN);
+        let err2 = Command::AddStatus(reqwest::StatusCode::FORBIDDEN);
 
         tx.send(err).unwrap_or_default();
         tx.send(err2).unwrap_or_default();
@@ -477,8 +477,8 @@ mod tests {
     async fn statistics_handler_increments_500_via_status_code() {
         let (stats, tx, handle) = setup_stats_test();
 
-        let err = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
-        let err2 = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err = Command::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err2 = Command::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
 
         tx.send(err).unwrap_or_default();
         tx.send(err2).unwrap_or_default();

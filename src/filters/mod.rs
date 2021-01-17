@@ -6,9 +6,11 @@ mod lines;
 mod size;
 mod regex;
 mod similarity;
+mod container;
 #[cfg(test)]
 mod tests;
 
+pub use self::container::FeroxFilters;
 pub use self::lines::LinesFilter;
 pub use self::regex::RegexFilter;
 pub use self::similarity::SimilarityFilter;

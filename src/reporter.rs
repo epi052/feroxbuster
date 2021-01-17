@@ -1,15 +1,13 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
+    event_handlers::Command::{self, UpdateUsizeField},
     scanner::RESPONSES,
-    statistics::{
-        StatCommand::{self, UpdateUsizeField},
-        StatField::ResourcesDiscovered,
-    },
-    update_stat,
+    send_command,
+    statistics::StatField::ResourcesDiscovered,
     utils::{ferox_print, make_request, open_file},
     FeroxChannel, FeroxResponse, FeroxSerialize,
 };
-
+use anyhow::Result;
 use console::strip_ansi_codes;
 use std::{
     fs, io,
@@ -52,12 +50,12 @@ pub fn get_cached_file_handle(filename: &str) -> Option<Arc<RwLock<io::BufWriter
 pub fn initialize(
     output_file: &str,
     save_output: bool,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> (
     UnboundedSender<FeroxResponse>,
     UnboundedSender<FeroxResponse>,
-    JoinHandle<()>,
-    Option<JoinHandle<()>>,
+    JoinHandle<Result<()>>,
+    Option<JoinHandle<Result<()>>>,
 ) {
     log::trace!(
         "enter: initialize({}, {}, {:?})",
@@ -103,9 +101,9 @@ pub fn initialize(
 async fn spawn_terminal_reporter(
     mut resp_chan: UnboundedReceiver<FeroxResponse>,
     file_chan: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
     save_output: bool,
-) {
+) -> Result<()> {
     log::trace!(
         "enter: spawn_terminal_reporter({:?}, {:?}, {:?}, {})",
         resp_chan,
@@ -125,7 +123,7 @@ async fn spawn_terminal_reporter(
             // print to stdout
             ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
 
-            update_stat!(tx_stats, UpdateUsizeField(ResourcesDiscovered, 1));
+            send_command!(tx_stats, UpdateUsizeField(ResourcesDiscovered, 1));
 
             if save_output {
                 // -o used, need to send the report to be written out to disk
@@ -171,6 +169,7 @@ async fn spawn_terminal_reporter(
         }
     }
     log::trace!("exit: spawn_terminal_reporter");
+    Ok(())
 }
 
 /// Spawn a single consumer task (sc side of mpsc)
@@ -179,14 +178,14 @@ async fn spawn_terminal_reporter(
 /// the given reporting criteria
 async fn spawn_file_reporter(
     mut report_channel: UnboundedReceiver<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
     output_file: &str,
-) {
+) -> Result<()> {
     let buffered_file = match get_cached_file_handle(&CONFIGURATION.output) {
         Some(file) => file,
         None => {
             log::trace!("exit: spawn_file_reporter");
-            return;
+            return Ok(());
         }
     };
 
@@ -202,9 +201,10 @@ async fn spawn_file_reporter(
         safe_file_write(&response, buffered_file.clone(), CONFIGURATION.json);
     }
 
-    update_stat!(tx_stats, StatCommand::Save);
+    send_command!(tx_stats, Command::Save);
 
     log::trace!("exit: spawn_file_reporter");
+    Ok(())
 }
 
 /// Given a string and a reference to a locked buffered file, write the contents and flush

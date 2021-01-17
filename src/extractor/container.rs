@@ -1,12 +1,10 @@
 use super::*;
 use crate::{
     client,
+    event_handlers::Command::UpdateUsizeField,
     scanner::{send_report, should_filter_response, try_recursion},
-    statistics::{
-        StatCommand::UpdateUsizeField,
-        StatField::{LinksExtracted, TotalExpected},
-    },
-    update_stat,
+    send_command,
+    statistics::StatField::{LinksExtracted, TotalExpected},
     utils::{format_url, make_request},
 };
 use anyhow::{bail, Context, Result};
@@ -42,7 +40,7 @@ pub struct Extractor<'a> {
     pub(super) config: &'a Configuration,
 
     /// transmitter to the mpsc that handles statistics gathering
-    pub(super) tx_stats: UnboundedSender<StatCommand>,
+    pub(super) tx_stats: UnboundedSender<Command>,
 
     /// transmitter to the mpsc that handles recursive scan calls
     pub(super) tx_recursion: UnboundedSender<String>,
@@ -399,8 +397,8 @@ impl<'a> Extractor<'a> {
     fn update_stats(&self, num_links: usize) {
         let multiplier = self.config.extensions.len().max(1);
 
-        update_stat!(self.tx_stats, UpdateUsizeField(LinksExtracted, num_links));
-        update_stat!(
+        send_command!(self.tx_stats, UpdateUsizeField(LinksExtracted, num_links));
+        send_command!(
             self.tx_stats,
             UpdateUsizeField(TotalExpected, num_links * multiplier)
         );

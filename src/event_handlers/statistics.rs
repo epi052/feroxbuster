@@ -1,13 +1,16 @@
+use super::*;
 use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
-    statistics::{StatCommand, StatField, Stats},
+    statistics::{StatField, Stats},
+    FeroxChannel,
 };
 use anyhow::Result;
 use console::style;
 use indicatif::ProgressBar;
 use std::{sync::Arc, time::Instant};
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::{self, UnboundedReceiver};
+use tokio::task::JoinHandle;
 
 /// event handler struct for updating statistics
 #[derive(Debug)]
@@ -16,7 +19,7 @@ pub struct StatsHandler {
     bar: ProgressBar,
 
     /// Receiver half of mpsc from which `StatCommand`s are processed
-    receiver: UnboundedReceiver<StatCommand>,
+    receiver: UnboundedReceiver<Command>,
 
     /// data class that stores all statistics updates
     stats: Arc<Stats>,
@@ -24,8 +27,8 @@ pub struct StatsHandler {
 
 /// implementation of event handler for statistics
 impl StatsHandler {
-    /// create new event handler builder
-    pub fn new(stats: Arc<Stats>, rx_stats: UnboundedReceiver<StatCommand>) -> Self {
+    /// create new event handler
+    fn new(stats: Arc<Stats>, rx_stats: UnboundedReceiver<Command>) -> Self {
         // will be updated later via StatCommand; delay is for banner to print first
         let bar = ProgressBar::hidden();
 
@@ -39,30 +42,30 @@ impl StatsHandler {
     /// Start a single consumer task (sc side of mpsc)
     ///
     /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
-    pub async fn start(&mut self) -> Result<()> {
+    async fn start(&mut self) -> Result<()> {
         log::trace!("enter: start({:?})", self);
 
         let start = Instant::now();
 
         while let Some(command) = self.receiver.recv().await {
-            match command as StatCommand {
-                StatCommand::AddError(err) => {
+            match command as Command {
+                Command::AddError(err) => {
                     self.stats.add_error(err);
                     self.increment_bar();
                 }
-                StatCommand::AddStatus(status) => {
+                Command::AddStatus(status) => {
                     self.stats.add_status_code(status);
                     self.increment_bar();
                 }
-                StatCommand::AddRequest => {
+                Command::AddRequest => {
                     self.stats.add_request();
                     self.increment_bar();
                 }
-                StatCommand::Save => {
+                Command::Save => {
                     self.stats
                         .save(start.elapsed().as_secs_f64(), &CONFIGURATION.output)?;
                 }
-                StatCommand::UpdateUsizeField(field, value) => {
+                Command::UpdateUsizeField(field, value) => {
                     let update_len = matches!(field, StatField::TotalScans);
                     self.stats.update_usize_field(field, value);
 
@@ -70,16 +73,15 @@ impl StatsHandler {
                         self.bar.set_length(self.stats.total_expected() as u64)
                     }
                 }
-                StatCommand::UpdateF64Field(field, value) => {
-                    self.stats.update_f64_field(field, value)
-                }
-                StatCommand::CreateBar => {
+                Command::UpdateF64Field(field, value) => self.stats.update_f64_field(field, value),
+                Command::CreateBar => {
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
                 }
-                StatCommand::LoadStats(filename) => {
+                Command::LoadStats(filename) => {
                     self.stats.merge_from(&filename)?;
                 }
-                StatCommand::Exit => break,
+                Command::Exit => break,
+                _ => {} // no more commands needed
             }
         }
 
@@ -102,5 +104,24 @@ impl StatsHandler {
 
         self.bar.set_message(&msg);
         self.bar.inc(1);
+    }
+
+    /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
+    /// updates to the aforementioned object.
+    pub fn initialize() -> (JoinHandle<Result<()>>, StatsHandle) {
+        log::trace!("enter: initialize");
+
+        let data = Arc::new(Stats::new());
+        let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
+
+        let mut handler = StatsHandler::new(data.clone(), rx);
+
+        let task = tokio::spawn(async move { handler.start().await });
+
+        let event_handle = StatsHandle::new(data, tx);
+
+        log::trace!("exit: initialize -> ({:?})", event_handle);
+
+        (task, event_handle)
     }
 }

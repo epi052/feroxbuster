@@ -1,9 +1,10 @@
-use super::{error::StatError, field::StatField};
+use crate::statistics::{StatError, StatField};
+use crate::traits::FeroxFilter;
 use reqwest::StatusCode;
 
-/// Protocol definition for updating a Stats object via mpsc
+/// Protocol definition for updating an event handler via mpsc
 #[derive(Debug)]
-pub enum StatCommand {
+pub enum Command {
     /// Add one to the total number of requests
     AddRequest,
 
@@ -27,6 +28,9 @@ pub enum StatCommand {
 
     /// Load a `Stats` object from disk
     LoadStats(String),
+
+    /// Add a FeroxFilter implementor to FilterHandler's instance of FeroxFilters
+    AddFilter(Box<dyn FeroxFilter>),
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,

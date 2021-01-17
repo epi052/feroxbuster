@@ -1,7 +1,7 @@
 pub mod banner;
 pub mod config;
 mod client;
-mod event_handlers;
+pub mod event_handlers;
 mod filters;
 pub mod heuristics;
 pub mod logger;
@@ -16,6 +16,7 @@ pub mod utils;
 mod extractor;
 
 use crate::{
+    event_handlers::Command,
     traits::FeroxSerialize,
     utils::{fmt_err, get_url_path_length, status_colorizer},
 };
@@ -33,6 +34,9 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 /// Generic Result type to ease error handling in async contexts
 pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
+
+/// Alias for UnboundedSender<Command>
+pub type CommandSender = UnboundedSender<Command>;
 
 /// Simple Error implementation to allow for custom error returns
 #[derive(Debug, Default)]

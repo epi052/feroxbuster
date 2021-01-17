@@ -1,5 +1,6 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
+    event_handlers::Command::{self, UpdateF64Field, UpdateUsizeField},
     extractor::ExtractorBuilder,
     filters::{
         LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
@@ -7,13 +8,12 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, ScanStatus, PAUSE_SCAN},
+    send_command,
     statistics::{
-        StatCommand::{self, UpdateF64Field, UpdateUsizeField},
         StatField::{DirScanTimes, ExpectedPerScan, TotalScans, WildcardsFiltered},
         Stats,
     },
     traits::FeroxFilter,
-    update_stat,
     utils::{format_url, get_current_depth, make_request},
     FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
@@ -112,7 +112,7 @@ fn spawn_recursion_handler(
     stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> BoxFuture<'static, Vec<Arc<JoinHandle<()>>>> {
     log::trace!(
         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
@@ -136,7 +136,7 @@ fn spawn_recursion_handler(
                 continue;
             }
 
-            update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
+            send_command!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
             log::info!("received {} on recursion channel", resp);
 
@@ -186,7 +186,7 @@ fn create_urls(
     target_url: &str,
     word: &str,
     extensions: &[String],
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> Vec<Url> {
     log::trace!(
         "enter: create_urls({}, {}, {:?}, {:?})",
@@ -364,7 +364,7 @@ pub async fn try_recursion(
 /// to the user or not.
 pub fn should_filter_response(
     response: &FeroxResponse,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) -> bool {
     match FILTERS.read() {
         Ok(filters) => {
@@ -372,7 +372,7 @@ pub fn should_filter_response(
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(&response) {
                     if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
-                        update_stat!(tx_stats, UpdateUsizeField(WildcardsFiltered, 1))
+                        send_command!(tx_stats, UpdateUsizeField(WildcardsFiltered, 1))
                     }
                     return true;
                 }
@@ -397,7 +397,7 @@ async fn make_requests(
     stats: Arc<Stats>,
     dir_chan: UnboundedSender<String>,
     report_chan: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) {
     log::trace!(
         "enter: make_requests({}, {}, {}, {:?}, {:?}, {:?}, {:?})",
@@ -480,7 +480,7 @@ pub async fn scan_url(
     stats: Arc<Stats>,
     tx_term: UnboundedSender<FeroxResponse>,
     tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) {
     log::trace!(
         "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
@@ -520,7 +520,7 @@ pub async fn scan_url(
             let _ = extractor.extract().await;
         }
 
-        update_stat!(tx_stats, UpdateUsizeField(TotalScans, 1));
+        send_command!(tx_stats, UpdateUsizeField(TotalScans, 1));
 
         // this protection allows us to add the first scanned url to SCANNED_URLS
         // from within the scan_url function instead of the recursion handler
@@ -634,7 +634,7 @@ pub async fn scan_url(
     producers.await;
     log::trace!("done awaiting scan producers");
 
-    update_stat!(
+    send_command!(
         tx_stats,
         UpdateF64Field(DirScanTimes, scan_timer.elapsed().as_secs_f64())
     );
@@ -663,7 +663,7 @@ pub async fn scan_url(
 pub async fn initialize(
     num_words: usize,
     config: &Configuration,
-    tx_stats: UnboundedSender<StatCommand>,
+    tx_stats: UnboundedSender<Command>,
 ) {
     log::trace!(
         "enter: initialize({}, {:?}, {:?})",
@@ -681,7 +681,7 @@ pub async fn initialize(
     };
 
     // tell Stats object about the number of expected requests
-    update_stat!(
+    send_command!(
         tx_stats,
         UpdateUsizeField(ExpectedPerScan, num_reqs_expected as usize)
     );
@@ -791,7 +791,7 @@ mod tests {
     #[test]
     /// sending url + word without any extensions should get back one url with the joined word
     fn create_urls_no_extension_returns_base_url_with_word() {
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
         let urls = create_urls("http://localhost", "turbo", &[], tx);
         assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
     }
@@ -799,7 +799,7 @@ mod tests {
     #[test]
     /// sending url + word + 1 extension should get back two urls, one base and one with extension
     fn create_urls_one_extension_returns_two_urls() {
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
         let urls = create_urls("http://localhost", "turbo", &[String::from("js")], tx);
         assert_eq!(
             urls,
@@ -838,7 +838,7 @@ mod tests {
             vec![base, js, php, pdf, tar],
         ];
 
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
         for (i, ext_set) in ext_vec.into_iter().enumerate() {
             let urls = create_urls("http://localhost", "turbo", &ext_set, tx.clone());
@@ -894,7 +894,7 @@ mod tests {
             filter_regex: vec![r"(".to_string()],
             ..Default::default()
         };
-        let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
         initialize(1, &config, tx).await;
     }
 }
