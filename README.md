@@ -826,7 +826,6 @@ few of the use-cases in which feroxbuster may be a better fit:
 |                                                          | feroxbuster | gobuster | ffuf |
 |------------------------------------------------------------------------------|---|---|---|
 | fast                                                                         | ✔ | ✔ | ✔ |
-| easy to use                                                                  | ✔ | ✔ |   |
 | allows recursion                                                             | ✔ |   | ✔ |
 | can specify query parameters                                                 | ✔ |   | ✔ |
 | SOCKS proxy support                                                          | ✔ |   |   |
