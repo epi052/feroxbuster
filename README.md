@@ -322,7 +322,7 @@ built-in defaults.
 `feroxbuster` searches for `ferox-config.toml` in the following locations (in the order shown):
 
 - `/etc/feroxbuster/` (global)
-- `CONFIG_DIR/ferxobuster/` (per-user)
+- `CONFIG_DIR/feroxbuster/` (per-user)
 - The same directory as the `feroxbuster` executable (per-user)
 - The user's current working directory (per-target)
 
