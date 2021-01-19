@@ -1,5 +1,8 @@
-use crate::statistics::{StatError, StatField};
-use crate::traits::FeroxFilter;
+use crate::{
+    statistics::{StatError, StatField},
+    traits::FeroxFilter,
+    FeroxResponse,
+};
 use reqwest::StatusCode;
 
 /// Protocol definition for updating an event handler via mpsc
@@ -31,6 +34,9 @@ pub enum Command {
 
     /// Add a FeroxFilter implementor to FilterHandler's instance of FeroxFilters
     AddFilter(Box<dyn FeroxFilter>),
+
+    /// Send a FeroxResponse to the output handler for reporting
+    Report(Box<FeroxResponse>),
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,

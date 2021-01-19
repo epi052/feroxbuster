@@ -1,4 +1,5 @@
 use super::*;
+use crate::CommandSender;
 use anyhow::{bail, Result};
 
 /// Regular expression used in [LinkFinder](https://github.com/GerbenJavado/LinkFinder)
@@ -34,13 +35,13 @@ pub struct ExtractorBuilder<'a> {
     config: Option<&'a Configuration>,
 
     /// transmitter to the mpsc that handles statistics gathering
-    tx_stats: Option<UnboundedSender<Command>>,
+    tx_stats: Option<CommandSender>,
 
     /// transmitter to the mpsc that handles recursive scan calls
     tx_recursion: Option<UnboundedSender<String>>,
 
     /// transmitter to the mpsc that handles reporting information to the user
-    tx_reporter: Option<UnboundedSender<FeroxResponse>>,
+    tx_reporter: Option<CommandSender>,
 
     /// list of urls that will be added to when new urls are extracted
     scanned_urls: Option<&'a FeroxScans>,
@@ -106,16 +107,13 @@ impl<'a> ExtractorBuilder<'a> {
     }
 
     /// builder call to set `tx_stats`
-    pub fn stats_transmitter(&mut self, tx_stats: UnboundedSender<Command>) -> &mut Self {
+    pub fn stats_transmitter(&mut self, tx_stats: CommandSender) -> &mut Self {
         self.tx_stats = Some(tx_stats);
         self
     }
 
     /// builder call to set `tx_reporter`
-    pub fn reporter_transmitter(
-        &mut self,
-        tx_reporter: UnboundedSender<FeroxResponse>,
-    ) -> &mut Self {
+    pub fn reporter_transmitter(&mut self, tx_reporter: CommandSender) -> &mut Self {
         self.tx_reporter = Some(tx_reporter);
         self
     }

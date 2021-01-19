@@ -4,7 +4,7 @@ use crate::{
     filters::WildcardFilter,
     scanner::should_filter_response,
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
-    FeroxResponse,
+    CommandSender, FeroxResponse,
 };
 use console::style;
 use indicatif::ProgressBar;
@@ -40,8 +40,8 @@ fn unique_string(length: usize) -> String {
 pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
-    tx_term: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<Command>,
+    tx_term: CommandSender,
+    tx_stats: CommandSender,
 ) -> Option<WildcardFilter> {
     log::trace!(
         "enter: wildcard_test({:?}, {:?}, {:?}, {:?})",
@@ -146,14 +146,14 @@ pub async fn wildcard_test(
 async fn make_wildcard_request(
     target_url: &str,
     length: usize,
-    tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<Command>,
+    tx_term: CommandSender,
+    tx_stats: CommandSender,
 ) -> Option<FeroxResponse> {
     log::trace!(
         "enter: make_wildcard_request({}, {}, {:?}, {:?})",
         target_url,
         length,
-        tx_file,
+        tx_term,
         tx_stats,
     );
 
@@ -193,8 +193,14 @@ async fn make_wildcard_request(
 
                 if !CONFIGURATION.quiet
                     && !should_filter_response(&ferox_response, tx_stats.clone())
-                    && tx_file.send(ferox_response.clone()).is_err()
+                    && tx_term
+                        .send(Command::Report(Box::new(ferox_response.clone())))
+                        .is_err()
                 {
+                    // todo pretty sure this can be simplified quite a bit
+                    // not quiet and shouldn't filter out the response
+                    // send it to terminal for reporting; if that fails, return none, else fall
+                    // through to Some
                     return None;
                 }
 

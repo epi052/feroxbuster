@@ -1,22 +1,3 @@
-use crate::utils::fmt_err;
-use crate::{
-    config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
-    parser::TIMESPEC_REGEX,
-    progress::{add_bar, BarType},
-    reporter::safe_file_write,
-    scanner::{RESPONSES, SCANNED_URLS},
-    statistics::Stats,
-    utils::open_file,
-    FeroxResponse, FeroxSerialize, SLEEP_DURATION,
-};
-use anyhow::{Context, Result};
-use console::{measure_text_width, pad_str, style, Alignment, Term};
-use indicatif::{ProgressBar, ProgressDrawTarget};
-use serde::{
-    ser::{SerializeSeq, SerializeStruct},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
-use serde_json::Value;
 use std::{
     cmp::PartialEq,
     collections::HashMap,
@@ -29,9 +10,30 @@ use std::{
     thread::sleep,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use anyhow::{Context, Result};
+use console::{measure_text_width, pad_str, style, Alignment, Term};
+use indicatif::{ProgressBar, ProgressDrawTarget};
+use serde::{
+    ser::{SerializeSeq, SerializeStruct},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+use serde_json::Value;
 use tokio::time::Duration;
 use tokio::{task::JoinHandle, time};
 use uuid::Uuid;
+
+use crate::utils::fmt_err;
+use crate::utils::write_to;
+use crate::{
+    config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
+    parser::TIMESPEC_REGEX,
+    progress::{add_bar, BarType},
+    scanner::{RESPONSES, SCANNED_URLS},
+    statistics::Stats,
+    utils::open_file,
+    FeroxResponse, FeroxSerialize, SLEEP_DURATION,
+};
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
 /// when pausing a scan
@@ -826,7 +828,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
         #[cfg(test)]
         panic!(stats);
         #[cfg(not(test))]
-        sigint_handler(stats);
+        let _ = sigint_handler(stats);
     }
 
     log::error!(
@@ -836,13 +838,10 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
 }
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler(stats: Arc<Stats>) {
+fn sigint_handler(stats: Arc<Stats>) -> Result<()> {
     log::trace!("enter: sigint_handler({:?})", stats);
 
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
     let slug = if !CONFIGURATION.target_url.is_empty() {
         // target url populated
@@ -874,9 +873,8 @@ fn sigint_handler(stats: Arc<Stats>) {
 
     let state_file = open_file(&filename);
 
-    if let Some(buffered_file) = state_file {
-        safe_file_write(&state, buffered_file, true);
-    }
+    let mut buffered_file = state_file?;
+    write_to(&state, &mut buffered_file, true)?;
 
     log::trace!("exit: sigint_handler (end of program)");
     std::process::exit(1);
@@ -887,7 +885,7 @@ pub fn initialize(stats: Arc<Stats>) {
     log::trace!("enter: initialize({:?})", stats);
 
     let result = ctrlc::set_handler(move || {
-        sigint_handler(stats.clone());
+        let _ = sigint_handler(stats.clone());
     });
 
     if result.is_err() {
@@ -951,9 +949,11 @@ pub fn resume_scan(filename: &str) -> Configuration {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::VERSION;
     use predicates::prelude::*;
+
+    use crate::VERSION;
+
+    use super::*;
 
     #[test]
     /// test that ScanType's default is File

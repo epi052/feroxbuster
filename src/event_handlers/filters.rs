@@ -1,16 +1,37 @@
 use super::*;
-use crate::{filters::FeroxFilters, FeroxChannel};
+use crate::{filters::FeroxFilters, CommandSender, FeroxChannel, Joiner};
 use anyhow::Result;
 use std::sync::Arc;
-use tokio::{
-    sync::mpsc::{self, UnboundedReceiver},
-    task::JoinHandle,
-};
+use tokio::sync::mpsc::{self, UnboundedReceiver};
+
+#[derive(Clone, Debug)]
+/// Container for filters transmitter and FeroxFilters object
+pub struct FiltersHandle {
+    /// FeroxFilters object used across modules to track active filters
+    pub data: Arc<FeroxFilters>,
+
+    /// transmitter used to update `data`
+    pub tx: CommandSender,
+}
+
+/// implementation of FiltersHandle
+impl FiltersHandle {
+    /// Given an Arc-wrapped FeroxFilters and CommandSender, create a new FiltersHandle
+    pub fn new(data: Arc<FeroxFilters>, tx: CommandSender) -> Self {
+        Self { data, tx }
+    }
+
+    /// Send the given Command over `tx`
+    pub fn send(&self, command: Command) -> Result<()> {
+        self.tx.send(command)?;
+        Ok(())
+    }
+}
 
 /// event handler for updating a single data structure of all active filters
 #[derive(Debug)]
 pub struct FiltersHandler {
-    /// collection of generic type `T` where `T` is some collection of data
+    /// collection of FeroxFilters
     data: Arc<FeroxFilters>,
 
     /// Receiver half of mpsc from which `Command`s are processed
@@ -18,7 +39,6 @@ pub struct FiltersHandler {
 }
 
 /// implementation of event handler for filters
-
 impl FiltersHandler {
     /// create new event handler
     pub fn new(data: Arc<FeroxFilters>, receiver: UnboundedReceiver<Command>) -> Self {
@@ -27,7 +47,7 @@ impl FiltersHandler {
 
     /// Initialize new `FeroxFilters` and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
-    pub fn initialize() -> (JoinHandle<Result<()>>, FiltersHandle) {
+    pub fn initialize() -> (Joiner, FiltersHandle) {
         log::trace!("enter: initialize");
 
         let data = Arc::new(FeroxFilters::default());
@@ -39,7 +59,7 @@ impl FiltersHandler {
 
         let event_handle = FiltersHandle::new(data, tx);
 
-        log::trace!("exit: initialize -> ({:?})", event_handle);
+        log::trace!("exit: initialize -> ({:?}, {:?})", task, event_handle);
 
         (task, event_handle)
     }

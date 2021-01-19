@@ -1,31 +1,8 @@
-use anyhow::{bail, Result};
-use crossterm::event::{self, Event, KeyCode};
-use feroxbuster::{
-    banner::{Banner, UPDATE_URL},
-    config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
-    event_handlers::{
-        Command::{self, CreateBar, Exit, LoadStats, UpdateUsizeField},
-        FiltersHandler, Handles, StatsHandler, Tasks,
-    },
-    heuristics, logger,
-    progress::{add_bar, BarType},
-    reporter,
-    scan_manager::{self, ScanStatus, PAUSE_SCAN},
-    scanner::{self, scan_url, SCANNED_URLS},
-    send_command,
-    statistics::{StatField::InitialTargets, Stats},
-    utils::{ferox_print, fmt_err, get_current_depth, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION,
-};
-#[cfg(not(target_os = "windows"))]
-use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
-use futures::StreamExt;
 use std::{
     collections::HashSet,
     convert::TryInto,
     fs::File,
     io::{stderr, BufRead, BufReader},
-    process,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -33,8 +10,31 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use tokio::{io, sync::mpsc::UnboundedSender};
+
+use anyhow::{bail, Result};
+use crossterm::event::{self, Event, KeyCode};
+use futures::StreamExt;
+use tokio::io;
 use tokio_util::codec::{FramedRead, LinesCodec};
+
+use feroxbuster::{
+    banner::{Banner, UPDATE_URL},
+    config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
+    event_handlers::{
+        Command::{CreateBar, Exit, LoadStats, UpdateUsizeField},
+        FiltersHandler, Handles, StatsHandler, Tasks, TermOutHandler,
+    },
+    heuristics, logger,
+    progress::{add_bar, BarType},
+    scan_manager::{self, ScanStatus, PAUSE_SCAN},
+    scanner::{self, scan_url, SCANNED_URLS},
+    send_command,
+    statistics::StatField::InitialTargets,
+    utils::{fmt_err, get_current_depth},
+    FeroxResult, SLEEP_DURATION,
+};
+#[cfg(not(target_os = "windows"))]
+use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 
 /// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
 pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
@@ -100,19 +100,8 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan(
-    targets: Vec<String>,
-    tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<FeroxResponse>,
-    handles: Handles,
-) -> Result<()> {
-    log::trace!(
-        "enter: scan({:?}, {:?}, {:?}, {:?})",
-        targets,
-        tx_term,
-        tx_file,
-        handles
-    );
+async fn scan(targets: Vec<String>, handles: Handles) -> Result<()> {
+    log::trace!("enter: scan({:?}, {:?})", targets, handles);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
@@ -162,8 +151,7 @@ async fn scan(
 
     for target in targets {
         let word_clone = words.clone();
-        let term_clone = tx_term.clone();
-        let file_clone = tx_file.clone();
+        let term_clone = handles.output.tx.clone();
         let tx_stats_clone = handles.stats.tx.clone();
         let stats_clone = handles.stats.data.clone();
 
@@ -175,7 +163,6 @@ async fn scan(
                 base_depth,
                 stats_clone,
                 term_clone,
-                file_clone,
                 tx_stats_clone,
             )
             .await;
@@ -247,9 +234,15 @@ async fn wrapped_main() -> Result<()> {
         PROGRESS_BAR.join().unwrap();
     });
 
+    // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
     let (stats_task, stats_handle) = StatsHandler::initialize();
     let (filters_task, filters_handle) = FiltersHandler::initialize();
-    let handles = Handles::new(stats_handle, filters_handle);
+    let (out_task, out_handle) =
+        TermOutHandler::initialize(&CONFIGURATION.output, stats_handle.tx.clone());
+
+    // bundle up all the disparate handles and JoinHandles (tasks)
+    let handles = Handles::new(stats_handle, filters_handle, out_handle);
+    let tasks = Tasks::new(out_task, stats_task, filters_task);
 
     if !CONFIGURATION.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
@@ -270,25 +263,17 @@ async fn wrapped_main() -> Result<()> {
     // scans that are already running
     tokio::task::spawn_blocking(terminal_input_handler);
 
-    let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
-
     if CONFIGURATION.save_state {
         // start the ctrl+c handler
         scan_manager::initialize(handles.stats.data.clone());
     }
-
-    // todo transmitters here added to handles and made event handlers
-    let (tx_term, tx_file, term_handle, file_handle) =
-        reporter::initialize(&CONFIGURATION.output, save_output, handles.stats.tx.clone());
-
-    let tasks = Tasks::new(term_handle, file_handle, stats_task, filters_task);
 
     // get targets from command line or stdin
     let targets = match get_targets().await {
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
-            clean_up(tx_term, tx_file, handles, tasks).await?;
+            clean_up(handles, tasks).await?;
             bail!("Could not get determine initial targets: {}", e);
         }
     };
@@ -316,21 +301,15 @@ async fn wrapped_main() -> Result<()> {
     let live_targets = heuristics::connectivity_test(&targets, handles.stats.tx.clone()).await;
 
     if live_targets.is_empty() {
-        clean_up(tx_term, tx_file, handles, tasks).await?;
+        clean_up(handles, tasks).await?;
         bail!(fmt_err("Could not find any live targets to scan"));
     }
 
     // kick off a scan against any targets determined to be responsive
-    scan(
-        live_targets,
-        tx_term.clone(),
-        tx_file.clone(),
-        handles.clone(),
-    )
-    .await?;
+    scan(live_targets, handles.clone()).await?;
 
     log::info!("All scans complete!");
-    clean_up(tx_term, tx_file, handles, tasks).await?;
+    clean_up(handles, tasks).await?;
 
     log::trace!("exit: wrapped_main");
     Ok(())
@@ -338,28 +317,16 @@ async fn wrapped_main() -> Result<()> {
 
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
 /// shutdown the program
-async fn clean_up(
-    tx_term: UnboundedSender<FeroxResponse>, // todo replace all of these with Handles obj
-    tx_file: UnboundedSender<FeroxResponse>,
-    handles: Handles,
-    tasks: Tasks,
-) -> Result<()> {
+async fn clean_up(handles: Handles, tasks: Tasks) -> Result<()> {
     log::trace!(
-        "enter: clean_up({:?}, {:?}, {:?})", // todo missing tasks
-        tx_term,
-        tx_file,
+        "enter: clean_up({:?}, {:?})", // todo missing tasks
         handles,
+        tasks
     );
-    drop(tx_term);
+
+    // terminal handler closes file handler if one is in use
+    send_command!(handles.output.tx, Exit);
     tasks.terminal.await??;
-
-    // the same drop/await process used on the terminal handler is repeated for the file handler
-    // we drop the file transmitter every time, because it's created no matter what
-    drop(tx_file);
-
-    if let Some(file_task) = tasks.file {
-        file_task.await??;
-    }
 
     send_command!(handles.filters.tx, Exit);
     tasks.filters.await??;
@@ -380,9 +347,9 @@ async fn clean_up(
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<()> {
     // setup logging based on the number of -v's used
-    logger::initialize(CONFIGURATION.verbosity);
+    logger::initialize(CONFIGURATION.verbosity)?;
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]
@@ -399,4 +366,6 @@ fn main() {
     }
 
     log::trace!("exit: main");
+
+    Ok(())
 }

@@ -1,6 +1,7 @@
 use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX};
 use super::*;
 use crate::utils::make_request;
+use crate::Command;
 use crate::FeroxChannel;
 use anyhow::Result;
 use httpmock::Method::GET;
@@ -45,7 +46,7 @@ fn get_test_response() -> FeroxResponse {
 fn setup_extractor(target: ExtractionTarget) -> Extractor<'static> {
     let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
 
     let mut builder = match target {
@@ -144,7 +145,7 @@ fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
 fn extractor_builder_bails_when_neither_required_field_is_set() {
     let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
 
     let extractor = ExtractorBuilder::with_url("")
@@ -168,7 +169,7 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
 
     let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
 
     let extractor = ExtractorBuilder::with_url("\\\\\\")
@@ -237,7 +238,7 @@ fn extractor_add_link_to_set_of_links_with_non_base_url() {
 async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain() -> Result<()> {
     let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
 
     let srv = MockServer::start();
@@ -284,7 +285,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
 async fn request_robots_txt_without_proxy() -> Result<()> {
     let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
     let config = Configuration::new();
 
@@ -324,7 +325,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
 async fn request_robots_txt_with_proxy() -> Result<()> {
     let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-    let (tx_term, _): FeroxChannel<FeroxResponse> = mpsc::unbounded_channel();
+    let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
     let mut config = Configuration::new();
 

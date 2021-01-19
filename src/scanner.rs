@@ -15,7 +15,7 @@ use crate::{
     },
     traits::FeroxFilter,
     utils::{format_url, get_current_depth, make_request},
-    FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
+    CommandSender, FeroxChannel, FeroxResponse, SIMILARITY_THRESHOLD,
 };
 use futures::{
     future::{BoxFuture, FutureExt},
@@ -110,18 +110,16 @@ fn spawn_recursion_handler(
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
     stats: Arc<Stats>,
-    tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<Command>,
+    tx_term: CommandSender,
+    tx_stats: CommandSender,
 ) -> BoxFuture<'static, Vec<Arc<JoinHandle<()>>>> {
     log::trace!(
-        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
+        "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?})",
         recursion_channel,
         wordlist.len(),
         base_depth,
         stats,
         tx_term,
-        tx_file,
         tx_stats
     );
 
@@ -141,7 +139,6 @@ fn spawn_recursion_handler(
             log::info!("received {} on recursion channel", resp);
 
             let term_clone = tx_term.clone();
-            let file_clone = tx_file.clone();
             let tx_stats_clone = tx_stats.clone();
             let stats_clone = stats.clone();
             let resp_clone = resp.clone();
@@ -154,7 +151,6 @@ fn spawn_recursion_handler(
                     base_depth,
                     stats_clone,
                     term_clone,
-                    file_clone,
                     tx_stats_clone,
                 )
                 .await
@@ -396,8 +392,8 @@ async fn make_requests(
     base_depth: usize,
     stats: Arc<Stats>,
     dir_chan: UnboundedSender<String>,
-    report_chan: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<Command>,
+    report_chan: CommandSender,
+    tx_stats: CommandSender,
 ) {
     log::trace!(
         "enter: make_requests({}, {}, {}, {:?}, {:?}, {:?}, {:?})",
@@ -457,10 +453,10 @@ async fn make_requests(
 }
 
 /// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
-pub fn send_report(report_sender: UnboundedSender<FeroxResponse>, response: FeroxResponse) {
+pub fn send_report(report_sender: CommandSender, response: FeroxResponse) {
     log::trace!("enter: send_report({:?}, {}", report_sender, response);
 
-    match report_sender.send(response) {
+    match report_sender.send(Command::Report(Box::new(response))) {
         Ok(_) => {}
         Err(e) => {
             log::error!("{}", e);
@@ -478,18 +474,16 @@ pub async fn scan_url(
     wordlist: Arc<HashSet<String>>,
     base_depth: usize,
     stats: Arc<Stats>,
-    tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<Command>,
+    tx_term: CommandSender,
+    tx_stats: CommandSender,
 ) {
     log::trace!(
-        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?}, {:?})",
+        "enter: scan_url({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?})",
         target_url,
         wordlist.len(),
         base_depth,
         stats,
         tx_term,
-        tx_file,
         tx_stats
     );
 
@@ -562,7 +556,6 @@ pub async fn scan_url(
     let heuristics_term_clone = tx_term.clone();
     let heuristics_stats_clone = tx_stats.clone();
     let recurser_term_clone = tx_term.clone();
-    let recurser_file_clone = tx_file.clone();
     let recurser_stats_clone = tx_stats.clone();
     let recurser_words = wordlist.clone();
     let looping_words = wordlist.clone();
@@ -575,7 +568,6 @@ pub async fn scan_url(
             base_depth,
             stats.clone(),
             recurser_term_clone,
-            recurser_file_clone,
             recurser_stats_clone,
         )
         .await

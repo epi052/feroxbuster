@@ -1,34 +1,36 @@
 use super::*;
-use crate::{event_handlers::StatsHandler, FeroxSerialize};
+use crate::{
+    event_handlers::{Command, StatsHandle, StatsHandler},
+    FeroxSerialize, Joiner,
+};
 use anyhow::Result;
 use reqwest::StatusCode;
-use std::sync::Arc;
 use tempfile::NamedTempFile;
-use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle};
 
 /// simple helper to reduce code reuse
-pub fn setup_stats_test() -> (Arc<Stats>, UnboundedSender<Command>, JoinHandle<Result<()>>) {
+pub fn setup_stats_test() -> (Joiner, StatsHandle) {
     StatsHandler::initialize()
 }
 
 /// another helper to stay DRY; must be called after any sent commands and before any checks
 /// performed against the Stats object
-pub async fn teardown_stats_test(sender: UnboundedSender<Command>, handle: JoinHandle<Result<()>>) {
+pub async fn teardown_stats_test(handle: StatsHandle, task: Joiner) {
     // send exit and await, once the await completes, stats should be updated
-    sender.send(Command::Exit).unwrap_or_default();
-    handle.await.unwrap().unwrap();
+    handle.tx.send(Command::Exit).unwrap_or_default();
+    task.await.unwrap().unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// when sent StatCommand::Exit, function should exit its while loop (runs forever otherwise)
-async fn statistics_handler_exits() {
-    let (_, sender, handle) = setup_stats_test();
+async fn statistics_handler_exits() -> Result<()> {
+    let (task, handle) = setup_stats_test();
 
-    sender.send(Command::Exit).unwrap_or_default();
+    handle.tx.send(Command::Exit)?;
 
-    handle.await.unwrap().unwrap(); // blocks on the handler's while loop
+    task.await??; // blocks on the handler's while loop
 
     // if we've made it here, the test has succeeded
+    Ok(())
 }
 
 #[test]

@@ -3,14 +3,37 @@ use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
     statistics::{StatField, Stats},
-    FeroxChannel,
+    CommandSender, FeroxChannel, Joiner,
 };
 use anyhow::Result;
 use console::style;
 use indicatif::ProgressBar;
 use std::{sync::Arc, time::Instant};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
-use tokio::task::JoinHandle;
+
+#[derive(Clone, Debug)]
+/// Container for statistics transmitter and Stats object
+pub struct StatsHandle {
+    /// Stats object used across modules to track statistics
+    pub data: Arc<Stats>,
+
+    /// transmitter used to update `data`
+    pub tx: CommandSender,
+}
+
+/// implementation of StatsHandle
+impl StatsHandle {
+    /// Given an Arc-wrapped Stats and CommandSender, create a new StatsHandle
+    pub fn new(data: Arc<Stats>, tx: CommandSender) -> Self {
+        Self { data, tx }
+    }
+
+    /// Send the given Command over `tx`
+    pub fn send(&self, command: Command) -> Result<()> {
+        self.tx.send(command)?;
+        Ok(())
+    }
+}
 
 /// event handler struct for updating statistics
 #[derive(Debug)]
@@ -108,7 +131,7 @@ impl StatsHandler {
 
     /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
-    pub fn initialize() -> (JoinHandle<Result<()>>, StatsHandle) {
+    pub fn initialize() -> (Joiner, StatsHandle) {
         log::trace!("enter: initialize");
 
         let data = Arc::new(Stats::new());
@@ -120,7 +143,7 @@ impl StatsHandler {
 
         let event_handle = StatsHandle::new(data, tx);
 
-        log::trace!("exit: initialize -> ({:?})", event_handle);
+        log::trace!("exit: initialize -> ({:?}, {:?})", task, event_handle);
 
         (task, event_handle)
     }

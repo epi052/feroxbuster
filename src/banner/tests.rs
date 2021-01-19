@@ -2,7 +2,7 @@ use super::container::UpdateStatus;
 use super::*;
 use crate::{
     config::{Configuration, CONFIGURATION},
-    statistics::Command,
+    event_handlers::Command,
     FeroxChannel,
 };
 use httpmock::Method::GET;

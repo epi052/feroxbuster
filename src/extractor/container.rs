@@ -6,6 +6,7 @@ use crate::{
     send_command,
     statistics::StatField::{LinksExtracted, TotalExpected},
     utils::{format_url, make_request},
+    CommandSender,
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
@@ -40,13 +41,13 @@ pub struct Extractor<'a> {
     pub(super) config: &'a Configuration,
 
     /// transmitter to the mpsc that handles statistics gathering
-    pub(super) tx_stats: UnboundedSender<Command>,
+    pub(super) tx_stats: CommandSender,
 
     /// transmitter to the mpsc that handles recursive scan calls
     pub(super) tx_recursion: UnboundedSender<String>,
 
     /// transmitter to the mpsc that handles reporting information to the user
-    pub(super) tx_reporter: UnboundedSender<FeroxResponse>,
+    pub(super) tx_reporter: CommandSender,
 
     /// list of urls that will be added to when new urls are extracted
     pub(super) scanned_urls: &'a FeroxScans,

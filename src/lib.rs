@@ -1,3 +1,25 @@
+use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
+use std::{error, fmt};
+
+use anyhow::{Context, Result};
+use console::{style, Color};
+use reqwest::header::{HeaderName, HeaderValue};
+use reqwest::{header::HeaderMap, Response, StatusCode, Url};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
+
+use crate::{
+    event_handlers::Command,
+    traits::FeroxSerialize,
+    utils::{fmt_err, get_url_path_length, status_colorizer},
+};
+
 pub mod banner;
 pub mod config;
 mod client;
@@ -7,7 +29,6 @@ pub mod heuristics;
 pub mod logger;
 mod parser;
 pub mod progress;
-pub mod reporter;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
@@ -15,28 +36,18 @@ mod traits;
 pub mod utils;
 mod extractor;
 
-use crate::{
-    event_handlers::Command,
-    traits::FeroxSerialize,
-    utils::{fmt_err, get_url_path_length, status_colorizer},
-};
-use anyhow::{Context, Result};
-use console::{style, Color};
-use reqwest::header::{HeaderName, HeaderValue};
-use reqwest::{header::HeaderMap, Response, StatusCode, Url};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
-use std::{error, fmt};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-
 /// Generic Result type to ease error handling in async contexts
 pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
+// todo FeroxResult should go away eventually in favor of anyhow::Result
 
-/// Alias for UnboundedSender<Command>
+/// Alias for tokio::sync::mpsc::UnboundedSender<Command>
 pub type CommandSender = UnboundedSender<Command>;
+
+/// Alias for tokio::sync::mpsc::UnboundedSender<Command>
+pub type CommandReceiver = UnboundedReceiver<Command>;
+
+/// Alias for tokio::task::JoinHandle<anyhow::Result<()>>
+pub type Joiner = JoinHandle<Result<()>>;
 
 /// Simple Error implementation to allow for custom error returns
 #[derive(Debug, Default)]
