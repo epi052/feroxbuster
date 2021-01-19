@@ -419,9 +419,9 @@ mod tests {
         handle.tx.send(Command::AddRequest)?;
         handle.tx.send(Command::AddRequest)?;
 
-        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 3);
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        teardown_stats_test(handle, task).await;
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 3);
 
         Ok(())
     }
@@ -442,12 +442,12 @@ mod tests {
         handle.tx.send(err).unwrap_or_default();
         handle.tx.send(err2).unwrap_or_default();
 
+        teardown_stats_test(handle.tx.clone(), task).await;
+
         assert_eq!(handle.data.errors.load(Ordering::Relaxed), 2);
         assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
         assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
         assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
-
-        teardown_stats_test(handle, task).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -465,11 +465,11 @@ mod tests {
         handle.tx.send(err).unwrap_or_default();
         handle.tx.send(err2).unwrap_or_default();
 
+        teardown_stats_test(handle.tx.clone(), task).await;
+
         assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
         assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
         assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
-
-        teardown_stats_test(handle, task).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -486,10 +486,10 @@ mod tests {
         handle.tx.send(err)?;
         handle.tx.send(err2)?;
 
+        teardown_stats_test(handle.tx.clone(), task).await;
+
         assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
         assert_eq!(handle.data.server_errors.load(Ordering::Relaxed), 2);
-
-        teardown_stats_test(handle, task).await;
 
         Ok(())
     }

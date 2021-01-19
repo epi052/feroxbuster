@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     event_handlers::{Command, StatsHandle, StatsHandler},
-    FeroxSerialize, Joiner,
+    CommandSender, FeroxSerialize, Joiner,
 };
 use anyhow::Result;
 use reqwest::StatusCode;
@@ -14,9 +14,9 @@ pub fn setup_stats_test() -> (Joiner, StatsHandle) {
 
 /// another helper to stay DRY; must be called after any sent commands and before any checks
 /// performed against the Stats object
-pub async fn teardown_stats_test(handle: StatsHandle, task: Joiner) {
+pub async fn teardown_stats_test(sender: CommandSender, task: Joiner) {
     // send exit and await, once the await completes, stats should be updated
-    handle.tx.send(Command::Exit).unwrap_or_default();
+    sender.send(Command::Exit).unwrap_or_default();
     task.await.unwrap().unwrap();
 }
 
