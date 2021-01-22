@@ -1,5 +1,7 @@
 use super::*;
+use crate::event_handlers::scans::ScanHandle;
 use crate::Joiner;
+use std::sync::RwLock;
 
 #[derive(Debug)]
 /// Simple container for multiple JoinHandles
@@ -12,21 +14,25 @@ pub struct Tasks {
 
     /// JoinHandle for filters handler
     pub filters: Joiner,
+
+    /// JoinHandle for scans handler
+    pub scans: Joiner,
 }
 
 /// Tasks implementation
 impl Tasks {
     /// Given JoinHandles for terminal, statistics, and filters create a new Tasks object
-    pub fn new(terminal: Joiner, stats: Joiner, filters: Joiner) -> Self {
+    pub fn new(terminal: Joiner, stats: Joiner, filters: Joiner, scans: Joiner) -> Self {
         Self {
             terminal,
             stats,
             filters,
+            scans,
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// Container for the different *Handles that will be shared across modules
 pub struct Handles {
     /// Handle for statistics
@@ -37,6 +43,9 @@ pub struct Handles {
 
     /// Handle for output (terminal/file)
     pub output: TermOutHandle,
+
+    /// Handle for recursion
+    pub scans: RwLock<Option<ScanHandle>>,
 }
 
 /// implementation of Handles
@@ -47,6 +56,16 @@ impl Handles {
             stats,
             filters,
             output,
+            scans: RwLock::new(None),
+        }
+    }
+
+    /// Set the ScanHandle object
+    pub fn scan_handle(&self, handle: ScanHandle) {
+        if let Ok(mut guard) = self.scans.write() {
+            if guard.is_none() {
+                let _ = std::mem::replace(&mut *guard, Some(handle));
+            }
         }
     }
 }

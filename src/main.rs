@@ -21,23 +21,25 @@ use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     event_handlers::{
-        Command::{CreateBar, Exit, LoadStats, UpdateUsizeField},
-        FiltersHandler, Handles, StatsHandler, Tasks, TermOutHandler,
+        Command::{CreateBar, Exit, LoadStats, ScanInitialUrls, UpdateWordlist},
+        FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermOutHandler,
     },
     heuristics, logger,
     progress::{add_bar, BarType},
     scan_manager::{self, ScanStatus, PAUSE_SCAN},
-    scanner::{self, scan_url, SCANNED_URLS},
+    scanner::{self, SCANNED_URLS},
     send_command,
-    statistics::StatField::InitialTargets,
-    utils::{fmt_err, get_current_depth},
+    utils::fmt_err,
     FeroxResult, SLEEP_DURATION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 
 /// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
-pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
+static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
+// todo
+// /// Atomic boolean flag, used to determine whether or not the first scan has started or not
+// pub static SCAN_STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Handles specific key events triggered by the user over stdin
 fn terminal_input_handler() {
@@ -100,7 +102,7 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan(targets: Vec<String>, handles: Handles) -> Result<()> {
+async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     log::trace!("enter: scan({:?}, {:?})", targets, handles);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
@@ -112,6 +114,16 @@ async fn scan(targets: Vec<String>, handles: Handles) -> Result<()> {
     if words.len() == 0 {
         bail!("Did not find any words in {}", CONFIGURATION.wordlist);
     }
+
+    // todo abstract away the scan sending to hide the lock etc in the struct's impl
+    handles
+        .scans
+        .read()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .tx
+        .send(UpdateWordlist(words.clone()))?;
 
     scanner::initialize(words.len(), &CONFIGURATION, handles.stats.tx.clone()).await;
 
@@ -130,7 +142,7 @@ async fn scan(targets: Vec<String>, handles: Handles) -> Result<()> {
 
         SCANNED_URLS.print_known_responses();
 
-        if let Ok(scans) = SCANNED_URLS.scans.lock() {
+        if let Ok(scans) = SCANNED_URLS.scans.read() {
             for scan in scans.iter() {
                 if let Ok(locked_scan) = scan.lock() {
                     if matches!(locked_scan.status, ScanStatus::Complete) {
@@ -147,32 +159,16 @@ async fn scan(targets: Vec<String>, handles: Handles) -> Result<()> {
         }
     }
 
-    let mut tasks = vec![];
+    // todo unwrap
+    handles
+        .scans
+        .read()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .tx
+        .send(ScanInitialUrls(targets))?;
 
-    for target in targets {
-        let word_clone = words.clone();
-        let term_clone = handles.output.tx.clone();
-        let tx_stats_clone = handles.stats.tx.clone();
-        let stats_clone = handles.stats.data.clone();
-
-        let task = tokio::spawn(async move {
-            let base_depth = get_current_depth(&target);
-            scan_url(
-                &target,
-                word_clone,
-                base_depth,
-                stats_clone,
-                term_clone,
-                tx_stats_clone,
-            )
-            .await;
-        });
-
-        tasks.push(task);
-    }
-
-    // drive execution of all accumulated futures
-    futures::future::join_all(tasks).await;
     log::trace!("exit: scan");
 
     Ok(())
@@ -196,7 +192,7 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
     } else if CONFIGURATION.resumed {
         // resume-from can't be used with --url, and --stdin is marked false for every resumed
         // scan, making it mutually exclusive from either of the other two options
-        if let Ok(scans) = SCANNED_URLS.scans.lock() {
+        if let Ok(scans) = SCANNED_URLS.scans.read() {
             for scan in scans.iter() {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
@@ -235,14 +231,19 @@ async fn wrapped_main() -> Result<()> {
     });
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
-    let (stats_task, stats_handle) = StatsHandler::initialize();
+    let (rx_complete, stats_task, stats_handle) = StatsHandler::initialize();
     let (filters_task, filters_handle) = FiltersHandler::initialize();
     let (out_task, out_handle) =
         TermOutHandler::initialize(&CONFIGURATION.output, stats_handle.tx.clone());
 
     // bundle up all the disparate handles and JoinHandles (tasks)
-    let handles = Handles::new(stats_handle, filters_handle, out_handle);
-    let tasks = Tasks::new(out_task, stats_task, filters_task);
+    let handles = Arc::new(Handles::new(stats_handle, filters_handle, out_handle));
+
+    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());
+
+    handles.scan_handle(scan_handle); // set's the ScanHandle after Handles initialization
+
+    let tasks = Tasks::new(out_task, stats_task, filters_task, scan_task);
 
     if !CONFIGURATION.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
@@ -278,10 +279,11 @@ async fn wrapped_main() -> Result<()> {
         }
     };
 
-    send_command!(
-        handles.stats.tx,
-        UpdateUsizeField(InitialTargets, targets.len())
-    );
+    // // todo this can probably be removed if scan_url takes the Initial enum variant
+    // send_command!(
+    //     handles.stats.tx,
+    //     UpdateUsizeField(InitialTargets, targets.len())
+    // );
 
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
@@ -308,7 +310,8 @@ async fn wrapped_main() -> Result<()> {
     // kick off a scan against any targets determined to be responsive
     scan(live_targets, handles.clone()).await?;
 
-    log::info!("All scans complete!");
+    let _ = rx_complete.await.unwrap(); // todo change wwhen this happens
+
     clean_up(handles, tasks).await?;
 
     log::trace!("exit: wrapped_main");
@@ -317,14 +320,51 @@ async fn wrapped_main() -> Result<()> {
 
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
 /// shutdown the program
-async fn clean_up(handles: Handles, tasks: Tasks) -> Result<()> {
+async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
     log::trace!(
         "enter: clean_up({:?}, {:?})", // todo missing tasks
         handles,
         tasks
     );
 
+    // while handles
+    //     .scans
+    //     .read()
+    //     .as_ref()
+    //     .unwrap()
+    //     .as_ref()
+    //     .unwrap()
+    //     .data
+    //     .scans
+    //     .read()
+    //     .unwrap()
+    //     .len()
+    //     == 0
+    // {
+    //
+    // }
+
+    while handles.stats.data.active_scans() > 0 {
+        // todo scans still not getting added, is the recurser of old still the one doing the
+        // actual work?
+        if let Ok(guard) = handles.scans.read() {
+            // todo unwrap... and obvious other things
+
+            let handle = guard.as_ref().unwrap();
+
+            log::error!("joining");
+            let num_joined = handle.data.join_all().await; // todo doesnt need to decrement
+
+            log::error!("joined: {}", num_joined);
+        }
+        sleep(Duration::from_millis(SLEEP_DURATION * 2));
+        log::error!("{:?}", handles.scans);
+    }
+
+    log::info!("All scans complete!");
+
     // terminal handler closes file handler if one is in use
+    log::error!("Sending Exit");
     send_command!(handles.output.tx, Exit);
     tasks.terminal.await??;
 

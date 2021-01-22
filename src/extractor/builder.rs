@@ -38,13 +38,13 @@ pub struct ExtractorBuilder<'a> {
     tx_stats: Option<CommandSender>,
 
     /// transmitter to the mpsc that handles recursive scan calls
-    tx_recursion: Option<UnboundedSender<String>>,
+    tx_recursion: Option<CommandSender>,
 
     /// transmitter to the mpsc that handles reporting information to the user
     tx_reporter: Option<CommandSender>,
 
     /// list of urls that will be added to when new urls are extracted
-    scanned_urls: Option<&'a FeroxScans>,
+    scanned_urls: Option<Arc<FeroxScans>>,
 
     /// depth at which the scan was started
     depth: Option<usize>,
@@ -101,7 +101,8 @@ impl<'a> ExtractorBuilder<'a> {
     }
 
     /// builder call to set `tx_recursion`
-    pub fn recursion_transmitter(&mut self, tx_recursion: UnboundedSender<String>) -> &mut Self {
+    pub fn recursion_transmitter(&mut self, tx_recursion: CommandSender) -> &mut Self {
+        // todo change to scans_transmitter or w/e same on struct
         self.tx_recursion = Some(tx_recursion);
         self
     }
@@ -114,12 +115,14 @@ impl<'a> ExtractorBuilder<'a> {
 
     /// builder call to set `tx_reporter`
     pub fn reporter_transmitter(&mut self, tx_reporter: CommandSender) -> &mut Self {
+        // todo change to outputs or w/e same on struct
+
         self.tx_reporter = Some(tx_reporter);
         self
     }
 
     /// builder call to set `scanned_urls`
-    pub fn scanned_urls(&mut self, scanned_urls: &'a FeroxScans) -> &mut Self {
+    pub fn scanned_urls(&mut self, scanned_urls: Arc<FeroxScans>) -> &mut Self {
         self.scanned_urls = Some(scanned_urls);
         self
     }
@@ -157,7 +160,7 @@ impl<'a> ExtractorBuilder<'a> {
             tx_stats: self.tx_stats.as_ref().unwrap().clone(),
             tx_recursion: self.tx_recursion.as_ref().unwrap().clone(),
             tx_reporter: self.tx_reporter.as_ref().unwrap().clone(),
-            scanned_urls: self.scanned_urls.unwrap(),
+            scanned_urls: self.scanned_urls.as_ref().unwrap().clone(),
             depth: self.depth.unwrap(),
             stats: self.stats.as_ref().unwrap().clone(),
             target: self.target,

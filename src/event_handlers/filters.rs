@@ -4,7 +4,7 @@ use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// Container for filters transmitter and FeroxFilters object
 pub struct FiltersHandle {
     /// FeroxFilters object used across modules to track active filters

@@ -44,13 +44,13 @@ pub struct Extractor<'a> {
     pub(super) tx_stats: CommandSender,
 
     /// transmitter to the mpsc that handles recursive scan calls
-    pub(super) tx_recursion: UnboundedSender<String>,
+    pub(super) tx_recursion: CommandSender,
 
     /// transmitter to the mpsc that handles reporting information to the user
     pub(super) tx_reporter: CommandSender,
 
     /// list of urls that will be added to when new urls are extracted
-    pub(super) scanned_urls: &'a FeroxScans,
+    pub(super) scanned_urls: Arc<FeroxScans>,
 
     /// depth at which the scan was started
     pub(super) depth: usize,

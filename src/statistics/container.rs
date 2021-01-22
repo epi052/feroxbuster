@@ -124,6 +124,9 @@ pub struct Stats {
 
     /// tracker for total runtime
     total_runtime: Mutex<Vec<f64>>,
+
+    /// tracker for active_scans
+    active_scans: AtomicUsize,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -175,6 +178,21 @@ impl Stats {
     /// public getter for initial_targets
     pub fn initial_targets(&self) -> usize {
         atomic_load!(self.initial_targets)
+    }
+
+    /// public getter for initial_targets
+    pub fn active_scans(&self) -> usize {
+        atomic_load!(self.active_scans)
+    }
+
+    /// add one to active scans
+    pub fn increment_active_scans(&self) {
+        atomic_increment!(self.active_scans);
+    }
+
+    /// subtract one from active scans
+    pub fn decrement_active_scans(&self) {
+        self.active_scans.fetch_sub(1, Ordering::Relaxed);
     }
 
     /// increment `requests` field by one

@@ -4,6 +4,8 @@ use crate::{
     FeroxResponse,
 };
 use reqwest::StatusCode;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 /// Protocol definition for updating an event handler via mpsc
 #[derive(Debug)]
@@ -32,11 +34,26 @@ pub enum Command {
     /// Load a `Stats` object from disk
     LoadStats(String),
 
-    /// Add a FeroxFilter implementor to FilterHandler's instance of FeroxFilters
+    /// Subtract one from the current number of active scans
+    DecrementActiveScans,
+
+    /// Add a `FeroxFilter` implementor to `FilterHandler`'s instance of `FeroxFilters`
     AddFilter(Box<dyn FeroxFilter>),
 
-    /// Send a FeroxResponse to the output handler for reporting
+    /// Send a `FeroxResponse` to the output handler for reporting
     Report(Box<FeroxResponse>),
+
+    /// Send a url to be scanned (in the context of recursion)
+    ScanUrl(String),
+
+    /// Send a group of urls to be scanned (only used for the urls passed in explicitly by the user)
+    ScanInitialUrls(Vec<String>),
+
+    /// Send a pointer to the wordlist to the recursion handler
+    UpdateWordlist(Arc<HashSet<String>>),
+
+    /// Send a pointer to the wordlist to the recursion handler
+    AddDirectoryScan(Arc<HashSet<String>>), // todo never used?
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,

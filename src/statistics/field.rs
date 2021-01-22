@@ -1,6 +1,6 @@
 /// Enum representing fields whose updates need to be performed in batches instead of one at
 /// a time
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum StatField {
     /// Due to the necessary order of events, the number of requests expected to be sent isn't
     /// known until after `statistics::initialize` is called. This command allows for updating

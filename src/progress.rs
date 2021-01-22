@@ -2,6 +2,7 @@ use crate::config::{CONFIGURATION, PROGRESS_BAR};
 use indicatif::{ProgressBar, ProgressStyle};
 
 /// Types of ProgressBars that can be added to `PROGRESS_BAR`
+#[derive(Copy, Clone)]
 pub enum BarType {
     /// no template used / not visible
     Hidden,

@@ -13,7 +13,7 @@ use crate::{
 use super::Command::UpdateUsizeField;
 use super::*;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// Container for terminal output transmitter
 pub struct TermOutHandle {
     pub tx: CommandSender,

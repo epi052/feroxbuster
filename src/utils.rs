@@ -49,6 +49,7 @@ pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
 ///
 /// returns 0 on error and relative urls
 pub fn get_current_depth(target: &str) -> usize {
+    // todo move ot scanner struct (future)
     log::trace!("enter: get_current_depth({})", target);
 
     let target = normalize_url(target);

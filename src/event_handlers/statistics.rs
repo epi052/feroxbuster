@@ -1,4 +1,5 @@
 use super::*;
+use crate::event_handlers::command::Command::Exit;
 use crate::{
     config::CONFIGURATION,
     progress::{add_bar, BarType},
@@ -10,8 +11,9 @@ use console::style;
 use indicatif::ProgressBar;
 use std::{sync::Arc, time::Instant};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
+use tokio::sync::oneshot::{self, Receiver, Sender};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// Container for statistics transmitter and Stats object
 pub struct StatsHandle {
     /// Stats object used across modules to track statistics
@@ -46,18 +48,26 @@ pub struct StatsHandler {
 
     /// data class that stores all statistics updates
     stats: Arc<Stats>,
+
+    /// scan complete notifier
+    tx_complete: Sender<Command>,
 }
 
 /// implementation of event handler for statistics
 impl StatsHandler {
     /// create new event handler
-    fn new(stats: Arc<Stats>, rx_stats: UnboundedReceiver<Command>) -> Self {
+    fn new(
+        stats: Arc<Stats>,
+        rx_stats: UnboundedReceiver<Command>,
+        tx_complete: Sender<Command>,
+    ) -> Self {
         // will be updated later via StatCommand; delay is for banner to print first
         let bar = ProgressBar::hidden();
 
         Self {
             bar,
             stats,
+            tx_complete,
             receiver: rx_stats,
         }
     }
@@ -93,6 +103,7 @@ impl StatsHandler {
                     self.stats.update_usize_field(field, value);
 
                     if update_len {
+                        self.stats.increment_active_scans();
                         self.bar.set_length(self.stats.total_expected() as u64)
                     }
                 }
@@ -102,6 +113,17 @@ impl StatsHandler {
                 }
                 Command::LoadStats(filename) => {
                     self.stats.merge_from(&filename)?;
+                }
+                Command::DecrementActiveScans => {
+                    self.stats.decrement_active_scans();
+                    log::error!("active scans: {}", self.stats.active_scans());
+                    if self.stats.active_scans() == 1 {
+                        // todo this is pretty lame, consider awaiting the rx oneshot after first scan incrememnts instead
+                        // requires awaiting to actually work (join_all)
+                        let (dummy, _) = oneshot::channel();
+                        let tx = std::mem::replace(&mut self.tx_complete, dummy);
+                        tx.send(Exit).unwrap_or_default();
+                    }
                 }
                 Command::Exit => break,
                 _ => {} // no more commands needed
@@ -131,13 +153,14 @@ impl StatsHandler {
 
     /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
-    pub fn initialize() -> (Joiner, StatsHandle) {
+    pub fn initialize() -> (Receiver<Command>, Joiner, StatsHandle) {
         log::trace!("enter: initialize");
 
         let data = Arc::new(Stats::new());
         let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
+        let (tx_complete, rx_complete): (Sender<Command>, Receiver<Command>) = oneshot::channel();
 
-        let mut handler = StatsHandler::new(data.clone(), rx);
+        let mut handler = StatsHandler::new(data.clone(), rx, tx_complete);
 
         let task = tokio::spawn(async move { handler.start().await });
 
@@ -145,6 +168,6 @@ impl StatsHandler {
 
         log::trace!("exit: initialize -> ({:?}, {:?})", task, event_handle);
 
-        (task, event_handle)
+        (rx_complete, task, event_handle)
     }
 }

@@ -4,10 +4,12 @@ mod filters;
 mod container;
 mod builder;
 mod command;
-mod output;
+mod outputs;
+mod scans;
 
 pub use self::command::Command;
 pub use self::container::{Handles, Tasks};
 pub use self::filters::{FiltersHandle, FiltersHandler};
-pub use self::output::{TermOutHandle, TermOutHandler};
+pub use self::outputs::{TermOutHandle, TermOutHandler};
+pub use self::scans::{ScanHandle, ScanHandler};
 pub use self::statistics::{StatsHandle, StatsHandler};

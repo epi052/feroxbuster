@@ -11,4 +11,3 @@ pub use self::container::Extractor;
 use crate::{config::Configuration, scan_manager::FeroxScans, statistics::Stats, FeroxResponse};
 use regex::Regex;
 use std::sync::Arc;
-use tokio::sync::mpsc::UnboundedSender;
