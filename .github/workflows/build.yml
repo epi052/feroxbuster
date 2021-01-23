@@ -5,10 +5,10 @@ on: [push]
 jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/master'
+#    if: github.ref == 'refs/heads/master'
     strategy:
       matrix:
-        type: [ubuntu-x64, ubuntu-x86]
+        type: [ubuntu-x64] #, ubuntu-x86]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
@@ -16,12 +16,12 @@ jobs:
             name: x86_64-linux-feroxbuster
             path: target/x86_64-unknown-linux-musl/release/feroxbuster
             pkg_config_path: /usr/lib/x86_64-linux-gnu/pkgconfig
-          - type: ubuntu-x86
-            os: ubuntu-latest
-            target: i686-unknown-linux-musl
-            name: x86-linux-feroxbuster
-            path: target/i686-unknown-linux-musl/release/feroxbuster
-            pkg_config_path: /usr/lib/i686-linux-gnu/pkgconfig
+#          - type: ubuntu-x86
+#            os: ubuntu-latest
+#            target: i686-unknown-linux-musl
+#            name: x86-linux-feroxbuster
+#            path: target/i686-unknown-linux-musl/release/feroxbuster
+#            pkg_config_path: /usr/lib/i686-linux-gnu/pkgconfig
     steps:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
@@ -58,18 +58,18 @@ jobs:
           name: ${{ matrix.name }}.tar.gz
           path: ${{ matrix.name }}.tar.gz
 
-  build-deb:
-    needs: [build-nix]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Deb Build
-        uses: ebbflow-io/cargo-deb-amd64-ubuntu@1.0
-      - name: Upload Deb Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: feroxbuster_amd64.deb
-          path: ./target/x86_64-unknown-linux-musl/debian/*
+#  build-deb:
+#    needs: [build-nix]
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@master
+#      - name: Deb Build
+#        uses: ebbflow-io/cargo-deb-amd64-ubuntu@1.0
+#      - name: Upload Deb Artifact
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: feroxbuster_amd64.deb
+#          path: ./target/x86_64-unknown-linux-musl/debian/*
 
   build-macos:
     runs-on: macos-latest

@@ -13,15 +13,15 @@ use std::{
 
 use anyhow::{bail, Result};
 use crossterm::event::{self, Event, KeyCode};
-use futures::StreamExt;
-use tokio::io;
+use futures::{StreamExt, TryFutureExt};
+use tokio::{io, sync::oneshot};
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     event_handlers::{
-        Command::{CreateBar, Exit, LoadStats, ScanInitialUrls, UpdateWordlist},
+        Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermOutHandler,
     },
     heuristics, logger,
@@ -115,15 +115,9 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
         bail!("Did not find any words in {}", CONFIGURATION.wordlist);
     }
 
-    // todo abstract away the scan sending to hide the lock etc in the struct's impl
-    handles
-        .scans
-        .read()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .tx
-        .send(UpdateWordlist(words.clone()))?;
+    let scanned_urls = handles.ferox_scans()?;
+
+    handles.send_scan_command(UpdateWordlist(words.clone()))?;
 
     scanner::initialize(words.len(), &CONFIGURATION, handles.stats.tx.clone()).await;
 
@@ -133,41 +127,34 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    handles.stats.send(CreateBar)?;
+    let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+    handles.stats.send(CreateBar(tx))?; // todo bar is on top, now just need to clean up this code (unwrap etc)
+    rx.await.unwrap(); // blocks until the bar is created / avoids race condition in first two bars
 
     if CONFIGURATION.resumed {
         handles
             .stats
             .send(LoadStats(CONFIGURATION.resume_from.clone()))?;
 
-        SCANNED_URLS.print_known_responses();
+        scanned_urls.print_known_responses();
 
-        if let Ok(scans) = SCANNED_URLS.scans.read() {
+        if let Ok(scans) = scanned_urls.scans.read() {
             for scan in scans.iter() {
-                if let Ok(locked_scan) = scan.lock() {
-                    if matches!(locked_scan.status, ScanStatus::Complete) {
-                        // these scans are complete, and just need to be shown to the user
-                        let pb = add_bar(
-                            &locked_scan.url,
-                            words.len().try_into().unwrap_or_default(),
-                            BarType::Message,
-                        );
-                        pb.finish();
-                    }
+                if matches!(*scan.status.lock().unwrap(), ScanStatus::Complete) {
+                    // todo abstract away
+                    // these scans are complete, and just need to be shown to the user
+                    let pb = add_bar(
+                        &scan.url,
+                        words.len().try_into().unwrap_or_default(),
+                        BarType::Message,
+                    );
+                    pb.finish();
                 }
             }
         }
     }
 
-    // todo unwrap
-    handles
-        .scans
-        .read()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .tx
-        .send(ScanInitialUrls(targets))?;
+    handles.send_scan_command(ScanInitialUrls(targets))?;
 
     log::trace!("exit: scan");
 
@@ -196,13 +183,12 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
             for scan in scans.iter() {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
-                if let Ok(locked_scan) = scan.lock() {
-                    if matches!(locked_scan.status, ScanStatus::Complete) {
-                        // this one's already done, ignore it
-                        continue;
-                    }
-                    targets.push(locked_scan.url.to_owned());
+                if matches!(*scan.status.lock().unwrap(), ScanStatus::Complete) {
+                    // todo
+                    // this one's already done, ignore it
+                    continue;
                 }
+                targets.push(scan.url.to_owned());
             }
         }
     } else {
@@ -231,8 +217,8 @@ async fn wrapped_main() -> Result<()> {
     });
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
-    let (rx_complete, stats_task, stats_handle) = StatsHandler::initialize();
-    let (filters_task, filters_handle) = FiltersHandler::initialize();
+    let (stats_task, stats_handle) = StatsHandler::initialize();
+    let (filters_task, filters_handle) = FiltersHandler::initialize(); // todo not even using this yet
     let (out_task, out_handle) =
         TermOutHandler::initialize(&CONFIGURATION.output, stats_handle.tx.clone());
 
@@ -279,12 +265,6 @@ async fn wrapped_main() -> Result<()> {
         }
     };
 
-    // // todo this can probably be removed if scan_url takes the Initial enum variant
-    // send_command!(
-    //     handles.stats.tx,
-    //     UpdateUsizeField(InitialTargets, targets.len())
-    // );
-
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
@@ -310,7 +290,17 @@ async fn wrapped_main() -> Result<()> {
     // kick off a scan against any targets determined to be responsive
     scan(live_targets, handles.clone()).await?;
 
-    let _ = rx_complete.await.unwrap(); // todo change wwhen this happens
+    // todo use statuement
+    let (tx, rx) = oneshot::channel::<bool>();
+    handles.send_scan_command(JoinTasks(tx));
+    rx.await?;
+
+    // todo known things not working: overall bar lags behind other bars
+    // todo known things not working: filters handler not implemented
+    // todo known things not working: depth is ignored
+    // todo known things not working: confirm multi target from stdin works
+    // todo known things not working: confirm same # of requests seen in burp as reported
+    // todo known things not working: enable build on this branch, compare memory usage with new recursion paradigm
 
     clean_up(handles, tasks).await?;
 
@@ -327,45 +317,14 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
         tasks
     );
 
-    // while handles
-    //     .scans
-    //     .read()
-    //     .as_ref()
-    //     .unwrap()
-    //     .as_ref()
-    //     .unwrap()
-    //     .data
-    //     .scans
-    //     .read()
-    //     .unwrap()
-    //     .len()
-    //     == 0
-    // {
-    //
-    // }
-
-    while handles.stats.data.active_scans() > 0 {
-        // todo scans still not getting added, is the recurser of old still the one doing the
-        // actual work?
-        if let Ok(guard) = handles.scans.read() {
-            // todo unwrap... and obvious other things
-
-            let handle = guard.as_ref().unwrap();
-
-            log::error!("joining");
-            let num_joined = handle.data.join_all().await; // todo doesnt need to decrement
-
-            log::error!("joined: {}", num_joined);
-        }
-        sleep(Duration::from_millis(SLEEP_DURATION * 2));
-        log::error!("{:?}", handles.scans);
-    }
+    // todo abstract away getting a cloned Arc<FeroxScans> using handles impl
+    // let scanned_urls = handles.ferox_scans()?;
 
     log::info!("All scans complete!");
 
     // terminal handler closes file handler if one is in use
     log::error!("Sending Exit");
-    send_command!(handles.output.tx, Exit);
+    send_command!(handles.output.tx, Exit); // todo use handles.thing.send in this function
     tasks.terminal.await??;
 
     send_command!(handles.filters.tx, Exit);

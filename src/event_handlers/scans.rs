@@ -1,14 +1,14 @@
 use super::command::Command::UpdateUsizeField;
 use super::*;
 use crate::{
-    scan_manager::FeroxScans,
+    scan_manager::{FeroxScan, FeroxScans},
     scanner::{scan_url, ScanOrder},
     statistics::StatField::TotalScans,
     CommandReceiver, CommandSender, FeroxChannel, Joiner,
 };
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
@@ -48,7 +48,10 @@ pub struct ScanHandler {
     receiver: CommandReceiver,
 
     /// wordlist (re)used for each scan
-    wordlist: Mutex<Option<Arc<HashSet<String>>>>,
+    wordlist: std::sync::Mutex<Option<Arc<HashSet<String>>>>,
+
+    /// group of scans that need to be joined
+    tasks: Vec<Arc<FeroxScan>>,
 }
 
 /// implementation of event handler for filters
@@ -59,7 +62,8 @@ impl ScanHandler {
             data,
             handles,
             receiver,
-            wordlist: Mutex::new(None),
+            tasks: Vec::new(),
+            wordlist: std::sync::Mutex::new(None),
         }
     }
 
@@ -99,14 +103,26 @@ impl ScanHandler {
 
         while let Some(command) = self.receiver.recv().await {
             match command {
-                Command::ScanUrl(url) => {
+                Command::ScanUrl(url, sender) => {
                     self.ordered_scan_url(vec![url], ScanOrder::Latest).await?;
+                    sender.send(true).unwrap(); // todo ... wth to do with these
                 }
                 Command::ScanInitialUrls(targets) => {
                     self.ordered_scan_url(targets, ScanOrder::Initial).await?;
                 }
                 Command::UpdateWordlist(wordlist) => {
                     self.wordlist(wordlist);
+                }
+                Command::JoinTasks(sender) => {
+                    let ferox_scans = self.handles.ferox_scans().unwrap();
+                    tokio::spawn(async move {
+                        while ferox_scans.has_active_scans() {
+                            for scan in ferox_scans.get_active_scans() {
+                                scan.join().await;
+                            }
+                        }
+                        sender.send(true).unwrap(); // todo ... wth to do with these
+                    });
                 }
                 _ => {} // no other commands needed for RecursionHandler
             }
@@ -116,12 +132,35 @@ impl ScanHandler {
         Ok(())
     }
 
-    /// wrapper around scanning a url to stay DRY
-    async fn ordered_scan_url(&self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
-        self.handles
-            .stats
-            .send(UpdateUsizeField(TotalScans, targets.len()))?;
+    async fn join_tasks(&self) -> Result<()> {
+        // while handles.stats.data.active_scans() > 0 {
+        for scan in self.tasks.iter() {
+            log::error!("joining {}", scan.url);
+            scan.join().await;
+            log::error!("joined {}", scan.url);
+        }
 
+        // let num_joined = scanned_urls.join_all().await; // todo doesnt need to decrement
+
+        // active_scans = scanned_urls.get_active_scans();
+        // }
+
+        Ok(())
+    }
+
+    /// Helper to easily get the (locked) underlying wordlist
+    pub fn get_wordlist(&self) -> Result<Arc<HashSet<String>>> {
+        if let Ok(guard) = self.wordlist.lock().as_ref() {
+            if let Some(list) = guard.as_ref() {
+                return Ok(list.clone());
+            }
+        }
+
+        bail!("Could not get underlying wordlist")
+    }
+
+    /// wrapper around scanning a url to stay DRY
+    async fn ordered_scan_url(&mut self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
         for target in targets {
             let (unknown, scan) = self
                 .data
@@ -132,21 +171,24 @@ impl ScanHandler {
                 continue;
             }
 
-            let guard = self.wordlist.lock();
-
-            let list = guard.as_ref().unwrap().as_ref().unwrap().clone();
+            let list = self.get_wordlist()?;
 
             log::info!("scan handler received {} - beginning scan", target);
 
             let handles_clone = self.handles.clone();
 
             let task = tokio::spawn(async move {
-                scan_url(&target, order, list, handles_clone).await;
+                // todo unwrap
+                scan_url(&target, order, list, handles_clone).await.unwrap();
             });
 
-            if let Ok(mut u_scan) = scan.lock() {
-                u_scan.task = Some(task);
-            };
+            self.handles.stats.send(UpdateUsizeField(TotalScans, 1))?;
+
+            scan.set_task(task).await?;
+
+            log::error!("pushing: {}", scan.url);
+            self.tasks.push(scan.clone());
+            log::error!("pushed: {}", scan.url);
         }
         Ok(())
     }

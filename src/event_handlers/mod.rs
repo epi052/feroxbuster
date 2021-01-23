@@ -2,7 +2,6 @@
 mod statistics;
 mod filters;
 mod container;
-mod builder;
 mod command;
 mod outputs;
 mod scans;

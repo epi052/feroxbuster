@@ -186,8 +186,8 @@ impl Stats {
     }
 
     /// add one to active scans
-    pub fn increment_active_scans(&self) {
-        atomic_increment!(self.active_scans);
+    pub fn increment_active_scans(&self, value: usize) {
+        atomic_increment!(self.active_scans, value);
     }
 
     /// subtract one from active scans

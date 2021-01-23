@@ -1,7 +1,9 @@
 use super::*;
 use crate::event_handlers::scans::ScanHandle;
+use crate::scan_manager::FeroxScans;
 use crate::Joiner;
-use std::sync::RwLock;
+use anyhow::{bail, Result};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 /// Simple container for multiple JoinHandles
@@ -67,5 +69,28 @@ impl Handles {
                 let _ = std::mem::replace(&mut *guard, Some(handle));
             }
         }
+    }
+
+    /// Helper to easily send a Command over the (locked) underlying CommandSender object
+    pub fn send_scan_command(&self, command: Command) -> Result<()> {
+        if let Ok(guard) = self.scans.read().as_ref() {
+            if let Some(handle) = guard.as_ref() {
+                handle.tx.send(command)?;
+                return Ok(());
+            }
+        }
+
+        bail!("Could not get underlying CommandSender object")
+    }
+
+    /// Helper to easily get the (locked) underlying FeroxScans object
+    pub fn ferox_scans(&self) -> Result<Arc<FeroxScans>> {
+        if let Ok(guard) = self.scans.read().as_ref() {
+            if let Some(handle) = guard.as_ref() {
+                return Ok(handle.data.clone());
+            }
+        }
+
+        bail!("Could not get underlying FeroxScans")
     }
 }

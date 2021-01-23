@@ -19,8 +19,11 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::Value;
-use tokio::time::Duration;
-use tokio::{task::JoinHandle, time};
+use tokio::{
+    sync,
+    task::JoinHandle,
+    time::{self, Duration},
+};
 use uuid::Uuid;
 
 use crate::utils::fmt_err;
@@ -76,13 +79,13 @@ pub struct FeroxScan {
     pub num_requests: u64,
 
     /// Status of this scan
-    pub status: ScanStatus,
+    pub status: Mutex<ScanStatus>,
 
-    /// The spawned tokio task performing this scan
-    pub task: Option<JoinHandle<()>>,
+    /// The spawned tokio task performing this scan (uses tokio::sync::Mutex)
+    pub task: sync::Mutex<Option<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
-    pub progress_bar: Option<ProgressBar>,
+    pub progress_bar: Mutex<Option<ProgressBar>>,
 }
 
 /// Default implementation for FeroxScan
@@ -93,11 +96,11 @@ impl Default for FeroxScan {
 
         FeroxScan {
             id: new_id,
-            task: None,
-            status: ScanStatus::default(),
+            task: sync::Mutex::new(None), // tokio mutex
+            status: Mutex::new(ScanStatus::default()),
             num_requests: 0,
             url: String::new(),
-            progress_bar: None,
+            progress_bar: Mutex::new(None),
             scan_type: ScanType::File,
         }
     }
@@ -106,31 +109,55 @@ impl Default for FeroxScan {
 /// Implementation of FeroxScan
 impl FeroxScan {
     /// Stop a currently running scan
-    pub fn abort(&mut self) {
-        if let Some(task) = &self.task {
-            self.status = ScanStatus::Cancelled;
-            self.stop_progress_bar();
+    pub async fn abort(&self) {
+        let mut guard = self.task.lock().await;
+
+        if guard.is_some() {
+            let task = std::mem::replace(&mut *guard, None).unwrap();
             task.abort();
+            self.set_status(ScanStatus::Cancelled).unwrap(); // todo
+            self.stop_progress_bar();
         }
+    }
+
+    /// todo
+    pub async fn set_task(&self, task: JoinHandle<()>) -> Result<()> {
+        let mut guard = self.task.lock().await;
+        let _ = std::mem::replace(&mut *guard, Some(task));
+        Ok(())
+    }
+
+    /// todo
+    pub fn set_status(&self, status: ScanStatus) -> Result<()> {
+        // todo unwrap? the ? throws a cannot be sent between threads
+        let mut guard = self.status.lock().unwrap();
+        let _ = std::mem::replace(&mut *guard, status);
+        Ok(())
     }
 
     /// Simple helper to call .finish on the scan's progress bar
     fn stop_progress_bar(&self) {
-        if let Some(pb) = &self.progress_bar {
-            pb.finish_at_current_pos();
+        // todo do something with the unwrap see set_status todo note
+        let guard = self.progress_bar.lock().unwrap();
+
+        if guard.is_some() {
+            (*guard).as_ref().unwrap().finish_at_current_pos()
         }
     }
 
     /// Simple helper get a progress bar
-    pub fn progress_bar(&mut self) -> ProgressBar {
-        if let Some(pb) = &self.progress_bar {
-            pb.clone()
+    pub fn progress_bar(&self) -> ProgressBar {
+        // todo do something with the unwrap see set_status todo note
+        let mut guard = self.progress_bar.lock().unwrap();
+
+        if guard.is_some() {
+            (*guard).as_ref().unwrap().clone()
         } else {
             let pb = add_bar(&self.url, self.num_requests, BarType::Default);
 
             pb.reset_elapsed();
 
-            self.progress_bar = Some(pb.clone());
+            let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
 
             pb
         }
@@ -142,40 +169,45 @@ impl FeroxScan {
         scan_type: ScanType,
         num_requests: u64,
         pb: Option<ProgressBar>,
-    ) -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self {
+    ) -> Arc<Self> {
+        Arc::new(Self {
             url: url.to_string(),
             scan_type,
             num_requests,
-            progress_bar: pb,
+            progress_bar: Mutex::new(pb),
             ..Default::default()
-        }))
+        })
     }
 
     /// Mark the scan as complete and stop the scan's progress bar
-    pub fn finish(&mut self) {
-        self.status = ScanStatus::Complete;
+    pub fn finish(&self) {
+        self.set_status(ScanStatus::Complete).unwrap(); // todo
         self.stop_progress_bar();
     }
 
     /// todo
     pub fn is_active(&self) -> bool {
-        match self.status {
-            ScanStatus::Running => true,
-            ScanStatus::NotStarted => true,
-            _ => false,
+        if let Ok(guard) = self.status.lock() {
+            return match (self.scan_type, *guard) {
+                (ScanType::Directory, ScanStatus::Running) => true,
+                (ScanType::Directory, ScanStatus::NotStarted) => true,
+                _ => false,
+            };
         }
+        false
     }
 
     /// todo doc
-    pub async fn join(&mut self) {
+    pub async fn join(&self) {
         log::trace!("enter join({:?})", self);
-        if self.task.is_some() {
-            // if let? todo
-            let task = std::mem::replace(&mut self.task, None).unwrap();
+        let mut guard = self.task.lock().await;
+
+        if guard.is_some() {
+            let task = std::mem::replace(&mut *guard, None).unwrap();
             task.await.unwrap();
-            self.status = ScanStatus::Complete;
+            self.set_status(ScanStatus::Complete).unwrap(); // todo
         }
+
         log::trace!("exit join({:?})", self);
     }
 }
@@ -183,11 +215,15 @@ impl FeroxScan {
 /// Display implementation
 impl fmt::Display for FeroxScan {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let status = match self.status {
-            ScanStatus::NotStarted => style("not started").bright().blue(),
-            ScanStatus::Complete => style("complete").green(),
-            ScanStatus::Cancelled => style("cancelled").red(),
-            ScanStatus::Running => style("running").bright().yellow(),
+        let status = if let Ok(guard) = self.status.lock() {
+            match *guard {
+                ScanStatus::NotStarted => style("not started").bright().blue(),
+                ScanStatus::Complete => style("complete").green(),
+                ScanStatus::Cancelled => style("cancelled").red(),
+                ScanStatus::Running => style("running").bright().yellow(),
+            }
+        } else {
+            style("unknown").red()
         };
 
         write!(f, "{:12} {}", status, self.url)
@@ -249,13 +285,13 @@ impl<'de> Deserialize<'de> for FeroxScan {
                 }
                 "status" => {
                     if let Some(status) = value.as_str() {
-                        scan.status = match status {
+                        scan.status = Mutex::new(match status {
                             "NotStarted" => ScanStatus::NotStarted,
                             "Running" => ScanStatus::Running,
                             "Complete" => ScanStatus::Complete,
                             "Cancelled" => ScanStatus::Cancelled,
                             _ => ScanStatus::default(),
-                        }
+                        })
                     }
                 }
                 "url" => {
@@ -436,7 +472,7 @@ impl Default for Menu {
 #[derive(Debug, Default)]
 pub struct FeroxScans {
     /// Internal structure: locked hashset of `FeroxScan`s
-    pub scans: RwLock<Vec<Arc<Mutex<FeroxScan>>>>,
+    pub scans: RwLock<Vec<Arc<FeroxScan>>>,
 
     /// menu used for providing a way for users to cancel a scan
     menu: Menu,
@@ -453,11 +489,8 @@ impl Serialize for FeroxScans {
     {
         if let Ok(scans) = self.scans.read() {
             let mut seq = serializer.serialize_seq(Some(scans.len()))?;
-
             for scan in scans.iter() {
-                if let Ok(unlocked) = scan.lock() {
-                    seq.serialize_element(&*unlocked)?;
-                }
+                seq.serialize_element(&*scan).unwrap_or_default();
             }
 
             seq.end()
@@ -474,19 +507,10 @@ impl FeroxScans {
     /// Add a `FeroxScan` to the internal container
     ///
     /// If the internal container did NOT contain the scan, true is returned; else false
-    pub fn insert(&self, scan: Arc<Mutex<FeroxScan>>) -> bool {
-        let sentry = match scan.lock() {
-            Ok(locked_scan) => {
-                // If the container did contain the scan, set sentry to false
-                // If the container did not contain the scan, set sentry to true
-                !self.contains(&locked_scan.url)
-            }
-            Err(e) => {
-                // poisoned lock
-                log::error!("FeroxScan's ({:?}) mutex is poisoned: {}", self, e);
-                false
-            }
-        };
+    pub fn insert(&self, scan: Arc<FeroxScan>) -> bool {
+        // If the container did contain the scan, set sentry to false
+        // If the container did not contain the scan, set sentry to true
+        let sentry = !self.contains(&scan.url);
 
         if sentry {
             // can't update the internal container while the scan itself is locked, so first
@@ -494,7 +518,7 @@ impl FeroxScans {
             // not found
             match self.scans.write() {
                 Ok(mut scans) => {
-                    scans.push(scan);
+                    scans.push(scan.clone());
                 }
                 Err(e) => {
                     log::error!("FeroxScans' container's mutex is poisoned: {}", e);
@@ -512,10 +536,8 @@ impl FeroxScans {
         match self.scans.read() {
             Ok(scans) => {
                 for scan in scans.iter() {
-                    if let Ok(locked_scan) = scan.lock() {
-                        if locked_scan.url == url {
-                            return true;
-                        }
+                    if scan.url == url {
+                        return true;
                     }
                 }
             }
@@ -527,13 +549,11 @@ impl FeroxScans {
     }
 
     /// Find and return a `FeroxScan` based on the given URL
-    pub fn get_scan_by_url(&self, url: &str) -> Option<Arc<Mutex<FeroxScan>>> {
-        if let Ok(scans) = self.scans.read() {
-            for scan in scans.iter() {
-                if let Ok(locked_scan) = scan.lock() {
-                    if locked_scan.url == url {
-                        return Some(scan.clone());
-                    }
+    pub fn get_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
+        if let Ok(guard) = self.scans.read() {
+            for scan in guard.iter() {
+                if scan.url == url {
+                    return Some(scan.clone());
                 }
             }
         }
@@ -546,82 +566,73 @@ impl FeroxScans {
     ///   0: complete   https://10.129.45.20
     ///   9: complete   https://10.129.45.20/images
     ///  10: complete   https://10.129.45.20/assets
-    pub fn display_scans(&self) {
+    pub async fn display_scans(&self) {
         if let Ok(scans) = self.scans.read() {
             for (i, scan) in scans.iter().enumerate() {
-                if let Ok(unlocked_scan) = scan.lock() {
-                    if unlocked_scan.task.is_none() {
-                        // no JoinHandle associated with this FeroxScan, meaning it was an original
-                        // target passed in via either -u or --stdin
-                        // todo check this assumption, as we swap out the task with None once joined
-                        continue;
-                    }
+                if scan.task.lock().await.is_none() {
+                    // no JoinHandle associated with this FeroxScan, meaning it was an original
+                    // target passed in via either -u or --stdin
+                    // todo check this assumption, as we swap out the task with None once joined
+                    continue;
+                }
 
-                    if matches!(unlocked_scan.scan_type, ScanType::Directory) {
-                        // we're only interested in displaying directory scans, as those are
-                        // the only ones that make sense to be stopped
-                        let scan_msg = format!("{:3}: {}", i, unlocked_scan);
-                        self.menu.println(&scan_msg);
-                    }
+                if matches!(scan.scan_type, ScanType::Directory) {
+                    // we're only interested in displaying directory scans, as those are
+                    // the only ones that make sense to be stopped
+                    let scan_msg = format!("{:3}: {}", i, scan);
+                    self.menu.println(&scan_msg);
                 }
             }
         }
     }
 
     /// Given a list of indexes, cancel their associated FeroxScans
-    fn cancel_scans(&self, indexes: Vec<usize>) -> usize {
-        let mut cancelled = 0;
+    async fn cancel_scans(&self, indexes: Vec<usize>) {
         let menu_pause_duration = Duration::from_millis(SLEEP_DURATION);
 
         for num in indexes {
-            if let Ok(u_scans) = self.scans.read() {
-                // check if number provided is out of range
-                if num >= u_scans.len() {
-                    // usize can't be negative, just need to handle exceeding bounds
-                    self.menu
-                        .println(&format!("The number {} is not a valid choice.", num));
-                    sleep(menu_pause_duration);
-                    continue;
-                }
-
-                let selected = u_scans.index(num).clone();
-
-                if let Ok(mut ferox_scan) = selected.lock() {
-                    let input = self.menu.confirm_cancellation(&ferox_scan.url);
-
-                    if input == 'y' || input == '\n' {
+            let selected = match self.scans.read() {
+                Ok(u_scans) => {
+                    // check if number provided is out of range
+                    if num >= u_scans.len() {
+                        // usize can't be negative, just need to handle exceeding bounds
                         self.menu
-                            .println(&format!("Stopping {}...", ferox_scan.url));
-                        ferox_scan.abort();
-                        cancelled += 1;
-                    } else {
-                        self.menu.println("Ok, doing nothing...");
+                            .println(&format!("The number {} is not a valid choice.", num));
+                        sleep(menu_pause_duration);
+                        continue;
                     }
+                    u_scans.index(num).clone()
                 }
+                Err(..) => continue,
+            };
 
-                sleep(menu_pause_duration);
+            let input = self.menu.confirm_cancellation(&selected.url);
+
+            if input == 'y' || input == '\n' {
+                self.menu.println(&format!("Stopping {}...", selected.url));
+                selected.abort().await;
+            } else {
+                self.menu.println("Ok, doing nothing...");
             }
+
+            sleep(menu_pause_duration);
         }
-        cancelled
     }
 
     /// CLI menu that allows for interactive cancellation of recursed-into directories
-    async fn interactive_menu(&self) -> usize {
+    async fn interactive_menu(&self) {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
         self.display_scans();
         self.menu.print_footer();
 
-        let num_cancelled = if let Some(input) = self.menu.get_scans_from_user() {
-            self.cancel_scans(input)
-        } else {
-            0
+        if let Some(input) = self.menu.get_scans_from_user() {
+            self.cancel_scans(input).await
         };
 
         self.menu.clear_screen();
         self.menu.show_progress_bars();
-        num_cancelled
     }
 
     /// prints all known responses that the scanner has already seen
@@ -639,9 +650,8 @@ impl FeroxScans {
     ///
     /// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
     /// loop
-    pub async fn pause(&self, get_user_input: bool) -> usize {
+    pub async fn pause(&self, get_user_input: bool) {
         // function uses tokio::time, not std
-        let mut num_cancelled = 0;
 
         // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
         // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
@@ -651,7 +661,7 @@ impl FeroxScans {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                num_cancelled += self.interactive_menu().await;
+                self.interactive_menu().await;
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
                 self.print_known_responses();
             }
@@ -669,7 +679,7 @@ impl FeroxScans {
                 }
 
                 log::trace!("exit: pause_scan");
-                return num_cancelled;
+                return;
             }
         }
     }
@@ -684,7 +694,7 @@ impl FeroxScans {
         url: &str,
         scan_type: ScanType,
         stats: Arc<Stats>,
-    ) -> (bool, Arc<Mutex<FeroxScan>>) {
+    ) -> (bool, Arc<FeroxScan>) {
         // todo eventually this should live on the struct and remove need ofr stats being passed in
         let num_requests = stats.expected_per_scan() as u64;
 
@@ -713,11 +723,7 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_directory_scan(
-        &self,
-        url: &str,
-        stats: Arc<Stats>,
-    ) -> (bool, Arc<Mutex<FeroxScan>>) {
+    pub fn add_directory_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<FeroxScan>) {
         self.add_scan(&url, ScanType::Directory, stats)
     }
 
@@ -726,38 +732,54 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<Mutex<FeroxScan>>) {
+    pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<FeroxScan>) {
         self.add_scan(&url, ScanType::File, stats)
     }
 
     pub fn has_active_scans(&self) -> bool {
         if let Ok(guard) = self.scans.read() {
             for scan in guard.iter() {
-                if let Ok(scan_guard) = scan.lock() {
-                    if scan_guard.is_active() {
-                        return true;
-                    }
+                if scan.is_active() {
+                    return true;
                 }
             }
         }
         false
     }
 
-    pub async fn join_all(&self) -> usize {
-        let mut joined = 0;
-        if let Ok(u_scans) = self.scans.read() {
-            for scan in u_scans.iter() {
-                if let Ok(mut u_scan) = scan.lock() {
-                    if u_scan.task.is_none() {
-                        continue;
-                    }
-                    u_scan.join().await;
-                    joined += 1;
+    /// Retrieve all active scans
+    pub fn get_active_scans(&self) -> Vec<Arc<FeroxScan>> {
+        let mut scans = vec![];
+
+        if let Ok(guard) = self.scans.read() {
+            for scan in guard.iter() {
+                if !scan.is_active() {
+                    continue;
                 }
+                scans.push(scan.clone());
             }
         }
-        joined
+        scans
     }
+
+    // todo remove probably
+    // pub async fn join_all(&self) -> usize {
+    //     let mut joined = 0;
+    //     if let Ok(u_scans) = self.scans.read() {
+    //         for scan in u_scans.iter() {
+    //             let mut guard = scan.lock().await;
+    //             if guard.task.is_none() {
+    //                 continue;
+    //             }
+    //             guard.join().await;
+    //             joined += 1;
+    //
+    //             if let Ok(mut u_scan) = scan.lock() {
+    //             }
+    //         }
+    //     }
+    //     joined
+    // }
 }
 
 /// Container around a locked vector of `FeroxResponse`s, adds wrappers for insertion and search
@@ -997,7 +1019,7 @@ pub fn resume_scan(filename: &str) -> Configuration {
                     serde_json::from_value(scan.clone()).unwrap_or_default();
                 // need to determine if it's complete and based on that create a progress bar
                 // populate it accordingly based on completion
-                SCANNED_URLS.insert(Arc::new(Mutex::new(deser_scan)));
+                SCANNED_URLS.insert(Arc::new(deser_scan));
             }
         }
     }

@@ -6,6 +6,7 @@ use crate::{
 use reqwest::StatusCode;
 use std::collections::HashSet;
 use std::sync::Arc;
+use tokio::sync::oneshot::Sender;
 
 /// Protocol definition for updating an event handler via mpsc
 #[derive(Debug)]
@@ -20,7 +21,7 @@ pub enum Command {
     AddStatus(StatusCode),
 
     /// Create the progress bar (`BarType::Total`) that is updated from the stats thread
-    CreateBar,
+    CreateBar(Sender<bool>),
 
     /// Update a `Stats` field that corresponds to the given `StatField` by the given `usize` value
     UpdateUsizeField(StatField, usize),
@@ -43,8 +44,8 @@ pub enum Command {
     /// Send a `FeroxResponse` to the output handler for reporting
     Report(Box<FeroxResponse>),
 
-    /// Send a url to be scanned (in the context of recursion)
-    ScanUrl(String),
+    /// Send a url to be scanned (in the context of recursion), use sender to notify main when done
+    ScanUrl(String, Sender<bool>),
 
     /// Send a group of urls to be scanned (only used for the urls passed in explicitly by the user)
     ScanInitialUrls(Vec<String>),
@@ -52,8 +53,8 @@ pub enum Command {
     /// Send a pointer to the wordlist to the recursion handler
     UpdateWordlist(Arc<HashSet<String>>),
 
-    /// Send a pointer to the wordlist to the recursion handler
-    AddDirectoryScan(Arc<HashSet<String>>), // todo never used?
+    /// Instruct the ScanHandler to join on all known scans, use sender to notify main when done
+    JoinTasks(Sender<bool>),
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,

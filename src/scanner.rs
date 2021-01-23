@@ -14,9 +14,10 @@ use crate::{
     send_command,
     statistics::StatField::{DirScanTimes, ExpectedPerScan, WildcardsFiltered},
     traits::FeroxFilter,
-    utils::{format_url, get_current_depth, make_request},
+    utils::{fmt_err, format_url, get_current_depth, make_request},
     CommandSender, FeroxResponse, SIMILARITY_THRESHOLD,
 };
+use anyhow::{bail, Result};
 use futures::{stream, StreamExt};
 use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
@@ -32,7 +33,7 @@ use std::{
     sync::{Arc, RwLock},
     time::Instant,
 };
-use tokio::sync::{mpsc::UnboundedSender, Semaphore};
+use tokio::sync::{mpsc::UnboundedSender, oneshot, Semaphore};
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
@@ -297,12 +298,15 @@ pub async fn try_recursion(
     if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth)
         && response_is_directory(&response)
     {
+        let (tx, rx) = oneshot::channel::<bool>();
         if CONFIGURATION.redirects {
             // response is 2xx can simply send it because we're following redirects
             log::info!("Added new directory to recursive scan: {}", response.url());
 
-            match transmitter.send(Command::ScanUrl(String::from(response.url().as_str()))) {
+            match transmitter.send(Command::ScanUrl(String::from(response.url().as_str()), tx)) {
                 Ok(_) => {
+                    log::error!("sent {} to scan handler, awaiting result", response.url()); // todo remove
+                    rx.await.unwrap();
                     log::debug!("sent {} across channel to begin a new scan", response.url());
                 }
                 Err(e) => {
@@ -318,8 +322,11 @@ pub async fn try_recursion(
 
             log::info!("Added new directory to recursive scan: {}", new_url);
 
-            match transmitter.send(Command::ScanUrl(new_url)) {
-                Ok(_) => {}
+            match transmitter.send(Command::ScanUrl(new_url, tx)) {
+                Ok(_) => {
+                    log::error!("sent {} to scan handler, awaiting result", response.url()); // todo remove
+                    rx.await.unwrap();
+                }
                 Err(e) => {
                     log::error!(
                         "Could not send {}/ to recursion handler: {}",
@@ -381,7 +388,7 @@ async fn make_requests(target_url: &str, word: &str, base_depth: usize, handles:
         handles.stats.tx.clone(),
     );
 
-    let scanned_urls = handles.scans.read().unwrap().as_ref().unwrap().data.clone();
+    let scanned_urls = handles.ferox_scans().unwrap(); // unwrap todo
     let tx_scans = handles.scans.read().unwrap().as_ref().unwrap().tx.clone();
 
     for url in urls {
@@ -461,7 +468,7 @@ pub async fn scan_url(
     order: ScanOrder,
     wordlist: Arc<HashSet<String>>,
     handles: Arc<Handles>,
-) {
+) -> Result<()> {
     log::trace!(
         "enter: scan_url({:?}, {:?}, wordlist[{} words...], {:?})",
         target_url,
@@ -490,45 +497,29 @@ pub async fn scan_url(
                 // todo abstract scanned_urls
                 .scanned_urls(handles.scans.read().unwrap().as_ref().unwrap().data.clone())
                 .stats(handles.stats.data.clone())
-                .build()
-                .unwrap(); // todo change once this function returns Result
+                .build()?;
 
             let _ = extractor.extract().await;
         }
     }
 
-    // todo abstract away scan.get_scan probably
-    let ferox_scan = match handles
-        .scans
-        .read()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .data
-        .get_scan_by_url(&target_url)
-    {
+    let ferox_scans = handles.ferox_scans()?;
+
+    let ferox_scan = match ferox_scans.get_scan_by_url(&target_url) {
         Some(scan) => {
-            if let Ok(mut u_scan) = scan.lock() {
-                u_scan.status = ScanStatus::Running;
-            }
+            scan.set_status(ScanStatus::Running);
             scan
         }
         None => {
-            log::error!(
+            let msg = format!(
                 "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
                 target_url
             );
-            return;
+            bail!(fmt_err(&msg))
         }
     };
 
-    let progress_bar = match ferox_scan.lock() {
-        Ok(mut scan) => scan.progress_bar(),
-        Err(e) => {
-            log::error!("FeroxScan's ({:?}) mutex is poisoned: {}", ferox_scan, e);
-            return;
-        }
-    };
+    let progress_bar = ferox_scan.progress_bar();
 
     // When acquire is called and the semaphore has remaining permits, the function immediately
     // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
@@ -545,18 +536,8 @@ pub async fn scan_url(
     // todo if you want to remove the 0-based skipping of wildcards, this needs addressed
     // todo wildcard_test should take handles probably? idk, could see tradeoff between memsize
     // of two clones vs the handles clone
-    log::error!("Size of Handles: {}", std::mem::size_of::<Handles>());
-    log::error!(
-        "Size of Arc<Handles>: {}",
-        std::mem::size_of::<Arc<Handles>>()
-    );
-    log::error!(
-        "Size of CommandSender: {}",
-        std::mem::size_of::<CommandSender>()
-    );
-    log::error!("Size of Handles: {}", std::mem::size_of::<Arc<Handles>>());
-    // todo remove above
 
+    // todo should take handles
     let filter = match heuristics::wildcard_test(
         &target_url,
         wildcard_bar,
@@ -569,16 +550,10 @@ pub async fn scan_url(
         None => Box::new(WildcardFilter::default()),
     };
 
+    // todo move to filters handler
     add_filter_to_list_of_ferox_filters(filter, FILTERS.clone());
-    let scanned_urls = handles
-        .scans
-        .read()
-        .as_ref()
-        .unwrap()
-        .as_ref()
-        .unwrap()
-        .data
-        .clone();
+
+    let scanned_urls = handles.ferox_scans()?;
 
     // producer tasks (mp of mpsc); responsible for making requests
     // todo .deref().to_owned() seems like they cancel eachother out
@@ -586,7 +561,7 @@ pub async fn scan_url(
         .map(|word| {
             // todo abstract away more scans shit
             let handles_clone = handles.clone();
-            let txs = handles.stats.tx.clone();
+            let _txs = handles.stats.tx.clone();
             let pb = progress_bar.clone(); // progress bar is an Arc around internal state
             let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
             let scanned_urls_clone = scanned_urls.clone();
@@ -596,12 +571,11 @@ pub async fn scan_url(
                         // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
                         // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                         // to false
-                        let num_cancelled = scanned_urls_clone.pause(true).await;
-                        for _ in 0..num_cancelled {
-                            txs.send(DecrementActiveScans).unwrap_or_default();
-                        }
+                        scanned_urls_clone.pause(true).await;
+                        // for _ in 0..num_cancelled {
+                        //     txs.send(DecrementActiveScans).unwrap_or_default();
+                        // }
                     }
-                    // todo the sender for dir_chan (change name) is <String>, i.e. going nowhere
                     make_requests(&tgt, &word, depth, handles_clone).await
                 }),
                 pb,
@@ -623,28 +597,22 @@ pub async fn scan_url(
     producers.await;
     log::trace!("done awaiting scan producers");
 
-    send_command!(
-        handles.stats.tx,
-        UpdateF64Field(DirScanTimes, scan_timer.elapsed().as_secs_f64())
-    );
+    handles.stats.send(UpdateF64Field(
+        DirScanTimes,
+        scan_timer.elapsed().as_secs_f64(),
+    ));
 
     // drop the current permit so the semaphore will allow another scan to proceed
     drop(permit);
 
-    if let Ok(mut scan) = ferox_scan.lock() {
-        scan.finish();
-    }
+    ferox_scan.finish();
 
     // todo remove
     // // manually drop tx in order for the rx task's while loops to eval to false
     // log::trace!("dropped recursion handler's transmitter");
     // drop(tx_dir);
 
-    handles
-        .stats
-        .tx
-        .send(DecrementActiveScans)
-        .unwrap_or_default();
+    handles.stats.send(DecrementActiveScans)?;
 
     // note: in v1.11.2 i removed the join_all call that used to handle the recurser handles.
     // nothing appears to change by having them removed, however, if ever a revert is needed
@@ -664,6 +632,8 @@ pub async fn scan_url(
     // }
 
     log::trace!("exit: scan_url");
+
+    Ok(())
 }
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
