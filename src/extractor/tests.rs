@@ -13,16 +13,13 @@ use tokio::sync::mpsc;
 
 lazy_static! {
     /// Extractor for testing robots.txt
-    static ref ROBOTS_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::RobotsTxt);
+    static ref ROBOTS_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::RobotsTxt, Arc::new(FeroxScans::default()));
 
     /// Extractor for testing response bodies
-    static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody);
+    static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
     /// Configuration for Extractor
     static ref CONFIG: Configuration = Configuration::new();
-
-    /// FeroxScans for Extractor
-    static ref SCANS: FeroxScans = FeroxScans::default();
 
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
@@ -43,8 +40,8 @@ fn get_test_response() -> FeroxResponse {
 }
 
 /// creates a single extractor that can be used to test standalone functions
-fn setup_extractor(target: ExtractionTarget) -> Extractor<'static> {
-    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> Extractor<'static> {
+    let (tx_dir, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
@@ -60,7 +57,7 @@ fn setup_extractor(target: ExtractionTarget) -> Extractor<'static> {
         .recursion_transmitter(tx_dir)
         .stats_transmitter(tx_stats)
         .reporter_transmitter(tx_term)
-        .scanned_urls(&SCANS)
+        .scanned_urls(scanned_urls)
         .stats(stats)
         .build()
         .unwrap()
@@ -143,7 +140,7 @@ fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
 #[test]
 /// test that an ExtractorBuilder without a FeroxResponse and without a URL bails
 fn extractor_builder_bails_when_neither_required_field_is_set() {
-    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_dir, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
@@ -154,7 +151,7 @@ fn extractor_builder_bails_when_neither_required_field_is_set() {
         .recursion_transmitter(tx_dir)
         .stats_transmitter(tx_stats)
         .reporter_transmitter(tx_term)
-        .scanned_urls(&SCANS)
+        .scanned_urls(Arc::new(FeroxScans::default()))
         .stats(stats)
         .build();
 
@@ -167,7 +164,7 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
     let mut links = HashSet::<String>::new();
     let link = "admin";
 
-    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_dir, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
@@ -178,7 +175,7 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
         .recursion_transmitter(tx_dir)
         .stats_transmitter(tx_stats)
         .reporter_transmitter(tx_term)
-        .scanned_urls(&SCANS)
+        .scanned_urls(Arc::new(FeroxScans::default()))
         .stats(stats)
         .build()?;
 
@@ -236,7 +233,7 @@ fn extractor_add_link_to_set_of_links_with_non_base_url() {
 /// the response will contain an absolute path to a domain that is not part of the scanned
 /// domain; expect an empty set returned
 async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain() -> Result<()> {
-    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_dir, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
@@ -266,7 +263,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         tx_stats,
         tx_recursion: tx_dir,
         tx_reporter: tx_term,
-        scanned_urls: &SCANS,
+        scanned_urls: Arc::new(FeroxScans::default()),
         depth: 4,
         stats,
         target: ExtractionTarget::ResponseBody,
@@ -283,7 +280,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that /robots.txt is correctly requested given a base url (happy path)
 async fn request_robots_txt_without_proxy() -> Result<()> {
-    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_dir, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
@@ -305,7 +302,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
         tx_stats,
         tx_recursion: tx_dir,
         tx_reporter: tx_term,
-        scanned_urls: &SCANS,
+        scanned_urls: Arc::new(FeroxScans::default()),
         depth: 4,
         stats,
         target: ExtractionTarget::RobotsTxt,
@@ -323,7 +320,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that /robots.txt is correctly requested given a base url (happy path) when a proxy is used
 async fn request_robots_txt_with_proxy() -> Result<()> {
-    let (tx_dir, _): FeroxChannel<String> = mpsc::unbounded_channel();
+    let (tx_dir, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_stats, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let (tx_term, _): FeroxChannel<Command> = mpsc::unbounded_channel();
     let stats = Arc::new(Stats::new());
@@ -347,7 +344,7 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
         .recursion_transmitter(tx_dir)
         .stats_transmitter(tx_stats)
         .reporter_transmitter(tx_term)
-        .scanned_urls(&SCANS)
+        .scanned_urls(Arc::new(FeroxScans::default()))
         .stats(stats)
         .build()?;
 
@@ -360,8 +357,8 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-/// get_feroxresponse_from_link's happy path, expect back a FeroxResponse
-async fn get_feroxresponse_from_link_happy_path() -> Result<()> {
+/// request_link's happy path, expect back a FeroxResponse
+async fn request_link_happy_path() -> Result<()> {
     let srv = MockServer::start();
 
     let mock = srv.mock(|when, then| {
@@ -380,9 +377,10 @@ async fn get_feroxresponse_from_link_happy_path() -> Result<()> {
     Ok(())
 }
 
+// todo this test won't work, setup_extractor or w/e uses default feroxscans, need a way to alter it
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-/// get_feroxresponse_from_link should bail in the event that the url is already in scanned_urls
-async fn get_feroxresponse_from_link_bails_on_seen_url() -> Result<()> {
+/// request_link should bail in the event that the url is already in scanned_urls
+async fn request_link_bails_on_seen_url() -> Result<()> {
     let url = "/unique-for-this-test.php";
     let srv = MockServer::start();
     let served = srv.url(url);
@@ -393,10 +391,15 @@ async fn get_feroxresponse_from_link_bails_on_seen_url() -> Result<()> {
             .body("this is a unique test, don't reuse the endpoint");
     });
 
-    SCANS.add_file_scan(&served, ROBOTS_EXT.stats.clone());
+    let stats = Arc::new(Stats::new());
+    let scans = Arc::new(FeroxScans::default());
+    scans.add_file_scan(&served, stats);
 
-    let r_resp = ROBOTS_EXT.request_link(&served).await;
-    let b_resp = BODY_EXT.request_link(&served).await;
+    let robots = setup_extractor(ExtractionTarget::RobotsTxt, scans.clone());
+    let body = setup_extractor(ExtractionTarget::ResponseBody, scans);
+
+    let r_resp = robots.request_link(&served).await;
+    let b_resp = body.request_link(&served).await;
 
     assert!(r_resp.is_err());
     assert!(b_resp.is_err());

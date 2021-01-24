@@ -124,9 +124,6 @@ pub struct Stats {
 
     /// tracker for total runtime
     total_runtime: Mutex<Vec<f64>>,
-
-    /// tracker for active_scans
-    active_scans: AtomicUsize,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -178,21 +175,6 @@ impl Stats {
     /// public getter for initial_targets
     pub fn initial_targets(&self) -> usize {
         atomic_load!(self.initial_targets)
-    }
-
-    /// public getter for initial_targets
-    pub fn active_scans(&self) -> usize {
-        atomic_load!(self.active_scans)
-    }
-
-    /// add one to active scans
-    pub fn increment_active_scans(&self, value: usize) {
-        atomic_increment!(self.active_scans, value);
-    }
-
-    /// subtract one from active scans
-    pub fn decrement_active_scans(&self) {
-        self.active_scans.fetch_sub(1, Ordering::Relaxed);
     }
 
     /// increment `requests` field by one
@@ -559,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    /// Stats::merge_from should properly incrememnt expected fields and ignore others
+    /// Stats::merge_from should properly increment expected fields and ignore others
     fn stats_merge_from_alters_correct_fields() {
         let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
         let stats = Stats::new();

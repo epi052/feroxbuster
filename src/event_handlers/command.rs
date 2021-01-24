@@ -35,9 +35,6 @@ pub enum Command {
     /// Load a `Stats` object from disk
     LoadStats(String),
 
-    /// Subtract one from the current number of active scans
-    DecrementActiveScans,
-
     /// Add a `FeroxFilter` implementor to `FilterHandler`'s instance of `FeroxFilters`
     AddFilter(Box<dyn FeroxFilter>),
 
@@ -55,6 +52,9 @@ pub enum Command {
 
     /// Instruct the ScanHandler to join on all known scans, use sender to notify main when done
     JoinTasks(Sender<bool>),
+
+    /// Command used to test that a spawned task succeeded in initialization
+    Ping,
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,

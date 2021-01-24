@@ -11,12 +11,13 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use crossterm::event::{self, Event, KeyCode};
-use futures::{StreamExt, TryFutureExt};
+use futures::StreamExt;
 use tokio::{io, sync::oneshot};
 use tokio_util::codec::{FramedRead, LinesCodec};
 
+use feroxbuster::event_handlers::Command;
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
@@ -77,14 +78,17 @@ fn terminal_input_handler() {
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
 
-    let file = File::open(&path)?;
+    let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;
 
     let reader = BufReader::new(file);
 
     let mut words = HashSet::new();
 
     for line in reader.lines() {
-        let result = line?;
+        let result = match line {
+            Ok(read_line) => read_line,
+            Err(_) => continue,
+        };
 
         if result.starts_with('#') || result.is_empty() {
             continue;
@@ -127,9 +131,11 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
+    log::trace!("starting oneshot");
     let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
     handles.stats.send(CreateBar(tx))?; // todo bar is on top, now just need to clean up this code (unwrap etc)
     rx.await.unwrap(); // blocks until the bar is created / avoids race condition in first two bars
+    log::trace!("received oneshot");
 
     if CONFIGURATION.resumed {
         handles
@@ -276,7 +282,20 @@ async fn wrapped_main() -> Result<()> {
             .check_for_updates(&CONFIGURATION.client, UPDATE_URL, handles.stats.tx.clone())
             .await;
 
-        banner.print_to(std_stderr, &CONFIGURATION)?;
+        if banner.print_to(std_stderr, &CONFIGURATION).is_err() {
+            clean_up(handles, tasks).await?;
+            bail!(fmt_err("Could not print banner"));
+        }
+    }
+
+    // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
+    // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
+    // done later here in main). Ping checks that the tx/rx connection to the file handler works
+    if !CONFIGURATION.output.is_empty() && handles.output.tx_file.send(Command::Ping).is_err() {
+        // output file specified and file handler could not initialize
+        clean_up(handles, tasks).await?;
+        let msg = format!("Couldn't start {} file handler", CONFIGURATION.output);
+        bail!(fmt_err(&msg));
     }
 
     // discard non-responsive targets
@@ -288,12 +307,14 @@ async fn wrapped_main() -> Result<()> {
     }
 
     // kick off a scan against any targets determined to be responsive
-    scan(live_targets, handles.clone()).await?;
 
-    // todo use statuement
-    let (tx, rx) = oneshot::channel::<bool>();
-    handles.send_scan_command(JoinTasks(tx));
-    rx.await?;
+    match scan(live_targets, handles.clone()).await {
+        Ok(_) => {}
+        Err(e) => {
+            clean_up(handles, tasks).await?;
+            bail!(fmt_err(&format!("Failed while scanning: {}", e)));
+        }
+    }
 
     // todo known things not working: overall bar lags behind other bars
     // todo known things not working: filters handler not implemented
@@ -301,6 +322,8 @@ async fn wrapped_main() -> Result<()> {
     // todo known things not working: confirm multi target from stdin works
     // todo known things not working: confirm same # of requests seen in burp as reported
     // todo known things not working: enable build on this branch, compare memory usage with new recursion paradigm
+    // todo known things not working: banner_print_output_file or w/e is hanging, probably means
+    // --output is wrong or that no-recursion is wrong
 
     clean_up(handles, tasks).await?;
 
@@ -317,21 +340,28 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
         tasks
     );
 
-    // todo abstract away getting a cloned Arc<FeroxScans> using handles impl
-    // let scanned_urls = handles.ferox_scans()?;
+    let (tx, rx) = oneshot::channel::<bool>();
+    log::error!("oneshot created, sending join command"); // todo
+    handles.send_scan_command(JoinTasks(tx))?;
+    log::error!("sent join command"); // todo
+    rx.await?;
 
     log::info!("All scans complete!");
 
     // terminal handler closes file handler if one is in use
-    log::error!("Sending Exit");
-    send_command!(handles.output.tx, Exit); // todo use handles.thing.send in this function
+    log::error!("Sending Exit"); // todo remove
+    handles.output.send(Exit)?;
+    // send_command!(handles.output.tx, Exit); // todo use handles.thing.send in this function
     tasks.terminal.await??;
+    log::trace!("terminal handler closed");
 
     send_command!(handles.filters.tx, Exit);
     tasks.filters.await??;
+    log::trace!("filters handler closed");
 
     send_command!(handles.stats.tx, Exit);
     tasks.stats.await??;
+    log::trace!("stats handler closed");
 
     // mark all scans complete so the terminal input handler will exit cleanly
     SCAN_COMPLETE.store(true, Ordering::Relaxed);

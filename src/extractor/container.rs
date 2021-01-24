@@ -78,7 +78,6 @@ impl<'a> Extractor<'a> {
         };
 
         for link in links {
-            // todo rename get_feroxresponse_from_link
             let mut resp = match self.request_link(&link).await {
                 Ok(resp) => resp,
                 Err(_) => continue,
@@ -286,7 +285,7 @@ impl<'a> Extractor<'a> {
     ///   - check if the new Url has already been seen/scanned -> None
     ///   - make a request to the new Url ? -> Some(response) : None
     pub(super) async fn request_link(&self, url: &str) -> Result<FeroxResponse> {
-        log::trace!("enter: get_feroxresponse_from_link({})", url);
+        log::trace!("enter: request_link({})", url);
 
         // create a url based on the given command line options, return None on error
         let new_url = format_url(
@@ -304,7 +303,7 @@ impl<'a> Extractor<'a> {
             .is_some()
         {
             //we've seen the url before and don't need to scan again
-            log::trace!("exit: get_feroxresponse_from_link -> None");
+            log::trace!("exit: request_link -> None");
             bail!("previously seen url");
         }
 
@@ -314,10 +313,7 @@ impl<'a> Extractor<'a> {
 
         let new_ferox_response = FeroxResponse::from(new_response, true).await;
 
-        log::trace!(
-            "exit: get_feroxresponse_from_link -> {:?}",
-            new_ferox_response
-        );
+        log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
         Ok(new_ferox_response)
     }

@@ -188,11 +188,11 @@ impl FeroxScan {
     /// todo
     pub fn is_active(&self) -> bool {
         if let Ok(guard) = self.status.lock() {
-            return match (self.scan_type, *guard) {
-                (ScanType::Directory, ScanStatus::Running) => true,
-                (ScanType::Directory, ScanStatus::NotStarted) => true,
-                _ => false,
-            };
+            return matches!(
+                (self.scan_type, *guard),
+                (ScanType::Directory, ScanStatus::Running)
+                    | (ScanType::Directory, ScanStatus::NotStarted)
+            );
         }
         false
     }
@@ -518,7 +518,7 @@ impl FeroxScans {
             // not found
             match self.scans.write() {
                 Ok(mut scans) => {
-                    scans.push(scan.clone());
+                    scans.push(scan);
                 }
                 Err(e) => {
                     log::error!("FeroxScans' container's mutex is poisoned: {}", e);
@@ -567,21 +567,29 @@ impl FeroxScans {
     ///   9: complete   https://10.129.45.20/images
     ///  10: complete   https://10.129.45.20/assets
     pub async fn display_scans(&self) {
-        if let Ok(scans) = self.scans.read() {
-            for (i, scan) in scans.iter().enumerate() {
-                if scan.task.lock().await.is_none() {
-                    // no JoinHandle associated with this FeroxScan, meaning it was an original
-                    // target passed in via either -u or --stdin
-                    // todo check this assumption, as we swap out the task with None once joined
-                    continue;
-                }
+        let scans = {
+            // written this way in order to grab the vector and drop the lock immediately
+            // otherwise the spawned task that this is a part of is no longer Send due to
+            // the scan.task.lock().await below while the lock is held (RwLock is not Send)
+            self.scans
+                .read()
+                .expect("Could not acquire lock in display_scans")
+                .clone()
+        };
 
-                if matches!(scan.scan_type, ScanType::Directory) {
-                    // we're only interested in displaying directory scans, as those are
-                    // the only ones that make sense to be stopped
-                    let scan_msg = format!("{:3}: {}", i, scan);
-                    self.menu.println(&scan_msg);
-                }
+        for (i, scan) in scans.iter().enumerate() {
+            if scan.task.lock().await.is_none() {
+                // no JoinHandle associated with this FeroxScan, meaning it was an original
+                // target passed in via either -u or --stdin
+                // todo check this assumption, as we swap out the task with None once joined
+                continue;
+            }
+
+            if matches!(scan.scan_type, ScanType::Directory) {
+                // we're only interested in displaying directory scans, as those are
+                // the only ones that make sense to be stopped
+                let scan_msg = format!("{:3}: {}", i, scan);
+                self.menu.println(&scan_msg);
             }
         }
     }
@@ -624,7 +632,7 @@ impl FeroxScans {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
-        self.display_scans();
+        self.display_scans().await;
         self.menu.print_footer();
 
         if let Some(input) = self.menu.get_scans_from_user() {
@@ -1103,21 +1111,21 @@ mod tests {
         let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
 
         assert_eq!(
-            scan.lock()
+            scan.progress_bar
+                .lock()
                 .unwrap()
-                .progress_bar
                 .as_ref()
                 .unwrap()
                 .is_finished(),
             false
         );
 
-        scan.lock().unwrap().stop_progress_bar();
+        scan.stop_progress_bar();
 
         assert_eq!(
-            scan.lock()
+            scan.progress_bar
+                .lock()
                 .unwrap()
-                .progress_bar
                 .as_ref()
                 .unwrap()
                 .is_finished(),
@@ -1152,17 +1160,18 @@ mod tests {
         let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
         let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
 
-        if let Ok(mut s2) = scan_two.lock() {
-            s2.finish(); // one complete, one incomplete
-            s2.task = Some(Arc::new(tokio::spawn(async move {
+        scan_two.finish(); // one complete, one incomplete
+        scan_two
+            .set_task(tokio::spawn(async move {
                 sleep(Duration::from_millis(SLEEP_DURATION));
-            })));
-        }
+            }))
+            .await
+            .unwrap();
 
         assert_eq!(urls.insert(scan), true);
         assert_eq!(urls.insert(scan_two), true);
 
-        urls.display_scans();
+        urls.display_scans().await;
     }
 
     #[test]
@@ -1172,23 +1181,23 @@ mod tests {
         let scan = FeroxScan::new(url, ScanType::Directory, 0, None);
         let scan_two = FeroxScan::new(url, ScanType::Directory, 0, None);
 
-        assert!(!scan.lock().unwrap().eq(&scan_two.lock().unwrap()));
+        assert!(!scan.eq(&scan_two));
 
-        scan_two.lock().unwrap().id = scan.lock().unwrap().id.clone();
+        let scan_two = scan.clone();
 
-        assert!(scan.lock().unwrap().eq(&scan_two.lock().unwrap()));
+        assert!(scan.eq(&scan_two));
     }
 
     #[test]
     /// show that a new progress bar is created if one doesn't exist
     fn ferox_scan_get_progress_bar_when_none_is_set() {
-        let mut scan = FeroxScan::default();
+        let scan = FeroxScan::default();
 
-        assert!(scan.progress_bar.is_none()); // no pb exists
+        assert!(scan.progress_bar.lock().unwrap().is_none()); // no pb exists
 
         let pb = scan.progress_bar();
 
-        assert!(scan.progress_bar.is_some()); // new pb created
+        assert!(scan.progress_bar.lock().unwrap().is_some()); // new pb created
         assert!(!pb.is_finished()) // not finished
     }
 
@@ -1218,15 +1227,21 @@ mod tests {
             ScanType::File => {}
         }
 
-        match fs.progress_bar {
+        match *fs.progress_bar.lock().unwrap() {
             None => {}
             Some(_) => {
                 panic!();
             }
         }
-        assert!(matches!(fs.status, ScanStatus::Complete));
-        assert!(matches!(fs_two.status, ScanStatus::Cancelled));
-        assert!(matches!(fs_three.status, ScanStatus::NotStarted));
+        assert!(matches!(*fs.status.lock().unwrap(), ScanStatus::Complete));
+        assert!(matches!(
+            *fs_two.status.lock().unwrap(),
+            ScanStatus::Cancelled
+        ));
+        assert!(matches!(
+            *fs_three.status.lock().unwrap(),
+            ScanStatus::NotStarted
+        ));
         assert_eq!(fs_three.num_requests, 42);
         assert_eq!(fs.id, "057016a14769414aac9a7a62707598cb");
     }
@@ -1237,12 +1252,9 @@ mod tests {
         let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
         let fs_json = format!(
             r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
-            fs.lock().unwrap().id
+            fs.id
         );
-        assert_eq!(
-            fs_json,
-            serde_json::to_string(&*fs.lock().unwrap()).unwrap()
-        );
+        assert_eq!(fs_json, serde_json::to_string(&*fs).unwrap());
     }
 
     #[test]
@@ -1252,9 +1264,9 @@ mod tests {
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
             r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
-            ferox_scan.lock().unwrap().id
+            ferox_scan.id
         );
-        ferox_scans.scans.lock().unwrap().push(ferox_scan);
+        ferox_scans.scans.write().unwrap().push(ferox_scan);
         assert_eq!(
             ferox_scans_json,
             serde_json::to_string(&ferox_scans).unwrap()
@@ -1303,7 +1315,7 @@ mod tests {
     /// test FeroxSerialize implementation of FeroxState
     fn feroxstates_feroxserialize_implementation() {
         let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
-        let saved_id = ferox_scan.lock().unwrap().id.clone();
+        let saved_id = ferox_scan.id.clone();
         SCANNED_URLS.insert(ferox_scan);
 
         let stats = Arc::new(Stats::new());
@@ -1369,14 +1381,14 @@ mod tests {
     #[test]
     /// coverage for FeroxScan's Display implementation
     fn feroxscan_display() {
-        let mut scan = FeroxScan {
+        let scan = FeroxScan {
             id: "".to_string(),
             url: String::from("http://localhost"),
             scan_type: Default::default(),
             num_requests: 0,
             status: Default::default(),
-            task: None,
-            progress_bar: None,
+            task: tokio::sync::Mutex::new(None),
+            progress_bar: std::sync::Mutex::new(None),
         };
 
         let not_started = format!("{}", scan);
@@ -1385,19 +1397,19 @@ mod tests {
             .and(predicate::str::contains("localhost"))
             .eval(&not_started));
 
-        scan.status = ScanStatus::Complete;
+        scan.set_status(ScanStatus::Complete).unwrap();
         let complete = format!("{}", scan);
         assert!(predicate::str::contains("complete")
             .and(predicate::str::contains("localhost"))
             .eval(&complete));
 
-        scan.status = ScanStatus::Cancelled;
+        scan.set_status(ScanStatus::Cancelled).unwrap();
         let cancelled = format!("{}", scan);
         assert!(predicate::str::contains("cancelled")
             .and(predicate::str::contains("localhost"))
             .eval(&cancelled));
 
-        scan.status = ScanStatus::Running;
+        scan.set_status(ScanStatus::Running).unwrap();
         let running = format!("{}", scan);
         assert!(predicate::str::contains("running")
             .and(predicate::str::contains("localhost"))
@@ -1407,21 +1419,24 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// call FeroxScan::abort, ensure status becomes cancelled
     async fn ferox_scan_abort() {
-        let mut scan = FeroxScan {
+        let scan = FeroxScan {
             id: "".to_string(),
             url: String::from("http://localhost"),
             scan_type: Default::default(),
             num_requests: 0,
-            status: ScanStatus::Running,
-            task: Some(Arc::new(tokio::spawn(async move {
+            status: std::sync::Mutex::new(ScanStatus::Running),
+            task: tokio::sync::Mutex::new(Some(tokio::spawn(async move {
                 sleep(Duration::from_millis(SLEEP_DURATION * 2));
             }))),
-            progress_bar: None,
+            progress_bar: std::sync::Mutex::new(None),
         };
 
-        scan.abort();
+        scan.abort().await;
 
-        assert!(matches!(scan.status, ScanStatus::Cancelled));
+        assert!(matches!(
+            *scan.status.lock().unwrap(),
+            ScanStatus::Cancelled
+        ));
     }
 
     #[test]

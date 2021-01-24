@@ -89,14 +89,9 @@ impl StatsHandler {
                         .save(start.elapsed().as_secs_f64(), &CONFIGURATION.output)?;
                 }
                 Command::UpdateUsizeField(field, value) => {
-                    let update_len = matches!(field, StatField::TotalScans);
                     self.stats.update_usize_field(field, value);
 
-                    if update_len {
-                        // storing the boolean so i can update active scans before sending the
-                        // exit command over the oneshot, which would trigger a check against
-                        // the number of active scans in main
-                        self.stats.increment_active_scans(value);
+                    if matches!(field, StatField::TotalScans) {
                         self.bar.set_length(self.stats.total_expected() as u64);
                     }
                 }
@@ -107,15 +102,6 @@ impl StatsHandler {
                 }
                 Command::LoadStats(filename) => {
                     self.stats.merge_from(&filename)?;
-                }
-                Command::DecrementActiveScans => {
-                    self.stats.decrement_active_scans();
-                    // log::error!("active scans: {}", self.stats.active_scans());
-                    // if self.stats.active_scans() == 1 {
-                    //     let (dummy, _) = oneshot::channel();
-                    //     let tx = std::mem::replace(&mut self.tx_complete, dummy);
-                    //     tx.send(Exit).unwrap_or_default();
-                    // }
                 }
                 Command::Exit => break,
                 _ => {} // no more commands needed

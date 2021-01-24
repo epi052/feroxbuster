@@ -1,7 +1,7 @@
 use crate::{
     config::{Configuration, CONFIGURATION},
     event_handlers::{
-        Command::{self, DecrementActiveScans, UpdateF64Field, UpdateUsizeField},
+        Command::{self, UpdateF64Field, UpdateUsizeField},
         Handles,
     },
     extractor::ExtractorBuilder,
@@ -483,31 +483,29 @@ pub async fn scan_url(
 
     let scan_timer = Instant::now();
 
-    if matches!(order, ScanOrder::Initial) {
-        if CONFIGURATION.extract_links {
-            // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
-            // to try_recursion
+    if matches!(order, ScanOrder::Initial) && CONFIGURATION.extract_links {
+        // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
+        // to try_recursion
+        // todo Extractor should just take Handles
+        let extractor = ExtractorBuilder::with_url(target_url)
+            .depth(depth)
+            .config(&CONFIGURATION)
+            // todo abstract the call here, or just leave it til i put handles in extractor instead
+            .recursion_transmitter(handles.scans.read().unwrap().as_ref().unwrap().tx.clone())
+            .stats_transmitter(handles.stats.tx.clone())
+            .reporter_transmitter(handles.output.tx.clone())
+            .scanned_urls(handles.ferox_scans()?)
+            .stats(handles.stats.data.clone())
+            .build()?;
 
-            let extractor = ExtractorBuilder::with_url(target_url)
-                .depth(depth)
-                .config(&CONFIGURATION)
-                .recursion_transmitter(handles.scans.read().unwrap().as_ref().unwrap().tx.clone())
-                .stats_transmitter(handles.stats.tx.clone())
-                .reporter_transmitter(handles.output.tx.clone())
-                // todo abstract scanned_urls
-                .scanned_urls(handles.scans.read().unwrap().as_ref().unwrap().data.clone())
-                .stats(handles.stats.data.clone())
-                .build()?;
-
-            let _ = extractor.extract().await;
-        }
+        let _ = extractor.extract().await;
     }
 
     let ferox_scans = handles.ferox_scans()?;
 
     let ferox_scan = match ferox_scans.get_scan_by_url(&target_url) {
         Some(scan) => {
-            scan.set_status(ScanStatus::Running);
+            scan.set_status(ScanStatus::Running)?;
             scan
         }
         None => {
@@ -572,9 +570,6 @@ pub async fn scan_url(
                         // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                         // to false
                         scanned_urls_clone.pause(true).await;
-                        // for _ in 0..num_cancelled {
-                        //     txs.send(DecrementActiveScans).unwrap_or_default();
-                        // }
                     }
                     make_requests(&tgt, &word, depth, handles_clone).await
                 }),
@@ -600,7 +595,7 @@ pub async fn scan_url(
     handles.stats.send(UpdateF64Field(
         DirScanTimes,
         scan_timer.elapsed().as_secs_f64(),
-    ));
+    ))?;
 
     // drop the current permit so the semaphore will allow another scan to proceed
     drop(permit);
@@ -611,8 +606,6 @@ pub async fn scan_url(
     // // manually drop tx in order for the rx task's while loops to eval to false
     // log::trace!("dropped recursion handler's transmitter");
     // drop(tx_dir);
-
-    handles.stats.send(DecrementActiveScans)?;
 
     // note: in v1.11.2 i removed the join_all call that used to handle the recurser handles.
     // nothing appears to change by having them removed, however, if ever a revert is needed
@@ -765,11 +758,13 @@ pub async fn initialize(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FeroxChannel;
+    use tokio::sync::mpsc;
 
     #[test]
     /// sending url + word without any extensions should get back one url with the joined word
     fn create_urls_no_extension_returns_base_url_with_word() {
-        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+        let (tx, _) = mpsc::unbounded_channel::<Command>();
         let urls = create_urls("http://localhost", "turbo", &[], tx);
         assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
     }

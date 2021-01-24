@@ -7,7 +7,7 @@ use crate::{
     send_command,
     statistics::StatField::ResourcesDiscovered,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
-    CommandReceiver, CommandSender, FeroxChannel, FeroxSerialize, Joiner,
+    CommandReceiver, CommandSender, FeroxSerialize, Joiner,
 };
 
 use super::Command::UpdateUsizeField;
@@ -16,14 +16,18 @@ use super::*;
 #[derive(Debug)]
 /// Container for terminal output transmitter
 pub struct TermOutHandle {
+    /// todo
     pub tx: CommandSender,
+
+    /// todo
+    pub tx_file: CommandSender,
 }
 
 /// implementation of OutputHandle
 impl TermOutHandle {
     /// Given a CommandSender, create a new OutputHandle
-    pub fn new(tx: CommandSender) -> Self {
-        Self { tx }
+    pub fn new(tx: CommandSender, tx_file: CommandSender) -> Self {
+        Self { tx, tx_file }
     }
 
     /// Send the given Command over `tx`
@@ -57,9 +61,18 @@ impl FileOutHandler {
     ///
     /// The consumer simply receives responses from the terminal handler and writes them to disk
     async fn start(&mut self, tx_stats: CommandSender) -> Result<()> {
+        log::trace!("enter: start_file_handler({:?})", tx_stats);
+
+        // let mut file = match open_file(&self.output) {
+        //     Ok(f) => f,
+        //     Err(e) => {
+        //         log::error!("{}", e);
+        //         std::process::exit(1);
+        //     }
+        // };
+
         let mut file = open_file(&self.output)?;
 
-        log::trace!("enter: start_file_handler({:?})", tx_stats);
         log::info!("Writing scan results to {}", self.output);
 
         while let Some(command) = self.receiver.recv().await {
@@ -67,7 +80,10 @@ impl FileOutHandler {
                 Command::Report(response) => {
                     write_to(&*response, &mut file, CONFIGURATION.json)?;
                 }
-                Command::Exit => break,
+                Command::Exit => {
+                    log::error!("file handler got Exit");
+                    break;
+                }
                 _ => {} // no more needed
             }
         }
@@ -115,8 +131,8 @@ impl TermOutHandler {
     pub fn initialize(output_file: &str, tx_stats: CommandSender) -> (Joiner, TermOutHandle) {
         log::trace!("enter: initialize({}, {:?})", output_file, tx_stats);
 
-        let (tx_term, rx_term): FeroxChannel<Command> = mpsc::unbounded_channel();
-        let (tx_file, rx_file): FeroxChannel<Command> = mpsc::unbounded_channel();
+        let (tx_term, rx_term) = mpsc::unbounded_channel::<Command>();
+        let (tx_file, rx_file) = mpsc::unbounded_channel::<Command>();
 
         let mut file_handler = FileOutHandler::new(output_file, rx_file);
 
@@ -131,10 +147,10 @@ impl TermOutHandler {
             None
         };
 
-        let mut term_handler = Self::new(rx_term, tx_file, file_task);
+        let mut term_handler = Self::new(rx_term, tx_file.clone(), file_task);
         let term_task = tokio::spawn(async move { term_handler.start(tx_stats).await });
 
-        let event_handle = TermOutHandle::new(tx_term);
+        let event_handle = TermOutHandle::new(tx_term, tx_file);
 
         log::trace!("exit: initialize -> ({:?}, {:?})", term_task, event_handle);
 
@@ -197,8 +213,7 @@ impl TermOutHandler {
                     }
                 }
                 Command::Exit => {
-                    if self.save_output {
-                        self.tx_file.send(Command::Exit)?; // kill file handler
+                    if self.save_output && self.tx_file.send(Command::Exit).is_ok() {
                         self.file_task.as_mut().unwrap().await??; // wait for death
                     }
                     break;

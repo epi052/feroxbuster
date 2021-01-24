@@ -84,7 +84,7 @@ impl ScanHandler {
         let data = Arc::new(FeroxScans::default());
         let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
 
-        let mut handler = Self::new(data.clone(), handles.clone(), rx);
+        let mut handler = Self::new(data.clone(), handles, rx);
 
         let task = tokio::spawn(async move { handler.start().await });
 
@@ -105,7 +105,7 @@ impl ScanHandler {
             match command {
                 Command::ScanUrl(url, sender) => {
                     self.ordered_scan_url(vec![url], ScanOrder::Latest).await?;
-                    sender.send(true).unwrap(); // todo ... wth to do with these
+                    sender.send(true).expect("oneshot channel failed");
                 }
                 Command::ScanInitialUrls(targets) => {
                     self.ordered_scan_url(targets, ScanOrder::Initial).await?;
@@ -114,14 +114,15 @@ impl ScanHandler {
                     self.wordlist(wordlist);
                 }
                 Command::JoinTasks(sender) => {
-                    let ferox_scans = self.handles.ferox_scans().unwrap();
+                    let ferox_scans = self.handles.ferox_scans().unwrap_or_default();
+
                     tokio::spawn(async move {
                         while ferox_scans.has_active_scans() {
                             for scan in ferox_scans.get_active_scans() {
                                 scan.join().await;
                             }
                         }
-                        sender.send(true).unwrap(); // todo ... wth to do with these
+                        sender.send(true).expect("oneshot channel failed");
                     });
                 }
                 _ => {} // no other commands needed for RecursionHandler
@@ -129,22 +130,6 @@ impl ScanHandler {
         }
 
         log::trace!("exit: start");
-        Ok(())
-    }
-
-    async fn join_tasks(&self) -> Result<()> {
-        // while handles.stats.data.active_scans() > 0 {
-        for scan in self.tasks.iter() {
-            log::error!("joining {}", scan.url);
-            scan.join().await;
-            log::error!("joined {}", scan.url);
-        }
-
-        // let num_joined = scanned_urls.join_all().await; // todo doesnt need to decrement
-
-        // active_scans = scanned_urls.get_active_scans();
-        // }
-
         Ok(())
     }
 
