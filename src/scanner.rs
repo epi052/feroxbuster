@@ -88,67 +88,6 @@ fn add_filter_to_list_of_ferox_filters(
     }
 }
 
-// /// Spawn a single consumer task (sc side of mpsc)
-// ///
-// /// The consumer simply receives Urls and scans them
-// fn spawn_recursion_handler(
-//     mut recursion_channel: UnboundedReceiver<String>,
-//     wordlist: Arc<HashSet<String>>,
-//     base_depth: usize,
-//     stats: Arc<Stats>,
-//     tx_term: CommandSender,
-//     tx_stats: CommandSender,
-// ) -> BoxFuture<'static, ()> {
-//     log::trace!(
-//         "enter: spawn_recursion_handler({:?}, wordlist[{} words...], {}, {:?}, {:?}, {:?})",
-//         recursion_channel,
-//         wordlist.len(),
-//         base_depth,
-//         stats,
-//         tx_term,
-//         tx_stats
-//     );
-//
-//     async move {
-//         while let Some(resp) = recursion_channel.recv().await {
-//             let (unknown, scan) = SCANNED_URLS.add_directory_scan(&resp, stats.clone());
-//
-//             if !unknown {
-//                 // not unknown, i.e. we've seen the url before and don't need to scan again
-//                 continue;
-//             }
-//
-//             send_command!(tx_stats, UpdateUsizeField(TotalScans, 1));
-//
-//             log::info!("received {} on recursion channel", resp);
-//
-//             let term_clone = tx_term.clone();
-//             let tx_stats_clone = tx_stats.clone();
-//             let stats_clone = stats.clone();
-//             let resp_clone = resp.clone();
-//             let list_clone = wordlist.clone();
-//
-//             let future = tokio::spawn(async move {
-//                 scan_url(
-//                     resp_clone.to_owned().as_str(),
-//                     list_clone,
-//                     stats_clone,
-//                     term_clone,
-//                     tx_stats_clone,
-//                 )
-//                 .await
-//             });
-//
-//             if let Ok(mut u_scan) = scan.lock() {
-//                 u_scan.task = Some(future);
-//             };
-//         }
-//         log::trace!("exit: spawn_recursion_handler -> BoxFuture<'static, ()>");
-//     }
-//     .boxed()
-// }
-// todo remove above
-
 /// Creates a vector of formatted Urls
 ///
 /// At least one value will be returned (base_url + word)
@@ -305,7 +244,6 @@ pub async fn try_recursion(
 
             match transmitter.send(Command::ScanUrl(String::from(response.url().as_str()), tx)) {
                 Ok(_) => {
-                    log::error!("sent {} to scan handler, awaiting result", response.url()); // todo remove
                     rx.await.unwrap();
                     log::debug!("sent {} across channel to begin a new scan", response.url());
                 }
@@ -324,7 +262,6 @@ pub async fn try_recursion(
 
             match transmitter.send(Command::ScanUrl(new_url, tx)) {
                 Ok(_) => {
-                    log::error!("sent {} to scan handler, awaiting result", response.url()); // todo remove
                     rx.await.unwrap();
                 }
                 Err(e) => {
@@ -389,7 +326,7 @@ async fn make_requests(target_url: &str, word: &str, base_depth: usize, handles:
     );
 
     let scanned_urls = handles.ferox_scans().unwrap(); // unwrap todo
-    let tx_scans = handles.scans.read().unwrap().as_ref().unwrap().tx.clone();
+    let tx_scans = handles.scans.read().unwrap().as_ref().unwrap().tx.clone(); // todo abstract away
 
     for url in urls {
         if let Ok(response) =
@@ -400,7 +337,6 @@ async fn make_requests(target_url: &str, word: &str, base_depth: usize, handles:
 
             // do recursion if appropriate
             if !CONFIGURATION.no_recursion {
-                // todo abstract
                 try_recursion(&ferox_response, base_depth, tx_scans.clone()).await;
             }
 
@@ -419,7 +355,6 @@ async fn make_requests(target_url: &str, word: &str, base_depth: usize, handles:
                     .recursion_transmitter(tx_scans.clone())
                     .stats_transmitter(handles.stats.tx.clone())
                     .reporter_transmitter(handles.output.tx.clone())
-                    // todo abstract scanned_urls
                     .scanned_urls(scanned_urls.clone())
                     .stats(handles.stats.data.clone())
                     .build()
@@ -451,12 +386,14 @@ pub fn send_report(report_sender: CommandSender, response: FeroxResponse) {
 }
 
 #[derive(Debug, Copy, Clone)]
-/// todo doc and is this the right location?
+/// Simple enum to designate whether a URL was passed in by the user (Initial) or found during
+/// scanning (Latest)
 pub enum ScanOrder {
-    /// todo
+    // todo is this the right location?
+    /// Url was passed in by the user
     Initial,
 
-    /// todo
+    /// Url was found during scanning
     Latest,
 }
 

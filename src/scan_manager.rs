@@ -652,6 +652,23 @@ impl FeroxScans {
         }
     }
 
+    /// if a resumed scan is already complete, display a completed progress bar to the user
+    pub fn print_completed_bars(&self) {
+        if let Ok(scans) = self.scans.read() {
+            for scan in scans.iter() {
+                if matches!(*scan.status.lock()?, ScanStatus::Complete) {
+                    // these scans are complete, and just need to be shown to the user
+                    let pb = add_bar(
+                        &scan.url,
+                        words.len().try_into().unwrap_or_default(),
+                        BarType::Message,
+                    );
+                    pb.finish();
+                }
+            }
+        }
+    }
+
     /// Forced the calling thread into a busy loop
     ///
     /// Every `SLEEP_DURATION` milliseconds, the function examines the result stored in `PAUSE_SCAN`

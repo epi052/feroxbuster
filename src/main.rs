@@ -137,21 +137,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
         handles.stats.send(LoadStats(from_here))?;
 
         scanned_urls.print_known_responses();
-
-        // todo consider making a function that does this on FeroxScans
-        if let Ok(scans) = scanned_urls.scans.read() {
-            for scan in scans.iter() {
-                if matches!(*scan.status.lock()?, ScanStatus::Complete) {
-                    // these scans are complete, and just need to be shown to the user
-                    let pb = add_bar(
-                        &scan.url,
-                        words.len().try_into().unwrap_or_default(),
-                        BarType::Message,
-                    );
-                    pb.finish();
-                }
-            }
-        }
+        scanned_urls.print_completed_bars();
     }
 
     handles.send_scan_command(ScanInitialUrls(targets))?;
