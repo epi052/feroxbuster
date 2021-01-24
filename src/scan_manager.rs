@@ -49,8 +49,22 @@ pub static PAUSE_SCAN: AtomicBool = AtomicBool::new(false);
 /// Simple enum used to flag a `FeroxScan` as likely a directory or file
 #[derive(Debug, Serialize, Deserialize, Copy, Clone)]
 pub enum ScanType {
+    /// Just a file being requested
     File,
+
+    /// A an entire directory that might be scanned
     Directory,
+}
+
+#[derive(Debug, Copy, Clone)]
+/// Simple enum to designate whether a URL was passed in by the user (Initial) or found during
+/// scanning (Latest)
+pub enum ScanOrder {
+    /// Url was passed in by the user
+    Initial,
+
+    /// Url was found during scanning
+    Latest,
 }
 
 /// Default implementation for ScanType
@@ -110,15 +124,18 @@ impl Default for FeroxScan {
 /// Implementation of FeroxScan
 impl FeroxScan {
     /// Stop a currently running scan
-    pub async fn abort(&self) {
+    pub async fn abort(&self) -> Result<()> {
         let mut guard = self.task.lock().await;
 
         if guard.is_some() {
-            let task = std::mem::replace(&mut *guard, None).unwrap();
-            task.abort();
-            self.set_status(ScanStatus::Cancelled).unwrap(); // todo
-            self.stop_progress_bar();
+            if let Some(task) = std::mem::replace(&mut *guard, None) {
+                task.abort();
+                self.set_status(ScanStatus::Cancelled)?;
+                self.stop_progress_bar();
+            }
         }
+
+        Ok(())
     }
 
     /// small wrapper to set the JoinHandle
@@ -138,29 +155,34 @@ impl FeroxScan {
 
     /// Simple helper to call .finish on the scan's progress bar
     fn stop_progress_bar(&self) {
-        // todo do something with the unwrap see set_status todo note
-        let guard = self.progress_bar.lock().unwrap();
-
-        if guard.is_some() {
-            (*guard).as_ref().unwrap().finish_at_current_pos()
+        if let Ok(guard) = self.progress_bar.lock() {
+            if guard.is_some() {
+                (*guard).as_ref().unwrap().finish_at_current_pos()
+            }
         }
     }
 
     /// Simple helper get a progress bar
     pub fn progress_bar(&self) -> ProgressBar {
-        // todo do something with the unwrap see set_status todo note
-        let mut guard = self.progress_bar.lock().unwrap();
+        match self.progress_bar.lock() {
+            Ok(mut guard) => {
+                if guard.is_some() {
+                    (*guard).as_ref().unwrap().clone()
+                } else {
+                    let pb = add_bar(&self.url, self.num_requests, BarType::Default);
+                    pb.reset_elapsed();
 
-        if guard.is_some() {
-            (*guard).as_ref().unwrap().clone()
-        } else {
-            let pb = add_bar(&self.url, self.num_requests, BarType::Default);
+                    let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
+                    pb
+                }
+            }
+            Err(_) => {
+                log::warn!("Could not unlock progress bar on {:?}", self);
+                let pb = add_bar(&self.url, self.num_requests, BarType::Default);
+                pb.reset_elapsed();
 
-            pb.reset_elapsed();
-
-            let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
-
-            pb
+                pb
+            }
         }
     }
 
@@ -208,15 +230,17 @@ impl FeroxScan {
         false
     }
 
-    /// todo doc
+    /// await a task's completion, similar to a thread's join; perform necessary bookkeeping
     pub async fn join(&self) {
         log::trace!("enter join({:?})", self);
         let mut guard = self.task.lock().await;
 
         if guard.is_some() {
-            let task = std::mem::replace(&mut *guard, None).unwrap();
-            task.await.unwrap();
-            self.set_status(ScanStatus::Complete).unwrap(); // todo
+            if let Some(task) = std::mem::replace(&mut *guard, None) {
+                task.await.unwrap();
+                self.set_status(ScanStatus::Complete)
+                    .unwrap_or_else(|e| log::warn!("Could not mark scan complete: {}", e))
+            }
         }
 
         log::trace!("exit join({:?})", self);
@@ -595,6 +619,7 @@ impl FeroxScans {
                 // todo check this assumption, as we swap out the task with None once joined
                 continue;
             }
+            self.menu.println(&format!("fdaf {}", scan));
 
             if matches!(scan.scan_type, ScanType::Directory) {
                 // we're only interested in displaying directory scans, as those are
@@ -629,7 +654,10 @@ impl FeroxScans {
 
             if input == 'y' || input == '\n' {
                 self.menu.println(&format!("Stopping {}...", selected.url));
-                selected.abort().await;
+                selected
+                    .abort()
+                    .await
+                    .unwrap_or_else(|e| log::warn!("Could not cancel task: {}", e));
             } else {
                 self.menu.println("Ok, doing nothing...");
             }
@@ -798,25 +826,6 @@ impl FeroxScans {
         }
         scans
     }
-
-    // todo remove probably
-    // pub async fn join_all(&self) -> usize {
-    //     let mut joined = 0;
-    //     if let Ok(u_scans) = self.scans.read() {
-    //         for scan in u_scans.iter() {
-    //             let mut guard = scan.lock().await;
-    //             if guard.task.is_none() {
-    //                 continue;
-    //             }
-    //             guard.join().await;
-    //             joined += 1;
-    //
-    //             if let Ok(mut u_scan) = scan.lock() {
-    //             }
-    //         }
-    //     }
-    //     joined
-    // }
 }
 
 /// Container around a locked vector of `FeroxResponse`s, adds wrappers for insertion and search
@@ -1460,7 +1469,7 @@ mod tests {
             progress_bar: std::sync::Mutex::new(None),
         };
 
-        scan.abort().await;
+        scan.abort().await.unwrap();
 
         assert!(matches!(
             *scan.status.lock().unwrap(),

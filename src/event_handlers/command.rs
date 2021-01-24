@@ -56,6 +56,9 @@ pub enum Command {
     /// Command used to test that a spawned task succeeded in initialization
     Ping,
 
+    /// Just receive a sender and reply, used for slowing down the main thread
+    Sync(Sender<bool>),
+
     /// Break out of the (infinite) mpsc receive loop
     Exit,
 }

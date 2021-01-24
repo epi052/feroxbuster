@@ -13,8 +13,12 @@ pub struct FeroxFilters {
 impl FeroxFilters {
     /// add a single FeroxFilter to the collection
     pub fn push(&self, filter: Box<dyn FeroxFilter>) -> Result<()> {
-        if let Ok(mut unlocked) = self.filters.lock() {
-            unlocked.push(filter)
+        if let Ok(mut guard) = self.filters.lock() {
+            if guard.contains(&filter) {
+                return Ok(());
+            }
+
+            guard.push(filter)
         }
         Ok(())
     }

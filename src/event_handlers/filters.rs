@@ -2,7 +2,10 @@ use super::*;
 use crate::{filters::FeroxFilters, CommandSender, FeroxChannel, Joiner};
 use anyhow::Result;
 use std::sync::Arc;
-use tokio::sync::mpsc::{self, UnboundedReceiver};
+use tokio::sync::{
+    mpsc::{self, UnboundedReceiver},
+    oneshot,
+};
 
 #[derive(Debug)]
 /// Container for filters transmitter and FeroxFilters object
@@ -24,6 +27,14 @@ impl FiltersHandle {
     /// Send the given Command over `tx`
     pub fn send(&self, command: Command) -> Result<()> {
         self.tx.send(command)?;
+        Ok(())
+    }
+
+    /// Sync the handle with the handler
+    pub async fn sync(&self) -> Result<()> {
+        let (tx, rx) = oneshot::channel::<bool>();
+        self.tx.send(Command::Sync(tx))?;
+        rx.await?;
         Ok(())
     }
 }
@@ -74,6 +85,10 @@ impl FiltersHandler {
             match command {
                 Command::AddFilter(filter) => {
                     self.data.push(filter)?;
+                }
+                Command::Sync(sender) => {
+                    log::debug!("filters: {:?}", self);
+                    sender.send(true).unwrap_or_default();
                 }
                 Command::Exit => break,
                 _ => {} // no other commands needed for FilterHandler

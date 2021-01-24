@@ -26,8 +26,7 @@ use feroxbuster::{
     },
     heuristics, logger,
     scan_manager::{self, PAUSE_SCAN},
-    scanner::{self, SCANNED_URLS},
-    send_command,
+    scanner,
     utils::fmt_err,
     SLEEP_DURATION,
 };
@@ -118,7 +117,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
 
     handles.send_scan_command(UpdateWordlist(words.clone()))?;
 
-    scanner::initialize(words.len(), &CONFIGURATION, handles.stats.tx.clone()).await;
+    scanner::initialize(words.len(), &CONFIGURATION, handles.clone()).await?;
 
     // at this point, the stat thread's progress bar can be created; things that needed to happen
     // first:
@@ -146,7 +145,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
 }
 
 /// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
-async fn get_targets() -> Result<Vec<String>> {
+async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
     log::trace!("enter: get_targets");
 
     let mut targets = vec![];
@@ -163,8 +162,9 @@ async fn get_targets() -> Result<Vec<String>> {
     } else if CONFIGURATION.resumed {
         // resume-from can't be used with --url, and --stdin is marked false for every resumed
         // scan, making it mutually exclusive from either of the other two options
-        if let Ok(scans) = SCANNED_URLS.scans.read() {
-            // todo this block shouldn't be SCANNED_URLS
+        let ferox_scans = handles.ferox_scans()?;
+
+        if let Ok(scans) = ferox_scans.scans.read() {
             for scan in scans.iter() {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
@@ -175,7 +175,7 @@ async fn get_targets() -> Result<Vec<String>> {
 
                 targets.push(scan.url.to_owned());
             }
-        }
+        };
     } else {
         targets.push(CONFIGURATION.target_url.clone());
     }
@@ -242,9 +242,8 @@ async fn wrapped_main() -> Result<()> {
     }
 
     // get targets from command line or stdin
-    // todo get_targets needs SCANNED_URLS replaced
     // todo a bunch of fucking functions needs SCANNED_URLS replaced
-    let targets = match get_targets().await {
+    let targets = match get_targets(handles.clone()).await {
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
@@ -305,7 +304,7 @@ async fn wrapped_main() -> Result<()> {
     // todo known things not working: confirm same # of requests seen in burp as reported
     // todo known things not working: enable build on this branch, compare memory usage with new recursion paradigm
     // todo known things not working: banner_print_output_file or w/e is hanging, probably means
-    // --output is wrong or that no-recursion is wrong
+    // todo known things not working: scan cancel menu is hard fkn broke
 
     clean_up(handles, tasks).await?;
 
@@ -316,32 +315,24 @@ async fn wrapped_main() -> Result<()> {
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
 /// shutdown the program
 async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
-    log::trace!(
-        "enter: clean_up({:?}, {:?})", // todo missing tasks
-        handles,
-        tasks
-    );
+    log::trace!("enter: clean_up({:?}, {:?})", handles, tasks);
 
     let (tx, rx) = oneshot::channel::<bool>();
-    log::error!("oneshot created, sending join command"); // todo
     handles.send_scan_command(JoinTasks(tx))?;
-    log::error!("sent join command"); // todo
     rx.await?;
 
     log::info!("All scans complete!");
 
     // terminal handler closes file handler if one is in use
-    log::error!("Sending Exit"); // todo remove
     handles.output.send(Exit)?;
-    // send_command!(handles.output.tx, Exit); // todo use handles.thing.send in this function
     tasks.terminal.await??;
     log::trace!("terminal handler closed");
 
-    send_command!(handles.filters.tx, Exit);
+    handles.filters.send(Exit)?;
     tasks.filters.await??;
     log::trace!("filters handler closed");
 
-    send_command!(handles.stats.tx, Exit);
+    handles.stats.send(Exit)?;
     tasks.stats.await??;
     log::trace!("stats handler closed");
 
@@ -351,8 +342,6 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
     // clean-up function for the MultiProgress bar; must be called last in order to still see
     // the final trace messages above
     PROGRESS_PRINTER.finish();
-
-    // drop(tx_stats);
 
     log::trace!("exit: clean_up");
     Ok(())

@@ -1,8 +1,8 @@
 use super::command::Command::UpdateUsizeField;
 use super::*;
 use crate::{
-    scan_manager::{FeroxScan, FeroxScans},
-    scanner::{scan_url, ScanOrder},
+    scan_manager::{FeroxScan, FeroxScans, ScanOrder},
+    scanner::scan_url,
     statistics::StatField::TotalScans,
     CommandReceiver, CommandSender, FeroxChannel, Joiner,
 };
