@@ -2,7 +2,6 @@ use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     event_handlers::Command,
     filters::WildcardFilter,
-    scanner::should_filter_response,
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
     CommandSender, FeroxResponse,
 };
@@ -192,7 +191,7 @@ async fn make_wildcard_request(
                 ferox_response.wildcard = true;
 
                 if !CONFIGURATION.quiet
-                    && !should_filter_response(&ferox_response, tx_stats.clone())
+                    // && !should_filter_response(&ferox_response, tx_stats.clone())  // todo this needs to be reimplemented
                     && tx_term
                         .send(Command::Report(Box::new(ferox_response.clone())))
                         .is_err()

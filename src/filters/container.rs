@@ -1,4 +1,8 @@
-use super::FeroxFilter;
+use super::{FeroxFilter, WildcardFilter};
+use crate::{
+    event_handlers::Command::UpdateUsizeField, statistics::StatField::WildcardsFiltered,
+    CommandSender, FeroxResponse,
+};
 use anyhow::Result;
 use std::sync::Mutex;
 
@@ -21,5 +25,28 @@ impl FeroxFilters {
             guard.push(filter)
         }
         Ok(())
+    }
+
+    /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
+    /// to the user or not.
+    pub fn should_filter_response(
+        &self,
+        response: &FeroxResponse,
+        tx_stats: CommandSender,
+    ) -> bool {
+        if let Ok(filters) = self.filters.lock() {
+            for filter in filters.iter() {
+                // wildcard.should_filter goes here
+                if filter.should_filter_response(&response) {
+                    if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
+                        tx_stats
+                            .send(UpdateUsizeField(WildcardsFiltered, 1))
+                            .unwrap_or_default();
+                    }
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

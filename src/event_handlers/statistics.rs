@@ -9,7 +9,10 @@ use anyhow::Result;
 use console::style;
 use indicatif::ProgressBar;
 use std::{sync::Arc, time::Instant};
-use tokio::sync::mpsc::{self, UnboundedReceiver};
+use tokio::sync::{
+    mpsc::{self, UnboundedReceiver},
+    oneshot,
+};
 
 #[derive(Debug)]
 /// Container for statistics transmitter and Stats object
@@ -31,6 +34,14 @@ impl StatsHandle {
     /// Send the given Command over `tx`
     pub fn send(&self, command: Command) -> Result<()> {
         self.tx.send(command)?;
+        Ok(())
+    }
+
+    /// Sync the handle with the handler
+    pub async fn sync(&self) -> Result<()> {
+        let (tx, rx) = oneshot::channel::<bool>();
+        self.send(Command::Sync(tx))?;
+        rx.await?;
         Ok(())
     }
 }
@@ -96,12 +107,14 @@ impl StatsHandler {
                     }
                 }
                 Command::UpdateF64Field(field, value) => self.stats.update_f64_field(field, value),
-                Command::CreateBar(sender) => {
+                Command::CreateBar => {
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
-                    sender.send(true).unwrap_or_default();
                 }
                 Command::LoadStats(filename) => {
                     self.stats.merge_from(&filename)?;
+                }
+                Command::Sync(sender) => {
+                    sender.send(true).unwrap_or_default();
                 }
                 Command::Exit => break,
                 _ => {} // no more commands needed

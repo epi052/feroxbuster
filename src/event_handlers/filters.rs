@@ -33,7 +33,7 @@ impl FiltersHandle {
     /// Sync the handle with the handler
     pub async fn sync(&self) -> Result<()> {
         let (tx, rx) = oneshot::channel::<bool>();
-        self.tx.send(Command::Sync(tx))?;
+        self.send(Command::Sync(tx))?;
         rx.await?;
         Ok(())
     }

@@ -17,7 +17,7 @@ use tokio::{
 use crate::{
     event_handlers::Command,
     traits::FeroxSerialize,
-    utils::{fmt_err, get_url_path_length, status_colorizer},
+    utils::{fmt_err, get_url_depth, get_url_path_length, status_colorizer},
 };
 
 pub mod banner;
@@ -258,6 +258,79 @@ impl FeroxResponse {
             word_count,
             wildcard: false,
         }
+    }
+
+    /// Helper function that determines if the configured maximum recursion depth has been reached
+    ///
+    /// Essentially looks at the Url path and determines how many directories are present in the
+    /// given Url
+    fn reached_max_depth(&self, base_depth: usize, max_depth: usize) -> bool {
+        log::trace!("enter: reached_max_depth({}, {})", base_depth, max_depth);
+
+        if max_depth == 0 {
+            // early return, as 0 means recurse forever; no additional processing needed
+            log::trace!("exit: reached_max_depth -> false");
+            return false;
+        }
+
+        let depth = get_url_depth(self.url.as_str());
+
+        if depth - base_depth >= max_depth {
+            return true;
+        }
+
+        log::trace!("exit: reached_max_depth -> false");
+        false
+    }
+
+    /// Helper function to determine suitability for recursion
+    ///
+    /// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
+    /// or if the Location header is present and matches the base url + / (3xx)
+    pub fn is_directory(&self) -> bool {
+        log::trace!("enter: is_directory({})", self);
+
+        if self.status().is_redirection() {
+            // status code is 3xx
+            match self.headers().get("Location") {
+                // and has a Location header
+                Some(loc) => {
+                    // get absolute redirect Url based on the already known base url
+                    log::debug!("Location header: {:?}", loc);
+
+                    if let Ok(loc_str) = loc.to_str() {
+                        if let Ok(abs_url) = self.url().join(loc_str) {
+                            if format!("{}/", self.url()) == abs_url.as_str() {
+                                // if current response's Url + / == the absolute redirection
+                                // location, we've found a directory suitable for recursion
+                                log::debug!(
+                                    "found directory suitable for recursion: {}",
+                                    self.url()
+                                );
+                                log::trace!("exit: is_directory -> true");
+                                return true;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    log::debug!("expected Location header, but none was found: {}", self);
+                    log::trace!("exit: is_directory -> false");
+                    return false;
+                }
+            }
+        } else if self.status().is_success() || matches!(self.status(), &StatusCode::FORBIDDEN) {
+            // status code is 2xx or 403, need to check if it ends in /
+
+            if self.url().as_str().ends_with('/') {
+                log::debug!("{} is directory suitable for recursion", self.url());
+                log::trace!("exit: is_directory -> true");
+                return true;
+            }
+        }
+
+        log::trace!("exit: is_directory -> false");
+        false
     }
 }
 

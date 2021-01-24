@@ -1,10 +1,12 @@
 use super::command::Command::UpdateUsizeField;
 use super::*;
+use crate::utils::get_url_depth;
 use crate::{
+    config::CONFIGURATION,
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::scan_url,
     statistics::StatField::TotalScans,
-    CommandReceiver, CommandSender, FeroxChannel, Joiner,
+    CommandReceiver, CommandSender, FeroxChannel, FeroxResponse, Joiner,
 };
 use anyhow::{bail, Result};
 use std::collections::HashSet;
@@ -52,6 +54,9 @@ pub struct ScanHandler {
 
     /// group of scans that need to be joined
     tasks: Vec<Arc<FeroxScan>>,
+
+    /// depths associated with the initial targets provided by the user
+    depths: Vec<(String, usize)>,
 }
 
 /// implementation of event handler for filters
@@ -63,6 +68,7 @@ impl ScanHandler {
             handles,
             receiver,
             tasks: Vec::new(),
+            depths: Vec::new(),
             wordlist: std::sync::Mutex::new(None),
         }
     }
@@ -125,6 +131,9 @@ impl ScanHandler {
                         sender.send(true).expect("oneshot channel failed");
                     });
                 }
+                Command::TryRecursion(response) => {
+                    self.try_recursion(response).await?;
+                }
                 _ => {} // no other commands needed for RecursionHandler
             }
         }
@@ -160,6 +169,10 @@ impl ScanHandler {
 
             log::info!("scan handler received {} - beginning scan", target);
 
+            if matches!(order, ScanOrder::Initial) {
+                self.depths.push((target.clone(), get_url_depth(&target)));
+            }
+
             let handles_clone = self.handles.clone();
 
             let task = tokio::spawn(async move {
@@ -174,6 +187,38 @@ impl ScanHandler {
 
             self.tasks.push(scan.clone());
         }
+        Ok(())
+    }
+
+    async fn try_recursion(&mut self, response: FeroxResponse) -> Result<()> {
+        log::trace!("enter: try_recursion({:?})", response,);
+
+        // todo get depth from self.depths
+        let mut base_depth = 1_usize;
+
+        for (base_url, base_url_depth) in &self.depths {
+            if response.url().as_str().starts_with(base_url) {
+                base_depth = *base_url_depth;
+            }
+        }
+
+        // todo remove CONFIG dependence, maybe in init
+        if response.reached_max_depth(base_depth, CONFIGURATION.depth) {
+            // at or past recursion depth
+            return Ok(());
+        }
+
+        if !response.is_directory() {
+            // not a directory
+            return Ok(());
+        }
+
+        let targets = vec![response.url().to_string()];
+        self.ordered_scan_url(targets, ScanOrder::Latest).await?;
+
+        log::info!("Added new directory to recursive scan: {}", response.url());
+
+        log::trace!("exit: try_recursion");
         Ok(())
     }
 }

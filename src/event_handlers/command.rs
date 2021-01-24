@@ -21,7 +21,7 @@ pub enum Command {
     AddStatus(StatusCode),
 
     /// Create the progress bar (`BarType::Total`) that is updated from the stats thread
-    CreateBar(Sender<bool>),
+    CreateBar,
 
     /// Update a `Stats` field that corresponds to the given `StatField` by the given `usize` value
     UpdateUsizeField(StatField, usize),
@@ -46,6 +46,9 @@ pub enum Command {
 
     /// Send a group of urls to be scanned (only used for the urls passed in explicitly by the user)
     ScanInitialUrls(Vec<String>),
+
+    /// Determine whether or not recursion is appropriate, given a FeroxResponse, if so start a scan
+    TryRecursion(FeroxResponse),
 
     /// Send a pointer to the wordlist to the recursion handler
     UpdateWordlist(Arc<HashSet<String>>),

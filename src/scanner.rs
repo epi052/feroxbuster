@@ -11,10 +11,9 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, FeroxScans, ScanOrder, ScanStatus, PAUSE_SCAN},
-    send_command,
-    statistics::StatField::{DirScanTimes, ExpectedPerScan, WildcardsFiltered},
+    statistics::StatField::{DirScanTimes, ExpectedPerScan},
     traits::FeroxFilter,
-    utils::{fmt_err, format_url, get_current_depth, make_request},
+    utils::{fmt_err, format_url, get_url_depth, make_request},
     CommandSender, FeroxResponse, SIMILARITY_THRESHOLD,
 };
 use anyhow::{bail, Result};
@@ -22,7 +21,7 @@ use futures::{stream, StreamExt};
 use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
 use regex::Regex;
-use reqwest::{StatusCode, Url};
+use reqwest::Url;
 #[cfg(not(test))]
 use std::process::exit;
 use std::{
@@ -33,7 +32,7 @@ use std::{
     sync::{Arc, RwLock},
     time::Instant,
 };
-use tokio::sync::{mpsc::UnboundedSender, oneshot, Semaphore};
+use tokio::sync::{mpsc::UnboundedSender, Semaphore};
 
 lazy_static! {
     /// Set of urls that have been sent to [scan_url](fn.scan_url.html), used for deduplication
@@ -101,172 +100,6 @@ fn create_urls(
     urls
 }
 
-/// Helper function to determine suitability for recursion
-///
-/// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
-/// or if the Location header is present and matches the base url + / (3xx)
-fn response_is_directory(response: &FeroxResponse) -> bool {
-    log::trace!("enter: is_directory({})", response);
-    // todo move to feroxscan
-    if response.status().is_redirection() {
-        // status code is 3xx
-        match response.headers().get("Location") {
-            // and has a Location header
-            Some(loc) => {
-                // get absolute redirect Url based on the already known base url
-                log::debug!("Location header: {:?}", loc);
-
-                if let Ok(loc_str) = loc.to_str() {
-                    if let Ok(abs_url) = response.url().join(loc_str) {
-                        if format!("{}/", response.url()) == abs_url.as_str() {
-                            // if current response's Url + / == the absolute redirection
-                            // location, we've found a directory suitable for recursion
-                            log::debug!(
-                                "found directory suitable for recursion: {}",
-                                response.url()
-                            );
-                            log::trace!("exit: is_directory -> true");
-                            return true;
-                        }
-                    }
-                }
-            }
-            None => {
-                log::debug!("expected Location header, but none was found: {}", response);
-                log::trace!("exit: is_directory -> false");
-                return false;
-            }
-        }
-    } else if response.status().is_success() || matches!(response.status(), &StatusCode::FORBIDDEN)
-    {
-        // status code is 2xx or 403, need to check if it ends in /
-
-        if response.url().as_str().ends_with('/') {
-            log::debug!("{} is directory suitable for recursion", response.url());
-            log::trace!("exit: is_directory -> true");
-            return true;
-        }
-    }
-
-    log::trace!("exit: is_directory -> false");
-    false
-}
-
-/// Helper function that determines if the configured maximum recursion depth has been reached
-///
-/// Essentially looks at the Url path and determines how many directories are present in the
-/// given Url
-fn reached_max_depth(url: &Url, base_depth: usize, max_depth: usize) -> bool {
-    log::trace!(
-        "enter: reached_max_depth({}, {}, {})",
-        url,
-        base_depth,
-        max_depth
-    );
-    // todo move to feroxscan
-
-    if max_depth == 0 {
-        // early return, as 0 means recurse forever; no additional processing needed
-        log::trace!("exit: reached_max_depth -> false");
-        return false;
-    }
-
-    let depth = get_current_depth(url.as_str());
-
-    if depth - base_depth >= max_depth {
-        return true;
-    }
-
-    log::trace!("exit: reached_max_depth -> false");
-    false
-}
-
-/// Helper function that wraps logic to check for recursion opportunities
-///
-/// When a recursion opportunity is found, the new url is sent across the recursion channel
-pub async fn try_recursion(
-    response: &FeroxResponse,
-    base_depth: usize,
-    transmitter: CommandSender,
-) {
-    // todo this should be part of the recursion handler
-    log::trace!(
-        "enter: try_recursion({}, {}, {:?})",
-        response,
-        base_depth,
-        transmitter,
-    );
-
-    if !reached_max_depth(response.url(), base_depth, CONFIGURATION.depth)
-        && response_is_directory(&response)
-    {
-        let (tx, rx) = oneshot::channel::<bool>();
-        if CONFIGURATION.redirects {
-            // response is 2xx can simply send it because we're following redirects
-            log::info!("Added new directory to recursive scan: {}", response.url());
-
-            match transmitter.send(Command::ScanUrl(String::from(response.url().as_str()), tx)) {
-                Ok(_) => {
-                    rx.await.unwrap();
-                    log::debug!("sent {} across channel to begin a new scan", response.url());
-                }
-                Err(e) => {
-                    log::error!(
-                        "Could not send {} to recursion handler: {}",
-                        response.url(),
-                        e
-                    );
-                }
-            }
-        } else {
-            let new_url = String::from(response.url().as_str());
-
-            log::info!("Added new directory to recursive scan: {}", new_url);
-
-            match transmitter.send(Command::ScanUrl(new_url, tx)) {
-                Ok(_) => {
-                    rx.await.unwrap();
-                }
-                Err(e) => {
-                    log::error!(
-                        "Could not send {}/ to recursion handler: {}",
-                        response.url(),
-                        e
-                    );
-                }
-            }
-        }
-    }
-    log::trace!("exit: try_recursion");
-}
-
-/// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
-/// to the user or not.
-pub fn should_filter_response(
-    response: &FeroxResponse,
-    tx_stats: UnboundedSender<Command>,
-) -> bool {
-    // todo move to ... feroxscan ?? seems like it could be placed elsewhere, but it's a tougher choice than other fns
-    // perhaps wait and add it to w/e struct we use for the scanner module
-    match FILTERS.read() {
-        Ok(filters) => {
-            for filter in filters.iter() {
-                // wildcard.should_filter goes here
-                if filter.should_filter_response(&response) {
-                    if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
-                        send_command!(tx_stats, UpdateUsizeField(WildcardsFiltered, 1))
-                    }
-                    return true;
-                }
-            }
-        }
-        Err(e) => {
-            log::error!("{}", e);
-        }
-    }
-    false
-}
-
 /// Wrapper for [make_request](fn.make_request.html)
 ///
 /// Makes multiple requests based on the presence of extensions
@@ -302,13 +135,18 @@ async fn make_requests(target_url: &str, word: &str, base_depth: usize, handles:
 
             // do recursion if appropriate
             if !CONFIGURATION.no_recursion {
-                try_recursion(&ferox_response, base_depth, tx_scans.clone()).await;
+                tx_scans
+                    .send(Command::TryRecursion(ferox_response.clone()))
+                    .unwrap_or_else(|e| log::warn!("Could not send {} for recursion: {}", url, e));
             }
 
             // purposefully doing recursion before filtering. the thought process is that
             // even though this particular url is filtered, subsequent urls may not
-
-            if should_filter_response(&ferox_response, handles.stats.tx.clone()) {
+            if handles
+                .filters
+                .data
+                .should_filter_response(&ferox_response, handles.stats.tx.clone())
+            {
                 continue;
             }
 
@@ -366,7 +204,7 @@ pub async fn scan_url(
         handles
     );
 
-    let depth = get_current_depth(&target_url);
+    let depth = get_url_depth(&target_url); // todo
 
     log::info!("Starting scan against: {}", target_url);
 

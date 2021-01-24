@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     client,
     event_handlers::Command::UpdateUsizeField,
-    scanner::{send_report, should_filter_response, try_recursion},
+    scanner::send_report,
     send_command,
     statistics::StatField::{LinksExtracted, TotalExpected},
     utils::{format_url, make_request},
@@ -84,9 +84,10 @@ impl<'a> Extractor<'a> {
             };
 
             // filter if necessary
-            if should_filter_response(&resp, self.tx_stats.clone()) {
-                continue;
-            }
+            // if should_filter_response(&resp, self.tx_stats.clone()) {
+            //     continue;
+            // }
+            // todo this needs to be reimplemented
 
             if resp.is_file() {
                 // very likely a file, simply request and report
@@ -117,7 +118,8 @@ impl<'a> Extractor<'a> {
                     resp.set_url(&format!("{}/", resp.url()));
                 }
 
-                try_recursion(&resp, self.depth, self.tx_recursion.clone()).await;
+                // try_recursion(&resp, self.depth, self.tx_recursion.clone()).await;
+                // todo needs to be sent across to scans handler
             }
         }
         Ok(())

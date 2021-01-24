@@ -48,9 +48,9 @@ pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
 /// ...
 ///
 /// returns 0 on error and relative urls
-pub fn get_current_depth(target: &str) -> usize {
+pub fn get_url_depth(target: &str) -> usize {
     // todo move ot scanner struct (i.e. once scanner or scan_manager is rewritten)
-    log::trace!("enter: get_current_depth({})", target);
+    log::trace!("enter: get_url_depth({})", target);
 
     let target = normalize_url(target);
 
@@ -66,7 +66,7 @@ pub fn get_current_depth(target: &str) -> usize {
 
                 let return_val = depth;
 
-                log::trace!("exit: get_current_depth -> {}", return_val);
+                log::trace!("exit: get_url_depth -> {}", return_val);
                 return return_val;
             };
 
@@ -74,13 +74,13 @@ pub fn get_current_depth(target: &str) -> usize {
                 "get_current_depth called on a Url that cannot be a base: {}",
                 url
             );
-            log::trace!("exit: get_current_depth -> 0");
+            log::trace!("exit: get_url_depth -> 0");
 
             0
         }
         Err(e) => {
             log::error!("could not parse to url: {}", e);
-            log::trace!("exit: get_current_depth -> 0");
+            log::trace!("exit: get_url_depth -> 0");
             0
         }
     }
@@ -515,35 +515,35 @@ mod tests {
     #[test]
     /// base url returns 1
     fn get_current_depth_base_url_returns_1() {
-        let depth = get_current_depth("http://localhost");
+        let depth = get_url_depth("http://localhost");
         assert_eq!(depth, 1);
     }
 
     #[test]
     /// base url with slash returns 1
     fn get_current_depth_base_url_with_slash_returns_1() {
-        let depth = get_current_depth("http://localhost/");
+        let depth = get_url_depth("http://localhost/");
         assert_eq!(depth, 1);
     }
 
     #[test]
     /// base url + 1 dir returns 2
     fn get_current_depth_one_dir_returns_2() {
-        let depth = get_current_depth("http://localhost/src");
+        let depth = get_url_depth("http://localhost/src");
         assert_eq!(depth, 2);
     }
 
     #[test]
     /// base url + 1 dir and slash returns 2
     fn get_current_depth_one_dir_with_slash_returns_2() {
-        let depth = get_current_depth("http://localhost/src/");
+        let depth = get_url_depth("http://localhost/src/");
         assert_eq!(depth, 2);
     }
 
     #[test]
     /// base url + 1 dir and slash returns 2
     fn get_current_depth_single_forward_slash_is_zero() {
-        let depth = get_current_depth("");
+        let depth = get_url_depth("");
         assert_eq!(depth, 0);
     }
 

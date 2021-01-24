@@ -125,9 +125,9 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
-    handles.stats.send(CreateBar(tx))?;
-    rx.await?; // blocks until the bar is created / avoids race condition in first two bars
+    handles.stats.send(CreateBar)?;
+    // blocks until the bar is created / avoids race condition in first two bars
+    handles.stats.sync().await?;
 
     if CONFIGURATION.resumed {
         let from_here = CONFIGURATION.resume_from.clone();
@@ -203,7 +203,7 @@ async fn wrapped_main() -> Result<()> {
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
     let (stats_task, stats_handle) = StatsHandler::initialize();
-    let (filters_task, filters_handle) = FiltersHandler::initialize(); // todo not even using this yet
+    let (filters_task, filters_handle) = FiltersHandler::initialize();
     let (out_task, out_handle) =
         TermOutHandler::initialize(&CONFIGURATION.output, stats_handle.tx.clone());
 
@@ -297,13 +297,9 @@ async fn wrapped_main() -> Result<()> {
         }
     }
 
-    // todo known things not working: overall bar lags behind other bars
-    // todo known things not working: filters handler not implemented
-    // todo known things not working: depth is ignored
+    // todo known things not working: overall bar lags behind other bars (seems ok, keep an eye on it during this branch)
     // todo known things not working: confirm multi target from stdin works
     // todo known things not working: confirm same # of requests seen in burp as reported
-    // todo known things not working: enable build on this branch, compare memory usage with new recursion paradigm
-    // todo known things not working: banner_print_output_file or w/e is hanging, probably means
     // todo known things not working: scan cancel menu is hard fkn broke
 
     clean_up(handles, tasks).await?;
