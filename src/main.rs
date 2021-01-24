@@ -31,16 +31,13 @@ use feroxbuster::{
     scanner::{self, SCANNED_URLS},
     send_command,
     utils::fmt_err,
-    FeroxResult, SLEEP_DURATION,
+    SLEEP_DURATION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 
 /// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
 static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
-// todo
-// /// Atomic boolean flag, used to determine whether or not the first scan has started or not
-// pub static SCAN_STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Handles specific key events triggered by the user over stdin
 fn terminal_input_handler() {
@@ -131,23 +128,20 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    log::trace!("starting oneshot");
     let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
-    handles.stats.send(CreateBar(tx))?; // todo bar is on top, now just need to clean up this code (unwrap etc)
-    rx.await.unwrap(); // blocks until the bar is created / avoids race condition in first two bars
-    log::trace!("received oneshot");
+    handles.stats.send(CreateBar(tx))?;
+    rx.await?; // blocks until the bar is created / avoids race condition in first two bars
 
     if CONFIGURATION.resumed {
-        handles
-            .stats
-            .send(LoadStats(CONFIGURATION.resume_from.clone()))?;
+        let from_here = CONFIGURATION.resume_from.clone();
+        handles.stats.send(LoadStats(from_here))?;
 
         scanned_urls.print_known_responses();
 
+        // todo consider making a function that does this on FeroxScans
         if let Ok(scans) = scanned_urls.scans.read() {
             for scan in scans.iter() {
-                if matches!(*scan.status.lock().unwrap(), ScanStatus::Complete) {
-                    // todo abstract away
+                if matches!(*scan.status.lock()?, ScanStatus::Complete) {
                     // these scans are complete, and just need to be shown to the user
                     let pb = add_bar(
                         &scan.url,
@@ -168,7 +162,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
 }
 
 /// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
-async fn get_targets() -> FeroxResult<Vec<String>> {
+async fn get_targets() -> Result<Vec<String>> {
     log::trace!("enter: get_targets");
 
     let mut targets = vec![];
@@ -235,6 +229,7 @@ async fn wrapped_main() -> Result<()> {
 
     handles.scan_handle(scan_handle); // set's the ScanHandle after Handles initialization
 
+    // create new Tasks object, each of these handles is one that will be joined on later
     let tasks = Tasks::new(out_task, stats_task, filters_task, scan_task);
 
     if !CONFIGURATION.time_limit.is_empty() {
@@ -262,6 +257,8 @@ async fn wrapped_main() -> Result<()> {
     }
 
     // get targets from command line or stdin
+    // todo get_targets needs SCANNED_URLS replaced
+    // todo a bunch of fucking functions needs SCANNED_URLS replaced
     let targets = match get_targets().await {
         Ok(t) => t,
         Err(e) => {

@@ -163,17 +163,16 @@ impl ScanHandler {
             let handles_clone = self.handles.clone();
 
             let task = tokio::spawn(async move {
-                // todo unwrap
-                scan_url(&target, order, list, handles_clone).await.unwrap();
+                if let Err(e) = scan_url(&target, order, list, handles_clone).await {
+                    log::warn!("{}", e);
+                }
             });
 
             self.handles.stats.send(UpdateUsizeField(TotalScans, 1))?;
 
             scan.set_task(task).await?;
 
-            log::error!("pushing: {}", scan.url);
             self.tasks.push(scan.clone());
-            log::error!("pushed: {}", scan.url);
         }
         Ok(())
     }

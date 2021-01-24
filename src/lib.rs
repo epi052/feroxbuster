@@ -36,10 +36,6 @@ mod traits;
 pub mod utils;
 mod extractor;
 
-/// Generic Result type to ease error handling in async contexts
-pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
-// todo FeroxResult should go away eventually in favor of anyhow::Result
-
 /// Alias for tokio::sync::mpsc::UnboundedSender<Command>
 pub type CommandSender = UnboundedSender<Command>;
 

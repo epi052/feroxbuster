@@ -98,7 +98,7 @@ impl StatsHandler {
                 Command::UpdateF64Field(field, value) => self.stats.update_f64_field(field, value),
                 Command::CreateBar(sender) => {
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
-                    sender.send(true).unwrap(); // todo
+                    sender.send(true).unwrap_or_default();
                 }
                 Command::LoadStats(filename) => {
                     self.stats.merge_from(&filename)?;

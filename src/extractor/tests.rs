@@ -377,7 +377,6 @@ async fn request_link_happy_path() -> Result<()> {
     Ok(())
 }
 
-// todo this test won't work, setup_extractor or w/e uses default feroxscans, need a way to alter it
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// request_link should bail in the event that the url is already in scanned_urls
 async fn request_link_bails_on_seen_url() -> Result<()> {

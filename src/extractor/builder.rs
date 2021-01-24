@@ -102,7 +102,8 @@ impl<'a> ExtractorBuilder<'a> {
 
     /// builder call to set `tx_recursion`
     pub fn recursion_transmitter(&mut self, tx_recursion: CommandSender) -> &mut Self {
-        // todo change to scans_transmitter or w/e same on struct
+        // todo change to scans_transmitter or w/e same on struct; don't bother, going to make
+        // extractor take a Handles object later anyway
         self.tx_recursion = Some(tx_recursion);
         self
     }
@@ -115,7 +116,8 @@ impl<'a> ExtractorBuilder<'a> {
 
     /// builder call to set `tx_reporter`
     pub fn reporter_transmitter(&mut self, tx_reporter: CommandSender) -> &mut Self {
-        // todo change to outputs or w/e same on struct
+        // todo change to outputs or w/e same on struct; don't bother, going to make
+        // extractor take a Handles object later anyway
 
         self.tx_reporter = Some(tx_reporter);
         self

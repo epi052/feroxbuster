@@ -16,10 +16,10 @@ use super::*;
 #[derive(Debug)]
 /// Container for terminal output transmitter
 pub struct TermOutHandle {
-    /// todo
+    /// Transmitter that sends to the TermOutHandler handler
     pub tx: CommandSender,
 
-    /// todo
+    /// Transmitter that sends to the FileOutHandler handler
     pub tx_file: CommandSender,
 }
 

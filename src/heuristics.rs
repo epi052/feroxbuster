@@ -197,10 +197,8 @@ async fn make_wildcard_request(
                         .send(Command::Report(Box::new(ferox_response.clone())))
                         .is_err()
                 {
-                    // todo pretty sure this can be simplified quite a bit
+                    // abusing short-circuiting to protect the terminal send behind
                     // not quiet and shouldn't filter out the response
-                    // send it to terminal for reporting; if that fails, return none, else fall
-                    // through to Some
                     return None;
                 }
 
