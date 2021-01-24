@@ -537,7 +537,7 @@ pub async fn scan_url(
     // drop the current permit so the semaphore will allow another scan to proceed
     drop(permit);
 
-    ferox_scan.finish();
+    ferox_scan.finish()?;
 
     // todo remove
     // // manually drop tx in order for the rx task's while loops to eval to false

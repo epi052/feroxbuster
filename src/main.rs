@@ -1,6 +1,5 @@
 use std::{
     collections::HashSet,
-    convert::TryInto,
     fs::File,
     io::{stderr, BufRead, BufReader},
     sync::{
@@ -26,8 +25,7 @@ use feroxbuster::{
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermOutHandler,
     },
     heuristics, logger,
-    progress::{add_bar, BarType},
-    scan_manager::{self, ScanStatus, PAUSE_SCAN},
+    scan_manager::{self, PAUSE_SCAN},
     scanner::{self, SCANNED_URLS},
     send_command,
     utils::fmt_err,
@@ -137,7 +135,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
         handles.stats.send(LoadStats(from_here))?;
 
         scanned_urls.print_known_responses();
-        scanned_urls.print_completed_bars();
+        scanned_urls.print_completed_bars(words.len())?;
     }
 
     handles.send_scan_command(ScanInitialUrls(targets))?;
@@ -166,14 +164,15 @@ async fn get_targets() -> Result<Vec<String>> {
         // resume-from can't be used with --url, and --stdin is marked false for every resumed
         // scan, making it mutually exclusive from either of the other two options
         if let Ok(scans) = SCANNED_URLS.scans.read() {
+            // todo this block shouldn't be SCANNED_URLS
             for scan in scans.iter() {
                 // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
-                if matches!(*scan.status.lock().unwrap(), ScanStatus::Complete) {
-                    // todo
+                if scan.is_complete() {
                     // this one's already done, ignore it
                     continue;
                 }
+
                 targets.push(scan.url.to_owned());
             }
         }

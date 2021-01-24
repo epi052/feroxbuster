@@ -37,6 +37,7 @@ use crate::{
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
+use std::convert::TryInto;
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
 /// when pausing a scan
@@ -120,18 +121,18 @@ impl FeroxScan {
         }
     }
 
-    /// todo
+    /// small wrapper to set the JoinHandle
     pub async fn set_task(&self, task: JoinHandle<()>) -> Result<()> {
         let mut guard = self.task.lock().await;
         let _ = std::mem::replace(&mut *guard, Some(task));
         Ok(())
     }
 
-    /// todo
+    /// small wrapper to set ScanStatus
     pub fn set_status(&self, status: ScanStatus) -> Result<()> {
-        // todo unwrap? the ? throws a cannot be sent between threads
-        let mut guard = self.status.lock().unwrap();
-        let _ = std::mem::replace(&mut *guard, status);
+        if let Ok(mut guard) = self.status.lock() {
+            let _ = std::mem::replace(&mut *guard, status);
+        }
         Ok(())
     }
 
@@ -180,12 +181,14 @@ impl FeroxScan {
     }
 
     /// Mark the scan as complete and stop the scan's progress bar
-    pub fn finish(&self) {
-        self.set_status(ScanStatus::Complete).unwrap(); // todo
+    pub fn finish(&self) -> Result<()> {
+        self.set_status(ScanStatus::Complete)?;
         self.stop_progress_bar();
+        Ok(())
     }
 
-    /// todo
+    /// small wrapper to inspect ScanType and ScanStatus to see if a Directory scan is running or
+    /// in the queue to be run
     pub fn is_active(&self) -> bool {
         if let Ok(guard) = self.status.lock() {
             return matches!(
@@ -193,6 +196,14 @@ impl FeroxScan {
                 (ScanType::Directory, ScanStatus::Running)
                     | (ScanType::Directory, ScanStatus::NotStarted)
             );
+        }
+        false
+    }
+
+    /// small wrapper to inspect ScanStatus and see if it's Complete
+    pub fn is_complete(&self) -> bool {
+        if let Ok(guard) = self.status.lock() {
+            return matches!(*guard, ScanStatus::Complete);
         }
         false
     }
@@ -653,20 +664,21 @@ impl FeroxScans {
     }
 
     /// if a resumed scan is already complete, display a completed progress bar to the user
-    pub fn print_completed_bars(&self) {
+    pub fn print_completed_bars(&self, bar_length: usize) -> Result<()> {
         if let Ok(scans) = self.scans.read() {
             for scan in scans.iter() {
-                if matches!(*scan.status.lock()?, ScanStatus::Complete) {
+                if scan.is_complete() {
                     // these scans are complete, and just need to be shown to the user
                     let pb = add_bar(
                         &scan.url,
-                        words.len().try_into().unwrap_or_default(),
+                        bar_length.try_into().unwrap_or_default(),
                         BarType::Message,
                     );
                     pb.finish();
                 }
             }
         }
+        Ok(())
     }
 
     /// Forced the calling thread into a busy loop
@@ -1177,7 +1189,7 @@ mod tests {
         let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
         let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
 
-        scan_two.finish(); // one complete, one incomplete
+        scan_two.finish().unwrap(); // one complete, one incomplete
         scan_two
             .set_task(tokio::spawn(async move {
                 sleep(Duration::from_millis(SLEEP_DURATION));
