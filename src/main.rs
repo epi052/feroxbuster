@@ -90,7 +90,10 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
     let mut words = HashSet::new();
 
     for line in reader.lines() {
-        let result = line?;
+        let result = match line {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
 
         if result.starts_with('#') || result.is_empty() {
             continue;
