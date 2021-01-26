@@ -1,5 +1,5 @@
 use super::*;
-use crate::CommandSender;
+use crate::event_handlers::Handles;
 use anyhow::{bail, Result};
 
 /// Regular expression used in [LinkFinder](https://github.com/GerbenJavado/LinkFinder)
@@ -31,26 +31,11 @@ pub struct ExtractorBuilder<'a> {
     /// Response from which to extract links
     url: String,
 
-    /// Whether or not to try recursion
+    /// current configuration
     config: Option<&'a Configuration>,
 
-    /// transmitter to the mpsc that handles statistics gathering
-    tx_stats: Option<CommandSender>,
-
-    /// transmitter to the mpsc that handles recursive scan calls
-    tx_recursion: Option<CommandSender>,
-
-    /// transmitter to the mpsc that handles reporting information to the user
-    tx_reporter: Option<CommandSender>,
-
-    /// list of urls that will be added to when new urls are extracted
-    scanned_urls: Option<Arc<FeroxScans>>,
-
-    /// depth at which the scan was started
-    depth: Option<usize>,
-
-    /// copy of Stats object
-    stats: Option<Arc<Stats>>,
+    /// Handles object to house the underlying mpsc transmitters
+    handles: Option<Arc<Handles>>,
 
     /// type of extraction to be performed
     target: ExtractionTarget,
@@ -66,12 +51,7 @@ impl<'a> ExtractorBuilder<'a> {
             response: Some(response),
             url: "".to_string(),
             config: None,
-            tx_stats: None,
-            tx_recursion: None,
-            tx_reporter: None,
-            scanned_urls: None,
-            depth: None,
-            stats: None,
+            handles: None,
             target: ExtractionTarget::ResponseBody,
         }
     }
@@ -84,12 +64,7 @@ impl<'a> ExtractorBuilder<'a> {
             response: None,
             url: url.to_string(),
             config: None,
-            tx_stats: None,
-            tx_recursion: None,
-            tx_reporter: None,
-            scanned_urls: None,
-            depth: None,
-            stats: None,
+            handles: None,
             target: ExtractionTarget::RobotsTxt,
         }
     }
@@ -100,41 +75,9 @@ impl<'a> ExtractorBuilder<'a> {
         self
     }
 
-    /// builder call to set `tx_recursion`
-    pub fn recursion_transmitter(&mut self, tx_recursion: CommandSender) -> &mut Self {
-        // todo change to scans_transmitter or w/e same on struct; don't bother, going to make extractor take a Handles object later anyway
-        self.tx_recursion = Some(tx_recursion);
-        self
-    }
-
-    /// builder call to set `tx_stats`
-    pub fn stats_transmitter(&mut self, tx_stats: CommandSender) -> &mut Self {
-        self.tx_stats = Some(tx_stats);
-        self
-    }
-
-    /// builder call to set `tx_reporter`
-    pub fn reporter_transmitter(&mut self, tx_reporter: CommandSender) -> &mut Self {
-        // todo change to outputs or w/e same on struct; don't bother, going to make extractor take a Handles object later anyway
-        self.tx_reporter = Some(tx_reporter);
-        self
-    }
-
-    /// builder call to set `scanned_urls`
-    pub fn scanned_urls(&mut self, scanned_urls: Arc<FeroxScans>) -> &mut Self {
-        self.scanned_urls = Some(scanned_urls);
-        self
-    }
-
-    /// builder call to set `stats`
-    pub fn stats(&mut self, stats: Arc<Stats>) -> &mut Self {
-        self.stats = Some(stats);
-        self
-    }
-
-    /// builder call to set `depth`
-    pub fn depth(&mut self, depth: usize) -> &mut Self {
-        self.depth = Some(depth);
+    /// builder call to set `handles`
+    pub fn handles(&mut self, handles: Arc<Handles>) -> &mut Self {
+        self.handles = Some(handles);
         self
     }
 
@@ -156,12 +99,7 @@ impl<'a> ExtractorBuilder<'a> {
             },
             url: self.url.to_owned(),
             config: self.config.unwrap(),
-            tx_stats: self.tx_stats.as_ref().unwrap().clone(),
-            tx_recursion: self.tx_recursion.as_ref().unwrap().clone(),
-            tx_reporter: self.tx_reporter.as_ref().unwrap().clone(),
-            scanned_urls: self.scanned_urls.as_ref().unwrap().clone(),
-            depth: self.depth.unwrap(),
-            stats: self.stats.as_ref().unwrap().clone(),
+            handles: self.handles.as_ref().unwrap().clone(),
             target: self.target,
         })
     }

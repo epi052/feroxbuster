@@ -8,7 +8,7 @@ use super::*;
 ///
 /// `size` is size of the response that should be included with filters passed via runtime
 /// configuration and any static wildcard lengths.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WildcardFilter {
     /// size of the response that will later be combined with the length of the path of the url
     /// requested
@@ -16,6 +16,17 @@ pub struct WildcardFilter {
 
     /// size of the response that should be included with filters passed via runtime configuration
     pub size: u64,
+}
+
+/// implement default that populates both values with u64::MAX
+impl Default for WildcardFilter {
+    /// populate both values with u64::MAX
+    fn default() -> Self {
+        Self {
+            size: u64::MAX,
+            dynamic: u64::MAX,
+        }
+    }
 }
 
 /// implementation of FeroxFilter for WildcardFilter
@@ -33,7 +44,7 @@ impl FeroxFilter for WildcardFilter {
             return false;
         }
 
-        if self.size > 0 && self.size == response.content_length() {
+        if self.size != u64::MAX && self.size == response.content_length() {
             // static wildcard size found during testing
             // size isn't default, size equals response length, and auto-filter is on
             log::debug!("static wildcard: filtered out {}", response.url());
@@ -41,7 +52,7 @@ impl FeroxFilter for WildcardFilter {
             return true;
         }
 
-        if self.dynamic > 0 {
+        if self.dynamic != u64::MAX {
             // dynamic wildcard offset found during testing
 
             // I'm about to manually split this url path instead of using reqwest::Url's

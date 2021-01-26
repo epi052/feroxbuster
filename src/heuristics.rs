@@ -1,12 +1,14 @@
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
-    event_handlers::Command,
+    event_handlers::{Command, Handles},
     filters::WildcardFilter,
     utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
-    CommandSender, FeroxResponse,
+    FeroxResponse,
 };
+use anyhow::Result;
 use console::style;
 use indicatif::ProgressBar;
+use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -39,31 +41,22 @@ fn unique_string(length: usize) -> String {
 pub async fn wildcard_test(
     target_url: &str,
     bar: ProgressBar,
-    tx_term: CommandSender,
-    tx_stats: CommandSender,
-) -> Option<WildcardFilter> {
+    handles: Arc<Handles>,
+) -> Result<()> {
     log::trace!(
-        "enter: wildcard_test({:?}, {:?}, {:?}, {:?})",
+        "enter: wildcard_test({:?}, {:?}, {:?})",
         target_url,
         bar,
-        tx_term,
-        tx_stats
+        handles,
     );
 
     if CONFIGURATION.dont_filter {
         // early return, dont_filter scans don't need tested
         log::trace!("exit: wildcard_test -> None");
-        return None;
+        return Ok(());
     }
 
-    let tx_term_mwcr1 = tx_term.clone();
-    let tx_term_mwcr2 = tx_term.clone();
-    let tx_stats_mwcr1 = tx_stats.clone();
-    let tx_stats_mwcr2 = tx_stats.clone();
-
-    if let Some(ferox_response) =
-        make_wildcard_request(&target_url, 1, tx_term_mwcr1, tx_stats_mwcr1).await
-    {
+    if let Some(ferox_response) = make_wildcard_request(&target_url, 1, handles.clone()).await {
         bar.inc(1);
 
         // found a wildcard response
@@ -73,14 +66,15 @@ pub async fn wildcard_test(
 
         if wc_length == 0 {
             log::trace!("exit: wildcard_test -> Some({:?})", wildcard);
-            return Some(wildcard);
+            handles
+                .filters
+                .send(Command::AddFilter(Box::new(wildcard)))?;
+            return Ok(());
         }
 
         // content length of wildcard is non-zero, perform additional tests:
         //   make a second request, with a known-sized (64) longer request
-        if let Some(resp_two) =
-            make_wildcard_request(&target_url, 3, tx_term_mwcr2, tx_stats_mwcr2).await
-        {
+        if let Some(resp_two) = make_wildcard_request(&target_url, 3, handles.clone()).await {
             bar.inc(1);
 
             let wc2_length = resp_two.content_length();
@@ -129,11 +123,14 @@ pub async fn wildcard_test(
         }
 
         log::trace!("exit: wildcard_test -> Some({:?})", wildcard);
-        return Some(wildcard);
+        handles
+            .filters
+            .send(Command::AddFilter(Box::new(wildcard)))?;
+        return Ok(());
     }
 
     log::trace!("exit: wildcard_test -> None");
-    None
+    Ok(())
 }
 
 /// Generates a uuid and appends it to the given target url. The reasoning is that the randomly
@@ -145,15 +142,13 @@ pub async fn wildcard_test(
 async fn make_wildcard_request(
     target_url: &str,
     length: usize,
-    tx_term: CommandSender,
-    tx_stats: CommandSender,
+    handles: Arc<Handles>,
 ) -> Option<FeroxResponse> {
     log::trace!(
-        "enter: make_wildcard_request({}, {}, {:?}, {:?})",
+        "enter: make_wildcard_request({}, {}, {:?})",
         target_url,
         length,
-        tx_term,
-        tx_stats,
+        handles
     );
 
     let unique_str = unique_string(length);
@@ -164,7 +159,7 @@ async fn make_wildcard_request(
         CONFIGURATION.add_slash,
         &CONFIGURATION.queries,
         None,
-        tx_stats.clone(),
+        handles.stats.tx.clone(),
     ) {
         Ok(url) => url,
         Err(e) => {
@@ -177,7 +172,7 @@ async fn make_wildcard_request(
     match make_request(
         &CONFIGURATION.client,
         &nonexistent.to_owned(),
-        tx_stats.clone(),
+        handles.stats.tx.clone(),
     )
     .await
     {
@@ -191,8 +186,12 @@ async fn make_wildcard_request(
                 ferox_response.wildcard = true;
 
                 if !CONFIGURATION.quiet
-                    // && !should_filter_response(&ferox_response, tx_stats.clone())  // todo this needs to be reimplemented
-                    && tx_term
+                    && !handles
+                        .filters
+                        .data
+                        .should_filter_response(&ferox_response, handles.stats.tx.clone())
+                    && handles
+                        .output
                         .send(Command::Report(Box::new(ferox_response.clone())))
                         .is_err()
                 {

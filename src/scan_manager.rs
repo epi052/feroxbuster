@@ -26,13 +26,14 @@ use tokio::{
 };
 use uuid::Uuid;
 
+use crate::event_handlers::Handles;
 use crate::utils::fmt_err;
 use crate::utils::write_to;
 use crate::{
     config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
     parser::TIMESPEC_REGEX,
     progress::{add_bar, BarType},
-    scanner::{RESPONSES, SCANNED_URLS},
+    scanner::RESPONSES,
     statistics::Stats,
     utils::open_file,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
@@ -90,6 +91,9 @@ pub struct FeroxScan {
     /// The type of scan
     pub scan_type: ScanType,
 
+    /// The order in which the scan was received
+    pub scan_order: ScanOrder,
+
     /// Number of requests to populate the progress bar with
     pub num_requests: u64,
 
@@ -114,6 +118,7 @@ impl Default for FeroxScan {
             task: sync::Mutex::new(None), // tokio mutex
             status: Mutex::new(ScanStatus::default()),
             num_requests: 0,
+            scan_order: ScanOrder::Latest,
             url: String::new(),
             progress_bar: Mutex::new(None),
             scan_type: ScanType::File,
@@ -190,12 +195,14 @@ impl FeroxScan {
     pub fn new(
         url: &str,
         scan_type: ScanType,
+        scan_order: ScanOrder,
         num_requests: u64,
         pb: Option<ProgressBar>,
     ) -> Arc<Self> {
         Arc::new(Self {
             url: url.to_string(),
             scan_type,
+            scan_order,
             num_requests,
             progress_bar: Mutex::new(pb),
             ..Default::default()
@@ -232,7 +239,7 @@ impl FeroxScan {
 
     /// await a task's completion, similar to a thread's join; perform necessary bookkeeping
     pub async fn join(&self) {
-        log::trace!("enter join({:?})", self);
+        log::debug!("enter join({:?})", self);
         let mut guard = self.task.lock().await;
 
         if guard.is_some() {
@@ -243,7 +250,7 @@ impl FeroxScan {
             }
         }
 
-        log::trace!("exit join({:?})", self);
+        // log::trace!("exit join({:?})", self);
     }
 }
 
@@ -511,6 +518,10 @@ pub struct FeroxScans {
 
     /// menu used for providing a way for users to cancel a scan
     menu: Menu,
+
+    /// number of requests expected per scan (mirrors the same on Stats); used for initializing
+    /// progress bars and feroxscans
+    bar_length: Mutex<u64>,
 }
 
 /// Serialize implementation for FeroxScans
@@ -565,6 +576,31 @@ impl FeroxScans {
         sentry
     }
 
+    /// load serialized FeroxScan(s) into this FeroxScans  
+    pub fn add_serialized_scans(&self, filename: &str) -> Result<()> {
+        log::trace!("enter: add_serialized_scans({})", filename);
+        let file = File::open(filename)?;
+
+        let reader = BufReader::new(file);
+        let state: serde_json::Value = serde_json::from_reader(reader)?;
+
+        if let Some(scans) = state.get("scans") {
+            if let Some(arr_scans) = scans.as_array() {
+                for scan in arr_scans {
+                    let deser_scan: FeroxScan =
+                        serde_json::from_value(scan.clone()).unwrap_or_default();
+                    // need to determine if it's complete and based on that create a progress bar
+                    // populate it accordingly based on completion
+                    log::debug!("added: {}", deser_scan);
+                    self.insert(Arc::new(deser_scan));
+                }
+            }
+        }
+
+        log::trace!("exit: add_serialized_scans");
+        Ok(())
+    }
+
     /// Simple check for whether or not a FeroxScan is contained within the inner container based
     /// on the given URL
     pub fn contains(&self, url: &str) -> bool {
@@ -613,13 +649,10 @@ impl FeroxScans {
         };
 
         for (i, scan) in scans.iter().enumerate() {
-            if scan.task.lock().await.is_none() {
-                // no JoinHandle associated with this FeroxScan, meaning it was an original
-                // target passed in via either -u or --stdin
-                // todo check this assumption, as we swap out the task with None once joined
+            if matches!(scan.scan_order, ScanOrder::Initial) || scan.task.try_lock().is_err() {
+                // original target passed in via either -u or --stdin
                 continue;
             }
-            self.menu.println(&format!("fdaf {}", scan));
 
             if matches!(scan.scan_type, ScanType::Directory) {
                 // we're only interested in displaying directory scans, as those are
@@ -749,6 +782,13 @@ impl FeroxScans {
         }
     }
 
+    /// set the bar length of FeroxScans
+    pub fn set_bar_length(&self, bar_length: u64) {
+        if let Ok(mut guard) = self.bar_length.lock() {
+            *guard = bar_length;
+        }
+    }
+
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans`
     ///
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
@@ -758,14 +798,17 @@ impl FeroxScans {
         &self,
         url: &str,
         scan_type: ScanType,
-        stats: Arc<Stats>,
+        scan_order: ScanOrder,
     ) -> (bool, Arc<FeroxScan>) {
-        // todo eventually this should live on the struct and remove need ofr stats being passed in
-        let num_requests = stats.expected_per_scan() as u64;
+        let bar_length = if let Ok(guard) = self.bar_length.lock() {
+            *guard
+        } else {
+            0
+        };
 
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar = add_bar(&url, num_requests, BarType::Default);
+                let progress_bar = add_bar(&url, bar_length, BarType::Default);
 
                 progress_bar.reset_elapsed();
 
@@ -774,7 +817,7 @@ impl FeroxScans {
             ScanType::File => None,
         };
 
-        let ferox_scan = FeroxScan::new(&url, scan_type, num_requests, bar);
+        let ferox_scan = FeroxScan::new(&url, scan_type, scan_order, bar_length, bar);
 
         // If the set did not contain the scan, true is returned.
         // If the set did contain the scan, false is returned.
@@ -788,8 +831,8 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_directory_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<FeroxScan>) {
-        self.add_scan(&url, ScanType::Directory, stats)
+    pub fn add_directory_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
+        self.add_scan(&url, ScanType::Directory, scan_order)
     }
 
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
@@ -797,8 +840,8 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_file_scan(&self, url: &str, stats: Arc<Stats>) -> (bool, Arc<FeroxScan>) {
-        self.add_scan(&url, ScanType::File, stats)
+    pub fn add_file_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
+        self.add_scan(&url, ScanType::File, scan_order)
     }
 
     pub fn has_active_scans(&self) -> bool {
@@ -893,7 +936,7 @@ impl FeroxResponses {
 #[derive(Serialize, Debug)]
 pub struct FeroxState {
     /// Known scans
-    scans: &'static FeroxScans,
+    scans: Arc<FeroxScans>,
 
     /// Current running config
     config: &'static Configuration,
@@ -923,7 +966,7 @@ impl FeroxSerialize for FeroxState {
 /// that representation to seconds and then wait for those seconds to elapse.  Once that period
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
-pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
+pub async fn start_max_time_thread(time_spec: &str, handles: Arc<Handles>) {
     log::trace!("enter: start_max_time_thread({})", time_spec);
 
     // as this function has already made it through the parser, which calls is_match on
@@ -955,7 +998,7 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
         #[cfg(test)]
         panic!(stats);
         #[cfg(not(test))]
-        let _ = sigint_handler(stats);
+        let _ = sigint_handler(handles);
     }
 
     log::error!(
@@ -965,8 +1008,8 @@ pub async fn start_max_time_thread(time_spec: &str, stats: Arc<Stats>) {
 }
 
 /// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler(stats: Arc<Stats>) -> Result<()> {
-    log::trace!("enter: sigint_handler({:?})", stats);
+fn sigint_handler(handles: Arc<Handles>) -> Result<()> {
+    log::trace!("enter: sigint_handler({:?})", handles);
 
     let ts = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
 
@@ -993,9 +1036,9 @@ fn sigint_handler(stats: Arc<Stats>) -> Result<()> {
 
     let state = FeroxState {
         config: &CONFIGURATION,
-        scans: &SCANNED_URLS,
+        scans: handles.ferox_scans()?,
         responses: &RESPONSES,
-        statistics: stats,
+        statistics: handles.stats.data.clone(),
     };
 
     let state_file = open_file(&filename);
@@ -1008,11 +1051,11 @@ fn sigint_handler(stats: Arc<Stats>) -> Result<()> {
 }
 
 /// Initialize the ctrl+c handler that saves scan state to disk
-pub fn initialize(stats: Arc<Stats>) {
-    log::trace!("enter: initialize({:?})", stats);
+pub fn initialize(handles: Arc<Handles>) {
+    log::trace!("enter: initialize({:?})", handles);
 
     let result = ctrlc::set_handler(move || {
-        let _ = sigint_handler(stats.clone());
+        let _ = sigint_handler(handles.clone());
     });
 
     if result.is_err() {
@@ -1054,18 +1097,6 @@ pub fn resume_scan(filename: &str) -> Configuration {
                 if let Ok(deser_resp) = serde_json::from_value(response.clone()) {
                     RESPONSES.insert(deser_resp);
                 }
-            }
-        }
-    }
-
-    if let Some(scans) = state.get("scans") {
-        if let Some(arr_scans) = scans.as_array() {
-            for scan in arr_scans {
-                let deser_scan: FeroxScan =
-                    serde_json::from_value(scan.clone()).unwrap_or_default();
-                // need to determine if it's complete and based on that create a progress bar
-                // populate it accordingly based on completion
-                SCANNED_URLS.insert(Arc::new(deser_scan));
             }
         }
     }

@@ -130,13 +130,12 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     handles.stats.sync().await?;
 
     if CONFIGURATION.resumed {
-        let from_here = CONFIGURATION.resume_from.clone();
-        handles.stats.send(LoadStats(from_here))?;
-
+        // display what has already been completed
         scanned_urls.print_known_responses();
         scanned_urls.print_completed_bars(words.len())?;
     }
 
+    log::debug!("sending {:?} to be scanned as initial targets", targets);
     handles.send_scan_command(ScanInitialUrls(targets))?;
 
     log::trace!("exit: scan");
@@ -146,7 +145,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
 
 /// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
 async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
-    log::trace!("enter: get_targets");
+    log::trace!("enter: get_targets({:?})", handles);
 
     let mut targets = vec![];
 
@@ -166,7 +165,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
 
         if let Ok(scans) = ferox_scans.scans.read() {
             for scan in scans.iter() {
-                // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
+                // ferox_scans gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
                 if scan.is_complete() {
                     // this one's already done, ignore it
@@ -210,7 +209,7 @@ async fn wrapped_main() -> Result<()> {
     // bundle up all the disparate handles and JoinHandles (tasks)
     let handles = Arc::new(Handles::new(stats_handle, filters_handle, out_handle));
 
-    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());
+    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone(), CONFIGURATION.depth);
 
     handles.scan_handle(scan_handle); // set's the ScanHandle after Handles initialization
 
@@ -220,11 +219,9 @@ async fn wrapped_main() -> Result<()> {
     if !CONFIGURATION.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
         // the limit
-
-        let max_time_stats = handles.stats.data.clone();
-
+        let time_handles = handles.clone();
         tokio::spawn(async move {
-            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, max_time_stats).await
+            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, time_handles).await
         });
     }
 
@@ -238,11 +235,21 @@ async fn wrapped_main() -> Result<()> {
 
     if CONFIGURATION.save_state {
         // start the ctrl+c handler
-        scan_manager::initialize(handles.stats.data.clone());
+        scan_manager::initialize(handles.clone());
+    }
+
+    if CONFIGURATION.resumed {
+        let scanned_urls = handles.ferox_scans()?;
+        let from_here = CONFIGURATION.resume_from.clone();
+
+        // populate FeroxScans object with previously seen scans
+        scanned_urls.add_serialized_scans(&from_here)?;
+
+        // populate Stats object with previously known statistics
+        handles.stats.send(LoadStats(from_here))?;
     }
 
     // get targets from command line or stdin
-    // todo a bunch of fucking functions needs SCANNED_URLS replaced
     let targets = match get_targets(handles.clone()).await {
         Ok(t) => t,
         Err(e) => {
@@ -259,9 +266,9 @@ async fn wrapped_main() -> Result<()> {
         let mut banner = Banner::new(&targets, &CONFIGURATION);
 
         // only interested in the side-effect that sets banner.update_status
-        let _ = banner
+        banner
             .check_for_updates(&CONFIGURATION.client, UPDATE_URL, handles.stats.tx.clone())
-            .await;
+            .await?;
 
         if banner.print_to(std_stderr, &CONFIGURATION).is_err() {
             clean_up(handles, tasks).await?;
@@ -288,7 +295,6 @@ async fn wrapped_main() -> Result<()> {
     }
 
     // kick off a scan against any targets determined to be responsive
-
     match scan(live_targets, handles.clone()).await {
         Ok(_) => {}
         Err(e) => {
@@ -296,11 +302,6 @@ async fn wrapped_main() -> Result<()> {
             bail!(fmt_err(&format!("Failed while scanning: {}", e)));
         }
     }
-
-    // todo known things not working: overall bar lags behind other bars (seems ok, keep an eye on it during this branch)
-    // todo known things not working: confirm multi target from stdin works
-    // todo known things not working: confirm same # of requests seen in burp as reported
-    // todo known things not working: scan cancel menu is hard fkn broke
 
     clean_up(handles, tasks).await?;
 

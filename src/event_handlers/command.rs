@@ -41,14 +41,11 @@ pub enum Command {
     /// Send a `FeroxResponse` to the output handler for reporting
     Report(Box<FeroxResponse>),
 
-    /// Send a url to be scanned (in the context of recursion), use sender to notify main when done
-    ScanUrl(String, Sender<bool>),
-
     /// Send a group of urls to be scanned (only used for the urls passed in explicitly by the user)
     ScanInitialUrls(Vec<String>),
 
     /// Determine whether or not recursion is appropriate, given a FeroxResponse, if so start a scan
-    TryRecursion(FeroxResponse),
+    TryRecursion(Box<FeroxResponse>),
 
     /// Send a pointer to the wordlist to the recursion handler
     UpdateWordlist(Arc<HashSet<String>>),

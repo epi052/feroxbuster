@@ -2,7 +2,6 @@ use super::command::Command::UpdateUsizeField;
 use super::*;
 use crate::utils::get_url_depth;
 use crate::{
-    config::CONFIGURATION,
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::scan_url,
     statistics::StatField::TotalScans,
@@ -55,6 +54,9 @@ pub struct ScanHandler {
     /// group of scans that need to be joined
     tasks: Vec<Arc<FeroxScan>>,
 
+    /// Maximum recursion depth, a depth of 0 is infinite recursion
+    max_depth: usize,
+
     /// depths associated with the initial targets provided by the user
     depths: Vec<(String, usize)>,
 }
@@ -62,11 +64,17 @@ pub struct ScanHandler {
 /// implementation of event handler for filters
 impl ScanHandler {
     /// create new event handler
-    pub fn new(data: Arc<FeroxScans>, handles: Arc<Handles>, receiver: CommandReceiver) -> Self {
+    pub fn new(
+        data: Arc<FeroxScans>,
+        handles: Arc<Handles>,
+        max_depth: usize,
+        receiver: CommandReceiver,
+    ) -> Self {
         Self {
             data,
             handles,
             receiver,
+            max_depth,
             tasks: Vec::new(),
             depths: Vec::new(),
             wordlist: std::sync::Mutex::new(None),
@@ -84,13 +92,13 @@ impl ScanHandler {
 
     /// Initialize new `FeroxScans` and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
-    pub fn initialize(handles: Arc<Handles>) -> (Joiner, ScanHandle) {
+    pub fn initialize(handles: Arc<Handles>, max_depth: usize) -> (Joiner, ScanHandle) {
         log::trace!("enter: initialize");
 
         let data = Arc::new(FeroxScans::default());
         let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
 
-        let mut handler = Self::new(data.clone(), handles, rx);
+        let mut handler = Self::new(data.clone(), handles, max_depth, rx);
 
         let task = tokio::spawn(async move { handler.start().await });
 
@@ -109,10 +117,6 @@ impl ScanHandler {
 
         while let Some(command) = self.receiver.recv().await {
             match command {
-                Command::ScanUrl(url, sender) => {
-                    self.ordered_scan_url(vec![url], ScanOrder::Latest).await?;
-                    sender.send(true).expect("oneshot channel failed");
-                }
                 Command::ScanInitialUrls(targets) => {
                     self.ordered_scan_url(targets, ScanOrder::Initial).await?;
                 }
@@ -133,6 +137,9 @@ impl ScanHandler {
                 }
                 Command::TryRecursion(response) => {
                     self.try_recursion(response).await?;
+                }
+                Command::Sync(sender) => {
+                    sender.send(true).unwrap_or_default();
                 }
                 _ => {} // no other commands needed for RecursionHandler
             }
@@ -155,21 +162,30 @@ impl ScanHandler {
 
     /// wrapper around scanning a url to stay DRY
     async fn ordered_scan_url(&mut self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
-        for target in targets {
-            let (unknown, scan) = self
-                .data
-                .add_directory_scan(&target, self.handles.stats.data.clone());
+        log::trace!("enter: ordered_scan_url({:?}, {:?})", targets, order);
 
-            if !unknown {
-                // not unknown, i.e. we've seen the url before and don't need to scan again
+        for target in targets {
+            if self.data.contains(&target) && matches!(order, ScanOrder::Latest) {
+                // FeroxScans knows about this url and scan isn't an Initial scan
+                // initial scans are skipped because when resuming from a .state file, the scans
+                // will already be populated in FeroxScans, so we need to not skip kicking off
+                // their scans
                 continue;
             }
+
+            let scan = if let Some(ferox_scan) = self.data.get_scan_by_url(&target) {
+                ferox_scan // scan already known
+            } else {
+                self.data.add_directory_scan(&target, order).1 // add the new target; return FeroxScan
+            };
 
             let list = self.get_wordlist()?;
 
             log::info!("scan handler received {} - beginning scan", target);
 
             if matches!(order, ScanOrder::Initial) {
+                // keeps track of the initial targets' scan depths in order to enforce the
+                // maximum recursion depth on any identified sub-directories
                 self.depths.push((target.clone(), get_url_depth(&target)));
             }
 
@@ -187,13 +203,14 @@ impl ScanHandler {
 
             self.tasks.push(scan.clone());
         }
+
+        log::trace!("exit: ordered_scan_url");
         Ok(())
     }
 
-    async fn try_recursion(&mut self, response: FeroxResponse) -> Result<()> {
+    async fn try_recursion(&mut self, response: Box<FeroxResponse>) -> Result<()> {
         log::trace!("enter: try_recursion({:?})", response,);
 
-        // todo get depth from self.depths
         let mut base_depth = 1_usize;
 
         for (base_url, base_url_depth) in &self.depths {
@@ -202,8 +219,7 @@ impl ScanHandler {
             }
         }
 
-        // todo remove CONFIG dependence, maybe in init
-        if response.reached_max_depth(base_depth, CONFIGURATION.depth) {
+        if response.reached_max_depth(base_depth, self.max_depth) {
             // at or past recursion depth
             return Ok(());
         }
