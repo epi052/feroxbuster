@@ -40,6 +40,11 @@ impl TermOutHandle {
     pub async fn sync(&self) -> Result<()> {
         let (tx, rx) = oneshot::channel::<bool>();
         self.send(Command::Sync(tx))?;
+        if !CONFIGURATION.output.is_empty() {
+            let (tx, rx) = oneshot::channel::<bool>();
+            self.tx_file.send(Command::Sync(tx))?;
+            rx.await?;
+        }
         rx.await?;
         Ok(())
     }
@@ -83,6 +88,9 @@ impl FileOutHandler {
                 Command::Exit => {
                     log::error!("file handler got Exit");
                     break;
+                }
+                Command::Sync(sender) => {
+                    sender.send(true).unwrap_or_default();
                 }
                 _ => {} // no more needed
             }

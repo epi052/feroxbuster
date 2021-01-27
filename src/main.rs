@@ -16,7 +16,6 @@ use futures::StreamExt;
 use tokio::{io, sync::oneshot};
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-use feroxbuster::event_handlers::Command;
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
@@ -238,7 +237,6 @@ async fn wrapped_main() -> Result<()> {
         scan_manager::initialize(handles.clone());
     }
 
-    handles.output.sync().await?;
     if CONFIGURATION.resumed {
         let scanned_urls = handles.ferox_scans()?;
         let from_here = CONFIGURATION.resume_from.clone();
@@ -280,7 +278,7 @@ async fn wrapped_main() -> Result<()> {
     // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
     // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
     // done later here in main). Ping checks that the tx/rx connection to the file handler works
-    if !CONFIGURATION.output.is_empty() && handles.output.tx_file.send(Command::Ping).is_err() {
+    if !CONFIGURATION.output.is_empty() && handles.output.sync().await.is_err() {
         // output file specified and file handler could not initialize
         clean_up(handles, tasks).await?;
         let msg = format!("Couldn't start {} file handler", CONFIGURATION.output);
