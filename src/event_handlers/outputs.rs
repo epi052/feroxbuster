@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
@@ -35,6 +35,14 @@ impl TermOutHandle {
         self.tx.send(command)?;
         Ok(())
     }
+
+    /// Sync the handle with the handler
+    pub async fn sync(&self) -> Result<()> {
+        let (tx, rx) = oneshot::channel::<bool>();
+        self.send(Command::Sync(tx))?;
+        rx.await?;
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -62,14 +70,6 @@ impl FileOutHandler {
     /// The consumer simply receives responses from the terminal handler and writes them to disk
     async fn start(&mut self, tx_stats: CommandSender) -> Result<()> {
         log::trace!("enter: start_file_handler({:?})", tx_stats);
-
-        // let mut file = match open_file(&self.output) {
-        //     Ok(f) => f,
-        //     Err(e) => {
-        //         log::error!("{}", e);
-        //         std::process::exit(1);
-        //     }
-        // };
 
         let mut file = open_file(&self.output)?;
 
@@ -211,6 +211,9 @@ impl TermOutHandler {
 
                         RESPONSES.insert(*resp);
                     }
+                }
+                Command::Sync(sender) => {
+                    sender.send(true).unwrap_or_default();
                 }
                 Command::Exit => {
                     if self.save_output && self.tx_file.send(Command::Exit).is_ok() {

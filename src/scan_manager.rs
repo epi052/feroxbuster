@@ -996,7 +996,7 @@ pub async fn start_max_time_thread(time_spec: &str, handles: Arc<Handles>) {
         log::trace!("exit: start_max_time_thread");
 
         #[cfg(test)]
-        panic!(stats);
+        panic!(handles);
         #[cfg(not(test))]
         let _ = sigint_handler(handles);
     }
@@ -1148,9 +1148,8 @@ mod tests {
     /// add an unknown url to the hashset, expect true
     fn add_url_to_list_of_scanned_urls_with_unknown_url() {
         let urls = FeroxScans::default();
-        let stats = Arc::new(Stats::new());
         let url = "http://unknown_url";
-        let (result, _scan) = urls.add_scan(url, ScanType::Directory, stats);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
         assert_eq!(result, true);
     }
 
@@ -1160,13 +1159,18 @@ mod tests {
         let urls = FeroxScans::default();
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
-        let stats = Arc::new(Stats::new());
 
-        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
+        let scan = FeroxScan::new(
+            url,
+            ScanType::Directory,
+            ScanOrder::Latest,
+            pb.length(),
+            Some(pb),
+        );
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url, ScanType::Directory, stats);
+        let (result, _scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
 
         assert_eq!(result, false);
     }
@@ -1177,7 +1181,13 @@ mod tests {
         let pb = ProgressBar::new(1);
         let url = "http://unknown_url/";
 
-        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
+        let scan = FeroxScan::new(
+            url,
+            ScanType::Directory,
+            ScanOrder::Latest,
+            pb.length(),
+            Some(pb),
+        );
 
         assert_eq!(
             scan.progress_bar
@@ -1207,13 +1217,12 @@ mod tests {
     fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         let urls = FeroxScans::default();
         let url = "http://unknown_url";
-        let stats = Arc::new(Stats::new());
 
-        let scan = FeroxScan::new(url, ScanType::File, 0, None);
+        let scan = FeroxScan::new(url, ScanType::File, ScanOrder::Latest, 0, None);
 
         assert_eq!(urls.insert(scan), true);
 
-        let (result, _scan) = urls.add_scan(url, ScanType::File, stats);
+        let (result, _scan) = urls.add_scan(url, ScanType::File, ScanOrder::Latest);
 
         assert_eq!(result, false);
     }
@@ -1226,8 +1235,20 @@ mod tests {
         let pb_two = ProgressBar::new(2);
         let url = "http://unknown_url/";
         let url_two = "http://unknown_url/fa";
-        let scan = FeroxScan::new(url, ScanType::Directory, pb.length(), Some(pb));
-        let scan_two = FeroxScan::new(url_two, ScanType::Directory, pb_two.length(), Some(pb_two));
+        let scan = FeroxScan::new(
+            url,
+            ScanType::Directory,
+            ScanOrder::Latest,
+            pb.length(),
+            Some(pb),
+        );
+        let scan_two = FeroxScan::new(
+            url_two,
+            ScanType::Directory,
+            ScanOrder::Latest,
+            pb_two.length(),
+            Some(pb_two),
+        );
 
         scan_two.finish().unwrap(); // one complete, one incomplete
         scan_two
@@ -1247,8 +1268,8 @@ mod tests {
     /// ensure that PartialEq compares FeroxScan.id fields
     fn partial_eq_compares_the_id_field() {
         let url = "http://unknown_url/";
-        let scan = FeroxScan::new(url, ScanType::Directory, 0, None);
-        let scan_two = FeroxScan::new(url, ScanType::Directory, 0, None);
+        let scan = FeroxScan::new(url, ScanType::Directory, ScanOrder::Latest, 0, None);
+        let scan_two = FeroxScan::new(url, ScanType::Directory, ScanOrder::Latest, 0, None);
 
         assert!(!scan.eq(&scan_two));
 
@@ -1318,7 +1339,13 @@ mod tests {
     #[test]
     /// given a FeroxScan, test that it serializes into the proper JSON entry
     fn ferox_scan_serialize() {
-        let fs = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
+        let fs = FeroxScan::new(
+            "https://spiritanimal.com",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            0,
+            None,
+        );
         let fs_json = format!(
             r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
             fs.id
@@ -1329,7 +1356,13 @@ mod tests {
     #[test]
     /// given a FeroxScans, test that it serializes into the proper JSON entry
     fn ferox_scans_serialize() {
-        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
+        let ferox_scan = FeroxScan::new(
+            "https://spiritanimal.com",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            0,
+            None,
+        );
         let ferox_scans = FeroxScans::default();
         let ferox_scans_json = format!(
             r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
@@ -1383,9 +1416,16 @@ mod tests {
     #[test]
     /// test FeroxSerialize implementation of FeroxState
     fn feroxstates_feroxserialize_implementation() {
-        let ferox_scan = FeroxScan::new("https://spiritanimal.com", ScanType::Directory, 0, None);
+        let ferox_scan = FeroxScan::new(
+            "https://spiritanimal.com",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            0,
+            None,
+        );
+        let ferox_scans = FeroxScans::default();
         let saved_id = ferox_scan.id.clone();
-        SCANNED_URLS.insert(ferox_scan);
+        ferox_scans.insert(ferox_scan);
 
         let stats = Arc::new(Stats::new());
 
@@ -1394,7 +1434,7 @@ mod tests {
         RESPONSES.insert(response);
 
         let ferox_state = FeroxState {
-            scans: &SCANNED_URLS,
+            scans: Arc::new(ferox_scans),
             responses: &RESPONSES,
             config: &CONFIGURATION,
             statistics: stats,
@@ -1426,9 +1466,9 @@ mod tests {
     async fn start_max_time_thread_panics_after_delay() {
         let now = time::Instant::now();
         let delay = time::Duration::new(3, 0);
-        let stats = Arc::new(Stats::new());
+        let handles = Arc::new(Handles::for_testing(None).0);
 
-        start_max_time_thread("3s", stats).await;
+        start_max_time_thread("3s", handles).await;
 
         assert!(now.elapsed() > delay);
     }
@@ -1439,10 +1479,10 @@ mod tests {
     async fn start_max_time_thread_returns_immediately_with_too_large_input() {
         let now = time::Instant::now();
         let delay = time::Duration::new(1, 0);
-        let stats = Arc::new(Stats::new());
+        let handles = Arc::new(Handles::for_testing(None).0);
 
         // pub const MAX: usize = usize::MAX; // 18_446_744_073_709_551_615usize
-        start_max_time_thread("18446744073709551616m", stats).await; // can't fit in dest u64
+        start_max_time_thread("18446744073709551616m", handles).await; // can't fit in dest u64
 
         assert!(now.elapsed() < delay); // assuming function call will take less than 1second
     }
@@ -1453,6 +1493,7 @@ mod tests {
         let scan = FeroxScan {
             id: "".to_string(),
             url: String::from("http://localhost"),
+            scan_order: ScanOrder::Latest,
             scan_type: Default::default(),
             num_requests: 0,
             status: Default::default(),
@@ -1491,6 +1532,7 @@ mod tests {
         let scan = FeroxScan {
             id: "".to_string(),
             url: String::from("http://localhost"),
+            scan_order: ScanOrder::Latest,
             scan_type: Default::default(),
             num_requests: 0,
             status: std::sync::Mutex::new(ScanStatus::Running),

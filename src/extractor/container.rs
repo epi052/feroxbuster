@@ -11,6 +11,7 @@ use crate::{
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
 use std::collections::HashSet;
+use tokio::sync::oneshot;
 
 /// Whether an active scan is recursive or not
 #[derive(Debug)]
@@ -110,6 +111,9 @@ impl<'a> Extractor<'a> {
 
                 self.handles
                     .send_scan_command(Command::TryRecursion(Box::new(resp)))?;
+                let (tx, rx) = oneshot::channel::<bool>();
+                self.handles.send_scan_command(Command::Sync(tx))?;
+                rx.await?;
             }
         }
         Ok(())

@@ -613,6 +613,7 @@ impl FeroxSerialize for FeroxMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reqwest::Url;
 
     #[test]
     /// asserts default config name is correct
@@ -675,5 +676,98 @@ mod tests {
         assert!((json.time_offset - message.time_offset).abs() < error_margin);
         assert_eq!(json.level, message.level);
         assert_eq!(json.kind, message.kind);
+    }
+    #[test]
+    /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
+    fn reached_max_depth_returns_early_on_zero() {
+        let url = Url::parse("http://localhost").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+        let result = response.reached_max_depth(0, 0);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth equal to max depth, expect true
+    fn reached_max_depth_current_depth_equals_max() {
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2);
+        assert!(result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url dpeth less than max depth, expect false
+    fn reached_max_depth_current_depth_less_than_max() {
+        let url = Url::parse("http://localhost").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
+    fn reached_max_depth_base_depth_equals_max_depth() {
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(2, 2);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth greater than max depth, expect true
+    fn reached_max_depth_current_greater_than_max() {
+        let url = Url::parse("http://localhost/one/two/three").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2);
+        assert!(result);
     }
 }

@@ -238,6 +238,7 @@ async fn wrapped_main() -> Result<()> {
         scan_manager::initialize(handles.clone());
     }
 
+    handles.output.sync().await?;
     if CONFIGURATION.resumed {
         let scanned_urls = handles.ferox_scans()?;
         let from_here = CONFIGURATION.resume_from.clone();
@@ -266,9 +267,9 @@ async fn wrapped_main() -> Result<()> {
         let mut banner = Banner::new(&targets, &CONFIGURATION);
 
         // only interested in the side-effect that sets banner.update_status
-        banner
+        let _ = banner
             .check_for_updates(&CONFIGURATION.client, UPDATE_URL, handles.stats.tx.clone())
-            .await?;
+            .await;
 
         if banner.print_to(std_stderr, &CONFIGURATION).is_err() {
             clean_up(handles, tasks).await?;

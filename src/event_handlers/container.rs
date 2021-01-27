@@ -1,9 +1,13 @@
 use super::*;
 use crate::event_handlers::scans::ScanHandle;
 use crate::scan_manager::FeroxScans;
+#[cfg(test)]
+use crate::{filters::FeroxFilters, statistics::Stats, Command};
 use crate::{CommandSender, Joiner};
 use anyhow::{bail, Result};
 use std::sync::{Arc, RwLock};
+#[cfg(test)]
+use tokio::sync::mpsc::{self, UnboundedReceiver};
 
 #[derive(Debug)]
 /// Simple container for multiple JoinHandles
@@ -60,6 +64,23 @@ impl Handles {
             output,
             scans: RwLock::new(None),
         }
+    }
+
+    /// create a Handles object suitable for unit testing (non-functional)
+    #[cfg(test)]
+    pub fn for_testing(
+        scanned_urls: Option<Arc<FeroxScans>>,
+    ) -> (Self, UnboundedReceiver<Command>) {
+        let (tx, rx) = mpsc::unbounded_channel::<Command>();
+        let terminal_handle = TermOutHandle::new(tx.clone(), tx.clone());
+        let stats_handle = StatsHandle::new(Arc::new(Stats::new()), tx.clone());
+        let filters_handle = FiltersHandle::new(Arc::new(FeroxFilters::default()), tx.clone());
+        let handles = Self::new(stats_handle, filters_handle, terminal_handle);
+        if let Some(sh) = scanned_urls {
+            let scan_handle = ScanHandle::new(sh, tx.clone());
+            handles.scan_handle(scan_handle);
+        }
+        (handles, rx)
     }
 
     /// Set the ScanHandle object

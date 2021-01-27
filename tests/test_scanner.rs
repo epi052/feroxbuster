@@ -258,6 +258,8 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
         .arg("-q")
         .arg("-o")
         .arg(outfile.as_os_str())
+        .arg("--debug-log")
+        .arg("redirects")
         .unwrap();
 
     let contents = std::fs::read_to_string(outfile);

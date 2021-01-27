@@ -26,7 +26,7 @@ use std::{
     collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
     time::Instant,
 };
-use tokio::sync::{mpsc::UnboundedSender, Semaphore};
+use tokio::sync::{mpsc::UnboundedSender, oneshot, Semaphore};
 
 lazy_static! {
     /// Vector of FeroxResponse objects
@@ -117,6 +117,9 @@ async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> R
         // do recursion if appropriate
         if !CONFIGURATION.no_recursion {
             handles.send_scan_command(Command::TryRecursion(Box::new(ferox_response.clone())))?;
+            let (tx, rx) = oneshot::channel::<bool>();
+            handles.send_scan_command(Command::Sync(tx))?;
+            rx.await?;
         }
 
         // purposefully doing recursion before filtering. the thought process is that
@@ -474,46 +477,6 @@ mod tests {
         }
     }
 
-    #[test]
-    /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
-    fn reached_max_depth_returns_early_on_zero() {
-        let url = Url::parse("http://localhost").unwrap();
-        let result = reached_max_depth(&url, 0, 0);
-        assert!(!result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url depth equal to max depth, expect true
-    fn reached_max_depth_current_depth_equals_max() {
-        let url = Url::parse("http://localhost/one/two").unwrap();
-        let result = reached_max_depth(&url, 0, 2);
-        assert!(result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url dpeth less than max depth, expect false
-    fn reached_max_depth_current_depth_less_than_max() {
-        let url = Url::parse("http://localhost").unwrap();
-        let result = reached_max_depth(&url, 0, 2);
-        assert!(!result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
-    fn reached_max_depth_base_depth_equals_max_depth() {
-        let url = Url::parse("http://localhost/one/two").unwrap();
-        let result = reached_max_depth(&url, 2, 2);
-        assert!(!result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url depth greater than max depth, expect true
-    fn reached_max_depth_current_greater_than_max() {
-        let url = Url::parse("http://localhost/one/two/three").unwrap();
-        let result = reached_max_depth(&url, 0, 2);
-        assert!(result);
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     #[should_panic]
     /// call initialize with a bad regex, triggering a panic
@@ -522,7 +485,7 @@ mod tests {
             filter_regex: vec![r"(".to_string()],
             ..Default::default()
         };
-        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-        initialize(1, &config, tx).await;
+        let handles = Arc::new(Handles::for_testing(None).0);
+        initialize(1, &config, handles).await.unwrap();
     }
 }
