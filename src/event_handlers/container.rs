@@ -77,7 +77,7 @@ impl Handles {
         let filters_handle = FiltersHandle::new(Arc::new(FeroxFilters::default()), tx.clone());
         let handles = Self::new(stats_handle, filters_handle, terminal_handle);
         if let Some(sh) = scanned_urls {
-            let scan_handle = ScanHandle::new(sh, tx.clone());
+            let scan_handle = ScanHandle::new(sh, tx);
             handles.scan_handle(scan_handle);
         }
         (handles, rx)
