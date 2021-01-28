@@ -36,14 +36,19 @@ pub struct HeuristicTests<'a> {
     /// Handles object for event handler interaction
     handles: Arc<Handles>,
 
+    /// Config value: Don't auto-filter wildcard responses
     dont_filter: bool,
 
+    /// Config value: Only print URLs
     quiet: bool,
 
+    /// Config value: Append / to each request
     add_slash: bool,
 
+    /// Config value: Instance of reqwest::Client
     client: &'a Client,
 
+    /// Config value: URL query parameters
     queries: &'a Vec<(String, String)>,
 }
 
