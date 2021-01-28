@@ -371,7 +371,7 @@ impl<'a> Extractor<'a> {
             self.config.insecure,
             &self.config.headers,
             proxy,
-        );
+        )?;
 
         let mut url = Url::parse(&self.url)?;
         url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
