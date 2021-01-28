@@ -284,12 +284,4 @@ mod tests {
             assert_eq!(unique_string(i).len(), i * 32);
         }
     }
-
-    #[test]
-    /// simply test the default values for wildcardfilter, expect 0, 0
-    fn heuristics_wildcardfilter_dafaults() {
-        let wcf = WildcardFilter::default();
-        assert_eq!(wcf.size, u64::MAX);
-        assert_eq!(wcf.dynamic, u64::MAX);
-    }
 }
