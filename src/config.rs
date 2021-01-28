@@ -301,7 +301,8 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None);
+        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None)
+            .expect("Could not build client");
         let replay_client = None;
         let status_codes = status_codes();
         let replay_codes = status_codes.clone();
@@ -710,6 +711,7 @@ impl Configuration {
                     &configuration.headers,
                     None,
                 )
+                .expect("Could not rebuild client")
             } else {
                 configuration.client = client::initialize(
                     configuration.timeout,
@@ -719,19 +721,23 @@ impl Configuration {
                     &configuration.headers,
                     Some(&configuration.proxy),
                 )
+                .expect("Could not rebuild client")
             }
         }
 
         if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
-            configuration.replay_client = Some(client::initialize(
-                configuration.timeout,
-                &configuration.user_agent,
-                configuration.redirects,
-                configuration.insecure,
-                &configuration.headers,
-                Some(&configuration.replay_proxy),
-            ));
+            configuration.replay_client = Some(
+                client::initialize(
+                    configuration.timeout,
+                    &configuration.user_agent,
+                    configuration.redirects,
+                    configuration.insecure,
+                    &configuration.headers,
+                    Some(&configuration.replay_proxy),
+                )
+                .expect("Could not rebuild client"),
+            );
         }
     }
 
