@@ -619,7 +619,7 @@ fn banner_doesnt_print() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "Could not find any live targets to scan",
+            "Could not connect to any target provided",
         ));
     Ok(())
 }
