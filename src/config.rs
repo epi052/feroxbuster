@@ -5,7 +5,7 @@ use crate::{
     utils::{fmt_err, module_colorizer, status_colorizer},
     FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
 };
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use lazy_static::lazy_static;
@@ -22,7 +22,7 @@ use std::{
 
 lazy_static! {
     /// Global configuration state
-    pub static ref CONFIGURATION: Configuration = Configuration::new();
+    pub static ref CONFIGURATION: Configuration = Configuration::new().expect("Could not create Configuration");
 
     /// Global progress bar that houses other progress bars
     pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
@@ -410,14 +410,14 @@ impl Configuration {
     ///
     /// The resulting [Configuration](struct.Configuration.html) is a singleton with a `static`
     /// lifetime.
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         // when compiling for test, we want to eliminate the runtime dependency of the parser
         if cfg!(test) {
             let test_config = Configuration {
                 save_state: false, // don't clutter up junk when testing
                 ..Default::default()
             };
-            return test_config;
+            return Ok(test_config);
         }
 
         let args = parser::initialize().get_matches();
@@ -427,11 +427,11 @@ impl Configuration {
         let mut config = Configuration::default();
 
         // read in all config files
-        Self::parse_config_files(&mut config);
+        let _ = Self::parse_config_files(&mut config);
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
-        let cli_config = Self::parse_cli_args(&args);
+        let cli_config = Self::parse_cli_args(&args)?;
 
         // --resume-from used, need to first read the Configuration from disk, and then
         // merge the cli_config into the resumed config
@@ -458,7 +458,7 @@ impl Configuration {
             // clients aren't serialized, have to remake them from the previous config
             Self::try_rebuild_clients(&mut previous_config);
 
-            return previous_config;
+            return Ok(previous_config);
         }
 
         // if we've gotten to this point in the code, --resume-from was not used, so we need to
@@ -468,12 +468,12 @@ impl Configuration {
         // rebuild clients is the last step in either code branch
         Self::try_rebuild_clients(&mut config);
 
-        config
+        Ok(config)
     }
 
     /// Parse all possible versions of the ferox-config.toml file, adhering to the order of
     /// precedence outlined above
-    fn parse_config_files(mut config: &mut Self) {
+    fn parse_config_files(mut config: &mut Self) -> Result<()> {
         // Next, we parse the ferox-config.toml file, if present and set the values
         // therein to overwrite our default values. Deserialized defaults are specified
         // in the Configuration struct so that we don't change anything that isn't
@@ -489,37 +489,34 @@ impl Configuration {
         let config_file = PathBuf::new()
             .join("/etc/feroxbuster")
             .join(DEFAULT_CONFIG_NAME);
-        Self::parse_and_merge_config(config_file, &mut config);
+        Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found at ~/.config/feroxbuster/ferox-config.toml
-        if let Some(config_dir) = dirs::config_dir() {
-            // config_dir() resolves to one of the following
-            //   - linux: $XDG_CONFIG_HOME or $HOME/.config
-            //   - macOS: $HOME/Library/Application Support
-            //   - windows: {FOLDERID_RoamingAppData}
-
-            let config_file = config_dir.join("feroxbuster").join(DEFAULT_CONFIG_NAME);
-            Self::parse_and_merge_config(config_file, &mut config);
-        };
+        // config_dir() resolves to one of the following
+        //   - linux: $XDG_CONFIG_HOME or $HOME/.config
+        //   - macOS: $HOME/Library/Application Support
+        //   - windows: {FOLDERID_RoamingAppData}
+        let config_dir = dirs::config_dir().ok_or(anyhow!("Couldn't load config"))?;
+        let config_file = config_dir.join("feroxbuster").join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found in same the directory as feroxbuster executable
-        if let Ok(exe_path) = current_exe() {
-            if let Some(bin_dir) = exe_path.parent() {
-                let config_file = bin_dir.join(DEFAULT_CONFIG_NAME);
-                Self::parse_and_merge_config(config_file, &mut config);
-            };
-        };
+        let exe_path = current_exe()?;
+        let bin_dir = exe_path.parent().ok_or(anyhow!("Couldn't load config"))?;
+        let config_file = bin_dir.join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found in the user's current working directory
-        if let Ok(cwd) = current_dir() {
-            let config_file = cwd.join(DEFAULT_CONFIG_NAME);
-            Self::parse_and_merge_config(config_file, &mut config);
-        }
+        let cwd = current_dir()?;
+        let config_file = cwd.join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config)?;
+
+        Ok(())
     }
 
     /// Given a set of ArgMatches read from the CLI, update and return the default Configuration
     /// settings
-    fn parse_cli_args(args: &ArgMatches) -> Self {
+    fn parse_cli_args(args: &ArgMatches) -> Result<Self> {
         let mut config = Configuration::default();
 
         update_config_if_present!(&mut config.threads, args, "threads", usize);
@@ -687,7 +684,7 @@ impl Configuration {
             }
         }
 
-        config
+        Ok(config)
     }
 
     /// this function determines if we've gotten a Client configuration change from
@@ -743,22 +740,19 @@ impl Configuration {
 
     /// Given a configuration file's location and an instance of `Configuration`, read in
     /// the config file if found and update the current settings with the settings found therein
-    fn parse_and_merge_config(config_file: PathBuf, mut config: &mut Self) {
+    fn parse_and_merge_config(config_file: PathBuf, mut config: &mut Self) -> Result<()> {
         if config_file.exists() {
             // save off a string version of the path before it goes out of scope
-            let conf_str = match config_file.to_str() {
-                Some(cs) => String::from(cs),
-                None => String::new(),
-            };
+            let conf_str = config_file.to_str().unwrap_or_else(|| "").to_string();
+            let settings = Self::parse_config(config_file)?;
 
-            if let Some(settings) = Self::parse_config(config_file) {
-                // set the config used for viewing in the banner
-                config.config = conf_str;
+            // set the config used for viewing in the banner
+            config.config = conf_str;
 
-                // update the settings
-                Self::merge_config(&mut config, settings);
-            }
+            // update the settings
+            Self::merge_config(&mut config, settings);
         }
+        Ok(())
     }
 
     /// Given two Configurations, overwrite `settings` with the fields found in `settings_to_merge`
@@ -831,23 +825,10 @@ impl Configuration {
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
     ///
     /// uses serde to deserialize the toml into a `Configuration` struct
-    fn parse_config(config_file: PathBuf) -> Option<Self> {
-        if let Ok(content) = read_to_string(config_file) {
-            match toml::from_str(content.as_str()) {
-                Ok(config) => {
-                    return Some(config);
-                }
-                Err(e) => {
-                    println!(
-                        "{} {} {}",
-                        status_colorizer("ERROR"),
-                        module_colorizer("config::parse_config"),
-                        e
-                    );
-                }
-            }
-        }
-        None
+    fn parse_config(config_file: PathBuf) -> Result<Self> {
+        let content = read_to_string(config_file)?;
+        let config: Self = toml::from_str(content.as_str())?;
+        Ok(config)
     }
 }
 
@@ -1227,7 +1208,7 @@ mod tests {
     #[test]
     /// test as_str method of Configuration
     fn as_str_returns_string_with_newline() {
-        let config = Configuration::new();
+        let config = Configuration::new().unwrap();
         let config_str = config.as_str();
         println!("{}", config_str);
         assert!(config_str.starts_with("Configuration {"));
@@ -1240,7 +1221,7 @@ mod tests {
     #[test]
     /// test as_json method of Configuration
     fn as_json_returns_json_representation_of_configuration_with_newline() {
-        let mut config = Configuration::new();
+        let mut config = Configuration::new().unwrap();
         config.timeout = 12;
         config.depth = 2;
         let config_str = config.as_json().unwrap();

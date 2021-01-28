@@ -19,7 +19,7 @@ lazy_static! {
     static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
     /// Configuration for Extractor
-    static ref CONFIG: Configuration = Configuration::new();
+    static ref CONFIG: Configuration = Configuration::new().unwrap();
 
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
@@ -243,7 +243,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that /robots.txt is correctly requested given a base url (happy path)
 async fn request_robots_txt_without_proxy() -> Result<()> {
-    let config = Configuration::new();
+    let config = Configuration::new()?;
     let handles = Arc::new(Handles::for_testing(None).0);
 
     let srv = MockServer::start();
@@ -276,7 +276,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
 /// test that /robots.txt is correctly requested given a base url (happy path) when a proxy is used
 async fn request_robots_txt_with_proxy() -> Result<()> {
     let handles = Arc::new(Handles::for_testing(None).0);
-    let mut config = Configuration::new();
+    let mut config = Configuration::new()?;
 
     let srv = MockServer::start();
 
