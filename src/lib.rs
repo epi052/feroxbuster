@@ -1,13 +1,34 @@
+use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
+use std::{error, fmt};
+
+use anyhow::{Context, Result};
+use console::{style, Color};
+use reqwest::header::{HeaderName, HeaderValue};
+use reqwest::{header::HeaderMap, Response, StatusCode, Url};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+    task::JoinHandle,
+};
+
+use crate::{
+    event_handlers::Command,
+    traits::FeroxSerialize,
+    utils::{fmt_err, get_url_depth, get_url_path_length, status_colorizer},
+};
+
 pub mod banner;
 pub mod config;
 mod client;
-mod event_handlers;
+pub mod event_handlers;
 mod filters;
 pub mod heuristics;
 pub mod logger;
 mod parser;
 pub mod progress;
-pub mod reporter;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
@@ -15,24 +36,14 @@ mod traits;
 pub mod utils;
 mod extractor;
 
-use crate::{
-    traits::FeroxSerialize,
-    utils::{fmt_err, get_url_path_length, status_colorizer},
-};
-use anyhow::{Context, Result};
-use console::{style, Color};
-use reqwest::header::{HeaderName, HeaderValue};
-use reqwest::{header::HeaderMap, Response, StatusCode, Url};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
-use std::{error, fmt};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+/// Alias for tokio::sync::mpsc::UnboundedSender<Command>
+pub type CommandSender = UnboundedSender<Command>;
 
-/// Generic Result type to ease error handling in async contexts
-pub type FeroxResult<T> = std::result::Result<T, Box<dyn error::Error + Send + Sync + 'static>>;
+/// Alias for tokio::sync::mpsc::UnboundedSender<Command>
+pub type CommandReceiver = UnboundedReceiver<Command>;
+
+/// Alias for tokio::task::JoinHandle<anyhow::Result<()>>
+pub type Joiner = JoinHandle<Result<()>>;
 
 /// Simple Error implementation to allow for custom error returns
 #[derive(Debug, Default)]
@@ -247,6 +258,79 @@ impl FeroxResponse {
             word_count,
             wildcard: false,
         }
+    }
+
+    /// Helper function that determines if the configured maximum recursion depth has been reached
+    ///
+    /// Essentially looks at the Url path and determines how many directories are present in the
+    /// given Url
+    fn reached_max_depth(&self, base_depth: usize, max_depth: usize) -> bool {
+        log::trace!("enter: reached_max_depth({}, {})", base_depth, max_depth);
+
+        if max_depth == 0 {
+            // early return, as 0 means recurse forever; no additional processing needed
+            log::trace!("exit: reached_max_depth -> false");
+            return false;
+        }
+
+        let depth = get_url_depth(self.url.as_str());
+
+        if depth - base_depth >= max_depth {
+            return true;
+        }
+
+        log::trace!("exit: reached_max_depth -> false");
+        false
+    }
+
+    /// Helper function to determine suitability for recursion
+    ///
+    /// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
+    /// or if the Location header is present and matches the base url + / (3xx)
+    pub fn is_directory(&self) -> bool {
+        log::trace!("enter: is_directory({})", self);
+
+        if self.status().is_redirection() {
+            // status code is 3xx
+            match self.headers().get("Location") {
+                // and has a Location header
+                Some(loc) => {
+                    // get absolute redirect Url based on the already known base url
+                    log::debug!("Location header: {:?}", loc);
+
+                    if let Ok(loc_str) = loc.to_str() {
+                        if let Ok(abs_url) = self.url().join(loc_str) {
+                            if format!("{}/", self.url()) == abs_url.as_str() {
+                                // if current response's Url + / == the absolute redirection
+                                // location, we've found a directory suitable for recursion
+                                log::debug!(
+                                    "found directory suitable for recursion: {}",
+                                    self.url()
+                                );
+                                log::trace!("exit: is_directory -> true");
+                                return true;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    log::debug!("expected Location header, but none was found: {}", self);
+                    log::trace!("exit: is_directory -> false");
+                    return false;
+                }
+            }
+        } else if self.status().is_success() || matches!(self.status(), &StatusCode::FORBIDDEN) {
+            // status code is 2xx or 403, need to check if it ends in /
+
+            if self.url().as_str().ends_with('/') {
+                log::debug!("{} is directory suitable for recursion", self.url());
+                log::trace!("exit: is_directory -> true");
+                return true;
+            }
+        }
+
+        log::trace!("exit: is_directory -> false");
+        false
     }
 }
 
@@ -529,6 +613,7 @@ impl FeroxSerialize for FeroxMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reqwest::Url;
 
     #[test]
     /// asserts default config name is correct
@@ -591,5 +676,98 @@ mod tests {
         assert!((json.time_offset - message.time_offset).abs() < error_margin);
         assert_eq!(json.level, message.level);
         assert_eq!(json.kind, message.kind);
+    }
+    #[test]
+    /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
+    fn reached_max_depth_returns_early_on_zero() {
+        let url = Url::parse("http://localhost").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+        let result = response.reached_max_depth(0, 0);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth equal to max depth, expect true
+    fn reached_max_depth_current_depth_equals_max() {
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2);
+        assert!(result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url dpeth less than max depth, expect false
+    fn reached_max_depth_current_depth_less_than_max() {
+        let url = Url::parse("http://localhost").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
+    fn reached_max_depth_base_depth_equals_max_depth() {
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(2, 2);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth greater than max depth, expect true
+    fn reached_max_depth_current_greater_than_max() {
+        let url = Url::parse("http://localhost/one/two/three").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2);
+        assert!(result);
     }
 }

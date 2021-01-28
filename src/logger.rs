@@ -1,17 +1,23 @@
+use std::env;
+use std::fs::OpenOptions;
+use std::time::Instant;
+
+use env_logger::Builder;
+
+use crate::utils::write_to;
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
-    reporter::safe_file_write,
-    utils::open_file,
+    utils::fmt_err,
     FeroxMessage, FeroxSerialize,
 };
-use env_logger::Builder;
-use std::env;
-use std::time::Instant;
+use anyhow::{Context, Result};
+use std::io::BufWriter;
+use std::sync::{Arc, RwLock};
 
 /// Create a customized instance of
 /// [env_logger::Logger](https://docs.rs/env_logger/latest/env_logger/struct.Logger.html)
 /// with timer offset/color and set the log level based on `verbosity`
-pub fn initialize(verbosity: u8) {
+pub fn initialize(verbosity: u8) -> Result<()> {
     // use occurrences of -v on commandline to or verbosity = N in feroxconfig.toml to set
     // log level for the application; respects already specified RUST_LOG environment variable
     match env::var("RUST_LOG") {
@@ -31,12 +37,22 @@ pub fn initialize(verbosity: u8) {
     let start = Instant::now();
     let mut builder = Builder::from_default_env();
 
-    let debug_file = open_file(&CONFIGURATION.debug_log);
+    let file = if !CONFIGURATION.debug_log.is_empty() {
+        let f = OpenOptions::new() // std fs
+            .create(true)
+            .append(true)
+            .open(&CONFIGURATION.debug_log)
+            .with_context(|| fmt_err(&format!("Could not open {}", &CONFIGURATION.debug_log)))?;
 
-    if let Some(buffered_file) = debug_file.clone() {
+        let mut writer = BufWriter::new(f);
+
         // write out the configuration to the debug file if it exists
-        safe_file_write(&*CONFIGURATION, buffered_file, CONFIGURATION.json);
-    }
+        write_to(&*CONFIGURATION, &mut writer, CONFIGURATION.json)?;
+
+        Some(Arc::new(RwLock::new(writer)))
+    } else {
+        None
+    };
 
     builder
         .format(move |_, record| {
@@ -50,11 +66,15 @@ pub fn initialize(verbosity: u8) {
 
             PROGRESS_PRINTER.println(&log_entry.as_str());
 
-            if let Some(buffered_file) = debug_file.clone() {
-                safe_file_write(&log_entry, buffered_file, CONFIGURATION.json);
+            if let Some(buffered_file) = file.clone() {
+                if let Ok(mut unlocked) = buffered_file.write() {
+                    let _ = write_to(&log_entry, &mut unlocked, CONFIGURATION.json);
+                }
             }
 
             Ok(())
         })
         .init();
+
+    Ok(())
 }

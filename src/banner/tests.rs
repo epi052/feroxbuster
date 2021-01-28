@@ -2,7 +2,7 @@ use super::container::UpdateStatus;
 use super::*;
 use crate::{
     config::{Configuration, CONFIGURATION},
-    statistics::StatCommand,
+    event_handlers::Command,
     FeroxChannel,
 };
 use httpmock::Method::GET;
@@ -58,7 +58,7 @@ async fn banner_intialize_without_queries() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that
 async fn banner_needs_update_returns_unknown_with_bad_url() {
-    let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
     let mut banner = Banner::new(&[String::from("http://localhost")], &CONFIGURATION);
 
@@ -79,7 +79,7 @@ async fn banner_needs_update_returns_up_to_date() {
         then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
     });
 
-    let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
     let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
     banner.version = String::from("1.1.0");
@@ -102,7 +102,7 @@ async fn banner_needs_update_returns_out_of_date() {
         then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
     });
 
-    let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
     let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
     banner.version = String::from("1.0.1");
@@ -127,7 +127,7 @@ async fn banner_needs_update_returns_unknown_on_timeout() {
             .delay(Duration::from_secs(8));
     });
 
-    let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
     let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
 
@@ -149,7 +149,7 @@ async fn banner_needs_update_returns_unknown_on_bad_json_response() {
         then.status(200).body("not json");
     });
 
-    let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
     let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
 
@@ -172,7 +172,7 @@ async fn banner_needs_update_returns_unknown_on_json_without_correct_tag() {
             .body("{\"no tag_name\": \"doesn't exist\"}");
     });
 
-    let (tx, _): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
+    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
 
     let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
     banner.version = String::from("1.0.1");

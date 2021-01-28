@@ -23,8 +23,10 @@ fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Erro
         .arg("/etc/shadow")
         .arg("-vvvv")
         .assert()
-        .failure()
-        .stdout(predicate::str::contains("Permission denied (os error 13)"));
+        .success()
+        .stderr(predicate::str::contains(
+            "Failed while scanning: Could not open /etc/shadow",
+        ));
 
     // connectivity test hits it once
     assert_eq!(mock.hits(), 1);
@@ -50,8 +52,10 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .arg(file.as_os_str())
         .arg("-vvvv")
         .assert()
-        .failure()
-        .stdout(predicate::str::contains("Did not find any words in"));
+        .success()
+        .stderr(predicate::str::contains(
+            "Failed while scanning: Did not find any words in",
+        ));
 
     assert_eq!(mock.hits(), 1);
 

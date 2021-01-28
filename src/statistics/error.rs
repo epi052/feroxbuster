@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 /// Enum variants used to inform the `StatCommand` protocol what `Stats` fields should be updated
 pub enum StatError {
     /// Represents a 403 response code

@@ -1,17 +1,17 @@
 use super::*;
+use crate::event_handlers::Command;
+use crate::scan_manager::ScanOrder;
 use crate::{
     client,
-    scanner::{send_report, should_filter_response, try_recursion},
-    statistics::{
-        StatCommand::UpdateUsizeField,
-        StatField::{LinksExtracted, TotalExpected},
-    },
-    update_stat,
+    event_handlers::{Command::UpdateUsizeField, Handles},
+    scanner::send_report,
+    statistics::StatField::{LinksExtracted, TotalExpected},
     utils::{format_url, make_request},
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
 use std::collections::HashSet;
+use tokio::sync::oneshot;
 
 /// Whether an active scan is recursive or not
 #[derive(Debug)]
@@ -41,23 +41,8 @@ pub struct Extractor<'a> {
     /// Whether or not to try recursion
     pub(super) config: &'a Configuration,
 
-    /// transmitter to the mpsc that handles statistics gathering
-    pub(super) tx_stats: UnboundedSender<StatCommand>,
-
-    /// transmitter to the mpsc that handles recursive scan calls
-    pub(super) tx_recursion: UnboundedSender<String>,
-
-    /// transmitter to the mpsc that handles reporting information to the user
-    pub(super) tx_reporter: UnboundedSender<FeroxResponse>,
-
-    /// list of urls that will be added to when new urls are extracted
-    pub(super) scanned_urls: &'a FeroxScans,
-
-    /// depth at which the scan was started
-    pub(super) depth: usize,
-
-    /// copy of Stats object
-    pub(super) stats: Arc<Stats>,
+    /// Handles object to house the underlying mpsc transmitters
+    pub(super) handles: Arc<Handles>,
 
     /// type of extraction to be performed
     pub(super) target: ExtractionTarget,
@@ -78,15 +63,21 @@ impl<'a> Extractor<'a> {
             RecursionStatus::Recursive
         };
 
+        let scanned_urls = self.handles.ferox_scans()?;
+
         for link in links {
-            // todo rename get_feroxresponse_from_link
             let mut resp = match self.request_link(&link).await {
                 Ok(resp) => resp,
                 Err(_) => continue,
             };
 
             // filter if necessary
-            if should_filter_response(&resp, self.tx_stats.clone()) {
+            if self
+                .handles
+                .filters
+                .data
+                .should_filter_response(&resp, self.handles.stats.tx.clone())
+            {
                 continue;
             }
 
@@ -94,10 +85,9 @@ impl<'a> Extractor<'a> {
                 // very likely a file, simply request and report
                 log::debug!("Extracted file: {}", resp);
 
-                self.scanned_urls
-                    .add_file_scan(&resp.url().to_string(), self.stats.clone());
+                scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
 
-                send_report(self.tx_reporter.clone(), resp);
+                send_report(self.handles.output.tx.clone(), resp);
 
                 continue;
             }
@@ -119,7 +109,11 @@ impl<'a> Extractor<'a> {
                     resp.set_url(&format!("{}/", resp.url()));
                 }
 
-                try_recursion(&resp, self.depth, self.tx_recursion.clone()).await;
+                self.handles
+                    .send_scan_command(Command::TryRecursion(Box::new(resp)))?;
+                let (tx, rx) = oneshot::channel::<bool>();
+                self.handles.send_scan_command(Command::Sync(tx))?;
+                rx.await?;
             }
         }
         Ok(())
@@ -177,7 +171,7 @@ impl<'a> Extractor<'a> {
             }
         }
 
-        self.update_stats(links.len());
+        self.update_stats(links.len())?;
 
         log::trace!("exit: get_links -> {:?}", links);
 
@@ -287,7 +281,7 @@ impl<'a> Extractor<'a> {
     ///   - check if the new Url has already been seen/scanned -> None
     ///   - make a request to the new Url ? -> Some(response) : None
     pub(super) async fn request_link(&self, url: &str) -> Result<FeroxResponse> {
-        log::trace!("enter: get_feroxresponse_from_link({})", url);
+        log::trace!("enter: request_link({})", url);
 
         // create a url based on the given command line options, return None on error
         let new_url = format_url(
@@ -296,29 +290,23 @@ impl<'a> Extractor<'a> {
             self.config.add_slash,
             &self.config.queries,
             None,
-            self.tx_stats.clone(),
+            self.handles.stats.tx.clone(),
         )?;
+        let scanned_urls = self.handles.ferox_scans()?;
 
-        if self
-            .scanned_urls
-            .get_scan_by_url(&new_url.to_string())
-            .is_some()
-        {
+        if scanned_urls.get_scan_by_url(&new_url.to_string()).is_some() {
             //we've seen the url before and don't need to scan again
-            log::trace!("exit: get_feroxresponse_from_link -> None");
+            log::trace!("exit: request_link -> None");
             bail!("previously seen url");
         }
 
         // make the request and store the response
         let new_response =
-            make_request(&self.config.client, &new_url, self.tx_stats.clone()).await?;
+            make_request(&self.config.client, &new_url, self.handles.stats.tx.clone()).await?;
 
         let new_ferox_response = FeroxResponse::from(new_response, true).await;
 
-        log::trace!(
-            "exit: get_feroxresponse_from_link -> {:?}",
-            new_ferox_response
-        );
+        log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
         Ok(new_ferox_response)
     }
@@ -348,7 +336,7 @@ impl<'a> Extractor<'a> {
             }
         }
 
-        self.update_stats(links.len());
+        self.update_stats(links.len())?;
 
         log::trace!("exit: extract_robots_txt -> {:?}", links);
         Ok(links)
@@ -388,7 +376,7 @@ impl<'a> Extractor<'a> {
         let mut url = Url::parse(&self.url)?;
         url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
 
-        let response = make_request(&client, &url, self.tx_stats.clone()).await?;
+        let response = make_request(&client, &url, self.handles.stats.tx.clone()).await?;
         let ferox_response = FeroxResponse::from(response, true).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
@@ -396,13 +384,16 @@ impl<'a> Extractor<'a> {
     }
 
     /// update total number of links extracted and expected responses
-    fn update_stats(&self, num_links: usize) {
+    fn update_stats(&self, num_links: usize) -> Result<()> {
         let multiplier = self.config.extensions.len().max(1);
 
-        update_stat!(self.tx_stats, UpdateUsizeField(LinksExtracted, num_links));
-        update_stat!(
-            self.tx_stats,
-            UpdateUsizeField(TotalExpected, num_links * multiplier)
-        );
+        self.handles
+            .stats
+            .send(UpdateUsizeField(LinksExtracted, num_links))?;
+        self.handles
+            .stats
+            .send(UpdateUsizeField(TotalExpected, num_links * multiplier))?;
+
+        Ok(())
     }
 }

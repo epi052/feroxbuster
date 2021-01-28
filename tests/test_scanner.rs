@@ -235,7 +235,7 @@ fn scanner_single_request_scan_with_file_output_and_tack_q(
 }
 
 #[test]
-/// send an invalid output file, expect nothing to be written to disk
+/// send an invalid output file, expect scan to fail
 fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn std::error::Error>>
 {
     let srv = MockServer::start();
@@ -263,7 +263,7 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
     let contents = std::fs::read_to_string(outfile);
     assert!(contents.is_err());
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.hits(), 0);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }

@@ -1,32 +1,7 @@
-use anyhow::{bail, Context, Result};
-use crossterm::event::{self, Event, KeyCode};
-use feroxbuster::{
-    banner::{Banner, UPDATE_URL},
-    config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
-    heuristics, logger,
-    progress::{add_bar, BarType},
-    reporter,
-    scan_manager::{self, ScanStatus, PAUSE_SCAN},
-    scanner::{self, scan_url, SCANNED_URLS},
-    statistics::{
-        self,
-        StatCommand::{self, CreateBar, LoadStats, UpdateUsizeField},
-        StatField::InitialTargets,
-        Stats,
-    },
-    update_stat,
-    utils::{ferox_print, fmt_err, get_current_depth, status_colorizer},
-    FeroxError, FeroxResponse, FeroxResult, SLEEP_DURATION,
-};
-#[cfg(not(target_os = "windows"))]
-use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
-use futures::StreamExt;
 use std::{
     collections::HashSet,
-    convert::TryInto,
     fs::File,
     io::{stderr, BufRead, BufReader},
-    process,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -34,11 +9,31 @@ use std::{
     thread::sleep,
     time::Duration,
 };
-use tokio::{io, sync::mpsc::UnboundedSender, task::JoinHandle};
+
+use anyhow::{bail, Context, Result};
+use crossterm::event::{self, Event, KeyCode};
+use futures::StreamExt;
+use tokio::{io, sync::oneshot};
 use tokio_util::codec::{FramedRead, LinesCodec};
 
+use feroxbuster::{
+    banner::{Banner, UPDATE_URL},
+    config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
+    event_handlers::{
+        Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
+        FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermOutHandler,
+    },
+    heuristics, logger,
+    scan_manager::{self, PAUSE_SCAN},
+    scanner,
+    utils::fmt_err,
+    SLEEP_DURATION,
+};
+#[cfg(not(target_os = "windows"))]
+use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
+
 /// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
-pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
+static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
 
 /// Handles specific key events triggered by the user over stdin
 fn terminal_input_handler() {
@@ -73,25 +68,20 @@ fn terminal_input_handler() {
 }
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
-fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>>> {
+fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
 
-    let file = match File::open(&path) {
-        Ok(f) => f,
-        Err(e) => {
-            log::error!("Could not open wordlist: {}", e);
-            log::trace!("exit: get_unique_words_from_wordlist -> {}", e);
-
-            return Err(Box::new(e));
-        }
-    };
+    let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;
 
     let reader = BufReader::new(file);
 
     let mut words = HashSet::new();
 
     for line in reader.lines() {
-        let result = line?;
+        let result = match line {
+            Ok(read_line) => read_line,
+            Err(_) => continue,
+        };
 
         if result.starts_with('#') || result.is_empty() {
             continue;
@@ -109,21 +99,8 @@ fn get_unique_words_from_wordlist(path: &str) -> FeroxResult<Arc<HashSet<String>
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
-async fn scan(
-    targets: Vec<String>,
-    stats: Arc<Stats>,
-    tx_term: UnboundedSender<FeroxResponse>,
-    tx_file: UnboundedSender<FeroxResponse>,
-    tx_stats: UnboundedSender<StatCommand>,
-) -> FeroxResult<()> {
-    log::trace!(
-        "enter: scan({:?}, {:?}, {:?}, {:?}, {:?})",
-        targets,
-        stats,
-        tx_term,
-        tx_file,
-        tx_stats
-    );
+async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
+    log::trace!("enter: scan({:?}, {:?})", targets, handles);
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
@@ -132,14 +109,14 @@ async fn scan(
             .await??;
 
     if words.len() == 0 {
-        let err = FeroxError {
-            message: format!("Did not find any words in {}", CONFIGURATION.wordlist),
-        };
-
-        return Err(Box::new(err));
+        bail!("Did not find any words in {}", CONFIGURATION.wordlist);
     }
 
-    scanner::initialize(words.len(), &CONFIGURATION, tx_stats.clone()).await;
+    let scanned_urls = handles.ferox_scans()?;
+
+    handles.send_scan_command(UpdateWordlist(words.clone()))?;
+
+    scanner::initialize(words.len(), &CONFIGURATION, handles.clone()).await?;
 
     // at this point, the stat thread's progress bar can be created; things that needed to happen
     // first:
@@ -147,66 +124,27 @@ async fn scan(
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    update_stat!(tx_stats, CreateBar);
+    handles.stats.send(CreateBar)?;
+    // blocks until the bar is created / avoids race condition in first two bars
+    handles.stats.sync().await?;
 
     if CONFIGURATION.resumed {
-        update_stat!(tx_stats, LoadStats(CONFIGURATION.resume_from.clone()));
-
-        SCANNED_URLS.print_known_responses();
-
-        if let Ok(scans) = SCANNED_URLS.scans.lock() {
-            for scan in scans.iter() {
-                if let Ok(locked_scan) = scan.lock() {
-                    if matches!(locked_scan.status, ScanStatus::Complete) {
-                        // these scans are complete, and just need to be shown to the user
-                        let pb = add_bar(
-                            &locked_scan.url,
-                            words.len().try_into().unwrap_or_default(),
-                            BarType::Message,
-                        );
-                        pb.finish();
-                    }
-                }
-            }
-        }
+        // display what has already been completed
+        scanned_urls.print_known_responses();
+        scanned_urls.print_completed_bars(words.len())?;
     }
 
-    let mut tasks = vec![];
+    log::debug!("sending {:?} to be scanned as initial targets", targets);
+    handles.send_scan_command(ScanInitialUrls(targets))?;
 
-    for target in targets {
-        let word_clone = words.clone();
-        let term_clone = tx_term.clone();
-        let file_clone = tx_file.clone();
-        let tx_stats_clone = tx_stats.clone();
-        let stats_clone = stats.clone();
-
-        let task = tokio::spawn(async move {
-            let base_depth = get_current_depth(&target);
-            scan_url(
-                &target,
-                word_clone,
-                base_depth,
-                stats_clone,
-                term_clone,
-                file_clone,
-                tx_stats_clone,
-            )
-            .await;
-        });
-
-        tasks.push(task);
-    }
-
-    // drive execution of all accumulated futures
-    futures::future::join_all(tasks).await;
     log::trace!("exit: scan");
 
     Ok(())
 }
 
 /// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
-async fn get_targets() -> FeroxResult<Vec<String>> {
-    log::trace!("enter: get_targets");
+async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
+    log::trace!("enter: get_targets({:?})", handles);
 
     let mut targets = vec![];
 
@@ -222,19 +160,20 @@ async fn get_targets() -> FeroxResult<Vec<String>> {
     } else if CONFIGURATION.resumed {
         // resume-from can't be used with --url, and --stdin is marked false for every resumed
         // scan, making it mutually exclusive from either of the other two options
-        if let Ok(scans) = SCANNED_URLS.scans.lock() {
+        let ferox_scans = handles.ferox_scans()?;
+
+        if let Ok(scans) = ferox_scans.scans.read() {
             for scan in scans.iter() {
-                // SCANNED_URLS gets deserialized scans added to it at program start if --resume-from
+                // ferox_scans gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
-                if let Ok(locked_scan) = scan.lock() {
-                    if matches!(locked_scan.status, ScanStatus::Complete) {
-                        // this one's already done, ignore it
-                        continue;
-                    }
-                    targets.push(locked_scan.url.to_owned());
+                if scan.is_complete() {
+                    // this one's already done, ignore it
+                    continue;
                 }
+
+                targets.push(scan.url.to_owned());
             }
-        }
+        };
     } else {
         targets.push(CONFIGURATION.target_url.clone());
     }
@@ -260,16 +199,28 @@ async fn wrapped_main() -> Result<()> {
         PROGRESS_BAR.join().unwrap();
     });
 
-    let (stats, tx_stats, stats_handle) = statistics::initialize();
+    // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
+    let (stats_task, stats_handle) = StatsHandler::initialize();
+    let (filters_task, filters_handle) = FiltersHandler::initialize();
+    let (out_task, out_handle) =
+        TermOutHandler::initialize(&CONFIGURATION.output, stats_handle.tx.clone());
+
+    // bundle up all the disparate handles and JoinHandles (tasks)
+    let handles = Arc::new(Handles::new(stats_handle, filters_handle, out_handle));
+
+    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone(), CONFIGURATION.depth);
+
+    handles.scan_handle(scan_handle); // set's the ScanHandle after Handles initialization
+
+    // create new Tasks object, each of these handles is one that will be joined on later
+    let tasks = Tasks::new(out_task, stats_task, filters_task, scan_task);
 
     if !CONFIGURATION.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
         // the limit
-
-        let max_time_stats = stats.clone();
-
+        let time_handles = handles.clone();
         tokio::spawn(async move {
-            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, max_time_stats).await
+            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, time_handles).await
         });
     }
 
@@ -281,36 +232,31 @@ async fn wrapped_main() -> Result<()> {
     // scans that are already running
     tokio::task::spawn_blocking(terminal_input_handler);
 
-    let save_output = !CONFIGURATION.output.is_empty(); // was -o used?
-
     if CONFIGURATION.save_state {
         // start the ctrl+c handler
-        scan_manager::initialize(stats.clone());
+        scan_manager::initialize(handles.clone());
     }
 
-    let (tx_term, tx_file, term_handle, file_handle) =
-        reporter::initialize(&CONFIGURATION.output, save_output, tx_stats.clone());
+    if CONFIGURATION.resumed {
+        let scanned_urls = handles.ferox_scans()?;
+        let from_here = CONFIGURATION.resume_from.clone();
+
+        // populate FeroxScans object with previously seen scans
+        scanned_urls.add_serialized_scans(&from_here)?;
+
+        // populate Stats object with previously known statistics
+        handles.stats.send(LoadStats(from_here))?;
+    }
 
     // get targets from command line or stdin
-    let targets = match get_targets().await {
+    let targets = match get_targets(handles.clone()).await {
         Ok(t) => t,
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
-            clean_up(
-                tx_term,
-                term_handle,
-                tx_file,
-                file_handle,
-                tx_stats,
-                stats_handle,
-                save_output,
-            )
-            .await?;
+            clean_up(handles, tasks).await?;
             bail!("Could not get determine initial targets: {}", e);
         }
     };
-
-    update_stat!(tx_stats, UpdateUsizeField(InitialTargets, targets.len()));
 
     if !CONFIGURATION.quiet {
         // only print banner if -q isn't used
@@ -320,73 +266,43 @@ async fn wrapped_main() -> Result<()> {
 
         // only interested in the side-effect that sets banner.update_status
         let _ = banner
-            .check_for_updates(&CONFIGURATION.client, UPDATE_URL, tx_stats.clone())
+            .check_for_updates(&CONFIGURATION.client, UPDATE_URL, handles.stats.tx.clone())
             .await;
 
-        banner.print_to(std_stderr, &CONFIGURATION)?;
+        if banner.print_to(std_stderr, &CONFIGURATION).is_err() {
+            clean_up(handles, tasks).await?;
+            bail!(fmt_err("Could not print banner"));
+        }
+    }
+
+    // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
+    // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
+    // done later here in main). Ping checks that the tx/rx connection to the file handler works
+    if !CONFIGURATION.output.is_empty() && handles.output.sync().await.is_err() {
+        // output file specified and file handler could not initialize
+        clean_up(handles, tasks).await?;
+        let msg = format!("Couldn't start {} file handler", CONFIGURATION.output);
+        bail!(fmt_err(&msg));
     }
 
     // discard non-responsive targets
-    let live_targets = heuristics::connectivity_test(&targets, tx_stats.clone()).await;
+    let live_targets = heuristics::connectivity_test(&targets, handles.stats.tx.clone()).await;
 
     if live_targets.is_empty() {
-        clean_up(
-            tx_term,
-            term_handle,
-            tx_file,
-            file_handle,
-            tx_stats,
-            stats_handle,
-            save_output,
-        )
-        .await?;
+        clean_up(handles, tasks).await?;
         bail!(fmt_err("Could not find any live targets to scan"));
     }
 
     // kick off a scan against any targets determined to be responsive
-    match scan(
-        live_targets,
-        stats,
-        tx_term.clone(),
-        tx_file.clone(),
-        tx_stats.clone(),
-    )
-    .await
-    {
-        Ok(_) => {
-            log::info!("All scans complete!");
-        }
+    match scan(live_targets, handles.clone()).await {
+        Ok(_) => {}
         Err(e) => {
-            // todo status colorizer here and print is likely not needed
-            ferox_print(
-                &format!("{} while scanning: {}", status_colorizer("Error"), e),
-                &PROGRESS_PRINTER,
-            );
-            clean_up(
-                tx_term,
-                term_handle,
-                tx_file,
-                file_handle,
-                tx_stats,
-                stats_handle,
-                save_output,
-            )
-            .await?;
-            // todo bail?
-            process::exit(1);
+            clean_up(handles, tasks).await?;
+            bail!(fmt_err(&format!("Failed while scanning: {}", e)));
         }
-    };
+    }
 
-    clean_up(
-        tx_term,
-        term_handle,
-        tx_file,
-        file_handle,
-        tx_stats,
-        stats_handle,
-        save_output,
-    )
-    .await?;
+    clean_up(handles, tasks).await?;
 
     log::trace!("exit: wrapped_main");
     Ok(())
@@ -394,55 +310,27 @@ async fn wrapped_main() -> Result<()> {
 
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
 /// shutdown the program
-async fn clean_up(
-    tx_term: UnboundedSender<FeroxResponse>,
-    term_handle: JoinHandle<()>,
-    tx_file: UnboundedSender<FeroxResponse>,
-    file_handle: Option<JoinHandle<()>>,
-    tx_stats: UnboundedSender<StatCommand>,
-    stats_handle: JoinHandle<Result<()>>,
-    save_output: bool,
-) -> Result<()> {
-    log::trace!(
-        "enter: clean_up({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {})",
-        tx_term,
-        term_handle,
-        tx_file,
-        file_handle,
-        tx_stats,
-        stats_handle,
-        save_output
-    );
-    drop(tx_term);
-    log::trace!("dropped terminal output handler's transmitter");
+async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
+    log::trace!("enter: clean_up({:?}, {:?})", handles, tasks);
 
-    log::trace!("awaiting terminal output handler's receiver");
-    // after dropping tx, we can await the future where rx lived
-    term_handle
-        .await
-        .with_context(|| fmt_err("Could not await terminal output handler's receiver"))?;
-    log::trace!("done awaiting terminal output handler's receiver");
+    let (tx, rx) = oneshot::channel::<bool>();
+    handles.send_scan_command(JoinTasks(tx))?;
+    rx.await?;
 
-    log::trace!("tx_file: {:?}", tx_file);
-    // the same drop/await process used on the terminal handler is repeated for the file handler
-    // we drop the file transmitter every time, because it's created no matter what
-    drop(tx_file);
+    log::info!("All scans complete!");
 
-    log::trace!("dropped file output handler's transmitter");
-    if save_output {
-        // but we only await if -o was specified
-        log::trace!("awaiting file output handler's receiver");
-        file_handle
-            .unwrap()
-            .await
-            .with_context(|| fmt_err("Could not await file output handler's receiver"))?;
-        log::trace!("done awaiting file output handler's receiver");
-    }
+    // terminal handler closes file handler if one is in use
+    handles.output.send(Exit)?;
+    tasks.terminal.await??;
+    log::trace!("terminal handler closed");
 
-    update_stat!(tx_stats, StatCommand::Exit); // send exit command and await the end of the future
-    stats_handle
-        .await?
-        .with_context(|| fmt_err("Could not await statistics handler's receiver"))?;
+    handles.filters.send(Exit)?;
+    tasks.filters.await??;
+    log::trace!("filters handler closed");
+
+    handles.stats.send(Exit)?;
+    tasks.stats.await??;
+    log::trace!("stats handler closed");
 
     // mark all scans complete so the terminal input handler will exit cleanly
     SCAN_COMPLETE.store(true, Ordering::Relaxed);
@@ -451,15 +339,13 @@ async fn clean_up(
     // the final trace messages above
     PROGRESS_PRINTER.finish();
 
-    drop(tx_stats);
-
     log::trace!("exit: clean_up");
     Ok(())
 }
 
-fn main() {
+fn main() -> Result<()> {
     // setup logging based on the number of -v's used
-    logger::initialize(CONFIGURATION.verbosity);
+    logger::initialize(CONFIGURATION.verbosity)?;
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]
@@ -476,4 +362,6 @@ fn main() {
     }
 
     log::trace!("exit: main");
+
+    Ok(())
 }

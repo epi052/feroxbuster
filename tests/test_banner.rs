@@ -270,6 +270,9 @@ fn banner_prints_output_file() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Output File"))
                 .and(predicate::str::contains("/super/cool/path"))
+                .and(predicate::str::contains(
+                    "ERROR: Couldn't start /super/cool/path file handler",
+                ))
                 .and(predicate::str::contains("─┴─")),
         );
     Ok(())

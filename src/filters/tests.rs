@@ -4,9 +4,34 @@ use ::regex::Regex;
 use reqwest::Url;
 
 #[test]
+/// simply test the default values for wildcardfilter, expect 0, 0
+fn wildcard_filter_default() {
+    let wcf = WildcardFilter::default();
+    assert_eq!(wcf.size, u64::MAX);
+    assert_eq!(wcf.dynamic, u64::MAX);
+}
+
+#[test]
+/// just a simple test to increase code coverage by hitting as_any and the inner value
+fn wildcard_filter_as_any() {
+    let filter = WildcardFilter::default();
+    let filter2 = WildcardFilter::default();
+
+    assert!(filter.box_eq(filter2.as_any()));
+
+    assert_eq!(
+        *filter.as_any().downcast_ref::<WildcardFilter>().unwrap(),
+        filter
+    );
+}
+
+#[test]
 /// just a simple test to increase code coverage by hitting as_any and the inner value
 fn lines_filter_as_any() {
     let filter = LinesFilter { line_count: 1 };
+    let filter2 = LinesFilter { line_count: 1 };
+
+    assert!(filter.box_eq(filter2.as_any()));
 
     assert_eq!(filter.line_count, 1);
     assert_eq!(
@@ -19,6 +44,9 @@ fn lines_filter_as_any() {
 /// just a simple test to increase code coverage by hitting as_any and the inner value
 fn words_filter_as_any() {
     let filter = WordsFilter { word_count: 1 };
+    let filter2 = WordsFilter { word_count: 1 };
+
+    assert!(filter.box_eq(filter2.as_any()));
 
     assert_eq!(filter.word_count, 1);
     assert_eq!(
@@ -31,6 +59,9 @@ fn words_filter_as_any() {
 /// just a simple test to increase code coverage by hitting as_any and the inner value
 fn size_filter_as_any() {
     let filter = SizeFilter { content_length: 1 };
+    let filter2 = SizeFilter { content_length: 1 };
+
+    assert!(filter.box_eq(filter2.as_any()));
 
     assert_eq!(filter.content_length, 1);
     assert_eq!(
@@ -43,6 +74,9 @@ fn size_filter_as_any() {
 /// just a simple test to increase code coverage by hitting as_any and the inner value
 fn status_code_filter_as_any() {
     let filter = StatusCodeFilter { filter_code: 200 };
+    let filter2 = StatusCodeFilter { filter_code: 200 };
+
+    assert!(filter.box_eq(filter2.as_any()));
 
     assert_eq!(filter.filter_code, 200);
     assert_eq!(
@@ -56,10 +90,17 @@ fn status_code_filter_as_any() {
 fn regex_filter_as_any() {
     let raw = r".*\.txt$";
     let compiled = Regex::new(raw).unwrap();
+    let compiled2 = Regex::new(raw).unwrap();
     let filter = RegexFilter {
         compiled,
         raw_string: raw.to_string(),
     };
+    let filter2 = RegexFilter {
+        compiled: compiled2,
+        raw_string: raw.to_string(),
+    };
+
+    assert!(filter.box_eq(filter2.as_any()));
 
     assert_eq!(filter.raw_string, r".*\.txt$");
     assert_eq!(
@@ -108,6 +149,9 @@ fn wildcard_should_filter_when_dynamic_wildcard_found() {
         size: 0,
         dynamic: 95,
     };
+
+    assert_eq!(filter.dynamic, 95);
+    assert_eq!(filter.size, 0);
 
     assert!(filter.should_filter_response(&resp));
 }
@@ -179,6 +223,13 @@ fn similarity_filter_as_any() {
         text: String::from("stuff"),
         threshold: 95,
     };
+
+    let filter2 = SimilarityFilter {
+        text: String::from("stuff"),
+        threshold: 95,
+    };
+
+    assert!(filter.box_eq(filter2.as_any()));
 
     assert_eq!(filter.text, "stuff");
     assert_eq!(

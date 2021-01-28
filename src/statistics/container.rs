@@ -1,14 +1,3 @@
-use super::{error::StatError, field::StatField};
-use crate::utils::fmt_err;
-use crate::{
-    config::CONFIGURATION,
-    reporter::{get_cached_file_handle, safe_file_write},
-    utils::status_colorizer,
-    FeroxSerialize,
-};
-use anyhow::{Context, Result};
-use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::BufReader,
@@ -17,6 +6,18 @@ use std::{
         Mutex,
     },
 };
+
+use anyhow::{Context, Result};
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    config::CONFIGURATION,
+    utils::{fmt_err, open_file, write_to},
+    FeroxSerialize,
+};
+
+use super::{error::StatError, field::StatField};
 
 /// Data collection of statistics related to a scan
 #[derive(Default, Deserialize, Debug, Serialize)]
@@ -190,13 +191,11 @@ impl Stats {
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
     pub fn save(&self, seconds: f64, location: &str) -> Result<()> {
-        let buffered_file = get_cached_file_handle(location).with_context(|| {
-            format!("{}: Could not open {}", status_colorizer("ERROR"), location)
-        })?;
+        let mut file = open_file(location)?;
 
         self.update_runtime(seconds);
 
-        safe_file_write(self, buffered_file, CONFIGURATION.json);
+        write_to(self, &mut file, CONFIGURATION.json)?;
 
         Ok(())
     }
@@ -404,23 +403,27 @@ impl Stats {
 
 #[cfg(test)]
 mod tests {
-    use super::super::*;
-    use super::*;
+    use crate::Command;
     use std::fs::write;
     use tempfile::NamedTempFile;
 
+    use super::super::*;
+    use super::*;
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
-    async fn statistics_handler_increments_requests() {
-        let (stats, tx, handle) = setup_stats_test();
+    async fn statistics_handler_increments_requests() -> Result<()> {
+        let (task, handle) = setup_stats_test();
 
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
+        handle.tx.send(Command::AddRequest)?;
+        handle.tx.send(Command::AddRequest)?;
+        handle.tx.send(Command::AddRequest)?;
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 3);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 3);
+
+        Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -431,20 +434,20 @@ mod tests {
     ///     - requests
     ///     - client_errors
     async fn statistics_handler_increments_403() {
-        let (stats, tx, handle) = setup_stats_test();
+        let (task, handle) = setup_stats_test();
 
-        let err = StatCommand::AddError(StatError::Status403);
-        let err2 = StatCommand::AddError(StatError::Status403);
+        let err = Command::AddError(StatError::Status403);
+        let err2 = Command::AddError(StatError::Status403);
 
-        tx.send(err).unwrap_or_default();
-        tx.send(err2).unwrap_or_default();
+        handle.tx.send(err).unwrap_or_default();
+        handle.tx.send(err2).unwrap_or_default();
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.errors.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.status_403s.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -454,19 +457,19 @@ mod tests {
     ///     - requests
     ///     - client_errors
     async fn statistics_handler_increments_403_via_status_code() {
-        let (stats, tx, handle) = setup_stats_test();
+        let (task, handle) = setup_stats_test();
 
-        let err = StatCommand::AddStatus(reqwest::StatusCode::FORBIDDEN);
-        let err2 = StatCommand::AddStatus(reqwest::StatusCode::FORBIDDEN);
+        let err = Command::AddStatus(reqwest::StatusCode::FORBIDDEN);
+        let err2 = Command::AddStatus(reqwest::StatusCode::FORBIDDEN);
 
-        tx.send(err).unwrap_or_default();
-        tx.send(err2).unwrap_or_default();
+        handle.tx.send(err).unwrap_or_default();
+        handle.tx.send(err2).unwrap_or_default();
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.status_403s.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -474,19 +477,21 @@ mod tests {
     ///
     /// incrementing a 500 (tracked in server_errors) should also increment:
     ///     - requests
-    async fn statistics_handler_increments_500_via_status_code() {
-        let (stats, tx, handle) = setup_stats_test();
+    async fn statistics_handler_increments_500_via_status_code() -> Result<()> {
+        let (task, handle) = setup_stats_test();
 
-        let err = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
-        let err2 = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err = Command::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err2 = Command::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
 
-        tx.send(err).unwrap_or_default();
-        tx.send(err2).unwrap_or_default();
+        handle.tx.send(err)?;
+        handle.tx.send(err2)?;
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.server_errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.server_errors.load(Ordering::Relaxed), 2);
+
+        Ok(())
     }
 
     #[test]
@@ -536,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    /// Stats::merge_from should properly incrememnt expected fields and ignore others
+    /// Stats::merge_from should properly increment expected fields and ignore others
     fn stats_merge_from_alters_correct_fields() {
         let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
         let stats = Stats::new();
