@@ -173,6 +173,19 @@ macro_rules! send_command {
     };
 }
 
+#[macro_export]
+macro_rules! skip_fail {
+    ($res:expr) => {
+        match $res {
+            Ok(val) => val,
+            Err(e) => {
+                log::warn!("An error: {}; skipped.", e);
+                continue;
+            }
+        }
+    };
+}
+
 /// Simple helper to generate a `Url`
 ///
 /// Errors during parsing `url` or joining `word` are propagated up the call stack

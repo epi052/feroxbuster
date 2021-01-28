@@ -286,7 +286,15 @@ async fn wrapped_main() -> Result<()> {
     }
 
     // discard non-responsive targets
-    let live_targets = heuristics::connectivity_test(&targets, handles.stats.tx.clone()).await;
+    let live_targets = {
+        let test = heuristics::HeuristicTests::new(handles.clone(), &CONFIGURATION);
+        let result = test.connectivity(&targets).await;
+        if result.is_err() {
+            clean_up(handles, tasks).await?;
+            bail!(fmt_err(&result.unwrap_err().to_string()));
+        }
+        result?
+    };
 
     if live_targets.is_empty() {
         clean_up(handles, tasks).await?;

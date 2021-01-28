@@ -220,10 +220,14 @@ pub async fn scan_url(
     let permit = SCAN_LIMITER.acquire().await;
 
     // Arc clones to be passed around to the various scans
-    let wildcard_bar = progress_bar.clone();
     let looping_words = wordlist.clone();
 
-    heuristics::wildcard_test(&target_url, wildcard_bar, handles.clone()).await?;
+    {
+        let test = heuristics::HeuristicTests::new(handles.clone(), &CONFIGURATION);
+        if let Ok(num_reqs) = test.wildcard(&target_url).await {
+            progress_bar.inc(num_reqs);
+        }
+    }
 
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
