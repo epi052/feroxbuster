@@ -1,15 +1,13 @@
-#![macro_use]
-
-use std::convert::TryInto;
-use std::io::{BufWriter, Write};
-use std::{fs, io};
-
+use crate::send_command;
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::{Client, Response, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
+use std::convert::TryInto;
+use std::io::{BufWriter, Write};
+use std::{fs, io};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -163,27 +161,6 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
         let stripped = strip_ansi_codes(msg);
         println!("{}", stripped);
     }
-}
-
-#[macro_export]
-/// wrapper to improve code readability
-macro_rules! send_command {
-    ($tx:expr, $value:expr) => {
-        $tx.send($value).unwrap_or_default();
-    };
-}
-
-#[macro_export]
-macro_rules! skip_fail {
-    ($res:expr) => {
-        match $res {
-            Ok(val) => val,
-            Err(e) => {
-                log::warn!("An error: {}; skipped.", e);
-                continue;
-            }
-        }
-    };
 }
 
 /// Simple helper to generate a `Url`

@@ -35,6 +35,7 @@ pub mod statistics;
 mod traits;
 pub mod utils;
 mod extractor;
+mod macros;
 
 /// Alias for tokio::sync::mpsc::UnboundedSender<Command>
 pub type CommandSender = UnboundedSender<Command>;
