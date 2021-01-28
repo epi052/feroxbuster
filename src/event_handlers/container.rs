@@ -1,9 +1,9 @@
 use super::*;
 use crate::event_handlers::scans::ScanHandle;
 use crate::scan_manager::FeroxScans;
+use crate::Joiner;
 #[cfg(test)]
 use crate::{filters::FeroxFilters, statistics::Stats, Command};
-use crate::{CommandSender, Joiner};
 use anyhow::{bail, Result};
 use std::sync::{Arc, RwLock};
 #[cfg(test)]
@@ -96,7 +96,7 @@ impl Handles {
     pub fn send_scan_command(&self, command: Command) -> Result<()> {
         if let Ok(guard) = self.scans.read().as_ref() {
             if let Some(handle) = guard.as_ref() {
-                handle.tx.send(command)?;
+                handle.send(command)?;
                 return Ok(());
             }
         }
@@ -113,16 +113,5 @@ impl Handles {
         }
 
         bail!("Could not get underlying FeroxScans")
-    }
-
-    /// Helper to easily get the (locked) underlying transmitter
-    pub fn sender(&self) -> Result<CommandSender> {
-        if let Ok(guard) = self.scans.read().as_ref() {
-            if let Some(handle) = guard.as_ref() {
-                return Ok(handle.tx.clone());
-            }
-        }
-
-        bail!("Could not get underlying transmitter")
     }
 }
