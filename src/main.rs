@@ -18,7 +18,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
-    config::{CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
+    config::{Configuration, PROGRESS_BAR, PROGRESS_PRINTER},
     event_handlers::{
         Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermOutHandler,
@@ -104,19 +104,22 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
-    let words =
-        tokio::spawn(async move { get_unique_words_from_wordlist(&CONFIGURATION.wordlist) })
-            .await??;
+
+    let words = {
+        let words_handles = handles.clone();
+        tokio::spawn(async move { get_unique_words_from_wordlist(&words_handles.config.wordlist) })
+            .await??
+    };
 
     if words.len() == 0 {
-        bail!("Did not find any words in {}", CONFIGURATION.wordlist);
+        bail!("Did not find any words in {}", handles.config.wordlist);
     }
 
     let scanned_urls = handles.ferox_scans()?;
 
     handles.send_scan_command(UpdateWordlist(words.clone()))?;
 
-    scanner::initialize(words.len(), &CONFIGURATION, handles.clone()).await?;
+    scanner::initialize(words.len(), handles.clone()).await?;
 
     // at this point, the stat thread's progress bar can be created; things that needed to happen
     // first:
@@ -128,7 +131,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // blocks until the bar is created / avoids race condition in first two bars
     handles.stats.sync().await?;
 
-    if CONFIGURATION.resumed {
+    if handles.config.resumed {
         // display what has already been completed
         scanned_urls.print_known_responses();
         scanned_urls.print_completed_bars(words.len())?;
@@ -148,7 +151,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
 
     let mut targets = vec![];
 
-    if CONFIGURATION.stdin {
+    if handles.config.stdin {
         // got targets from stdin, i.e. cat sites | ./feroxbuster ...
         // just need to read the targets from stdin and spawn a future for each target found
         let stdin = io::stdin(); // tokio's stdin, not std
@@ -157,7 +160,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
         while let Some(line) = reader.next().await {
             targets.push(line?);
         }
-    } else if CONFIGURATION.resumed {
+    } else if handles.config.resumed {
         // resume-from can't be used with --url, and --stdin is marked false for every resumed
         // scan, making it mutually exclusive from either of the other two options
         let ferox_scans = handles.ferox_scans()?;
@@ -175,7 +178,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
             }
         };
     } else {
-        targets.push(CONFIGURATION.target_url.clone());
+        targets.push(handles.config.target_url.clone());
     }
 
     log::trace!("exit: get_targets -> {:?}", targets);
@@ -185,7 +188,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
 
 /// async main called from real main, broken out in this way to allow for some synchronous code
 /// to be executed before bringing the tokio runtime online
-async fn wrapped_main() -> Result<()> {
+async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     // join can only be called once, otherwise it causes the thread to panic
     tokio::task::spawn_blocking(move || {
         // ok, lazy_static! uses (unsurprisingly in retrospect) a lazy loading model where the
@@ -200,28 +203,31 @@ async fn wrapped_main() -> Result<()> {
     });
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
-    let (stats_task, stats_handle) = StatsHandler::initialize();
+    let (stats_task, stats_handle) = StatsHandler::initialize(config.clone());
     let (filters_task, filters_handle) = FiltersHandler::initialize();
     let (out_task, out_handle) =
-        TermOutHandler::initialize(&CONFIGURATION.output, stats_handle.tx.clone());
+        TermOutHandler::initialize(&config.output, stats_handle.tx.clone());
 
     // bundle up all the disparate handles and JoinHandles (tasks)
-    let handles = Arc::new(Handles::new(stats_handle, filters_handle, out_handle));
+    let handles = Arc::new(Handles::new(
+        stats_handle,
+        filters_handle,
+        out_handle,
+        config.clone(),
+    ));
 
-    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone(), CONFIGURATION.depth);
+    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone(), config.depth);
 
-    handles.scan_handle(scan_handle); // set's the ScanHandle after Handles initialization
+    handles.set_scan_handle(scan_handle); // must be done after Handles initialization
 
     // create new Tasks object, each of these handles is one that will be joined on later
     let tasks = Tasks::new(out_task, stats_task, filters_task, scan_task);
 
-    if !CONFIGURATION.time_limit.is_empty() {
+    if !config.time_limit.is_empty() {
         // --time-limit value not an empty string, need to kick off the thread that enforces
         // the limit
         let time_handles = handles.clone();
-        tokio::spawn(async move {
-            scan_manager::start_max_time_thread(&CONFIGURATION.time_limit, time_handles).await
-        });
+        tokio::spawn(async move { scan_manager::start_max_time_thread(time_handles).await });
     }
 
     // can't trace main until after logger is initialized and the above task is started
@@ -232,14 +238,14 @@ async fn wrapped_main() -> Result<()> {
     // scans that are already running
     tokio::task::spawn_blocking(terminal_input_handler);
 
-    if CONFIGURATION.save_state {
+    if config.save_state {
         // start the ctrl+c handler
         scan_manager::initialize(handles.clone());
     }
 
-    if CONFIGURATION.resumed {
+    if config.resumed {
         let scanned_urls = handles.ferox_scans()?;
-        let from_here = CONFIGURATION.resume_from.clone();
+        let from_here = config.resume_from.clone();
 
         // populate FeroxScans object with previously seen scans
         scanned_urls.add_serialized_scans(&from_here)?;
@@ -258,18 +264,18 @@ async fn wrapped_main() -> Result<()> {
         }
     };
 
-    if !CONFIGURATION.quiet {
+    if !config.quiet {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
 
-        let mut banner = Banner::new(&targets, &CONFIGURATION);
+        let mut banner = Banner::new(&targets, &config);
 
         // only interested in the side-effect that sets banner.update_status
         let _ = banner
-            .check_for_updates(&CONFIGURATION.client, UPDATE_URL, handles.stats.tx.clone())
+            .check_for_updates(&config.client, UPDATE_URL, handles.stats.tx.clone())
             .await;
 
-        if banner.print_to(std_stderr, &CONFIGURATION).is_err() {
+        if banner.print_to(std_stderr, config.clone()).is_err() {
             clean_up(handles, tasks).await?;
             bail!(fmt_err("Could not print banner"));
         }
@@ -278,16 +284,16 @@ async fn wrapped_main() -> Result<()> {
     // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
     // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
     // done later here in main). Ping checks that the tx/rx connection to the file handler works
-    if !CONFIGURATION.output.is_empty() && handles.output.sync().await.is_err() {
+    if !config.output.is_empty() && handles.output.sync().await.is_err() {
         // output file specified and file handler could not initialize
         clean_up(handles, tasks).await?;
-        let msg = format!("Couldn't start {} file handler", CONFIGURATION.output);
+        let msg = format!("Couldn't start {} file handler", config.output);
         bail!(fmt_err(&msg));
     }
 
     // discard non-responsive targets
     let live_targets = {
-        let test = heuristics::HeuristicTests::new(handles.clone(), &CONFIGURATION);
+        let test = heuristics::HeuristicTests::new(handles.clone());
         let result = test.connectivity(&targets).await;
         if result.is_err() {
             clean_up(handles, tasks).await?;
@@ -352,8 +358,10 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    let config = Arc::new(Configuration::new().expect("Could not create Configuration"));
+
     // setup logging based on the number of -v's used
-    logger::initialize(CONFIGURATION.verbosity)?;
+    logger::initialize(config.verbosity)?;
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]
@@ -363,7 +371,7 @@ fn main() -> Result<()> {
         .enable_all()
         .build()
     {
-        let future = wrapped_main();
+        let future = wrapped_main(config);
         if let Err(e) = runtime.block_on(future) {
             eprintln!("{}", e);
         };

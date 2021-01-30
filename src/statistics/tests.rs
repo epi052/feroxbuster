@@ -1,15 +1,18 @@
 use super::*;
 use crate::{
+    config::Configuration,
     event_handlers::{Command, StatsHandle, StatsHandler},
     CommandSender, FeroxSerialize, Joiner,
 };
 use anyhow::Result;
 use reqwest::StatusCode;
+use std::sync::Arc;
 use tempfile::NamedTempFile;
 
 /// simple helper to reduce code reuse
 pub fn setup_stats_test() -> (Joiner, StatsHandle) {
-    StatsHandler::initialize()
+    let config = Arc::new(Configuration::default());
+    StatsHandler::initialize(config)
 }
 
 /// another helper to stay DRY; must be called after any sent commands and before any checks

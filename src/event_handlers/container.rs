@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::Configuration;
 use crate::event_handlers::scans::ScanHandle;
 use crate::scan_manager::FeroxScans;
 use crate::Joiner;
@@ -50,6 +51,9 @@ pub struct Handles {
     /// Handle for output (terminal/file)
     pub output: TermOutHandle,
 
+    /// Handle for Configuration
+    pub config: Arc<Configuration>,
+
     /// Handle for recursion
     pub scans: RwLock<Option<ScanHandle>>,
 }
@@ -57,11 +61,17 @@ pub struct Handles {
 /// implementation of Handles
 impl Handles {
     /// Given a StatsHandle, FiltersHandle, and OutputHandle, create a Handles object
-    pub fn new(stats: StatsHandle, filters: FiltersHandle, output: TermOutHandle) -> Self {
+    pub fn new(
+        stats: StatsHandle,
+        filters: FiltersHandle,
+        output: TermOutHandle,
+        config: Arc<Configuration>,
+    ) -> Self {
         Self {
             stats,
             filters,
             output,
+            config,
             scans: RwLock::new(None),
         }
     }
@@ -70,21 +80,23 @@ impl Handles {
     #[cfg(test)]
     pub fn for_testing(
         scanned_urls: Option<Arc<FeroxScans>>,
+        config: Option<Arc<Configuration>>,
     ) -> (Self, UnboundedReceiver<Command>) {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let terminal_handle = TermOutHandle::new(tx.clone(), tx.clone());
         let stats_handle = StatsHandle::new(Arc::new(Stats::new()), tx.clone());
         let filters_handle = FiltersHandle::new(Arc::new(FeroxFilters::default()), tx.clone());
-        let handles = Self::new(stats_handle, filters_handle, terminal_handle);
+        let configuration = config.unwrap_or_else(|| Arc::new(Configuration::default()));
+        let handles = Self::new(stats_handle, filters_handle, terminal_handle, configuration);
         if let Some(sh) = scanned_urls {
             let scan_handle = ScanHandle::new(sh, tx);
-            handles.scan_handle(scan_handle);
+            handles.set_scan_handle(scan_handle);
         }
         (handles, rx)
     }
 
     /// Set the ScanHandle object
-    pub fn scan_handle(&self, handle: ScanHandle) {
+    pub fn set_scan_handle(&self, handle: ScanHandle) {
         if let Ok(mut guard) = self.scans.write() {
             if guard.is_none() {
                 let _ = std::mem::replace(&mut *guard, Some(handle));

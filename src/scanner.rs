@@ -1,5 +1,6 @@
+use crate::ferox_url::FeroxUrl;
 use crate::{
-    config::{Configuration, CONFIGURATION},
+    config::CONFIGURATION,
     event_handlers::{
         Command::{self, AddFilter, UpdateF64Field, UpdateUsizeField},
         Handles,
@@ -10,8 +11,9 @@ use crate::{
     },
     heuristics,
     scan_manager::{FeroxResponses, ScanOrder, ScanStatus, PAUSE_SCAN},
+    skip_fail,
     statistics::StatField::{DirScanTimes, ExpectedPerScan},
-    utils::{fmt_err, format_url, make_request},
+    utils::{fmt_err, make_request},
     CommandSender, FeroxResponse, SIMILARITY_THRESHOLD,
 };
 use anyhow::{bail, Result};
@@ -26,7 +28,7 @@ use std::{
     collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
     time::Instant,
 };
-use tokio::sync::{mpsc::UnboundedSender, oneshot, Semaphore};
+use tokio::sync::{oneshot, Semaphore};
 
 lazy_static! {
     /// Vector of FeroxResponse objects
@@ -36,56 +38,6 @@ lazy_static! {
     static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
 
 
-}
-
-/// Creates a vector of formatted Urls
-///
-/// At least one value will be returned (base_url + word)
-///
-/// If any extensions were passed to the program, each extension will add a
-/// (base_url + word + ext) Url to the vector
-fn create_urls(
-    target_url: &str,
-    word: &str,
-    extensions: &[String],
-    tx_stats: UnboundedSender<Command>,
-) -> Vec<Url> {
-    log::trace!(
-        "enter: create_urls({}, {}, {:?}, {:?})",
-        target_url,
-        word,
-        extensions,
-        tx_stats
-    );
-
-    let mut urls = vec![];
-
-    if let Ok(url) = format_url(
-        &target_url,
-        &word,
-        CONFIGURATION.add_slash,
-        &CONFIGURATION.queries,
-        None,
-        tx_stats.clone(),
-    ) {
-        urls.push(url); // default request, i.e. no extension
-    }
-
-    for ext in extensions.iter() {
-        if let Ok(url) = format_url(
-            &target_url,
-            &word,
-            CONFIGURATION.add_slash,
-            &CONFIGURATION.queries,
-            Some(ext),
-            tx_stats.clone(),
-        ) {
-            urls.push(url); // any extensions passed in
-        }
-    }
-
-    log::trace!("exit: create_urls -> {:?}", urls);
-    urls
 }
 
 /// Wrapper for [make_request](fn.make_request.html)
@@ -101,12 +53,7 @@ async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> R
         handles
     );
 
-    let urls = create_urls(
-        &target_url,
-        &word,
-        &CONFIGURATION.extensions,
-        handles.stats.tx.clone(),
-    );
+    let urls = FeroxUrl::from_string(target_url, handles.clone()).formatted_urls(word)?;
 
     for url in urls {
         let response = make_request(&CONFIGURATION.client, &url, handles.stats.tx.clone()).await?;
@@ -223,7 +170,7 @@ pub async fn scan_url(
     let looping_words = wordlist.clone();
 
     {
-        let test = heuristics::HeuristicTests::new(handles.clone(), &CONFIGURATION);
+        let test = heuristics::HeuristicTests::new(handles.clone());
         if let Ok(num_reqs) = test.wildcard(&target_url).await {
             progress_bar.inc(num_reqs);
         }
@@ -282,23 +229,14 @@ pub async fn scan_url(
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
 /// engine, as it were)
-pub async fn initialize(
-    num_words: usize,
-    config: &Configuration,
-    handles: Arc<Handles>,
-) -> Result<()> {
-    log::trace!(
-        "enter: initialize({}, {:?}, {:?})",
-        num_words,
-        config,
-        handles
-    );
+pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
+    log::trace!("enter: initialize({}, {:?})", num_words, handles);
 
     // number of requests only needs to be calculated once, and then can be reused
-    let num_reqs_expected: u64 = if config.extensions.is_empty() {
+    let num_reqs_expected: u64 = if handles.config.extensions.is_empty() {
         num_words.try_into()?
     } else {
-        let total = num_words * (config.extensions.len() + 1);
+        let total = num_words * (handles.config.extensions.len() + 1);
         total.try_into()?
     };
 
@@ -315,7 +253,7 @@ pub async fn initialize(
     ))?;
 
     // add any status code filters to filters handler's FeroxFilters  (-C|--filter-status)
-    for code_filter in &config.filter_status {
+    for code_filter in &handles.config.filter_status {
         let filter = StatusCodeFilter {
             filter_code: *code_filter,
         };
@@ -324,7 +262,7 @@ pub async fn initialize(
     }
 
     // add any line count filters to filters handler's FeroxFilters  (-N|--filter-lines)
-    for lines_filter in &config.filter_line_count {
+    for lines_filter in &handles.config.filter_line_count {
         let filter = LinesFilter {
             line_count: *lines_filter,
         };
@@ -333,7 +271,7 @@ pub async fn initialize(
     }
 
     // add any line count filters to filters handler's FeroxFilters  (-W|--filter-words)
-    for words_filter in &config.filter_word_count {
+    for words_filter in &handles.config.filter_word_count {
         let filter = WordsFilter {
             word_count: *words_filter,
         };
@@ -342,7 +280,7 @@ pub async fn initialize(
     }
 
     // add any line count filters to filters handler's FeroxFilters  (-S|--filter-size)
-    for size_filter in &config.filter_size {
+    for size_filter in &handles.config.filter_size {
         let filter = SizeFilter {
             content_length: *size_filter,
         };
@@ -351,7 +289,7 @@ pub async fn initialize(
     }
 
     // add any regex filters to filters handler's FeroxFilters  (-X|--filter-regex)
-    for regex_filter in &config.filter_regex {
+    for regex_filter in &handles.config.filter_regex {
         let raw = regex_filter;
         let compiled = match Regex::new(&raw) {
             Ok(regex) => regex,
@@ -373,38 +311,30 @@ pub async fn initialize(
     }
 
     // add any similarity filters to filters handler's FeroxFilters  (--filter-similar-to)
-    for similarity_filter in &config.filter_similar {
+    for similarity_filter in &handles.config.filter_similar {
         // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        if let Ok(url) = format_url(
-            &similarity_filter,
-            &"",
-            false,
-            &Vec::new(),
-            None,
-            handles.stats.tx.clone(),
-        ) {
-            // attempt to request the given url
-            if let Ok(resp) =
-                make_request(&CONFIGURATION.client, &url, handles.stats.tx.clone()).await
-            {
-                // if successful, create a filter based on the response's body
-                let fr = FeroxResponse::from(resp, true).await;
+        let url = skip_fail!(Url::parse(&similarity_filter));
 
-                // hash the response body and store the resulting hash in the filter object
-                let hash = FuzzyHash::new(&fr.text()).to_string();
+        // attempt to request the given url
+        let resp =
+            skip_fail!(make_request(&handles.config.client, &url, handles.stats.tx.clone()).await);
 
-                let filter = SimilarityFilter {
-                    text: hash,
-                    threshold: SIMILARITY_THRESHOLD,
-                };
+        // if successful, create a filter based on the response's body
+        let fr = FeroxResponse::from(resp, true).await;
 
-                let boxed_filter = Box::new(filter);
-                handles.filters.send(AddFilter(boxed_filter))?;
-            }
-        }
+        // hash the response body and store the resulting hash in the filter object
+        let hash = FuzzyHash::new(&fr.text()).to_string();
+
+        let filter = SimilarityFilter {
+            text: hash,
+            threshold: SIMILARITY_THRESHOLD,
+        };
+
+        let boxed_filter = Box::new(filter);
+        handles.filters.send(AddFilter(boxed_filter))?;
     }
 
-    if config.scan_limit == 0 {
+    if handles.config.scan_limit == 0 {
         // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
         // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
         // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
@@ -420,66 +350,7 @@ pub async fn initialize(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::FeroxChannel;
-    use tokio::sync::mpsc;
-
-    #[test]
-    /// sending url + word without any extensions should get back one url with the joined word
-    fn create_urls_no_extension_returns_base_url_with_word() {
-        let (tx, _) = mpsc::unbounded_channel::<Command>();
-        let urls = create_urls("http://localhost", "turbo", &[], tx);
-        assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
-    }
-
-    #[test]
-    /// sending url + word + 1 extension should get back two urls, one base and one with extension
-    fn create_urls_one_extension_returns_two_urls() {
-        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-        let urls = create_urls("http://localhost", "turbo", &[String::from("js")], tx);
-        assert_eq!(
-            urls,
-            [
-                Url::parse("http://localhost/turbo").unwrap(),
-                Url::parse("http://localhost/turbo.js").unwrap()
-            ]
-        )
-    }
-
-    #[test]
-    /// sending url + word + multiple extensions should get back n+1 urls
-    fn create_urls_multiple_extensions_returns_n_plus_one_urls() {
-        let ext_vec = vec![
-            vec![String::from("js")],
-            vec![String::from("js"), String::from("php")],
-            vec![String::from("js"), String::from("php"), String::from("pdf")],
-            vec![
-                String::from("js"),
-                String::from("php"),
-                String::from("pdf"),
-                String::from("tar.gz"),
-            ],
-        ];
-
-        let base = Url::parse("http://localhost/turbo").unwrap();
-        let js = Url::parse("http://localhost/turbo.js").unwrap();
-        let php = Url::parse("http://localhost/turbo.php").unwrap();
-        let pdf = Url::parse("http://localhost/turbo.pdf").unwrap();
-        let tar = Url::parse("http://localhost/turbo.tar.gz").unwrap();
-
-        let expected = vec![
-            vec![base.clone(), js.clone()],
-            vec![base.clone(), js.clone(), php.clone()],
-            vec![base.clone(), js.clone(), php.clone(), pdf.clone()],
-            vec![base, js, php, pdf, tar],
-        ];
-
-        let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
-
-        for (i, ext_set) in ext_vec.into_iter().enumerate() {
-            let urls = create_urls("http://localhost", "turbo", &ext_set, tx.clone());
-            assert_eq!(urls, expected[i]);
-        }
-    }
+    use crate::config::Configuration;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     #[should_panic]
@@ -489,7 +360,7 @@ mod tests {
             filter_regex: vec![r"(".to_string()],
             ..Default::default()
         };
-        let handles = Arc::new(Handles::for_testing(None).0);
-        initialize(1, &config, handles).await.unwrap();
+        let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
+        initialize(1, handles).await.unwrap();
     }
 }

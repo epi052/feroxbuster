@@ -19,7 +19,7 @@ lazy_static! {
     static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
     /// Configuration for Extractor
-    static ref CONFIG: Configuration = Configuration::new().unwrap();
+    static ref CONFIG: Configuration = Configuration::default();
 
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
@@ -45,7 +45,7 @@ fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> E
         ExtractionTarget::ResponseBody => ExtractorBuilder::with_response(&RESPONSE),
         ExtractionTarget::RobotsTxt => ExtractorBuilder::with_url("https://localhost"),
     };
-    let handles = Arc::new(Handles::for_testing(Some(scanned_urls)).0);
+    let handles = Arc::new(Handles::for_testing(Some(scanned_urls), None).0);
 
     builder.config(&CONFIG).handles(handles).build().unwrap()
 }
@@ -127,7 +127,7 @@ fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
 #[test]
 /// test that an ExtractorBuilder without a FeroxResponse and without a URL bails
 fn extractor_builder_bails_when_neither_required_field_is_set() {
-    let handles = Arc::new(Handles::for_testing(None).0);
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
     let extractor = ExtractorBuilder::with_url("")
         .config(&CONFIG)
@@ -142,7 +142,7 @@ fn extractor_builder_bails_when_neither_required_field_is_set() {
 fn extractor_with_non_base_url_bails() -> Result<()> {
     let mut links = HashSet::<String>::new();
     let link = "admin";
-    let handles = Arc::new(Handles::for_testing(None).0);
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
     let extractor = ExtractorBuilder::with_url("\\\\\\")
         .config(&CONFIG)
@@ -218,7 +218,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let url = Url::parse(&srv.url("/some-path")).unwrap();
 
     let response = make_request(&client, &url, tx_stats.clone()).await.unwrap();
-    let (handles, _rx) = Handles::for_testing(None);
+    let (handles, _rx) = Handles::for_testing(None, None);
 
     let handles = Arc::new(handles);
     let ferox_response = FeroxResponse::from(response, true).await;
@@ -244,7 +244,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
 /// test that /robots.txt is correctly requested given a base url (happy path)
 async fn request_robots_txt_without_proxy() -> Result<()> {
     let config = Configuration::new()?;
-    let handles = Arc::new(Handles::for_testing(None).0);
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
     let srv = MockServer::start();
 
@@ -275,7 +275,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that /robots.txt is correctly requested given a base url (happy path) when a proxy is used
 async fn request_robots_txt_with_proxy() -> Result<()> {
-    let handles = Arc::new(Handles::for_testing(None).0);
+    let handles = Arc::new(Handles::for_testing(None, None).0);
     let mut config = Configuration::new()?;
 
     let srv = MockServer::start();

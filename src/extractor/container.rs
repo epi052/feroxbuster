@@ -1,12 +1,12 @@
 use super::*;
-use crate::event_handlers::Command;
-use crate::scan_manager::ScanOrder;
 use crate::{
     client,
-    event_handlers::{Command::UpdateUsizeField, Handles},
+    event_handlers::{Command, Command::UpdateUsizeField, Handles},
+    ferox_url::FeroxUrl,
+    scan_manager::ScanOrder,
     scanner::send_report,
     statistics::StatField::{LinksExtracted, TotalExpected},
-    utils::{format_url, make_request},
+    utils::make_request,
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
@@ -283,15 +283,11 @@ impl<'a> Extractor<'a> {
     pub(super) async fn request_link(&self, url: &str) -> Result<FeroxResponse> {
         log::trace!("enter: request_link({})", url);
 
-        // create a url based on the given command line options, return None on error
-        let new_url = format_url(
-            &url,
-            &"",
-            self.config.add_slash,
-            &self.config.queries,
-            None,
-            self.handles.stats.tx.clone(),
-        )?;
+        let ferox_url = FeroxUrl::from_string(&url, self.handles.clone());
+
+        // create a url based on the given command line options
+        let new_url = ferox_url.format(&"", None)?;
+
         let scanned_urls = self.handles.ferox_scans()?;
 
         if scanned_urls.get_scan_by_url(&new_url.to_string()).is_some() {

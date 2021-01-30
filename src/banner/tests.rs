@@ -7,8 +7,8 @@ use crate::{
 };
 use httpmock::Method::GET;
 use httpmock::MockServer;
-use std::io::stderr;
-use std::time::Duration;
+use std::{io::stderr, sync::Arc, time::Duration};
+
 use tokio::sync::mpsc;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -16,7 +16,7 @@ use tokio::sync::mpsc;
 async fn banner_intialize_without_targets() {
     let config = Configuration::default();
     let banner = Banner::new(&[], &config);
-    banner.print_to(stderr(), &config).unwrap();
+    banner.print_to(stderr(), Arc::new(config)).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -28,7 +28,7 @@ async fn banner_intialize_without_status_codes() {
     };
 
     let banner = Banner::new(&[String::from("http://localhost")], &config);
-    banner.print_to(stderr(), &config).unwrap();
+    banner.print_to(stderr(), Arc::new(config)).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -40,7 +40,7 @@ async fn banner_intialize_without_config_file() {
     };
 
     let banner = Banner::new(&[String::from("http://localhost")], &config);
-    banner.print_to(stderr(), &config).unwrap();
+    banner.print_to(stderr(), Arc::new(config)).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -52,7 +52,7 @@ async fn banner_intialize_without_queries() {
     };
 
     let banner = Banner::new(&[String::from("http://localhost")], &config);
-    banner.print_to(stderr(), &config).unwrap();
+    banner.print_to(stderr(), Arc::new(config)).unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

@@ -22,7 +22,6 @@ pub use self::words::WordsFilter;
 use crate::{
     config::CONFIGURATION,
     traits::{FeroxFilter, FeroxSerialize},
-    utils::get_url_path_length,
     FeroxResponse,
 };
 use std::any::Any;

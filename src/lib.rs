@@ -1,12 +1,17 @@
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::str::FromStr;
-use std::{error, fmt};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+    sync::Arc,
+    {error, fmt},
+};
 
 use anyhow::{Context, Result};
 use console::{style, Color};
-use reqwest::header::{HeaderName, HeaderValue};
-use reqwest::{header::HeaderMap, Response, StatusCode, Url};
+use reqwest::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    Response, StatusCode, Url,
+};
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use tokio::{
@@ -15,9 +20,10 @@ use tokio::{
 };
 
 use crate::{
-    event_handlers::Command,
+    event_handlers::{Command, Handles},
+    ferox_url::FeroxUrl,
     traits::FeroxSerialize,
-    utils::{fmt_err, get_url_depth, get_url_path_length, status_colorizer},
+    utils::{fmt_err, status_colorizer},
 };
 
 pub mod banner;
@@ -36,6 +42,7 @@ mod traits;
 pub mod utils;
 mod extractor;
 mod macros;
+mod ferox_url;
 
 /// Alias for tokio::sync::mpsc::UnboundedSender<Command>
 pub type CommandSender = UnboundedSender<Command>;
@@ -265,16 +272,26 @@ impl FeroxResponse {
     ///
     /// Essentially looks at the Url path and determines how many directories are present in the
     /// given Url
-    fn reached_max_depth(&self, base_depth: usize, max_depth: usize) -> bool {
-        log::trace!("enter: reached_max_depth({}, {})", base_depth, max_depth);
+    fn reached_max_depth(
+        &self,
+        base_depth: usize,
+        max_depth: usize,
+        handles: Arc<Handles>,
+    ) -> bool {
+        log::trace!(
+            "enter: reached_max_depth({}, {}, {:?})",
+            base_depth,
+            max_depth,
+            handles
+        );
 
         if max_depth == 0 {
             // early return, as 0 means recurse forever; no additional processing needed
             log::trace!("exit: reached_max_depth -> false");
             return false;
         }
-
-        let depth = get_url_depth(self.url.as_str());
+        let url = FeroxUrl::from_url(&self.url, handles);
+        let depth = url.depth().unwrap_or_default(); // 0 on error
 
         if depth - base_depth >= max_depth {
             return true;
@@ -357,7 +374,7 @@ impl FeroxSerialize for FeroxResponse {
                 chars,
                 status_colorizer(&status),
                 self.url(),
-                get_url_path_length(&self.url())
+                FeroxUrl::path_length_of_url(&self.url)
             );
 
             if self.status().is_redirection() {
@@ -681,6 +698,7 @@ mod tests {
     #[test]
     /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
     fn reached_max_depth_returns_early_on_zero() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
@@ -692,13 +710,15 @@ mod tests {
             headers: Default::default(),
             wildcard: false,
         };
-        let result = response.reached_max_depth(0, 0);
+        let result = response.reached_max_depth(0, 0, handles);
         assert!(!result);
     }
 
     #[test]
     /// call reached_max_depth with url depth equal to max depth, expect true
     fn reached_max_depth_current_depth_equals_max() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
@@ -711,13 +731,14 @@ mod tests {
             wildcard: false,
         };
 
-        let result = response.reached_max_depth(0, 2);
+        let result = response.reached_max_depth(0, 2, handles);
         assert!(result);
     }
 
     #[test]
     /// call reached_max_depth with url dpeth less than max depth, expect false
     fn reached_max_depth_current_depth_less_than_max() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
@@ -730,13 +751,14 @@ mod tests {
             wildcard: false,
         };
 
-        let result = response.reached_max_depth(0, 2);
+        let result = response.reached_max_depth(0, 2, handles);
         assert!(!result);
     }
 
     #[test]
     /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
     fn reached_max_depth_base_depth_equals_max_depth() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
@@ -749,13 +771,14 @@ mod tests {
             wildcard: false,
         };
 
-        let result = response.reached_max_depth(2, 2);
+        let result = response.reached_max_depth(2, 2, handles);
         assert!(!result);
     }
 
     #[test]
     /// call reached_max_depth with url depth greater than max depth, expect true
     fn reached_max_depth_current_greater_than_max() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = Url::parse("http://localhost/one/two/three").unwrap();
         let response = FeroxResponse {
             url,
@@ -768,7 +791,7 @@ mod tests {
             wildcard: false,
         };
 
-        let result = response.reached_max_depth(0, 2);
+        let result = response.reached_max_depth(0, 2, handles);
         assert!(result);
     }
 }

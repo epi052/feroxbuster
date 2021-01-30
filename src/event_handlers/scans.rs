@@ -1,9 +1,10 @@
 use super::command::Command::UpdateUsizeField;
 use super::*;
-use crate::utils::get_url_depth;
+use crate::ferox_url::FeroxUrl;
 use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::scan_url,
+    skip_fail,
     statistics::StatField::TotalScans,
     CommandReceiver, CommandSender, FeroxChannel, FeroxResponse, Joiner,
 };
@@ -186,7 +187,9 @@ impl ScanHandler {
             if matches!(order, ScanOrder::Initial) {
                 // keeps track of the initial targets' scan depths in order to enforce the
                 // maximum recursion depth on any identified sub-directories
-                self.depths.push((target.clone(), get_url_depth(&target)));
+                let url = FeroxUrl::from_string(&target, self.handles.clone());
+                let depth = skip_fail!(url.depth());
+                self.depths.push((target.clone(), depth));
             }
 
             let handles_clone = self.handles.clone();
@@ -219,7 +222,7 @@ impl ScanHandler {
             }
         }
 
-        if response.reached_max_depth(base_depth, self.max_depth) {
+        if response.reached_max_depth(base_depth, self.max_depth, self.handles.clone()) {
             // at or past recursion depth
             return Ok(());
         }

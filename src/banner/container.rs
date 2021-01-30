@@ -9,7 +9,7 @@ use anyhow::{bail, Result};
 use console::{style, Emoji};
 use reqwest::{Client, Url};
 use serde_json::Value;
-use std::io::Write;
+use std::{io::Write, sync::Arc};
 use tokio::sync::mpsc::UnboundedSender;
 
 /// Url used to query github's api; specifically used to look for the latest tagged release name
@@ -387,7 +387,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
     }
 
     /// display the banner on Write writer
-    pub fn print_to<W>(&self, mut writer: W, config: &Configuration) -> Result<()>
+    pub fn print_to<W>(&self, mut writer: W, config: Arc<Configuration>) -> Result<()>
     where
         W: Write,
     {

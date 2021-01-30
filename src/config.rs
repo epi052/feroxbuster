@@ -496,13 +496,15 @@ impl Configuration {
         //   - linux: $XDG_CONFIG_HOME or $HOME/.config
         //   - macOS: $HOME/Library/Application Support
         //   - windows: {FOLDERID_RoamingAppData}
-        let config_dir = dirs::config_dir().ok_or(anyhow!("Couldn't load config"))?;
+        let config_dir = dirs::config_dir().ok_or_else(|| anyhow!("Couldn't load config"))?;
         let config_file = config_dir.join("feroxbuster").join(DEFAULT_CONFIG_NAME);
         Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found in same the directory as feroxbuster executable
         let exe_path = current_exe()?;
-        let bin_dir = exe_path.parent().ok_or(anyhow!("Couldn't load config"))?;
+        let bin_dir = exe_path
+            .parent()
+            .ok_or_else(|| anyhow!("Couldn't load config"))?;
         let config_file = bin_dir.join(DEFAULT_CONFIG_NAME);
         Self::parse_and_merge_config(config_file, &mut config)?;
 
@@ -743,7 +745,7 @@ impl Configuration {
     fn parse_and_merge_config(config_file: PathBuf, mut config: &mut Self) -> Result<()> {
         if config_file.exists() {
             // save off a string version of the path before it goes out of scope
-            let conf_str = config_file.to_str().unwrap_or_else(|| "").to_string();
+            let conf_str = config_file.to_str().unwrap_or("").to_string();
             let settings = Self::parse_config(config_file)?;
 
             // set the config used for viewing in the banner

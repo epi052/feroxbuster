@@ -966,13 +966,13 @@ impl FeroxSerialize for FeroxState {
 /// that representation to seconds and then wait for those seconds to elapse.  Once that period
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
-pub async fn start_max_time_thread(time_spec: &str, handles: Arc<Handles>) {
-    log::trace!("enter: start_max_time_thread({})", time_spec);
+pub async fn start_max_time_thread(handles: Arc<Handles>) {
+    log::trace!("enter: start_max_time_thread({:?})", handles);
 
     // as this function has already made it through the parser, which calls is_match on
     // the value passed to --time-limit using TIMESPEC_REGEX; we can safely assume that
     // the capture groups are populated; can expect something like 10m, 30s, 1h, etc...
-    let captures = TIMESPEC_REGEX.captures(&time_spec).unwrap();
+    let captures = TIMESPEC_REGEX.captures(&handles.config.time_limit).unwrap();
     let length_match = captures.get(1).unwrap();
     let measurement_match = captures.get(2).unwrap();
 
@@ -987,7 +987,7 @@ pub async fn start_max_time_thread(time_spec: &str, handles: Arc<Handles>) {
 
         log::debug!(
             "max time limit as string: {} and as seconds: {}",
-            time_spec,
+            handles.config.time_limit,
             length_in_secs
         );
 
@@ -998,12 +998,12 @@ pub async fn start_max_time_thread(time_spec: &str, handles: Arc<Handles>) {
         #[cfg(test)]
         panic!(handles);
         #[cfg(not(test))]
-        let _ = sigint_handler(handles);
+        let _ = sigint_handler(handles.clone());
     }
 
     log::error!(
         "Could not parse the value provided ({}), can't enforce time limit",
-        length_match.as_str()
+        handles.config.time_limit
     );
 }
 
@@ -1466,9 +1466,15 @@ mod tests {
     async fn start_max_time_thread_panics_after_delay() {
         let now = time::Instant::now();
         let delay = time::Duration::new(3, 0);
-        let handles = Arc::new(Handles::for_testing(None).0);
 
-        start_max_time_thread("3s", handles).await;
+        let config = Configuration {
+            time_limit: String::from("3s"),
+            ..Default::default()
+        };
+
+        let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
+
+        start_max_time_thread(handles).await;
 
         assert!(now.elapsed() > delay);
     }
@@ -1479,10 +1485,15 @@ mod tests {
     async fn start_max_time_thread_returns_immediately_with_too_large_input() {
         let now = time::Instant::now();
         let delay = time::Duration::new(1, 0);
-        let handles = Arc::new(Handles::for_testing(None).0);
+        let config = Configuration {
+            time_limit: String::from("18446744073709551616m"),
+            ..Default::default()
+        };
+
+        let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
 
         // pub const MAX: usize = usize::MAX; // 18_446_744_073_709_551_615usize
-        start_max_time_thread("18446744073709551616m", handles).await; // can't fit in dest u64
+        start_max_time_thread(handles).await; // can't fit in dest u64
 
         assert!(now.elapsed() < delay); // assuming function call will take less than 1second
     }

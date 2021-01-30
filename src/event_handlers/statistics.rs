@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    config::CONFIGURATION,
+    config::Configuration,
     progress::{add_bar, BarType},
     statistics::{StatField, Stats},
     CommandSender, FeroxChannel, Joiner,
@@ -76,7 +76,7 @@ impl StatsHandler {
     /// Start a single consumer task (sc side of mpsc)
     ///
     /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
-    async fn start(&mut self) -> Result<()> {
+    async fn start(&mut self, output_file: &str) -> Result<()> {
         log::trace!("enter: start({:?})", self);
 
         let start = Instant::now();
@@ -97,7 +97,7 @@ impl StatsHandler {
                 }
                 Command::Save => {
                     self.stats
-                        .save(start.elapsed().as_secs_f64(), &CONFIGURATION.output)?;
+                        .save(start.elapsed().as_secs_f64(), output_file)?;
                 }
                 Command::UpdateUsizeField(field, value) => {
                     self.stats.update_usize_field(field, value);
@@ -144,7 +144,7 @@ impl StatsHandler {
 
     /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
-    pub fn initialize() -> (Joiner, StatsHandle) {
+    pub fn initialize(config: Arc<Configuration>) -> (Joiner, StatsHandle) {
         log::trace!("enter: initialize");
 
         let data = Arc::new(Stats::new());
@@ -152,7 +152,7 @@ impl StatsHandler {
 
         let mut handler = StatsHandler::new(data.clone(), rx);
 
-        let task = tokio::spawn(async move { handler.start().await });
+        let task = tokio::spawn(async move { handler.start(&config.output).await });
 
         let event_handle = StatsHandle::new(data, tx);
 

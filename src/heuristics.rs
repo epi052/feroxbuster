@@ -1,14 +1,14 @@
 use crate::{
-    config::{Configuration, CONFIGURATION, PROGRESS_PRINTER},
+    config::{CONFIGURATION, PROGRESS_PRINTER},
     event_handlers::{Command, Handles},
+    ferox_url::FeroxUrl,
     filters::WildcardFilter,
     skip_fail,
-    utils::{ferox_print, format_url, get_url_path_length, make_request, status_colorizer},
+    utils::{ferox_print, make_request, status_colorizer},
     FeroxResponse,
 };
 use anyhow::{bail, Result};
 use console::style;
-use reqwest::Client;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -32,38 +32,16 @@ macro_rules! format_template {
 }
 
 /// container for heuristics related info
-pub struct HeuristicTests<'a> {
+pub struct HeuristicTests {
     /// Handles object for event handler interaction
     handles: Arc<Handles>,
-
-    /// Config value: Don't auto-filter wildcard responses
-    dont_filter: bool,
-
-    /// Config value: Only print URLs
-    quiet: bool,
-
-    /// Config value: Append / to each request
-    add_slash: bool,
-
-    /// Config value: Instance of reqwest::Client
-    client: &'a Client,
-
-    /// Config value: URL query parameters
-    queries: &'a Vec<(String, String)>,
 }
 
 /// HeuristicTests implementation
-impl<'a> HeuristicTests<'a> {
+impl HeuristicTests {
     /// create a new HeuristicTests struct
-    pub fn new(handles: Arc<Handles>, config: &'a Configuration) -> Self {
-        Self {
-            handles,
-            dont_filter: config.dont_filter,
-            quiet: config.quiet,
-            add_slash: config.add_slash,
-            client: &config.client,
-            queries: &config.queries,
-        }
+    pub fn new(handles: Arc<Handles>) -> Self {
+        Self { handles }
     }
 
     /// Simple helper to return a uuid, formatted as lowercase without hyphens
@@ -102,13 +80,15 @@ impl<'a> HeuristicTests<'a> {
     pub async fn wildcard(&self, target_url: &str) -> Result<u64> {
         log::trace!("enter: wildcard_test({:?})", target_url);
 
-        if self.dont_filter {
+        if self.handles.config.dont_filter {
             // early return, dont_filter scans don't need tested
             log::trace!("exit: wildcard_test -> 0");
             return Ok(0);
         }
 
-        let ferox_response = self.make_wildcard_request(&target_url, 1).await?;
+        let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
+
+        let ferox_response = self.make_wildcard_request(&ferox_url, 1).await?;
 
         // found a wildcard response
         let mut wildcard = WildcardFilter::default();
@@ -123,25 +103,25 @@ impl<'a> HeuristicTests<'a> {
 
         // content length of wildcard is non-zero, perform additional tests:
         //   make a second request, with a known-sized (64) longer request
-        let resp_two = self.make_wildcard_request(&target_url, 3).await?;
+        let resp_two = self.make_wildcard_request(&ferox_url, 3).await?;
 
         let wc2_length = resp_two.content_length();
 
         if wc2_length == wc_length + (UUID_LENGTH * 2) {
             // second length is what we'd expect to see if the requested url is
             // reflected in the response along with some static content; aka custom 404
-            let url_len = get_url_path_length(&ferox_response.url());
+            let url_len = ferox_url.path_length()?;
 
             wildcard.dynamic = wc_length - url_len;
 
-            if !self.quiet {
+            if !self.handles.config.quiet {
                 let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wildcard.dynamic);
                 ferox_print(&msg, &PROGRESS_PRINTER);
             }
         } else if wc_length == wc2_length {
             wildcard.size = wc_length;
 
-            if !self.quiet {
+            if !self.handles.config.quiet {
                 let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wildcard.size);
                 ferox_print(&msg, &PROGRESS_PRINTER);
             }
@@ -161,24 +141,16 @@ impl<'a> HeuristicTests<'a> {
     /// wildcard response has a 3xx status code, that redirection location is displayed to the user.
     async fn make_wildcard_request(
         &self,
-        target_url: &str,
+        target: &FeroxUrl,
         length: usize,
     ) -> Result<FeroxResponse> {
-        log::trace!("enter: make_wildcard_request({}, {})", target_url, length);
+        log::trace!("enter: make_wildcard_request({}, {})", target, length);
 
         let unique_str = self.unique_string(length);
-
-        let nonexistent_url = format_url(
-            target_url,
-            &unique_str,
-            self.add_slash,
-            &self.queries,
-            None,
-            self.handles.stats.tx.clone(),
-        )?;
+        let nonexistent_url = target.format(&unique_str, None)?;
 
         let response = make_request(
-            &self.client,
+            &self.handles.config.client,
             &nonexistent_url.to_owned(),
             self.handles.stats.tx.clone(),
         )
@@ -201,7 +173,7 @@ impl<'a> HeuristicTests<'a> {
                 bail!("filtered response")
             }
 
-            if !self.quiet {
+            if !self.handles.config.quiet {
                 let boxed = Box::new(ferox_response.clone());
                 self.handles.output.send(Command::Report(boxed))?;
             }
@@ -225,16 +197,14 @@ impl<'a> HeuristicTests<'a> {
         let mut good_urls = vec![];
 
         for target_url in target_urls {
-            let request = skip_fail!(format_url(
-                target_url,
-                "",
-                self.add_slash,
-                &self.queries,
-                None,
+            let url = FeroxUrl::from_string(&target_url, self.handles.clone());
+            let request = skip_fail!(url.format("", None));
+            let result = make_request(
+                &self.handles.config.client,
+                &request,
                 self.handles.stats.tx.clone(),
-            ));
-
-            let result = make_request(&self.client, &request, self.handles.stats.tx.clone()).await;
+            )
+            .await;
 
             match result {
                 Ok(_) => {
@@ -268,8 +238,8 @@ mod tests {
     #[test]
     /// request a unique string of 32bytes * a value returns correct result
     fn heuristics_unique_string_returns_correct_length() {
-        let (handles, _) = Handles::for_testing(None);
-        let tester = HeuristicTests::new(Arc::new(handles), &CONFIGURATION);
+        let (handles, _) = Handles::for_testing(None, None);
+        let tester = HeuristicTests::new(Arc::new(handles));
         for i in 0..10 {
             assert_eq!(tester.unique_string(i).len(), i * 32);
         }
