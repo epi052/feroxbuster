@@ -1,17 +1,19 @@
-use crate::send_command;
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::{Client, Response, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
-use std::io::{BufWriter, Write};
-use std::{fs, io};
+use std::{
+    fs,
+    io::{self, BufWriter, Write},
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     event_handlers::Command::{self, AddError, AddStatus},
+    send_command,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
     traits::FeroxSerialize,
 };
