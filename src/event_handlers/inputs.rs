@@ -23,17 +23,17 @@ use std::{
 /// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
 pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
 
-#[derive(Debug)]
-pub struct TerminalInputHandle {}
-
-#[derive(Debug)]
 /// Container for filters transmitter and FeroxFilters object
 pub struct TermInputHandler {
     /// handles to other handlers
     handles: Arc<Handles>,
 }
 
-/// implementation of event handler for terminal input (used for cancel scan menu) todo update for correctness /// Initialize the ctrl+c handler that saves scan state to disk
+/// implementation of event handler for terminal input
+///
+/// kicks off the following handlers related to terminal input:
+///     ctrl+c handler that saves scan state to disk
+///     enter handler that listens for enter during scans to drop into interactive scan cancel menu
 impl TermInputHandler {
     /// Create new event handler
     pub fn new(handles: Arc<Handles>) -> Self {
@@ -50,20 +50,20 @@ impl TermInputHandler {
         log::trace!("exit: initialize");
     }
 
+    /// wrapper around sigint_handler and enter_handler
     fn start(&self) {
-        tokio::task::spawn_blocking(Self::start_enter_handler);
-
-        let cloned = self.handles.clone();
+        tokio::task::spawn_blocking(Self::enter_handler);
 
         if self.handles.config.save_state {
             // start the ctrl+c handler
+            let cloned = self.handles.clone();
+
             let result = ctrlc::set_handler(move || {
                 let _ = Self::sigint_handler(cloned.clone());
             });
 
             if result.is_err() {
-                log::error!("Could not set Ctrl+c handler");
-                std::process::exit(1);
+                log::error!("Could not set Ctrl+c handler; scan state will not be saved");
             }
         }
     }
@@ -113,9 +113,9 @@ impl TermInputHandler {
     }
 
     /// Handles specific key events triggered by the user over stdin
-    fn start_enter_handler() {
+    fn enter_handler() {
         // todo eventually move away from atomics, the blocking recv is the problem
-        log::trace!("enter: start");
+        log::trace!("enter: start_enter_handler");
 
         loop {
             if PAUSE_SCAN.load(Ordering::Relaxed) {
@@ -142,6 +142,6 @@ impl TermInputHandler {
                 }
             }
         }
-        log::trace!("exit: start");
+        log::trace!("exit: start_enter_handler");
     }
 }

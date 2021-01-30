@@ -458,7 +458,7 @@ fn scanner_single_request_scan_with_debug_logging() {
     assert!(contents.contains("DBG"));
     assert!(contents.contains("INF"));
     assert!(contents.contains("feroxbuster All scans complete!"));
-    assert!(contents.contains("feroxbuster::event_handlers::inputs exit: start"));
+    assert!(contents.contains("feroxbuster::event_handlers::inputs exit: start_enter_handler"));
 
     assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
@@ -498,6 +498,7 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     assert!(contents.contains("time_offset"));
     assert!(contents.contains("\"module\":\"feroxbuster::scanner\""));
     assert!(contents.contains("\"module\":\"feroxbuster::event_handlers::inputs\""));
+    assert!(contents.contains("exit: start_enter_handler"));
     assert!(contents.contains("All scans complete!"));
 
     assert_eq!(mock.hits(), 1);
