@@ -1,6 +1,7 @@
 use std::{
     cmp::PartialEq,
     collections::HashMap,
+    convert::TryInto,
     fmt,
     fs::File,
     io::BufReader,
@@ -8,7 +9,6 @@ use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Mutex, RwLock},
     thread::sleep,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Context, Result};
@@ -26,19 +26,16 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::event_handlers::Handles;
-use crate::utils::fmt_err;
-use crate::utils::write_to;
 use crate::{
-    config::{Configuration, CONFIGURATION, PROGRESS_BAR, PROGRESS_PRINTER},
+    config::{Configuration, PROGRESS_BAR, PROGRESS_PRINTER},
+    event_handlers::Handles,
     parser::TIMESPEC_REGEX,
     progress::{add_bar, BarType},
     scanner::RESPONSES,
     statistics::Stats,
-    utils::open_file,
+    utils::fmt_err,
     FeroxResponse, FeroxSerialize, SLEEP_DURATION,
 };
-use std::convert::TryInto;
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
 /// when pausing a scan
@@ -939,13 +936,31 @@ pub struct FeroxState {
     scans: Arc<FeroxScans>,
 
     /// Current running config
-    config: &'static Configuration,
+    config: Arc<Configuration>,
 
     /// Known responses
     responses: &'static FeroxResponses,
 
     /// Gathered statistics
     statistics: Arc<Stats>,
+}
+
+/// implementation of FeroxState
+impl FeroxState {
+    /// create new FeroxState object
+    pub fn new(
+        scans: Arc<FeroxScans>,
+        config: Arc<Configuration>,
+        responses: &'static FeroxResponses,
+        statistics: Arc<Stats>,
+    ) -> Self {
+        Self {
+            scans,
+            config,
+            responses,
+            statistics,
+        }
+    }
 }
 
 /// FeroxSerialize implementation for FeroxState
@@ -998,72 +1013,13 @@ pub async fn start_max_time_thread(handles: Arc<Handles>) {
         #[cfg(test)]
         panic!(handles);
         #[cfg(not(test))]
-        let _ = sigint_handler(handles.clone());
+        let _ = crate::event_handlers::TermInputHandler::sigint_handler(handles.clone());
     }
 
     log::error!(
         "Could not parse the value provided ({}), can't enforce time limit",
         handles.config.time_limit
     );
-}
-
-/// Writes the current state of the program to disk (if save_state is true) and then exits
-fn sigint_handler(handles: Arc<Handles>) -> Result<()> {
-    log::trace!("enter: sigint_handler({:?})", handles);
-
-    let ts = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-
-    let slug = if !CONFIGURATION.target_url.is_empty() {
-        // target url populated
-        CONFIGURATION
-            .target_url
-            .replace("://", "_")
-            .replace("/", "_")
-            .replace(".", "_")
-    } else {
-        // stdin used
-        "stdin".to_string()
-    };
-
-    let filename = format!("ferox-{}-{}.state", slug, ts);
-    let warning = format!(
-        "🚨 Caught {} 🚨 saving scan state to {} ...",
-        style("ctrl+c").yellow(),
-        filename
-    );
-
-    PROGRESS_PRINTER.println(warning);
-
-    let state = FeroxState {
-        config: &CONFIGURATION,
-        scans: handles.ferox_scans()?,
-        responses: &RESPONSES,
-        statistics: handles.stats.data.clone(),
-    };
-
-    let state_file = open_file(&filename);
-
-    let mut buffered_file = state_file?;
-    write_to(&state, &mut buffered_file, true)?;
-
-    log::trace!("exit: sigint_handler (end of program)");
-    std::process::exit(1);
-}
-
-/// Initialize the ctrl+c handler that saves scan state to disk
-pub fn initialize(handles: Arc<Handles>) {
-    log::trace!("enter: initialize({:?})", handles);
-
-    let result = ctrlc::set_handler(move || {
-        let _ = sigint_handler(handles.clone());
-    });
-
-    if result.is_err() {
-        log::error!("Could not set Ctrl+c handler");
-        std::process::exit(1);
-    }
-
-    log::trace!("exit: initialize");
 }
 
 /// Primary logic used to load a Configuration from disk and populate the appropriate data
@@ -1433,12 +1389,12 @@ mod tests {
         let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
         RESPONSES.insert(response);
 
-        let ferox_state = FeroxState {
-            scans: Arc::new(ferox_scans),
-            responses: &RESPONSES,
-            config: &CONFIGURATION,
-            statistics: stats,
-        };
+        let ferox_state = FeroxState::new(
+            Arc::new(ferox_scans),
+            Arc::new(Configuration::new().unwrap()),
+            &RESPONSES,
+            stats,
+        );
 
         let expected_strs = predicates::str::contains("scans: FeroxScans").and(
             predicate::str::contains("config: Configuration")
