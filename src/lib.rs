@@ -53,21 +53,6 @@ pub type CommandReceiver = UnboundedReceiver<Command>;
 /// Alias for tokio::task::JoinHandle<anyhow::Result<()>>
 pub type Joiner = JoinHandle<Result<()>>;
 
-/// Simple Error implementation to allow for custom error returns
-#[derive(Debug, Default)]
-pub struct FeroxError {
-    /// fancy string that can be printed via Display
-    pub message: String,
-}
-
-impl error::Error for FeroxError {}
-
-impl fmt::Display for FeroxError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", &self.message)
-    }
-}
-
 /// Generic mpsc::unbounded_channel type to tidy up some code
 pub type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
 
