@@ -2,16 +2,10 @@ use std::{
     collections::HashSet,
     fs::File,
     io::{stderr, BufRead, BufReader},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::sleep,
-    time::Duration,
+    sync::{atomic::Ordering, Arc},
 };
 
 use anyhow::{bail, Context, Result};
-use crossterm::event::{self, Event, KeyCode};
 use futures::StreamExt;
 use tokio::{io, sync::oneshot};
 use tokio_util::codec::{FramedRead, LinesCodec};
@@ -21,51 +15,16 @@ use feroxbuster::{
     config::{Configuration, PROGRESS_BAR, PROGRESS_PRINTER},
     event_handlers::{
         Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
-        FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermOutHandler,
+        FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermInputHandler,
+        TermOutHandler, SCAN_COMPLETE,
     },
     heuristics, logger,
-    scan_manager::{self, PAUSE_SCAN},
+    scan_manager::{self},
     scanner,
     utils::fmt_err,
-    SLEEP_DURATION,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
-
-/// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
-static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
-
-/// Handles specific key events triggered by the user over stdin
-fn terminal_input_handler() {
-    log::trace!("enter: terminal_input_handler");
-
-    loop {
-        if PAUSE_SCAN.load(Ordering::Relaxed) {
-            // if the scan is already paused, we don't want this event poller fighting the user
-            // over stdin
-            sleep(Duration::from_millis(SLEEP_DURATION));
-        } else if event::poll(Duration::from_millis(SLEEP_DURATION)).unwrap_or(false) {
-            // It's guaranteed that the `read()` won't block when the `poll()`
-            // function returns `true`
-
-            if let Ok(key_pressed) = event::read() {
-                // ignore any other keys
-                if key_pressed == Event::Key(KeyCode::Enter.into()) {
-                    // if the user presses Enter, set PAUSE_SCAN to true. The interactive menu
-                    // will be triggered and will handle setting PAUSE_SCAN to false
-                    PAUSE_SCAN.store(true, Ordering::Release);
-                }
-            }
-        } else {
-            // Timeout expired and no `Event` is available; use the timeout to check SCAN_COMPLETE
-            if SCAN_COMPLETE.load(Ordering::Relaxed) {
-                // scan has been marked complete by main, time to exit the loop
-                break;
-            }
-        }
-    }
-    log::trace!("exit: terminal_input_handler");
-}
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
@@ -236,12 +195,8 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     // spawn a thread that listens for keyboard input on stdin, when a user presses enter
     // the input handler will toggle PAUSE_SCAN, which in turn is used to pause and resume
     // scans that are already running
-    tokio::task::spawn_blocking(terminal_input_handler);
-
-    if config.save_state {
-        // start the ctrl+c handler
-        scan_manager::initialize(handles.clone());
-    }
+    // also starts ctrl+c handler
+    TermInputHandler::initialize(handles.clone());
 
     if config.resumed {
         let scanned_urls = handles.ferox_scans()?;
