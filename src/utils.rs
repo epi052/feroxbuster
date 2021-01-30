@@ -33,54 +33,6 @@ pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
     Ok(writer)
 }
 
-// /// Helper function that determines the current depth of a given url
-// ///
-// /// Essentially looks at the Url path and determines how many directories are present in the
-// /// given Url
-// ///
-// /// http://localhost -> 1
-// /// http://localhost/ -> 1
-// /// http://localhost/stuff -> 2
-// /// ...
-// ///
-// /// returns 0 on error and relative urls
-// pub fn get_url_depth(target: &str) -> usize {
-//     log::trace!("enter: get_url_depth({})", target);
-//
-//     let target = normalize_url(target);
-//
-//     match Url::parse(&target) {
-//         Ok(url) => {
-//             if let Some(parts) = url.path_segments() {
-//                 // at least an empty string returned by the Split, meaning top-level urls
-//                 let mut depth = 0;
-//
-//                 for _ in parts {
-//                     depth += 1;
-//                 }
-//
-//                 let return_val = depth;
-//
-//                 log::trace!("exit: get_url_depth -> {}", return_val);
-//                 return return_val;
-//             };
-//
-//             log::debug!(
-//                 "get_current_depth called on a Url that cannot be a base: {}",
-//                 url
-//             );
-//             log::trace!("exit: get_url_depth -> 0");
-//
-//             0
-//         }
-//         Err(e) => {
-//             log::error!("could not parse to url: {}", e);
-//             log::trace!("exit: get_url_depth -> 0");
-//             0
-//         }
-//     }
-// }
-
 /// Takes in a string and examines the first character to return a color version of the same string
 pub fn status_colorizer(status: &str) -> String {
     match status.chars().next() {
@@ -107,41 +59,6 @@ pub fn module_colorizer(modname: &str) -> String {
     style(modname).cyan().to_string()
 }
 
-// /// Gets the length of a url's path
-// ///
-// /// example: http://localhost/stuff -> 5
-// pub fn get_url_path_length(url: &Url) -> u64 {
-//     log::trace!("enter: get_url_path_length({})", url);
-//
-//     let path = url.path();
-//
-//     let segments = if let Some(split) = path.strip_prefix('/') {
-//         split.split_terminator('/')
-//     } else {
-//         log::trace!("exit: get_url_path_length -> 0");
-//         return 0;
-//     };
-//
-//     if let Some(last) = segments.last() {
-//         // failure on conversion should be very unlikely. While a usize can absolutely overflow a
-//         // u64, the generally accepted maximum for the length of a url is ~2000.  so the value we're
-//         // putting into the u64 should never realistically be anywhere close to producing an
-//         // overflow.
-//         // usize max: 18,446,744,073,709,551,615
-//         // u64 max:   9,223,372,036,854,775,807
-//         let url_len: u64 = last
-//             .len()
-//             .try_into()
-//             .expect("Failed usize -> u64 conversion");
-//
-//         log::trace!("exit: get_url_path_length -> {}", url_len);
-//         return url_len;
-//     }
-//
-//     log::trace!("exit: get_url_path_length -> 0");
-//     0
-// }
-// todo remove all commented functions
 /// Simple helper to abstract away the check for an attached terminal.
 ///
 /// If a terminal is attached, progress bars are visible and the progress bar is used to print
@@ -160,121 +77,6 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
         println!("{}", stripped);
     }
 }
-
-// /// Simple helper to generate a `Url`
-// ///
-// /// Errors during parsing `url` or joining `word` are propagated up the call stack
-// pub fn format_url(
-//     url: &str,
-//     word: &str,
-//     add_slash: bool,
-//     queries: &[(String, String)],
-//     extension: Option<&str>,
-//     tx_stats: UnboundedSender<Command>,
-// ) -> Result<Url> {
-//     log::trace!(
-//         "enter: format_url({}, {}, {}, {:?} {:?}, {:?})",
-//         url,
-//         word,
-//         add_slash,
-//         queries,
-//         extension,
-//         tx_stats
-//     );
-//
-//     if Url::parse(&word).is_ok() {
-//         // when a full url is passed in as a word to be joined to a base url using
-//         // reqwest::Url::join, the result is that the word (url) completely overwrites the base
-//         // url, potentially resulting in requests to places that aren't actually the target
-//         // specified.
-//         //
-//         // in order to resolve the issue, we check if the word from the wordlist is a parsable URL
-//         // and if so, don't do any further processing
-//         let message = format!(
-//             "word ({}) from the wordlist is actually a URL, skipping...",
-//             word
-//         );
-//         log::warn!("{}", message);
-//
-//         let err = FeroxError { message };
-//
-//         send_command!(tx_stats, AddError(UrlFormat));
-//
-//         log::trace!("exit: format_url -> {}", err);
-//         bail!("{}", err);
-//     }
-//
-//     // from reqwest::Url::join
-//     //   Note: a trailing slash is significant. Without it, the last path component
-//     //   is considered to be a “file” name to be removed to get at the “directory”
-//     //   that is used as the base
-//     //
-//     // the transforms that occur here will need to keep this in mind, i.e. add a slash to preserve
-//     // the current directory sent as part of the url
-//     let url = if word.is_empty() {
-//         // v1.0.6: added during --extract-links feature implementation to support creating urls
-//         // that were extracted from response bodies, i.e. http://localhost/some/path/js/main.js
-//         url.to_string()
-//     } else if !url.ends_with('/') {
-//         format!("{}/", url)
-//     } else {
-//         url.to_string()
-//     };
-//
-//     let base_url = reqwest::Url::parse(&url)?;
-//
-//     // extensions and slashes are mutually exclusive cases
-//     let word = if extension.is_some() {
-//         format!("{}.{}", word, extension.unwrap())
-//     } else if add_slash && !word.ends_with('/') {
-//         // -f used, and word doesn't already end with a /
-//         format!("{}/", word)
-//     } else if word.starts_with("//") {
-//         // bug ID'd by @Sicks3c, when a wordlist contains words that begin with 2 forward slashes
-//         // i.e. //1_40_0/static/js, it gets joined onto the base url in a surprising way
-//         // ex: https://localhost/ + //1_40_0/static/js -> https://1_40_0/static/js
-//         // this is due to the fact that //... is a valid url. The fix is introduced here in 1.12.2
-//         // and simply removes prefixed forward slashes if there are two of them. Additionally,
-//         // trim_start_matches will trim the pattern until it's gone, so even if there are more than
-//         // 2 /'s, they'll still be trimmed
-//         word.trim_start_matches('/').to_string()
-//     } else {
-//         String::from(word)
-//     };
-//
-//     match base_url.join(&word) {
-//         Ok(request) => {
-//             if queries.is_empty() {
-//                 // no query params to process
-//                 log::trace!("exit: format_url -> {}", request);
-//                 Ok(request)
-//             } else {
-//                 match reqwest::Url::parse_with_params(request.as_str(), queries) {
-//                     Ok(req_w_params) => {
-//                         log::trace!("exit: format_url -> {}", req_w_params);
-//                         Ok(req_w_params) // request with params attached
-//                     }
-//                     Err(e) => {
-//                         log::error!(
-//                             "Could not add query params {:?} to {}: {}",
-//                             queries,
-//                             request,
-//                             e
-//                         );
-//                         log::trace!("exit: format_url -> {}", request);
-//                         Ok(request) // couldn't process params, return initially ok url
-//                     }
-//                 }
-//             }
-//         }
-//         Err(e) => {
-//             send_command!(tx_stats, AddError(UrlFormat));
-//             log::trace!("exit: format_url -> {}", e);
-//             log::error!("Could not join {} with {}", word, base_url);
-//             bail!("{}", e)
-//         }
-//     }
-// }
 
 /// Initiate request to the given `Url` using `Client`
 pub async fn make_request(
@@ -411,22 +213,6 @@ pub fn set_open_file_limit(limit: usize) -> bool {
     log::trace!("exit: set_open_file_limit -> {}", false);
     false
 }
-
-// /// Simple helper to abstract away adding a forward-slash to a url if not present
-// ///
-// /// used mostly for deduplication purposes and url state tracking
-// pub fn normalize_url(url: &str) -> String {
-//     log::trace!("enter: normalize_url({})", url);
-//
-//     let normalized = if url.ends_with('/') {
-//         url.to_string()
-//     } else {
-//         format!("{}/", url)
-//     };
-//
-//     log::trace!("exit: normalize_url -> {}", normalized);
-//     normalized
-// }
 
 /// Given a string and a reference to a locked buffered file, write the contents and flush
 /// the buffer to disk.

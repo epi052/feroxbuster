@@ -18,7 +18,7 @@ impl FeroxUrl {
     /// Create new FeroxUrl given a target url as a string
     pub fn from_string(target: &str, handles: Arc<Handles>) -> Self {
         Self {
-            handles, // todo correct other functions to use handles
+            handles,
             target: String::from(target),
         }
     }
@@ -26,7 +26,7 @@ impl FeroxUrl {
     /// Create new FeroxUrl given a target url as a reqwest::Url
     pub fn from_url(target: &Url, handles: Arc<Handles>) -> Self {
         Self {
-            handles, // todo correct other functions to use handles
+            handles,
             target: target.as_str().to_string(),
         }
     }
@@ -177,7 +177,7 @@ impl FeroxUrl {
     /// used mostly for deduplication purposes and url state tracking
     pub fn normalize(&self) -> String {
         log::trace!("enter: normalize");
-        // todo consider removing self and accepting &str
+
         let normalized = if self.target.ends_with('/') {
             self.target.to_string()
         } else {
@@ -200,9 +200,7 @@ impl FeroxUrl {
     ///
     /// returns 0 on error and relative urls
     pub fn depth(&self) -> Result<usize> {
-        // todo caller of this should set value to 0 on error
         log::trace!("enter: get_depth");
-        // todo consider removing self and accepting &str
 
         let target = self.normalize();
 

@@ -4,7 +4,6 @@ use crate::ferox_url::FeroxUrl;
 use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::scan_url,
-    skip_fail,
     statistics::StatField::TotalScans,
     CommandReceiver, CommandSender, FeroxChannel, FeroxResponse, Joiner,
 };
@@ -188,7 +187,7 @@ impl ScanHandler {
                 // keeps track of the initial targets' scan depths in order to enforce the
                 // maximum recursion depth on any identified sub-directories
                 let url = FeroxUrl::from_string(&target, self.handles.clone());
-                let depth = skip_fail!(url.depth());
+                let depth = url.depth().unwrap_or(0);
                 self.depths.push((target.clone(), depth));
             }
 
