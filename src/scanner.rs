@@ -22,8 +22,6 @@ use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Url;
-#[cfg(not(test))]
-use std::process::exit;
 use std::{
     collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
     time::Instant,
@@ -56,13 +54,13 @@ async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> R
     let urls = FeroxUrl::from_string(target_url, handles.clone()).formatted_urls(word)?;
 
     for url in urls {
-        let response = make_request(&CONFIGURATION.client, &url, handles.stats.tx.clone()).await?;
+        let response = make_request(&handles.config.client, &url, handles.stats.tx.clone()).await?;
 
         // response came back without error, convert it to FeroxResponse
         let ferox_response = FeroxResponse::from(response, true).await;
 
         // do recursion if appropriate
-        if !CONFIGURATION.no_recursion {
+        if !handles.config.no_recursion {
             handles.send_scan_command(Command::TryRecursion(Box::new(ferox_response.clone())))?;
             let (tx, rx) = oneshot::channel::<bool>();
             handles.send_scan_command(Command::Sync(tx))?;
@@ -79,9 +77,9 @@ async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> R
             continue;
         }
 
-        if CONFIGURATION.extract_links && !ferox_response.status().is_redirection() {
+        if handles.config.extract_links && !ferox_response.status().is_redirection() {
             let extractor = ExtractorBuilder::with_response(&ferox_response)
-                .config(&CONFIGURATION)
+                .config(&handles.config)
                 .handles(handles.clone())
                 .build()?;
 
@@ -131,11 +129,11 @@ pub async fn scan_url(
 
     let scan_timer = Instant::now();
 
-    if matches!(order, ScanOrder::Initial) && CONFIGURATION.extract_links {
+    if matches!(order, ScanOrder::Initial) && handles.config.extract_links {
         // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
         // to try_recursion
         let extractor = ExtractorBuilder::with_url(target_url)
-            .config(&CONFIGURATION)
+            .config(&handles.config)
             .handles(handles.clone())
             .build()?;
 
@@ -176,6 +174,8 @@ pub async fn scan_url(
         }
     }
 
+    let increment_len = (handles.config.extensions.len() + 1) as u64;
+
     // producer tasks (mp of mpsc); responsible for making requests
     let producers = stream::iter(looping_words.deref().to_owned())
         .map(|word| {
@@ -196,10 +196,10 @@ pub async fn scan_url(
                 pb,
             )
         })
-        .for_each_concurrent(CONFIGURATION.threads, |(resp, bar)| async move {
+        .for_each_concurrent(handles.config.threads, |(resp, bar)| async move {
             match resp.await {
                 Ok(_) => {
-                    bar.inc((CONFIGURATION.extensions.len() + 1) as u64);
+                    bar.inc(increment_len);
                 }
                 Err(e) => {
                     log::error!("error awaiting a response: {}", e);
@@ -291,16 +291,7 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
     // add any regex filters to filters handler's FeroxFilters  (-X|--filter-regex)
     for regex_filter in &handles.config.filter_regex {
         let raw = regex_filter;
-        let compiled = match Regex::new(&raw) {
-            Ok(regex) => regex,
-            Err(e) => {
-                log::error!("Invalid regular expression: {}", e);
-                #[cfg(test)]
-                panic!();
-                #[cfg(not(test))]
-                exit(1);
-            }
-        };
+        let compiled = skip_fail!(Regex::new(&raw));
 
         let filter = RegexFilter {
             raw_string: raw.to_owned(),

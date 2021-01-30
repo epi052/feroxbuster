@@ -15,7 +15,7 @@ macro_rules! skip_fail {
         match $res {
             Ok(val) => val,
             Err(e) => {
-                log::warn!("An error: {}; skipped.", e);
+                log::warn!("{}", fmt_err(&format!("{}; skipping...", e)));
                 continue;
             }
         }

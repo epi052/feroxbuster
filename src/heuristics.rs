@@ -4,7 +4,7 @@ use crate::{
     ferox_url::FeroxUrl,
     filters::WildcardFilter,
     skip_fail,
-    utils::{ferox_print, make_request, status_colorizer},
+    utils::{ferox_print, fmt_err, make_request, status_colorizer},
     FeroxResponse,
 };
 use anyhow::{bail, Result};
