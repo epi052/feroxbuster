@@ -206,7 +206,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     let (stats_task, stats_handle) = StatsHandler::initialize(config.clone());
     let (filters_task, filters_handle) = FiltersHandler::initialize();
     let (out_task, out_handle) =
-        TermOutHandler::initialize(&config.output, stats_handle.tx.clone());
+        TermOutHandler::initialize(config.clone(), stats_handle.tx.clone());
 
     // bundle up all the disparate handles and JoinHandles (tasks)
     let handles = Arc::new(Handles::new(
@@ -216,7 +216,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         config.clone(),
     ));
 
-    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone(), config.depth);
+    let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());
 
     handles.set_scan_handle(scan_handle); // must be done after Handles initialization
 
@@ -281,14 +281,18 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         }
     }
 
-    // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
-    // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
-    // done later here in main). Ping checks that the tx/rx connection to the file handler works
-    if !config.output.is_empty() && handles.output.sync().await.is_err() {
-        // output file specified and file handler could not initialize
-        clean_up(handles, tasks).await?;
-        let msg = format!("Couldn't start {} file handler", config.output);
-        bail!(fmt_err(&msg));
+    {
+        let send_to_file = !config.output.is_empty();
+
+        // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
+        // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
+        // done later here in main). Ping checks that the tx/rx connection to the file handler works
+        if send_to_file && handles.output.sync(send_to_file).await.is_err() {
+            // output file specified and file handler could not initialize
+            clean_up(handles, tasks).await?;
+            let msg = format!("Couldn't start {} file handler", config.output);
+            bail!(fmt_err(&msg));
+        }
     }
 
     // discard non-responsive targets

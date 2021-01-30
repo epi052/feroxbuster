@@ -92,11 +92,13 @@ impl ScanHandler {
 
     /// Initialize new `FeroxScans` and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
-    pub fn initialize(handles: Arc<Handles>, max_depth: usize) -> (Joiner, ScanHandle) {
+    pub fn initialize(handles: Arc<Handles>) -> (Joiner, ScanHandle) {
         log::trace!("enter: initialize");
 
         let data = Arc::new(FeroxScans::default());
         let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
+
+        let max_depth = handles.config.depth;
 
         let mut handler = Self::new(data.clone(), handles, max_depth, rx);
 

@@ -1,17 +1,18 @@
+use super::Command::UpdateUsizeField;
+use super::*;
+
 use anyhow::{Context, Result};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::{Configuration, PROGRESS_PRINTER},
     scanner::RESPONSES,
-    send_command,
+    send_command, skip_fail,
     statistics::StatField::ResourcesDiscovered,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
     CommandReceiver, CommandSender, FeroxSerialize, Joiner,
 };
-
-use super::Command::UpdateUsizeField;
-use super::*;
+use std::sync::Arc;
 
 #[derive(Debug)]
 /// Container for terminal output transmitter
@@ -37,14 +38,16 @@ impl TermOutHandle {
     }
 
     /// Sync the handle with the handler
-    pub async fn sync(&self) -> Result<()> {
+    pub async fn sync(&self, send_to_file: bool) -> Result<()> {
         let (tx, rx) = oneshot::channel::<bool>();
         self.send(Command::Sync(tx))?;
-        if !CONFIGURATION.output.is_empty() {
+
+        if send_to_file {
             let (tx, rx) = oneshot::channel::<bool>();
             self.tx_file.send(Command::Sync(tx))?;
             rx.await?;
         }
+
         rx.await?;
         Ok(())
     }
@@ -56,17 +59,17 @@ pub struct FileOutHandler {
     /// file output handler's receiver
     receiver: CommandReceiver,
 
-    /// Path to file used for writing to disk
-    output: String,
+    /// pointer to "global" configuration struct
+    config: Arc<Configuration>,
 }
 
 impl FileOutHandler {
     /// Given a file tx/rx pair along with a filename and awaitable task, create
     /// a FileOutHandler
-    fn new(output: &str, rx: CommandReceiver) -> Self {
+    fn new(rx: CommandReceiver, config: Arc<Configuration>) -> Self {
         Self {
             receiver: rx,
-            output: output.to_string(),
+            config,
         }
     }
 
@@ -76,21 +79,21 @@ impl FileOutHandler {
     async fn start(&mut self, tx_stats: CommandSender) -> Result<()> {
         log::trace!("enter: start_file_handler({:?})", tx_stats);
 
-        let mut file = open_file(&self.output)?;
+        let mut file = open_file(&self.config.output)?;
 
-        log::info!("Writing scan results to {}", self.output);
+        log::info!("Writing scan results to {}", self.config.output);
 
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::Report(response) => {
-                    write_to(&*response, &mut file, CONFIGURATION.json)?;
+                    skip_fail!(write_to(&*response, &mut file, self.config.json));
                 }
                 Command::Exit => {
                     log::error!("file handler got Exit");
                     break;
                 }
                 Command::Sync(sender) => {
-                    sender.send(true).unwrap_or_default();
+                    skip_fail!(sender.send(true));
                 }
                 _ => {} // no more needed
             }
@@ -118,35 +121,43 @@ pub struct TermOutHandler {
     /// optional file handler task
     file_task: Option<Joiner>,
 
-    /// whether or not user specified an output file
-    save_output: bool,
+    /// pointer to "global" configuration struct
+    config: Arc<Configuration>,
 }
 
 /// implementation of TermOutHandler
 impl TermOutHandler {
     /// Given a terminal receiver along with a file transmitter and filename, create
     /// an OutputHandler
-    fn new(receiver: CommandReceiver, tx_file: CommandSender, file_task: Option<Joiner>) -> Self {
+    fn new(
+        receiver: CommandReceiver,
+        tx_file: CommandSender,
+        file_task: Option<Joiner>,
+        config: Arc<Configuration>,
+    ) -> Self {
         Self {
             receiver,
             tx_file,
-            save_output: file_task.is_some(),
+            config,
             file_task,
         }
     }
 
     /// Creates all required output handlers (terminal, file) and updates the given Handles/Tasks
-    pub fn initialize(output_file: &str, tx_stats: CommandSender) -> (Joiner, TermOutHandle) {
-        log::trace!("enter: initialize({}, {:?})", output_file, tx_stats);
+    pub fn initialize(
+        config: Arc<Configuration>,
+        tx_stats: CommandSender,
+    ) -> (Joiner, TermOutHandle) {
+        log::trace!("enter: initialize({:?}, {:?})", config, tx_stats);
 
         let (tx_term, rx_term) = mpsc::unbounded_channel::<Command>();
         let (tx_file, rx_file) = mpsc::unbounded_channel::<Command>();
 
-        let mut file_handler = FileOutHandler::new(output_file, rx_file);
+        let mut file_handler = FileOutHandler::new(rx_file, config.clone());
 
         let tx_stats_clone = tx_stats.clone();
 
-        let file_task = if !output_file.is_empty() {
+        let file_task = if !config.output.is_empty() {
             // -o used, need to spawn the thread for writing to disk
             Some(tokio::spawn(async move {
                 file_handler.start(tx_stats_clone).await
@@ -155,7 +166,7 @@ impl TermOutHandler {
             None
         };
 
-        let mut term_handler = Self::new(rx_term, tx_file.clone(), file_task);
+        let mut term_handler = Self::new(rx_term, tx_file.clone(), file_task, config);
         let term_task = tokio::spawn(async move { term_handler.start(tx_stats).await });
 
         let event_handle = TermOutHandle::new(tx_term, tx_file);
@@ -175,7 +186,7 @@ impl TermOutHandler {
             match command {
                 Command::Report(mut resp) => {
                     let contains_sentry =
-                        CONFIGURATION.status_codes.contains(&resp.status().as_u16());
+                        self.config.status_codes.contains(&resp.status().as_u16());
                     let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
                     let should_process_response = contains_sentry && unknown_sentry;
 
@@ -185,7 +196,7 @@ impl TermOutHandler {
 
                         send_command!(tx_stats, UpdateUsizeField(ResourcesDiscovered, 1));
 
-                        if self.save_output {
+                        if self.file_task.is_some() {
                             // -o used, need to send the report to be written out to disk
                             self.tx_file
                                 .send(Command::Report(resp.clone()))
@@ -196,11 +207,11 @@ impl TermOutHandler {
                     }
                     log::trace!("report complete: {}", resp.url());
 
-                    if CONFIGURATION.replay_client.is_some() && should_process_response {
+                    if self.config.replay_client.is_some() && should_process_response {
                         // replay proxy specified/client created and this response's status code is one that
                         // should be replayed
                         make_request(
-                            CONFIGURATION.replay_client.as_ref().unwrap(),
+                            self.config.replay_client.as_ref().unwrap(),
                             &resp.url(),
                             tx_stats.clone(),
                         )
@@ -224,7 +235,7 @@ impl TermOutHandler {
                     sender.send(true).unwrap_or_default();
                 }
                 Command::Exit => {
-                    if self.save_output && self.tx_file.send(Command::Exit).is_ok() {
+                    if self.file_task.is_some() && self.tx_file.send(Command::Exit).is_ok() {
                         self.file_task.as_mut().unwrap().await??; // wait for death
                     }
                     break;
