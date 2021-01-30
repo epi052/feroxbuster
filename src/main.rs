@@ -358,10 +358,10 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let config = Arc::new(Configuration::new().expect("Could not create Configuration"));
+    let config = Arc::new(Configuration::new().with_context(|| "Could not create Configuration")?);
 
     // setup logging based on the number of -v's used
-    logger::initialize(config.verbosity)?;
+    logger::initialize(config.clone())?;
 
     // this function uses rlimit, which is not supported on windows
     #[cfg(not(target_os = "windows"))]
