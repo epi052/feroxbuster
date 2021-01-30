@@ -9,6 +9,7 @@ macro_rules! send_command {
 }
 
 #[macro_export]
+/// while looping, check for a Result, if Ok return the value, if Err, continue
 macro_rules! skip_fail {
     ($res:expr) => {
         match $res {

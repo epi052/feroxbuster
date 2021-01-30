@@ -271,9 +271,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         let mut banner = Banner::new(&targets, &config);
 
         // only interested in the side-effect that sets banner.update_status
-        let _ = banner
-            .check_for_updates(&config.client, UPDATE_URL, handles.stats.tx.clone())
-            .await;
+        let _ = banner.check_for_updates(UPDATE_URL, handles.clone()).await;
 
         if banner.print_to(std_stderr, config.clone()).is_err() {
             clean_up(handles, tasks).await?;

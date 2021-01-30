@@ -1,15 +1,9 @@
 use super::container::UpdateStatus;
 use super::*;
-use crate::{
-    config::{Configuration, CONFIGURATION},
-    event_handlers::Command,
-    FeroxChannel,
-};
+use crate::{config::Configuration, event_handlers::Handles};
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use std::{io::stderr, sync::Arc, time::Duration};
-
-use tokio::sync::mpsc;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test to hit no execution of targets for loop in banner
@@ -58,13 +52,14 @@ async fn banner_intialize_without_queries() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that
 async fn banner_needs_update_returns_unknown_with_bad_url() {
-    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[String::from("http://localhost")], &CONFIGURATION);
+    let mut banner = Banner::new(
+        &[String::from("http://localhost")],
+        &Configuration::default(),
+    );
 
-    let _ = banner
-        .check_for_updates(&CONFIGURATION.client, &"", tx)
-        .await;
+    let _ = banner.check_for_updates("", handles).await;
 
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));
 }
@@ -79,14 +74,12 @@ async fn banner_needs_update_returns_up_to_date() {
         then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
     });
 
-    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
     banner.version = String::from("1.1.0");
 
-    let _ = banner
-        .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-        .await;
+    let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
     assert_eq!(mock.hits(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::UpToDate));
@@ -102,14 +95,12 @@ async fn banner_needs_update_returns_out_of_date() {
         then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
     });
 
-    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
     banner.version = String::from("1.0.1");
 
-    let _ = banner
-        .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-        .await;
+    let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
     assert_eq!(mock.hits(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::OutOfDate));
@@ -127,13 +118,11 @@ async fn banner_needs_update_returns_unknown_on_timeout() {
             .delay(Duration::from_secs(8));
     });
 
-    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
 
-    let _ = banner
-        .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-        .await;
+    let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
     assert_eq!(mock.hits(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));
@@ -149,13 +138,11 @@ async fn banner_needs_update_returns_unknown_on_bad_json_response() {
         then.status(200).body("not json");
     });
 
-    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
 
-    let _ = banner
-        .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-        .await;
+    let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
     assert_eq!(mock.hits(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));
@@ -172,14 +159,12 @@ async fn banner_needs_update_returns_unknown_on_json_without_correct_tag() {
             .body("{\"no tag_name\": \"doesn't exist\"}");
     });
 
-    let (tx, _): FeroxChannel<Command> = mpsc::unbounded_channel();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &CONFIGURATION);
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
     banner.version = String::from("1.0.1");
 
-    let _ = banner
-        .check_for_updates(&CONFIGURATION.client, &srv.url("/latest"), tx)
-        .await;
+    let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
     assert_eq!(mock.hits(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));

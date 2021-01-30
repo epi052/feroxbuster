@@ -1,16 +1,15 @@
 use super::entry::BannerEntry;
+use crate::event_handlers::Handles;
 use crate::{
     config::Configuration,
-    event_handlers::Command,
     utils::{make_request, status_colorizer},
     VERSION,
 };
 use anyhow::{bail, Result};
 use console::{style, Emoji};
-use reqwest::{Client, Url};
+use reqwest::Url;
 use serde_json::Value;
 use std::{io::Write, sync::Arc};
-use tokio::sync::mpsc::UnboundedSender;
 
 /// Url used to query github's api; specifically used to look for the latest tagged release name
 pub const UPDATE_URL: &str = "https://api.github.com/repos/epi052/feroxbuster/releases/latest";
@@ -344,17 +343,13 @@ by Ben "epi" Risher {}                 ver: {}"#,
     /// named `tag_name` that holds a value representing the latest tagged release of this tool.
     ///
     /// ex: v1.1.0
-    pub async fn check_for_updates(
-        &mut self,
-        client: &Client,
-        url: &str,
-        tx_stats: UnboundedSender<Command>,
-    ) -> Result<()> {
-        log::trace!("enter: needs_update({:?}, {}, {:?})", client, url, tx_stats);
+    pub async fn check_for_updates(&mut self, url: &str, handles: Arc<Handles>) -> Result<()> {
+        log::trace!("enter: needs_update({:?})", handles);
 
         let api_url = Url::parse(url)?;
 
-        let response = make_request(&client, &api_url, tx_stats.clone()).await?;
+        let response =
+            make_request(&handles.config.client, &api_url, handles.stats.tx.clone()).await?;
 
         let body = response.text().await?;
 
