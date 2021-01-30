@@ -8,7 +8,7 @@ use std::{io::stderr, sync::Arc, time::Duration};
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test to hit no execution of targets for loop in banner
 async fn banner_intialize_without_targets() {
-    let config = Configuration::default();
+    let config = Configuration::new().unwrap();
     let banner = Banner::new(&[], &config);
     banner.print_to(stderr(), Arc::new(config)).unwrap();
 }
@@ -56,7 +56,7 @@ async fn banner_needs_update_returns_unknown_with_bad_url() {
 
     let mut banner = Banner::new(
         &[String::from("http://localhost")],
-        &Configuration::default(),
+        &Configuration::new().unwrap(),
     );
 
     let _ = banner.check_for_updates("", handles).await;
@@ -76,7 +76,7 @@ async fn banner_needs_update_returns_up_to_date() {
 
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
     banner.version = String::from("1.1.0");
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
@@ -97,7 +97,7 @@ async fn banner_needs_update_returns_out_of_date() {
 
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
     banner.version = String::from("1.0.1");
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
@@ -120,7 +120,7 @@ async fn banner_needs_update_returns_unknown_on_timeout() {
 
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
@@ -140,7 +140,7 @@ async fn banner_needs_update_returns_unknown_on_bad_json_response() {
 
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
@@ -161,7 +161,7 @@ async fn banner_needs_update_returns_unknown_on_json_without_correct_tag() {
 
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let mut banner = Banner::new(&[srv.url("")], &Configuration::default());
+    let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
     banner.version = String::from("1.0.1");
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;

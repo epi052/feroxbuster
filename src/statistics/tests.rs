@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 
 /// simple helper to reduce code reuse
 pub fn setup_stats_test() -> (Joiner, StatsHandle) {
-    let config = Arc::new(Configuration::default());
+    let config = Arc::new(Configuration::new().unwrap());
     StatsHandler::initialize(config)
 }
 

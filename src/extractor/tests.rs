@@ -19,7 +19,7 @@ lazy_static! {
     static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
     /// Configuration for Extractor
-    static ref CONFIG: Configuration = Configuration::default();
+    static ref CONFIG: Configuration = Configuration::new().unwrap();
 
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
