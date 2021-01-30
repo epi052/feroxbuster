@@ -1,12 +1,14 @@
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use reqwest::StatusCode;
+use tokio::sync::oneshot::Sender;
+
+use crate::ferox_response::FeroxResponse;
 use crate::{
     statistics::{StatError, StatField},
     traits::FeroxFilter,
-    FeroxResponse,
 };
-use reqwest::StatusCode;
-use std::collections::HashSet;
-use std::sync::Arc;
-use tokio::sync::oneshot::Sender;
 
 /// Protocol definition for updating an event handler via mpsc
 #[derive(Debug)]

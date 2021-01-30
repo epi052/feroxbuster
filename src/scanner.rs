@@ -1,3 +1,17 @@
+use std::{
+    collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
+    time::Instant,
+};
+
+use anyhow::{bail, Result};
+use futures::{stream, StreamExt};
+use fuzzyhash::FuzzyHash;
+use lazy_static::lazy_static;
+use regex::Regex;
+use reqwest::Url;
+use tokio::sync::{oneshot, Semaphore};
+
+use crate::ferox_response::FeroxResponse;
 use crate::ferox_url::FeroxUrl;
 use crate::{
     config::CONFIGURATION,
@@ -14,19 +28,8 @@ use crate::{
     skip_fail,
     statistics::StatField::{DirScanTimes, ExpectedPerScan},
     utils::{fmt_err, make_request},
-    CommandSender, FeroxResponse, SIMILARITY_THRESHOLD,
+    CommandSender, SIMILARITY_THRESHOLD,
 };
-use anyhow::{bail, Result};
-use futures::{stream, StreamExt};
-use fuzzyhash::FuzzyHash;
-use lazy_static::lazy_static;
-use regex::Regex;
-use reqwest::Url;
-use std::{
-    collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
-    time::Instant,
-};
-use tokio::sync::{oneshot, Semaphore};
 
 lazy_static! {
     /// Vector of FeroxResponse objects
@@ -340,8 +343,9 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::config::Configuration;
+
+    use super::*;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     #[should_panic]

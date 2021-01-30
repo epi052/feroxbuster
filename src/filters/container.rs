@@ -1,10 +1,14 @@
-use super::{FeroxFilter, WildcardFilter};
+use std::sync::Mutex;
+
+use anyhow::Result;
+
+use crate::ferox_response::FeroxResponse;
 use crate::{
     event_handlers::Command::UpdateUsizeField, statistics::StatField::WildcardsFiltered,
-    CommandSender, FeroxResponse,
+    CommandSender,
 };
-use anyhow::Result;
-use std::sync::Mutex;
+
+use super::{FeroxFilter, WildcardFilter};
 
 /// Container around a collection of `FeroxFilters`s
 #[derive(Debug, Default)]

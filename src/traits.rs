@@ -1,5 +1,5 @@
 //! collection of all traits used
-use crate::FeroxResponse;
+use crate::ferox_response::FeroxResponse;
 use anyhow::Result;
 use serde::Serialize;
 use std::any::Any;

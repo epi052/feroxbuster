@@ -26,6 +26,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
+use crate::ferox_response::FeroxResponse;
 use crate::{
     config::{Configuration, PROGRESS_BAR, PROGRESS_PRINTER},
     event_handlers::Handles,
@@ -34,7 +35,7 @@ use crate::{
     scanner::RESPONSES,
     statistics::Stats,
     utils::fmt_err,
-    FeroxResponse, FeroxSerialize, SLEEP_DURATION,
+    FeroxSerialize, SLEEP_DURATION,
 };
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with

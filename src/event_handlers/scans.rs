@@ -1,16 +1,20 @@
-use super::command::Command::UpdateUsizeField;
-use super::*;
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use anyhow::{bail, Result};
+use tokio::sync::mpsc;
+
+use crate::ferox_response::FeroxResponse;
 use crate::ferox_url::FeroxUrl;
 use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::scan_url,
     statistics::StatField::TotalScans,
-    CommandReceiver, CommandSender, FeroxChannel, FeroxResponse, Joiner,
+    CommandReceiver, CommandSender, FeroxChannel, Joiner,
 };
-use anyhow::{bail, Result};
-use std::collections::HashSet;
-use std::sync::Arc;
-use tokio::sync::mpsc;
+
+use super::command::Command::UpdateUsizeField;
+use super::*;
 
 #[derive(Debug)]
 /// Container for recursion transmitter and FeroxScans object

@@ -1,3 +1,10 @@
+use std::sync::Arc;
+
+use anyhow::{bail, Result};
+use console::style;
+use uuid::Uuid;
+
+use crate::ferox_response::FeroxResponse;
 use crate::{
     config::{CONFIGURATION, PROGRESS_PRINTER},
     event_handlers::{Command, Handles},
@@ -5,12 +12,7 @@ use crate::{
     filters::WildcardFilter,
     skip_fail,
     utils::{ferox_print, fmt_err, make_request, status_colorizer},
-    FeroxResponse,
 };
-use anyhow::{bail, Result};
-use console::style;
-use std::sync::Arc;
-use uuid::Uuid;
 
 /// length of a standard UUID, used when determining wildcard responses
 const UUID_LENGTH: u64 = 32;
