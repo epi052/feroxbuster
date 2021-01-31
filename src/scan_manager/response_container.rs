@@ -36,28 +36,18 @@ impl Serialize for FeroxResponses {
 impl FeroxResponses {
     /// Add a `FeroxResponse` to the internal container
     pub fn insert(&self, response: FeroxResponse) {
-        match self.responses.write() {
-            Ok(mut responses) => {
-                responses.push(response);
-            }
-            Err(e) => {
-                log::error!("FeroxResponses' container's mutex is poisoned: {}", e);
-            }
+        if let Ok(mut responses) = self.responses.write() {
+            responses.push(response);
         }
     }
 
     /// Simple check for whether or not a FeroxResponse is contained within the inner container
     pub fn contains(&self, other: &FeroxResponse) -> bool {
-        match self.responses.read() {
-            Ok(responses) => {
-                for response in responses.iter() {
-                    if response.url() == other.url() {
-                        return true;
-                    }
+        if let Ok(responses) = self.responses.read() {
+            for response in responses.iter() {
+                if response.url() == other.url() {
+                    return true;
                 }
-            }
-            Err(e) => {
-                log::error!("FeroxResponses' container's mutex is poisoned: {}", e);
             }
         }
         false
