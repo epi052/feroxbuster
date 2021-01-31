@@ -17,7 +17,7 @@ impl FeroxFilter for SimilarityFilter {
     /// Check `FeroxResponse::text` against what was requested from the site passed in via
     /// --filter-similar-to
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        let other = FuzzyHash::new(&response.text);
+        let other = FuzzyHash::new(&response.text());
 
         if let Ok(result) = FuzzyHash::compare(&self.text, &other.to_string()) {
             return result >= self.threshold;

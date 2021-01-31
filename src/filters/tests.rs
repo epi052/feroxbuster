@@ -1,7 +1,6 @@
 use super::*;
 use ::fuzzyhash::FuzzyHash;
 use ::regex::Regex;
-use reqwest::Url;
 
 #[test]
 /// simply test the default values for wildcardfilter, expect 0, 0
@@ -112,19 +111,15 @@ fn regex_filter_as_any() {
 #[test]
 /// test should_filter on WilcardFilter where static logic matches
 fn wildcard_should_filter_when_static_wildcard_found() {
-    let resp = FeroxResponse {
-        text: String::new(),
-        wildcard: true,
-        url: Url::parse("http://localhost").unwrap(),
-        content_length: 100,
-        word_count: 50,
-        line_count: 25,
-        headers: reqwest::header::HeaderMap::new(),
-        status: reqwest::StatusCode::OK,
-    };
+    let mut resp = FeroxResponse::default();
+    resp.set_wildcard(true);
+    resp.set_url("http://localhost");
+    resp.set_text(
+        "pellentesque diam volutpat commodo sed egestas egestas fringilla phasellus faucibus",
+    );
 
     let filter = WildcardFilter {
-        size: 100,
+        size: 83,
         dynamic: 0,
     };
 
@@ -134,24 +129,17 @@ fn wildcard_should_filter_when_static_wildcard_found() {
 #[test]
 /// test should_filter on WilcardFilter where dynamic logic matches
 fn wildcard_should_filter_when_dynamic_wildcard_found() {
-    let resp = FeroxResponse {
-        text: String::new(),
-        wildcard: true,
-        url: Url::parse("http://localhost/stuff").unwrap(),
-        content_length: 100,
-        word_count: 50,
-        line_count: 25,
-        headers: reqwest::header::HeaderMap::new(),
-        status: reqwest::StatusCode::OK,
-    };
+    let mut resp = FeroxResponse::default();
+    resp.set_wildcard(true);
+    resp.set_url("http://localhost/stuff");
+    resp.set_text("pellentesque diam volutpat commodo sed egestas egestas fringilla");
 
     let filter = WildcardFilter {
         size: 0,
-        dynamic: 95,
+        dynamic: 59, // content-length - 5 (len('stuff'))
     };
 
-    assert_eq!(filter.dynamic, 95);
-    assert_eq!(filter.size, 0);
+    println!("resp: {:?}: filter: {:?}", resp, filter);
 
     assert!(filter.should_filter_response(&resp));
 }
@@ -159,16 +147,9 @@ fn wildcard_should_filter_when_dynamic_wildcard_found() {
 #[test]
 /// test should_filter on RegexFilter where regex matches body
 fn regexfilter_should_filter_when_regex_matches_on_response_body() {
-    let resp = FeroxResponse {
-        text: String::from("im a body response hurr durr!"),
-        wildcard: false,
-        url: Url::parse("http://localhost/stuff").unwrap(),
-        content_length: 100,
-        word_count: 50,
-        line_count: 25,
-        headers: reqwest::header::HeaderMap::new(),
-        status: reqwest::StatusCode::OK,
-    };
+    let mut resp = FeroxResponse::default();
+    resp.set_url("http://localhost/stuff");
+    resp.set_text("im a body response hurr durr!");
 
     let raw = r"response...rr";
 
@@ -183,16 +164,9 @@ fn regexfilter_should_filter_when_regex_matches_on_response_body() {
 #[test]
 /// a few simple tests for similarity filter
 fn similarity_filter_is_accurate() {
-    let mut resp = FeroxResponse {
-        text: String::from("sitting"),
-        wildcard: false,
-        url: Url::parse("http://localhost/stuff").unwrap(),
-        content_length: 100,
-        word_count: 50,
-        line_count: 25,
-        headers: reqwest::header::HeaderMap::new(),
-        status: reqwest::StatusCode::OK,
-    };
+    let mut resp = FeroxResponse::default();
+    resp.set_url("http://localhost/stuff");
+    resp.set_text("sitting");
 
     let mut filter = SimilarityFilter {
         text: FuzzyHash::new("kitten").to_string(),
@@ -202,14 +176,14 @@ fn similarity_filter_is_accurate() {
     // kitten/sitting is 57% similar, so a threshold of 95 should not be filtered
     assert!(!filter.should_filter_response(&resp));
 
-    resp.text = String::new();
+    resp.set_text("");
     filter.text = String::new();
     filter.threshold = 100;
 
     // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
     assert!(!filter.should_filter_response(&resp));
 
-    resp.text = String::from("some data to hash for the purposes of running a test");
+    resp.set_text("some data to hash for the purposes of running a test");
     filter.text = FuzzyHash::new("some data to hash for the purposes of running a te").to_string();
     filter.threshold = 17;
 

@@ -226,7 +226,7 @@ impl TermOutHandler {
 
                         // before ownership is transferred, there's no real reason to keep the body anymore
                         // so we can free that piece of data, reducing memory usage
-                        resp.text = String::new();
+                        resp.drop_text();
 
                         RESPONSES.insert(*resp);
                     }

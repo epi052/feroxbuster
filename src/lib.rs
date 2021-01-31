@@ -1,30 +1,13 @@
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    str::FromStr,
-    sync::Arc,
-    {error, fmt},
-};
-
 use anyhow::{Context, Result};
 use console::{style, Color};
-use reqwest::{
-    header::{HeaderMap, HeaderName, HeaderValue},
-    Response, StatusCode, Url,
-};
-use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
 };
 
-use crate::{
-    event_handlers::{Command, Handles},
-    ferox_url::FeroxUrl,
-    traits::FeroxSerialize,
-    utils::{fmt_err, status_colorizer},
-};
+use crate::{event_handlers::Command, traits::FeroxSerialize, utils::fmt_err};
 
 pub mod banner;
 pub mod config;
@@ -175,10 +158,6 @@ impl FeroxSerialize for FeroxMessage {
 
 #[cfg(test)]
 mod tests {
-    use reqwest::Url;
-
-    use crate::ferox_response::FeroxResponse;
-
     use super::*;
 
     #[test]
@@ -242,104 +221,5 @@ mod tests {
         assert!((json.time_offset - message.time_offset).abs() < error_margin);
         assert_eq!(json.level, message.level);
         assert_eq!(json.kind, message.kind);
-    }
-    #[test]
-    /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
-    fn reached_max_depth_returns_early_on_zero() {
-        let handles = Arc::new(Handles::for_testing(None, None).0);
-        let url = Url::parse("http://localhost").unwrap();
-        let response = FeroxResponse {
-            url,
-            status: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-        };
-        let result = response.reached_max_depth(0, 0, handles);
-        assert!(!result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url depth equal to max depth, expect true
-    fn reached_max_depth_current_depth_equals_max() {
-        let handles = Arc::new(Handles::for_testing(None, None).0);
-
-        let url = Url::parse("http://localhost/one/two").unwrap();
-        let response = FeroxResponse {
-            url,
-            status: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-        };
-
-        let result = response.reached_max_depth(0, 2, handles);
-        assert!(result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url dpeth less than max depth, expect false
-    fn reached_max_depth_current_depth_less_than_max() {
-        let handles = Arc::new(Handles::for_testing(None, None).0);
-        let url = Url::parse("http://localhost").unwrap();
-        let response = FeroxResponse {
-            url,
-            status: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-        };
-
-        let result = response.reached_max_depth(0, 2, handles);
-        assert!(!result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
-    fn reached_max_depth_base_depth_equals_max_depth() {
-        let handles = Arc::new(Handles::for_testing(None, None).0);
-        let url = Url::parse("http://localhost/one/two").unwrap();
-        let response = FeroxResponse {
-            url,
-            status: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-        };
-
-        let result = response.reached_max_depth(2, 2, handles);
-        assert!(!result);
-    }
-
-    #[test]
-    /// call reached_max_depth with url depth greater than max depth, expect true
-    fn reached_max_depth_current_greater_than_max() {
-        let handles = Arc::new(Handles::for_testing(None, None).0);
-        let url = Url::parse("http://localhost/one/two/three").unwrap();
-        let response = FeroxResponse {
-            url,
-            status: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-        };
-
-        let result = response.reached_max_depth(0, 2, handles);
-        assert!(result);
     }
 }

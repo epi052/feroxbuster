@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use httpmock::{Method::GET, MockServer};
 use lazy_static::lazy_static;
-use reqwest::{header::HeaderMap, Client, StatusCode, Url};
+use reqwest::{Client, StatusCode, Url};
 use std::collections::HashSet;
 use tokio::sync::mpsc;
 
@@ -27,23 +27,16 @@ lazy_static! {
 
 /// constructor for the default FeroxResponse used during testing
 fn get_test_response() -> FeroxResponse {
-    FeroxResponse {
-        text: String::new(),
-        wildcard: true,
-        url: Url::parse("https://localhost").unwrap(),
-        content_length: 125,
-        word_count: 10,
-        line_count: 14,
-        headers: HeaderMap::new(),
-        status: StatusCode::OK,
-    }
+    let mut resp = FeroxResponse::default();
+    resp.set_text("nulla pharetra diam sit amet nisl suscipit adipiscing bibendum est");
+    resp
 }
 
 /// creates a single extractor that can be used to test standalone functions
 fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> Extractor<'static> {
     let mut builder = match target {
         ExtractionTarget::ResponseBody => ExtractorBuilder::with_response(&RESPONSE),
-        ExtractionTarget::RobotsTxt => ExtractorBuilder::with_url("https://localhost"),
+        ExtractionTarget::RobotsTxt => ExtractorBuilder::with_url("http://localhost"),
     };
     let handles = Arc::new(Handles::for_testing(Some(scanned_urls), None).0);
 
@@ -170,7 +163,7 @@ fn extractor_add_link_to_set_of_links_happy_path() {
         .unwrap();
 
     assert_eq!(r_links.len(), 1);
-    assert!(r_links.contains("https://localhost/admin"));
+    assert!(r_links.contains("http://localhost/admin"));
 
     assert_eq!(b_links.len(), 0);
 
@@ -179,7 +172,7 @@ fn extractor_add_link_to_set_of_links_happy_path() {
         .unwrap();
 
     assert_eq!(b_links.len(), 1);
-    assert!(b_links.contains("https://localhost/shmadmin"));
+    assert!(b_links.contains("http://localhost/shmadmin"));
 }
 
 #[test]

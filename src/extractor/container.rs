@@ -251,7 +251,7 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: add_link_to_set_of_links({}, {:?})", link, links);
 
         let old_url = match self.target {
-            ExtractionTarget::ResponseBody => self.response.unwrap().url.clone(),
+            ExtractionTarget::ResponseBody => self.response.unwrap().url().clone(),
             ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
                 Ok(u) => u,
                 Err(e) => {
@@ -322,7 +322,7 @@ impl<'a> Extractor<'a> {
 
         let response = self.request_robots_txt().await?;
 
-        for capture in self.robots_regex.captures_iter(response.text.as_str()) {
+        for capture in self.robots_regex.captures_iter(response.text()) {
             if let Some(new_path) = capture.name("url_path") {
                 let mut new_url = Url::parse(&self.url)?;
                 new_url.set_path(new_path.as_str());

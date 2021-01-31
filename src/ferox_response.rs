@@ -1,11 +1,16 @@
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    fmt,
+    str::FromStr,
+    sync::Arc,
+};
 
 use anyhow::Context;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::{Response, StatusCode, Url};
-use serde::export::fmt;
+use reqwest::{
+    header::{HeaderMap, HeaderName, HeaderValue},
+    Response, StatusCode, Url,
+};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
@@ -44,6 +49,23 @@ pub struct FeroxResponse {
     wildcard: bool,
 }
 
+/// implement Default trait for FeroxResponse
+impl Default for FeroxResponse {
+    /// return a default reqwest::Url and then normal defaults after that
+    fn default() -> Self {
+        Self {
+            url: Url::parse("http://localhost").unwrap(),
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        }
+    }
+}
+
 /// Implement Display for FeroxResponse
 impl fmt::Display for FeroxResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -62,6 +84,11 @@ impl FeroxResponse {
     /// Get the `StatusCode` of this `FeroxResponse`
     pub fn status(&self) -> &StatusCode {
         &self.status
+    }
+
+    /// Get the `wildcard` of this `FeroxResponse`
+    pub fn wildcard(&self) -> bool {
+        self.wildcard
     }
 
     /// Get the final `Url` of this `FeroxResponse`.
@@ -94,6 +121,29 @@ impl FeroxResponse {
                 log::error!("Could not parse {} into a Url: {}", url, e);
             }
         };
+    }
+
+    /// set `wildcard` attribute
+    pub fn set_wildcard(&mut self, is_wildcard: bool) {
+        self.wildcard = is_wildcard;
+    }
+
+    /// set `text` attribute; update words/lines/content_length
+    #[cfg(test)]
+    pub fn set_text(&mut self, text: &str) {
+        self.text = String::from(text);
+        self.content_length = self.text.len() as u64;
+        self.line_count = self.text.lines().count();
+        self.word_count = self
+            .text
+            .lines()
+            .map(|s| s.split_whitespace().count())
+            .sum();
+    }
+
+    /// free the `text` data, reducing memory usage
+    pub fn drop_text(&mut self) {
+        self.text = String::new();
     }
 
     /// Make a reasonable guess at whether the response is a file or not
@@ -169,7 +219,7 @@ impl FeroxResponse {
     ///
     /// Essentially looks at the Url path and determines how many directories are present in the
     /// given Url
-    fn reached_max_depth(
+    pub(crate) fn reached_max_depth(
         &self,
         base_depth: usize,
         max_depth: usize,
@@ -249,7 +299,7 @@ impl FeroxResponse {
     }
 }
 
-/// Implement FeroxSerialusize::from(ize for FeroxRespons)e
+/// Implement FeroxSerialize for FeroxResponse
 impl FeroxSerialize for FeroxResponse {
     /// Simple wrapper around create_report_string
     fn as_str(&self) -> String {
@@ -454,5 +504,110 @@ impl<'de> Deserialize<'de> for FeroxResponse {
         }
 
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
+    fn reached_max_depth_returns_early_on_zero() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+        let url = Url::parse("http://localhost").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+        let result = response.reached_max_depth(0, 0, handles);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth equal to max depth, expect true
+    fn reached_max_depth_current_depth_equals_max() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2, handles);
+        assert!(result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url dpeth less than max depth, expect false
+    fn reached_max_depth_current_depth_less_than_max() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+        let url = Url::parse("http://localhost").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2, handles);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url of 2, base depth of 2, and max depth of 2, expect false
+    fn reached_max_depth_base_depth_equals_max_depth() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+        let url = Url::parse("http://localhost/one/two").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(2, 2, handles);
+        assert!(!result);
+    }
+
+    #[test]
+    /// call reached_max_depth with url depth greater than max depth, expect true
+    fn reached_max_depth_current_greater_than_max() {
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+        let url = Url::parse("http://localhost/one/two/three").unwrap();
+        let response = FeroxResponse {
+            url,
+            status: Default::default(),
+            text: "".to_string(),
+            content_length: 0,
+            line_count: 0,
+            word_count: 0,
+            headers: Default::default(),
+            wildcard: false,
+        };
+
+        let result = response.reached_max_depth(0, 2, handles);
+        assert!(result);
     }
 }

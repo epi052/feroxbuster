@@ -918,7 +918,7 @@ impl FeroxResponses {
         match self.responses.read() {
             Ok(responses) => {
                 for response in responses.iter() {
-                    if response.url == other.url {
+                    if response.url() == other.url() {
                         return true;
                     }
                 }
@@ -1356,14 +1356,14 @@ mod tests {
         let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
         let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
-        assert_eq!(response.url.as_str(), "https://nerdcore.com/css");
-        assert_eq!(response.url.path(), "/css");
-        assert_eq!(response.wildcard, true);
-        assert_eq!(response.status.as_u16(), 301);
-        assert_eq!(response.content_length, 173);
-        assert_eq!(response.line_count, 10);
-        assert_eq!(response.word_count, 16);
-        assert_eq!(response.headers.get("server").unwrap(), "nginx/1.16.1");
+        assert_eq!(response.url().as_str(), "https://nerdcore.com/css");
+        assert_eq!(response.url().path(), "/css");
+        assert_eq!(response.wildcard(), true);
+        assert_eq!(response.status().as_u16(), 301);
+        assert_eq!(response.content_length(), 173);
+        assert_eq!(response.line_count(), 10);
+        assert_eq!(response.word_count(), 16);
+        assert_eq!(response.headers().get("server").unwrap(), "nginx/1.16.1");
 
         // serialize, however, this can fail when headers are out of order
         let new_json = serde_json::to_string(&response).unwrap();
