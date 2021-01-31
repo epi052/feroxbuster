@@ -1,18 +1,19 @@
 use std::env;
 use std::fs::OpenOptions;
-use std::time::Instant;
-
-use env_logger::Builder;
-
-use crate::utils::write_to;
-use crate::{
-    config::{Configuration, PROGRESS_PRINTER},
-    utils::fmt_err,
-    FeroxMessage, FeroxSerialize,
-};
-use anyhow::{Context, Result};
 use std::io::BufWriter;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
+
+use anyhow::{Context, Result};
+use env_logger::Builder;
+
+use crate::{
+    config::{Configuration, PROGRESS_PRINTER},
+    ferox_message::FeroxMessage,
+    utils::fmt_err,
+    utils::write_to,
+    FeroxSerialize,
+};
 
 /// Create a customized instance of
 /// [env_logger::Logger](https://docs.rs/env_logger/latest/env_logger/struct.Logger.html)
