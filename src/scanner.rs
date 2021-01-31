@@ -14,7 +14,6 @@ use tokio::sync::{oneshot, Semaphore};
 use crate::ferox_response::FeroxResponse;
 use crate::ferox_url::FeroxUrl;
 use crate::{
-    config::CONFIGURATION,
     event_handlers::{
         Command::{self, AddFilter, UpdateF64Field, UpdateUsizeField},
         Handles,
@@ -34,11 +33,6 @@ use crate::{
 lazy_static! {
     /// Vector of FeroxResponse objects
     pub static ref RESPONSES: FeroxResponses = FeroxResponses::default();
-
-    /// Bounded semaphore used as a barrier to limit concurrent scans
-    static ref SCAN_LIMITER: Semaphore = Semaphore::new(CONFIGURATION.scan_limit);
-
-
 }
 
 /// Wrapper for [make_request](fn.make_request.html)
@@ -119,13 +113,15 @@ pub async fn scan_url(
     order: ScanOrder,
     wordlist: Arc<HashSet<String>>,
     handles: Arc<Handles>,
+    scan_limiter: Arc<Semaphore>,
 ) -> Result<()> {
     log::trace!(
-        "enter: scan_url({:?}, {:?}, wordlist[{} words...], {:?})",
+        "enter: scan_url({:?}, {:?}, wordlist[{} words...], {:?}, {:?})",
         target_url,
         order,
         wordlist.len(),
-        handles
+        handles,
+        scan_limiter
     );
 
     log::info!("Starting scan against: {}", target_url);
@@ -165,7 +161,7 @@ pub async fn scan_url(
     // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
     // waits until an outstanding permit is dropped. At this point, the freed permit is assigned
     // to the caller.
-    let permit = SCAN_LIMITER.acquire().await;
+    let permit = scan_limiter.acquire().await;
 
     // Arc clones to be passed around to the various scans
     let looping_words = wordlist.clone();
@@ -326,13 +322,6 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
 
         let boxed_filter = Box::new(filter);
         handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    if handles.config.scan_limit == 0 {
-        // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
-        // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
-        // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
-        SCAN_LIMITER.add_permits(usize::MAX >> 4);
     }
 
     handles.filters.sync().await?;

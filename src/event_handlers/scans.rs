@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Semaphore};
 
 use crate::ferox_response::FeroxResponse;
 use crate::ferox_url::FeroxUrl;
@@ -63,6 +63,9 @@ pub struct ScanHandler {
 
     /// depths associated with the initial targets provided by the user
     depths: Vec<(String, usize)>,
+
+    /// Bounded semaphore used as a barrier to limit concurrent scans
+    limiter: Arc<Semaphore>,
 }
 
 /// implementation of event handler for filters
@@ -74,6 +77,20 @@ impl ScanHandler {
         max_depth: usize,
         receiver: CommandReceiver,
     ) -> Self {
+        let limit = handles.config.scan_limit;
+        let limiter = Semaphore::new(limit);
+
+        if limit == 0 {
+            // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
+            // permit is tricky, so as a workaround, we'll add a ridiculous number of permits to
+            // the semaphore (1,152,921,504,606,846,975 to be exact) and call that 'unlimited'
+
+            // note to self: the docs say max is usize::MAX >> 3, however, threads will panic if
+            // that value is used (says adding (1) will overflow the semaphore, even though none
+            // are being added...)
+            limiter.add_permits(usize::MAX >> 4);
+        }
+
         Self {
             data,
             handles,
@@ -81,6 +98,7 @@ impl ScanHandler {
             max_depth,
             tasks: Vec::new(),
             depths: Vec::new(),
+            limiter: Arc::new(limiter),
             wordlist: std::sync::Mutex::new(None),
         }
     }
@@ -131,13 +149,17 @@ impl ScanHandler {
                 }
                 Command::JoinTasks(sender) => {
                     let ferox_scans = self.handles.ferox_scans().unwrap_or_default();
+                    let limiter_clone = self.limiter.clone();
 
                     tokio::spawn(async move {
                         while ferox_scans.has_active_scans() {
                             for scan in ferox_scans.get_active_scans() {
+                                log::debug!("FAFAFA joining {:?}", scan);
                                 scan.join().await;
+                                log::debug!("FAFAFA joined {:?}", scan);
                             }
                         }
+                        limiter_clone.close();
                         sender.send(true).expect("oneshot channel failed");
                     });
                 }
@@ -198,9 +220,10 @@ impl ScanHandler {
             }
 
             let handles_clone = self.handles.clone();
+            let limiter_clone = self.limiter.clone();
 
             let task = tokio::spawn(async move {
-                if let Err(e) = scan_url(&target, order, list, handles_clone).await {
+                if let Err(e) = scan_url(&target, order, list, handles_clone, limiter_clone).await {
                     log::warn!("{}", e);
                 }
             });

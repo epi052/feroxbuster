@@ -237,7 +237,7 @@ impl FeroxScan {
 
     /// await a task's completion, similar to a thread's join; perform necessary bookkeeping
     pub async fn join(&self) {
-        log::debug!("enter join({:?})", self);
+        log::trace!("enter join({:?})", self);
         let mut guard = self.task.lock().await;
 
         if guard.is_some() {
@@ -248,7 +248,7 @@ impl FeroxScan {
             }
         }
 
-        // log::trace!("exit join({:?})", self);
+        log::trace!("exit join({:?})", self);
     }
 }
 

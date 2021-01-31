@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::ferox_response::FeroxResponse;
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::PROGRESS_PRINTER,
     event_handlers::{Command, Handles},
     ferox_url::FeroxUrl,
     filters::WildcardFilter,
@@ -158,7 +158,9 @@ impl HeuristicTests {
         )
         .await?;
 
-        if CONFIGURATION
+        if self
+            .handles
+            .config
             .status_codes
             .contains(&response.status().as_u16())
         {
@@ -213,7 +215,7 @@ impl HeuristicTests {
                     good_urls.push(target_url.to_owned());
                 }
                 Err(e) => {
-                    if !CONFIGURATION.quiet {
+                    if !self.handles.config.quiet {
                         ferox_print(
                             &format!("Could not connect to {}, skipping...", target_url),
                             &PROGRESS_PRINTER,
