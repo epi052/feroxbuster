@@ -5,7 +5,7 @@ on: [push]
 jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
-#    if: github.ref == 'refs/heads/master'
+#    if: github.ref == 'refs/heads/master'  todo uncomment before merge to master
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86]
