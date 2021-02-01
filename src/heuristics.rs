@@ -93,7 +93,7 @@ impl HeuristicTests {
         let ferox_response = self.make_wildcard_request(&ferox_url, 1).await?;
 
         // found a wildcard response
-        let mut wildcard = WildcardFilter::default();
+        let mut wildcard = WildcardFilter::new(self.handles.config.dont_filter);
 
         let wc_length = ferox_response.content_length();
 

@@ -17,6 +17,20 @@ pub struct WildcardFilter {
 
     /// size of the response that should be included with filters passed via runtime configuration
     pub size: u64,
+
+    /// whether or not the user passed -D on the command line
+    pub(super) dont_filter: bool,
+}
+
+/// implementation of WildcardFilter
+impl WildcardFilter {
+    /// given a boolean representing whether -D was used or not, create a new WildcardFilter
+    pub fn new(dont_filter: bool) -> Self {
+        Self {
+            dont_filter,
+            ..Default::default()
+        }
+    }
 }
 
 /// implement default that populates both values with u64::MAX
@@ -24,6 +38,7 @@ impl Default for WildcardFilter {
     /// populate both values with u64::MAX
     fn default() -> Self {
         Self {
+            dont_filter: false,
             size: u64::MAX,
             dynamic: u64::MAX,
         }

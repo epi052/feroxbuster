@@ -121,6 +121,7 @@ fn wildcard_should_filter_when_static_wildcard_found() {
     let filter = WildcardFilter {
         size: 83,
         dynamic: 0,
+        dont_filter: false,
     };
 
     assert!(filter.should_filter_response(&resp));
@@ -137,6 +138,7 @@ fn wildcard_should_filter_when_dynamic_wildcard_found() {
     let filter = WildcardFilter {
         size: 0,
         dynamic: 59, // content-length - 5 (len('stuff'))
+        dont_filter: false,
     };
 
     println!("resp: {:?}: filter: {:?}", resp, filter);
