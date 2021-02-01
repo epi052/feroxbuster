@@ -16,8 +16,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::event_handlers::Handles;
-use crate::ferox_url::FeroxUrl;
 use crate::traits::FeroxSerialize;
+use crate::url::FeroxUrl;
 use crate::utils;
 use crate::utils::{fmt_err, status_colorizer};
 
@@ -47,6 +47,9 @@ pub struct FeroxResponse {
 
     /// Wildcard response status
     wildcard: bool,
+
+    /// whether the user passed -q on the command line
+    quiet: bool,
 }
 
 /// implement Default trait for FeroxResponse
@@ -62,12 +65,14 @@ impl Default for FeroxResponse {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
+            quiet: false,
         }
     }
 }
 
 /// Implement Display for FeroxResponse
 impl fmt::Display for FeroxResponse {
+    /// formatter for Display
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -178,7 +183,7 @@ impl FeroxResponse {
     }
 
     /// Create a new `FeroxResponse` from the given `Response`
-    pub async fn from(response: Response, read_body: bool) -> Self {
+    pub async fn from(response: Response, read_body: bool, quiet: bool) -> Self {
         let url = response.url().clone();
         let status = response.status();
         let headers = response.headers().clone();
@@ -211,6 +216,7 @@ impl FeroxResponse {
             headers,
             line_count,
             word_count,
+            quiet,
             wildcard: false,
         }
     }
@@ -353,6 +359,7 @@ impl FeroxSerialize for FeroxResponse {
                 &words,
                 &chars,
                 self.url().as_str(),
+                self.quiet,
             )
         }
     }
@@ -439,6 +446,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             content_length: 0,
             headers: HeaderMap::new(),
             wildcard: false,
+            quiet: false,
             line_count: 0,
             word_count: 0,
         };
@@ -525,6 +533,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
+            quiet: false,
         };
         let result = response.reached_max_depth(0, 0, handles);
         assert!(!result);
@@ -545,6 +554,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
+            quiet: false,
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -565,6 +575,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
+            quiet: false,
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -585,6 +596,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
+            quiet: false,
         };
 
         let result = response.reached_max_depth(2, 2, handles);
@@ -605,6 +617,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
+            quiet: false,
         };
 
         let result = response.reached_max_depth(0, 2, handles);

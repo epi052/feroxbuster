@@ -2,10 +2,10 @@ use super::*;
 use crate::{
     client,
     event_handlers::{Command, Command::UpdateUsizeField, Handles},
-    ferox_url::FeroxUrl,
     scan_manager::ScanOrder,
     scanner::send_report,
     statistics::StatField::{LinksExtracted, TotalExpected},
+    url::FeroxUrl,
     utils::make_request,
 };
 use anyhow::{bail, Context, Result};
@@ -297,10 +297,16 @@ impl<'a> Extractor<'a> {
         }
 
         // make the request and store the response
-        let new_response =
-            make_request(&self.config.client, &new_url, self.handles.stats.tx.clone()).await?;
+        let new_response = make_request(
+            &self.config.client,
+            &new_url,
+            self.handles.config.quiet,
+            self.handles.stats.tx.clone(),
+        )
+        .await?;
 
-        let new_ferox_response = FeroxResponse::from(new_response, true).await;
+        let new_ferox_response =
+            FeroxResponse::from(new_response, true, self.handles.config.quiet).await;
 
         log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
@@ -372,8 +378,14 @@ impl<'a> Extractor<'a> {
         let mut url = Url::parse(&self.url)?;
         url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
 
-        let response = make_request(&client, &url, self.handles.stats.tx.clone()).await?;
-        let ferox_response = FeroxResponse::from(response, true).await;
+        let response = make_request(
+            &client,
+            &url,
+            self.handles.config.quiet,
+            self.handles.stats.tx.clone(),
+        )
+        .await?;
+        let ferox_response = FeroxResponse::from(response, true, self.handles.config.quiet).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
         return Ok(ferox_response);

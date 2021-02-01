@@ -11,8 +11,8 @@ use regex::Regex;
 use reqwest::Url;
 use tokio::sync::{oneshot, Semaphore};
 
-use crate::ferox_response::FeroxResponse;
-use crate::ferox_url::FeroxUrl;
+use crate::response::FeroxResponse;
+use crate::url::FeroxUrl;
 use crate::{
     event_handlers::{
         Command::{self, AddFilter, UpdateF64Field, UpdateUsizeField},
@@ -51,10 +51,16 @@ async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> R
     let urls = FeroxUrl::from_string(target_url, handles.clone()).formatted_urls(word)?;
 
     for url in urls {
-        let response = make_request(&handles.config.client, &url, handles.stats.tx.clone()).await?;
+        let response = make_request(
+            &handles.config.client,
+            &url,
+            handles.config.quiet,
+            handles.stats.tx.clone(),
+        )
+        .await?;
 
         // response came back without error, convert it to FeroxResponse
-        let ferox_response = FeroxResponse::from(response, true).await;
+        let ferox_response = FeroxResponse::from(response, true, handles.config.quiet).await;
 
         // do recursion if appropriate
         if !handles.config.no_recursion {
@@ -306,11 +312,18 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
         let url = skip_fail!(Url::parse(&similarity_filter));
 
         // attempt to request the given url
-        let resp =
-            skip_fail!(make_request(&handles.config.client, &url, handles.stats.tx.clone()).await);
+        let resp = skip_fail!(
+            make_request(
+                &handles.config.client,
+                &url,
+                handles.config.quiet,
+                handles.stats.tx.clone()
+            )
+            .await
+        );
 
         // if successful, create a filter based on the response's body
-        let fr = FeroxResponse::from(resp, true).await;
+        let fr = FeroxResponse::from(resp, true, handles.config.quiet).await;
 
         // hash the response body and store the resulting hash in the filter object
         let hash = FuzzyHash::new(&fr.text()).to_string();

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use tokio::sync::{mpsc, Semaphore};
 
-use crate::ferox_response::FeroxResponse;
-use crate::ferox_url::FeroxUrl;
+use crate::response::FeroxResponse;
+use crate::url::FeroxUrl;
 use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::scan_url,

@@ -25,9 +25,9 @@ mod traits;
 pub mod utils;
 mod extractor;
 mod macros;
-mod ferox_url;
-mod ferox_response;
-mod ferox_message;
+mod url;
+mod response;
+mod message;
 
 /// Alias for tokio::sync::mpsc::UnboundedSender<Command>
 pub(crate) type CommandSender = UnboundedSender<Command>;

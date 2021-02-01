@@ -4,7 +4,7 @@ use std::sync::Arc;
 use reqwest::StatusCode;
 use tokio::sync::oneshot::Sender;
 
-use crate::ferox_response::FeroxResponse;
+use crate::response::FeroxResponse;
 use crate::{
     statistics::{StatError, StatField},
     traits::FeroxFilter,

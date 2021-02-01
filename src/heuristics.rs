@@ -4,13 +4,13 @@ use anyhow::{bail, Result};
 use console::style;
 use uuid::Uuid;
 
-use crate::ferox_response::FeroxResponse;
+use crate::response::FeroxResponse;
 use crate::{
     config::PROGRESS_PRINTER,
     event_handlers::{Command, Handles},
-    ferox_url::FeroxUrl,
     filters::WildcardFilter,
     skip_fail,
+    url::FeroxUrl,
     utils::{ferox_print, fmt_err, make_request, status_colorizer},
 };
 
@@ -154,6 +154,7 @@ impl HeuristicTests {
         let response = make_request(
             &self.handles.config.client,
             &nonexistent_url.to_owned(),
+            self.handles.config.quiet,
             self.handles.stats.tx.clone(),
         )
         .await?;
@@ -165,7 +166,8 @@ impl HeuristicTests {
             .contains(&response.status().as_u16())
         {
             // found a wildcard response
-            let mut ferox_response = FeroxResponse::from(response, true).await;
+            let mut ferox_response =
+                FeroxResponse::from(response, true, self.handles.config.quiet).await;
             ferox_response.set_wildcard(true);
 
             if self
@@ -206,6 +208,7 @@ impl HeuristicTests {
             let result = make_request(
                 &self.handles.config.client,
                 &request,
+                self.handles.config.quiet,
                 self.handles.stats.tx.clone(),
             )
             .await;

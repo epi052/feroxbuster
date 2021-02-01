@@ -4,7 +4,7 @@ use std::sync::Arc;
 use regex::Regex;
 
 use crate::config::Configuration;
-use crate::ferox_response::FeroxResponse;
+use crate::response::FeroxResponse;
 
 pub use self::builder::ExtractionTarget;
 pub use self::builder::ExtractorBuilder;

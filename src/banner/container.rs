@@ -348,8 +348,13 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let api_url = Url::parse(url)?;
 
-        let response =
-            make_request(&handles.config.client, &api_url, handles.stats.tx.clone()).await?;
+        let response = make_request(
+            &handles.config.client,
+            &api_url,
+            handles.config.quiet,
+            handles.stats.tx.clone(),
+        )
+        .await?;
 
         let body = response.text().await?;
 

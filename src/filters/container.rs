@@ -2,7 +2,7 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 
-use crate::ferox_response::FeroxResponse;
+use crate::response::FeroxResponse;
 use crate::{
     event_handlers::Command::UpdateUsizeField, statistics::StatField::WildcardsFiltered,
     CommandSender,

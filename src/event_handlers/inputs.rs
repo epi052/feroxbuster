@@ -40,7 +40,8 @@ impl TermInputHandler {
         Self { handles }
     }
 
-    /// Initialize the sc side of an mpsc channel that is responsible for updates  todo update for correctness
+    /// Initialize the sigint and enter handlers that are responsible for handling initial user
+    /// interaction during scans
     pub fn initialize(handles: Arc<Handles>) {
         log::trace!("enter: initialize({:?})", handles);
 

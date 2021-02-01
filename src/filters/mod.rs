@@ -2,7 +2,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-use crate::ferox_response::FeroxResponse;
+use crate::response::FeroxResponse;
 use crate::traits::{FeroxFilter, FeroxSerialize};
 
 pub use self::container::FeroxFilters;

@@ -210,11 +210,13 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let client = Client::new();
     let url = Url::parse(&srv.url("/some-path")).unwrap();
 
-    let response = make_request(&client, &url, tx_stats.clone()).await.unwrap();
+    let response = make_request(&client, &url, false, tx_stats.clone())
+        .await
+        .unwrap();
     let (handles, _rx) = Handles::for_testing(None, None);
 
     let handles = Arc::new(handles);
-    let ferox_response = FeroxResponse::from(response, true).await;
+    let ferox_response = FeroxResponse::from(response, true, false).await;
 
     let extractor = Extractor {
         links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),

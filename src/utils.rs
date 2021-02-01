@@ -11,7 +11,7 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    config::{CONFIGURATION, PROGRESS_PRINTER},
+    config::PROGRESS_PRINTER,
     event_handlers::Command::{self, AddError, AddStatus},
     send_command,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
@@ -84,11 +84,13 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 pub async fn make_request(
     client: &Client,
     url: &Url,
+    quiet: bool,
     tx_stats: UnboundedSender<Command>,
 ) -> Result<Response> {
     log::trace!(
-        "enter: make_request(CONFIGURATION.Client, {}, {:?})",
+        "enter: make_request(CONFIGURATION.Client, {}, {}, {:?})",
         url,
+        quiet,
         tx_stats
     );
 
@@ -108,9 +110,16 @@ pub async fn make_request(
 
                     let report = if let Some(msg_status) = e.status() {
                         send_command!(tx_stats, AddStatus(msg_status));
-                        create_report_string(msg_status.as_str(), "-1", "-1", "-1", &fancy_message)
+                        create_report_string(
+                            msg_status.as_str(),
+                            "-1",
+                            "-1",
+                            "-1",
+                            &fancy_message,
+                            quiet,
+                        )
                     } else {
-                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message)
+                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message, quiet)
                     };
 
                     send_command!(tx_stats, AddError(Redirection));
@@ -151,8 +160,9 @@ pub fn create_report_string(
     word_count: &str,
     content_length: &str,
     url: &str,
+    quiet: bool,
 ) -> String {
-    if CONFIGURATION.quiet {
+    if quiet {
         // -q used, just need the url
         format!("{}\n", url)
     } else {

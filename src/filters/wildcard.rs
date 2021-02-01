@@ -1,5 +1,5 @@
 use super::*;
-use crate::ferox_url::FeroxUrl;
+use crate::url::FeroxUrl;
 
 /// Data holder for two pieces of data needed when auto-filtering out wildcard responses
 ///

@@ -9,7 +9,7 @@ use env_logger::Builder;
 
 use crate::{
     config::{Configuration, PROGRESS_PRINTER},
-    ferox_message::FeroxMessage,
+    message::FeroxMessage,
     utils::fmt_err,
     utils::write_to,
     FeroxSerialize,

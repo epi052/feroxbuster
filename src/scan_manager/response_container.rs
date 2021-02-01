@@ -1,4 +1,4 @@
-use crate::ferox_response::FeroxResponse;
+use crate::response::FeroxResponse;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::sync::{Arc, RwLock};
 

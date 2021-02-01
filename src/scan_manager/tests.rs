@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    config::Configuration, event_handlers::Handles, ferox_response::FeroxResponse,
-    scanner::RESPONSES, statistics::Stats, FeroxSerialize, SLEEP_DURATION, VERSION,
+    config::Configuration, event_handlers::Handles, response::FeroxResponse, scanner::RESPONSES,
+    statistics::Stats, FeroxSerialize, SLEEP_DURATION, VERSION,
 };
 use indicatif::ProgressBar;
 use predicates::prelude::*;
