@@ -122,16 +122,11 @@ impl FeroxScans {
     /// Simple check for whether or not a FeroxScan is contained within the inner container based
     /// on the given URL
     pub fn contains(&self, url: &str) -> bool {
-        match self.scans.read() {
-            Ok(scans) => {
-                for scan in scans.iter() {
-                    if scan.url == url {
-                        return true;
-                    }
+        if let Ok(scans) = self.scans.read() {
+            for scan in scans.iter() {
+                if scan.url == url {
+                    return true;
                 }
-            }
-            Err(e) => {
-                log::error!("FeroxScans' container's mutex is poisoned: {}", e);
             }
         }
         false
@@ -362,6 +357,7 @@ impl FeroxScans {
         self.add_scan(&url, ScanType::File, scan_order)
     }
 
+    /// small helper to determine whether any scans are active or not
     pub fn has_active_scans(&self) -> bool {
         if let Ok(guard) = self.scans.read() {
             for scan in guard.iter() {

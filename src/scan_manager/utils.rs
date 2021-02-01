@@ -1,6 +1,9 @@
+#[cfg(not(test))]
+use crate::event_handlers::TermInputHandler;
 use crate::{
     config::Configuration, event_handlers::Handles, parser::TIMESPEC_REGEX, scanner::RESPONSES,
 };
+
 use std::{fs::File, io::BufReader, sync::Arc};
 use tokio::time;
 
@@ -40,7 +43,7 @@ pub async fn start_max_time_thread(handles: Arc<Handles>) {
         #[cfg(test)]
         panic!(handles);
         #[cfg(not(test))]
-        let _ = crate::event_handlers::TermInputHandler::sigint_handler(handles.clone());
+        let _ = TermInputHandler::sigint_handler(handles.clone());
     }
 
     log::error!(
