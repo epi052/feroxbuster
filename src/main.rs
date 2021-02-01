@@ -12,13 +12,14 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
-    config::{Configuration, PROGRESS_BAR, PROGRESS_PRINTER},
+    config::Configuration,
     event_handlers::{
         Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermInputHandler,
         TermOutHandler, SCAN_COMPLETE,
     },
     heuristics, logger,
+    progress::{PROGRESS_BAR, PROGRESS_PRINTER},
     scan_manager::{self},
     scanner,
     utils::fmt_err,

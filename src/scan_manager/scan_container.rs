@@ -1,7 +1,7 @@
 use super::scan::ScanType;
 use super::*;
 use crate::{
-    config::PROGRESS_PRINTER,
+    progress::PROGRESS_PRINTER,
     progress::{add_bar, BarType},
     scanner::RESPONSES,
     FeroxSerialize, SLEEP_DURATION,

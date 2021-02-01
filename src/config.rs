@@ -1,14 +1,11 @@
 use crate::{
     client, parser,
-    progress::{add_bar, BarType},
     scan_manager::resume_scan,
     utils::{fmt_err, module_colorizer, status_colorizer},
     FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
 };
 use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
-use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 #[cfg(not(test))]
@@ -19,14 +16,6 @@ use std::{
     fs::read_to_string,
     path::PathBuf,
 };
-
-lazy_static! {
-    /// Global progress bar that houses other progress bars
-    pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
-
-    /// Global progress bar that is only used for printing messages that don't jack up other bars
-    pub static ref PROGRESS_PRINTER: ProgressBar = add_bar("", 0, BarType::Hidden);
-}
 
 /// macro helper to abstract away repetitive configuration updates
 macro_rules! update_config_if_present {

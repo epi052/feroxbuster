@@ -8,10 +8,10 @@ use anyhow::{Context, Result};
 use env_logger::Builder;
 
 use crate::{
-    config::{Configuration, PROGRESS_PRINTER},
+    config::Configuration,
     message::FeroxMessage,
-    utils::fmt_err,
-    utils::write_to,
+    progress::PROGRESS_PRINTER,
+    utils::{fmt_err, write_to},
     FeroxSerialize,
 };
 

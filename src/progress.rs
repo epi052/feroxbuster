@@ -1,5 +1,13 @@
-use crate::config::PROGRESS_BAR;
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use lazy_static::lazy_static;
+
+lazy_static! {
+    /// Global progress bar that houses other progress bars
+    pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
+
+    /// Global progress bar that is only used for printing messages that don't jack up other bars
+    pub static ref PROGRESS_PRINTER: ProgressBar = add_bar("", 0, BarType::Hidden);
+}
 
 /// Types of ProgressBars that can be added to `PROGRESS_BAR`
 #[derive(Copy, Clone)]

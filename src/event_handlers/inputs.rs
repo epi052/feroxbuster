@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    config::PROGRESS_PRINTER,
+    progress::PROGRESS_PRINTER,
     scan_manager::FeroxState,
     scan_manager::PAUSE_SCAN,
     scanner::RESPONSES,

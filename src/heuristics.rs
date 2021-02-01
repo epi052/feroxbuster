@@ -6,9 +6,9 @@ use uuid::Uuid;
 
 use crate::response::FeroxResponse;
 use crate::{
-    config::PROGRESS_PRINTER,
     event_handlers::{Command, Handles},
     filters::WildcardFilter,
+    progress::PROGRESS_PRINTER,
     skip_fail,
     url::FeroxUrl,
     utils::{ferox_print, fmt_err, make_request, status_colorizer},

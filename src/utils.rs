@@ -11,8 +11,8 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    config::PROGRESS_PRINTER,
     event_handlers::Command::{self, AddError, AddStatus},
+    progress::PROGRESS_PRINTER,
     send_command,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
     traits::FeroxSerialize,

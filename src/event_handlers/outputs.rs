@@ -5,7 +5,8 @@ use anyhow::{Context, Result};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    config::{Configuration, PROGRESS_PRINTER},
+    config::Configuration,
+    progress::PROGRESS_PRINTER,
     scanner::RESPONSES,
     send_command, skip_fail,
     statistics::StatField::ResourcesDiscovered,

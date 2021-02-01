@@ -1,4 +1,4 @@
-use crate::config::PROGRESS_BAR;
+use crate::progress::PROGRESS_BAR;
 use console::{measure_text_width, pad_str, style, Alignment, Term};
 use indicatif::ProgressDrawTarget;
 
