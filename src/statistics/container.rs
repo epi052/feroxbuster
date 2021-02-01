@@ -12,7 +12,6 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::CONFIGURATION,
     utils::{fmt_err, open_file, write_to},
     FeroxSerialize,
 };
@@ -124,6 +123,14 @@ pub struct Stats {
 
     /// tracker for total runtime
     total_runtime: Mutex<Vec<f64>>,
+
+    /// tracker for the number of extensions the user specified
+    #[serde(skip)]
+    num_extensions: usize,
+
+    /// tracker for whether to use json during serialization or not
+    #[serde(skip)]
+    json: bool,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -144,8 +151,10 @@ impl FeroxSerialize for Stats {
 impl Stats {
     /// Small wrapper for default to set `kind` to "statistics" and `total_runtime` to have at least
     /// one value
-    pub fn new() -> Self {
+    pub fn new(num_extensions: usize, is_json: bool) -> Self {
         Self {
+            num_extensions,
+            json: is_json,
             kind: String::from("statistics"),
             total_runtime: Mutex::new(vec![0.0]),
             ..Default::default()
@@ -195,7 +204,7 @@ impl Stats {
 
         self.update_runtime(seconds);
 
-        write_to(self, &mut file, CONFIGURATION.json)?;
+        write_to(self, &mut file, self.json)?;
 
         Ok(())
     }
@@ -305,7 +314,7 @@ impl Stats {
                 atomic_increment!(self.expected_per_scan, value);
             }
             StatField::TotalScans => {
-                let multiplier = CONFIGURATION.extensions.len().max(1);
+                let multiplier = self.num_extensions.max(1);
 
                 atomic_increment!(self.total_scans, value);
                 atomic_increment!(
@@ -403,7 +412,7 @@ impl Stats {
 
 #[cfg(test)]
 mod tests {
-    use crate::Command;
+    use crate::{config::Configuration, Command};
     use std::fs::write;
     use tempfile::NamedTempFile;
 
@@ -500,7 +509,9 @@ mod tests {
     ///     - requests
     ///     - errors
     fn stats_increments_timeouts() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
@@ -516,7 +527,9 @@ mod tests {
     /// the following:
     ///     - responses_filtered
     fn stats_increments_wildcards() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
         assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 0);
 
@@ -530,7 +543,9 @@ mod tests {
     #[test]
     /// when Stats::update_usize_field receives StatField::ResponsesFiltered, it should increment
     fn stats_increments_responses_filtered() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
 
         stats.update_usize_field(StatField::ResponsesFiltered, 1);
@@ -544,7 +559,9 @@ mod tests {
     /// Stats::merge_from should properly increment expected fields and ignore others
     fn stats_merge_from_alters_correct_fields() {
         let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         let tfile = NamedTempFile::new().unwrap();
         write(&tfile, contents).unwrap();
 
@@ -593,7 +610,9 @@ mod tests {
     #[test]
     /// ensure update runtime overwrites the default 0th entry
     fn update_runtime_works() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
         stats.update_runtime(20.2);
         assert!((stats.total_runtime.lock().unwrap()[0] - 20.2).abs() < f64::EPSILON);

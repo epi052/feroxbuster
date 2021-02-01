@@ -39,7 +39,9 @@ async fn statistics_handler_exits() -> Result<()> {
 #[test]
 /// Stats::save should write contents of Stats to disk
 fn save_writes_stats_object_to_disk() {
-    let stats = Stats::new();
+    let config = Configuration::new().unwrap();
+    let stats = Stats::new(config.extensions.len(), config.json);
+
     stats.add_request();
     stats.add_request();
     stats.add_request();
