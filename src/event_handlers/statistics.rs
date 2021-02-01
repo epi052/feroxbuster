@@ -108,6 +108,7 @@ impl StatsHandler {
                 }
                 Command::UpdateF64Field(field, value) => self.stats.update_f64_field(field, value),
                 Command::CreateBar => {
+                    // todo qhat baout -q
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
                 }
                 Command::LoadStats(filename) => {

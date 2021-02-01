@@ -2,7 +2,7 @@ use crate::{event_handlers::Handles, statistics::StatError::UrlFormat, Command::
 use anyhow::{anyhow, bail, Result};
 use reqwest::Url;
 use std::{convert::TryInto, fmt, sync::Arc};
-// todo rename this and other ferox_* modules to just be the base name
+
 /// abstraction around target urls; collects all Url related shenanigans in one place
 #[derive(Debug)]
 pub struct FeroxUrl {

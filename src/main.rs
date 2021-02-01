@@ -86,8 +86,8 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    handles.stats.send(CreateBar)?;
-    // blocks until the bar is created / avoids race condition in first two bars
+    handles.stats.send(CreateBar)?; // todo qhat about -q ?
+                                    // blocks until the bar is created / avoids race condition in first two bars
     handles.stats.sync().await?;
 
     if handles.config.resumed {

@@ -1,4 +1,4 @@
-use crate::config::{CONFIGURATION, PROGRESS_BAR};
+use crate::config::PROGRESS_BAR;
 use indicatif::{ProgressBar, ProgressStyle};
 
 /// Types of ProgressBars that can be added to `PROGRESS_BAR`
@@ -22,21 +22,16 @@ pub enum BarType {
 pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
     let mut style = ProgressStyle::default_bar().progress_chars("#>-");
 
-    style = if CONFIGURATION.quiet {
-        style.template("")
-    } else {
-        match bar_type {
-            BarType::Hidden => style.template(""),
-            BarType::Default => style.template(
-                "[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {per_sec:7} {prefix}",
-            ),
-            BarType::Message => style.template(&format!(
-                "[{{bar:.cyan/blue}}] - {{elapsed:<4}} {{pos:>7}}/{{len:7}} {:7} {{prefix}}",
-                "-"
-            )),
-            BarType::Total => {
-                style.template("[{bar:.yellow/blue}] - {elapsed:<4} {pos:>7}/{len:7} {eta:7} {msg}")
-            }
+    style = match bar_type {
+        BarType::Hidden => style.template(""),
+        BarType::Default => style
+            .template("[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {per_sec:7} {prefix}"),
+        BarType::Message => style.template(&format!(
+            "[{{bar:.cyan/blue}}] - {{elapsed:<4}} {{pos:>7}}/{{len:7}} {:7} {{prefix}}",
+            "-"
+        )),
+        BarType::Total => {
+            style.template("[{bar:.yellow/blue}] - {elapsed:<4} {pos:>7}/{len:7} {eta:7} {msg}")
         }
     };
 

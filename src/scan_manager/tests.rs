@@ -61,6 +61,7 @@ fn add_url_to_list_of_scanned_urls_with_known_url() {
         ScanType::Directory,
         ScanOrder::Latest,
         pb.length(),
+        false,
         Some(pb),
     );
 
@@ -82,6 +83,7 @@ fn stop_progress_bar_stops_bar() {
         ScanType::Directory,
         ScanOrder::Latest,
         pb.length(),
+        false,
         Some(pb),
     );
 
@@ -114,7 +116,7 @@ fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
     let urls = FeroxScans::default();
     let url = "http://unknown_url";
 
-    let scan = FeroxScan::new(url, ScanType::File, ScanOrder::Latest, 0, None);
+    let scan = FeroxScan::new(url, ScanType::File, ScanOrder::Latest, 0, false, None);
 
     assert_eq!(urls.insert(scan), true);
 
@@ -136,6 +138,7 @@ async fn call_display_scans() {
         ScanType::Directory,
         ScanOrder::Latest,
         pb.length(),
+        false,
         Some(pb),
     );
     let scan_two = FeroxScan::new(
@@ -143,6 +146,7 @@ async fn call_display_scans() {
         ScanType::Directory,
         ScanOrder::Latest,
         pb_two.length(),
+        false,
         Some(pb_two),
     );
 
@@ -164,8 +168,8 @@ async fn call_display_scans() {
 /// ensure that PartialEq compares FeroxScan.id fields
 fn partial_eq_compares_the_id_field() {
     let url = "http://unknown_url/";
-    let scan = FeroxScan::new(url, ScanType::Directory, ScanOrder::Latest, 0, None);
-    let scan_two = FeroxScan::new(url, ScanType::Directory, ScanOrder::Latest, 0, None);
+    let scan = FeroxScan::new(url, ScanType::Directory, ScanOrder::Latest, 0, false, None);
+    let scan_two = FeroxScan::new(url, ScanType::Directory, ScanOrder::Latest, 0, false, None);
 
     assert!(!scan.eq(&scan_two));
 
@@ -240,6 +244,7 @@ fn ferox_scan_serialize() {
         ScanType::Directory,
         ScanOrder::Latest,
         0,
+        false,
         None,
     );
     let fs_json = format!(
@@ -257,6 +262,7 @@ fn ferox_scans_serialize() {
         ScanType::Directory,
         ScanOrder::Latest,
         0,
+        false,
         None,
     );
     let ferox_scans = FeroxScans::default();
@@ -317,6 +323,7 @@ fn feroxstates_feroxserialize_implementation() {
         ScanType::Directory,
         ScanOrder::Latest,
         0,
+        false,
         None,
     );
     let ferox_scans = FeroxScans::default();
@@ -404,6 +411,7 @@ fn feroxscan_display() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        quiet: false,
         status: Default::default(),
         task: tokio::sync::Mutex::new(None),
         progress_bar: std::sync::Mutex::new(None),
@@ -443,6 +451,7 @@ async fn ferox_scan_abort() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        quiet: false,
         status: std::sync::Mutex::new(ScanStatus::Running),
         task: tokio::sync::Mutex::new(Some(tokio::spawn(async move {
             sleep(Duration::from_millis(SLEEP_DURATION * 2));

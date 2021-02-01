@@ -40,6 +40,9 @@ pub struct FeroxScans {
     /// number of requests expected per scan (mirrors the same on Stats); used for initializing
     /// progress bars and feroxscans
     bar_length: Mutex<u64>,
+
+    /// whether or not the user passed -q on the command line
+    quiet: bool,
 }
 
 /// Serialize implementation for FeroxScans
@@ -68,6 +71,14 @@ impl Serialize for FeroxScans {
 
 /// Implementation of `FeroxScans`
 impl FeroxScans {
+    /// given the value for -q, create a new FeroxScans object
+    pub fn new(quiet: bool) -> Self {
+        Self {
+            quiet,
+            ..Default::default()
+        }
+    }
+
     /// Add a `FeroxScan` to the internal container
     ///
     /// If the internal container did NOT contain the scan, true is returned; else false
@@ -239,14 +250,21 @@ impl FeroxScans {
 
     /// if a resumed scan is already complete, display a completed progress bar to the user
     pub fn print_completed_bars(&self, bar_length: usize) -> Result<()> {
+        // todo check this with -q, probably just check for self.quiet and return doing nowhting
         if let Ok(scans) = self.scans.read() {
             for scan in scans.iter() {
                 if scan.is_complete() {
                     // these scans are complete, and just need to be shown to the user
+                    let bar_type = if self.quiet {
+                        BarType::Hidden
+                    } else {
+                        BarType::Message
+                    };
+
                     let pb = add_bar(
                         &scan.url,
                         bar_length.try_into().unwrap_or_default(),
-                        BarType::Message,
+                        bar_type,
                     );
                     pb.finish();
                 }
@@ -321,7 +339,12 @@ impl FeroxScans {
 
         let bar = match scan_type {
             ScanType::Directory => {
-                let progress_bar = add_bar(&url, bar_length, BarType::Default);
+                let bar_type = if self.quiet {
+                    BarType::Hidden
+                } else {
+                    BarType::Default
+                };
+                let progress_bar = add_bar(&url, bar_length, bar_type);
 
                 progress_bar.reset_elapsed();
 
@@ -330,7 +353,7 @@ impl FeroxScans {
             ScanType::File => None,
         };
 
-        let ferox_scan = FeroxScan::new(&url, scan_type, scan_order, bar_length, bar);
+        let ferox_scan = FeroxScan::new(&url, scan_type, scan_order, bar_length, self.quiet, bar);
 
         // If the set did not contain the scan, true is returned.
         // If the set did contain the scan, false is returned.

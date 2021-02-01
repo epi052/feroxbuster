@@ -21,9 +21,6 @@ use std::{
 };
 
 lazy_static! {
-    /// Global configuration state
-    pub static ref CONFIGURATION: Configuration = Configuration::new().expect("Could not create Configuration");
-
     /// Global progress bar that houses other progress bars
     pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
 

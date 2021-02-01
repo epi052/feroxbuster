@@ -22,7 +22,7 @@ use uuid::Uuid;
 pub struct FeroxScan {
     /// UUID that uniquely ID's the scan
     pub id: String,
-
+    // todo consider pub(super) or similar
     /// The URL that to be scanned
     pub url: String,
 
@@ -43,6 +43,9 @@ pub struct FeroxScan {
 
     /// The progress bar associated with this scan
     pub progress_bar: Mutex<Option<ProgressBar>>,
+
+    /// whether or not the user passed -q on the command line
+    pub quiet: bool,
 }
 
 /// Default implementation for FeroxScan
@@ -60,6 +63,7 @@ impl Default for FeroxScan {
             url: String::new(),
             progress_bar: Mutex::new(None),
             scan_type: ScanType::File,
+            quiet: false,
         }
     }
 }
@@ -112,7 +116,13 @@ impl FeroxScan {
                 if guard.is_some() {
                     (*guard).as_ref().unwrap().clone()
                 } else {
-                    let pb = add_bar(&self.url, self.num_requests, BarType::Default);
+                    let bar_type = if self.quiet {
+                        BarType::Hidden
+                    } else {
+                        BarType::Default
+                    };
+
+                    let pb = add_bar(&self.url, self.num_requests, bar_type);
                     pb.reset_elapsed();
 
                     let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
@@ -121,7 +131,13 @@ impl FeroxScan {
             }
             Err(_) => {
                 log::warn!("Could not unlock progress bar on {:?}", self);
-                let pb = add_bar(&self.url, self.num_requests, BarType::Default);
+                let bar_type = if self.quiet {
+                    BarType::Hidden
+                } else {
+                    BarType::Default
+                };
+
+                let pb = add_bar(&self.url, self.num_requests, bar_type);
                 pb.reset_elapsed();
 
                 pb
@@ -135,6 +151,7 @@ impl FeroxScan {
         scan_type: ScanType,
         scan_order: ScanOrder,
         num_requests: u64,
+        quiet: bool,
         pb: Option<ProgressBar>,
     ) -> Arc<Self> {
         Arc::new(Self {
@@ -142,6 +159,7 @@ impl FeroxScan {
             scan_type,
             scan_order,
             num_requests,
+            quiet,
             progress_bar: Mutex::new(pb),
             ..Default::default()
         })
