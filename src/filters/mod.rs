@@ -3,10 +3,7 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use crate::ferox_response::FeroxResponse;
-use crate::{
-    config::CONFIGURATION,
-    traits::{FeroxFilter, FeroxSerialize},
-};
+use crate::traits::{FeroxFilter, FeroxSerialize};
 
 pub use self::container::FeroxFilters;
 pub use self::lines::LinesFilter;

@@ -53,7 +53,7 @@ impl FeroxFilter for WildcardFilter {
         log::trace!("enter: should_filter_response({:?} {})", self, response);
 
         // quick return if dont_filter is set
-        if CONFIGURATION.dont_filter {
+        if self.dont_filter {
             // --dont-filter applies specifically to wildcard filters, it is not a 100% catch all
             // for not filtering anything.  As such, it should live in the implementation of
             // a wildcard filter
