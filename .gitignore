@@ -25,3 +25,6 @@ lcov_cobertura.py
 
 # dockerignore file that makes it so i can work on the docker config without copying a 4GB manifest or w/e it is
 .dockerignore
+
+# state file created during tests
+ferox-http*
