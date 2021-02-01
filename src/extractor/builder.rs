@@ -31,9 +31,6 @@ pub struct ExtractorBuilder<'a> {
     /// Response from which to extract links
     url: String,
 
-    /// current configuration
-    config: Option<&'a Configuration>,
-
     /// Handles object to house the underlying mpsc transmitters
     handles: Option<Arc<Handles>>,
 
@@ -42,42 +39,40 @@ pub struct ExtractorBuilder<'a> {
 }
 
 /// ExtractorBuilder implementation
-impl<'a> ExtractorBuilder<'a> {
-    /// Given a FeroxResponse, create new ExtractorBuilder
-    ///
-    /// Once built, Extractor::target is ExtractionTarget::ResponseBody
-    pub fn with_response(response: &'a FeroxResponse) -> Self {
+impl<'a> Default for ExtractorBuilder<'a> {
+    fn default() -> Self {
         Self {
-            response: Some(response),
+            response: None,
             url: "".to_string(),
-            config: None,
             handles: None,
             target: ExtractionTarget::ResponseBody,
         }
     }
+}
 
-    /// Given a url and Stats transmitter, create new ExtractorBuilder
-    ///
-    /// Once built, Extractor::target is ExtractionTarget::ResponseBody
-    pub fn with_url(url: &str) -> Self {
-        Self {
-            response: None,
-            url: url.to_string(),
-            config: None,
-            handles: None,
-            target: ExtractionTarget::RobotsTxt,
-        }
-    }
-
-    /// builder call to set `config`
-    pub fn config(&mut self, config: &'a Configuration) -> &mut Self {
-        self.config = Some(config);
-        self
-    }
-
+/// ExtractorBuilder implementation
+impl<'a> ExtractorBuilder<'a> {
     /// builder call to set `handles`
     pub fn handles(&mut self, handles: Arc<Handles>) -> &mut Self {
         self.handles = Some(handles);
+        self
+    }
+
+    /// builder call to set `url`
+    pub fn url(&mut self, url: &str) -> &mut Self {
+        self.url = url.to_string();
+        self
+    }
+
+    /// builder call to set `target`
+    pub fn target(&mut self, target: ExtractionTarget) -> &mut Self {
+        self.target = target;
+        self
+    }
+
+    /// builder call to set `response`
+    pub fn response(&mut self, response: &'a FeroxResponse) -> &mut Self {
+        self.response = Some(response);
         self
     }
 
@@ -85,8 +80,8 @@ impl<'a> ExtractorBuilder<'a> {
     ///
     /// requires either with_url or with_response to have been used in the build process
     pub fn build(&self) -> Result<Extractor<'a>> {
-        if self.url.is_empty() && self.response.is_none() {
-            bail!("Extractor requires either a URL or a FeroxResponse be specified")
+        if (self.url.is_empty() && self.response.is_none()) || self.handles.is_none() {
+            bail!("Extractor requires a URL or a FeroxResponse be specified as well as a Handles object")
         }
 
         Ok(Extractor {
@@ -98,7 +93,6 @@ impl<'a> ExtractorBuilder<'a> {
                 None
             },
             url: self.url.to_owned(),
-            config: self.config.unwrap(),
             handles: self.handles.as_ref().unwrap().clone(),
             target: self.target,
         })

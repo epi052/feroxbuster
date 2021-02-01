@@ -38,9 +38,6 @@ pub struct Extractor<'a> {
     /// Response from which to extract links
     pub(super) url: String,
 
-    /// Whether or not to try recursion
-    pub(super) config: &'a Configuration,
-
     /// Handles object to house the underlying mpsc transmitters
     pub(super) handles: Arc<Handles>,
 
@@ -57,7 +54,7 @@ impl<'a> Extractor<'a> {
             ExtractionTarget::RobotsTxt => self.extract_from_robots().await?,
         };
 
-        let recursive = if self.config.no_recursion {
+        let recursive = if self.handles.config.no_recursion {
             RecursionStatus::NotRecursive
         } else {
             RecursionStatus::Recursive
@@ -298,7 +295,7 @@ impl<'a> Extractor<'a> {
 
         // make the request and store the response
         let new_response = make_request(
-            &self.config.client,
+            &self.handles.config.client,
             &new_url,
             self.handles.config.quiet,
             self.handles.stats.tx.clone(),
@@ -360,18 +357,18 @@ impl<'a> Extractor<'a> {
         // all other user specified settings
         let follow_redirects = true;
 
-        let proxy = if self.config.proxy.is_empty() {
+        let proxy = if self.handles.config.proxy.is_empty() {
             None
         } else {
-            Some(self.config.proxy.as_str())
+            Some(self.handles.config.proxy.as_str())
         };
 
         let client = client::initialize(
-            self.config.timeout,
-            &self.config.user_agent,
+            self.handles.config.timeout,
+            &self.handles.config.user_agent,
             follow_redirects,
-            self.config.insecure,
-            &self.config.headers,
+            self.handles.config.insecure,
+            &self.handles.config.headers,
             proxy,
         )?;
 
@@ -393,7 +390,7 @@ impl<'a> Extractor<'a> {
 
     /// update total number of links extracted and expected responses
     fn update_stats(&self, num_links: usize) -> Result<()> {
-        let multiplier = self.config.extensions.len().max(1);
+        let multiplier = self.handles.config.extensions.len().max(1);
 
         self.handles
             .stats

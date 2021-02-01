@@ -1,16 +1,13 @@
 //! extract links from html source and robots.txt
-use std::sync::Arc;
-
-use regex::Regex;
-
-use crate::config::Configuration;
-use crate::response::FeroxResponse;
+mod builder;
+mod container;
+#[cfg(test)]
+mod tests;
 
 pub use self::builder::ExtractionTarget;
 pub use self::builder::ExtractorBuilder;
 pub use self::container::Extractor;
 
-mod builder;
-mod container;
-#[cfg(test)]
-mod tests;
+use crate::response::FeroxResponse;
+use regex::Regex;
+use std::sync::Arc;

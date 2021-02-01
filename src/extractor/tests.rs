@@ -1,5 +1,6 @@
 use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX};
 use super::*;
+use crate::config::Configuration;
 use crate::scan_manager::ScanOrder;
 use crate::{
     event_handlers::Handles, scan_manager::FeroxScans, utils::make_request, Command, FeroxChannel,
@@ -18,9 +19,6 @@ lazy_static! {
     /// Extractor for testing response bodies
     static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
-    /// Configuration for Extractor
-    static ref CONFIG: Configuration = Configuration::new().unwrap();
-
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
 }
@@ -34,13 +32,21 @@ fn get_test_response() -> FeroxResponse {
 
 /// creates a single extractor that can be used to test standalone functions
 fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> Extractor<'static> {
-    let mut builder = match target {
-        ExtractionTarget::ResponseBody => ExtractorBuilder::with_response(&RESPONSE),
-        ExtractionTarget::RobotsTxt => ExtractorBuilder::with_url("http://localhost"),
-    };
-    let handles = Arc::new(Handles::for_testing(Some(scanned_urls), None).0);
+    let mut builder = ExtractorBuilder::default();
 
-    builder.config(&CONFIG).handles(handles).build().unwrap()
+    let builder = match target {
+        ExtractionTarget::ResponseBody => builder
+            .target(ExtractionTarget::ResponseBody)
+            .response(&RESPONSE),
+        ExtractionTarget::RobotsTxt => builder
+            .url("http://localhost")
+            .target(ExtractionTarget::RobotsTxt),
+    };
+
+    let config = Arc::new(Configuration::new().unwrap());
+    let handles = Arc::new(Handles::for_testing(Some(scanned_urls), Some(config)).0);
+
+    builder.handles(handles).build().unwrap()
 }
 
 #[test]
@@ -122,8 +128,9 @@ fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
 fn extractor_builder_bails_when_neither_required_field_is_set() {
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let extractor = ExtractorBuilder::with_url("")
-        .config(&CONFIG)
+    let extractor = ExtractorBuilder::default()
+        .url("")
+        .target(ExtractionTarget::RobotsTxt)
         .handles(handles)
         .build();
 
@@ -137,9 +144,10 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
     let link = "admin";
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
-    let extractor = ExtractorBuilder::with_url("\\\\\\")
-        .config(&CONFIG)
+    let extractor = ExtractorBuilder::default()
+        .url("\\\\\\")
         .handles(handles)
+        .target(ExtractionTarget::RobotsTxt)
         .build()?;
 
     let result = extractor.add_link_to_set_of_links(link, &mut links);
@@ -223,7 +231,6 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
         response: Some(&ferox_response),
         url: String::new(),
-        config: &CONFIG,
         target: ExtractionTarget::ResponseBody,
         handles: handles.clone(),
     };
@@ -238,7 +245,6 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 /// test that /robots.txt is correctly requested given a base url (happy path)
 async fn request_robots_txt_without_proxy() -> Result<()> {
-    let config = Configuration::new()?;
     let handles = Arc::new(Handles::for_testing(None, None).0);
 
     let srv = MockServer::start();
@@ -253,7 +259,6 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
         robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
         response: None,
         url: srv.url("/api/users/stuff/things"),
-        config: &config,
         target: ExtractionTarget::RobotsTxt,
         handles,
     };
@@ -285,8 +290,9 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
     config.proxy = srv.url("/ima-proxy");
     config.no_recursion = true;
 
-    let extractor = ExtractorBuilder::with_url(&srv.url("/api/different/path"))
-        .config(&config)
+    let extractor = ExtractorBuilder::default()
+        .url(&srv.url("/api/different/path"))
+        .target(ExtractionTarget::RobotsTxt)
         .handles(handles)
         .build()?;
 

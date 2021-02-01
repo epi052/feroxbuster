@@ -18,7 +18,10 @@ use crate::{
         Command::{self, AddFilter, UpdateF64Field, UpdateUsizeField},
         Handles,
     },
-    extractor::ExtractorBuilder,
+    extractor::{
+        ExtractionTarget::{ResponseBody, RobotsTxt},
+        ExtractorBuilder,
+    },
     filters::{
         LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
     },
@@ -81,8 +84,9 @@ async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> R
         }
 
         if handles.config.extract_links && !ferox_response.status().is_redirection() {
-            let extractor = ExtractorBuilder::with_response(&ferox_response)
-                .config(&handles.config)
+            let extractor = ExtractorBuilder::default()
+                .target(ResponseBody)
+                .response(&ferox_response)
                 .handles(handles.clone())
                 .build()?;
 
@@ -137,9 +141,10 @@ pub async fn scan_url(
     if matches!(order, ScanOrder::Initial) && handles.config.extract_links {
         // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
         // to try_recursion
-        let extractor = ExtractorBuilder::with_url(target_url)
-            .config(&handles.config)
+        let extractor = ExtractorBuilder::default()
+            .url(target_url)
             .handles(handles.clone())
+            .target(RobotsTxt)
             .build()?;
 
         let _ = extractor.extract().await;
