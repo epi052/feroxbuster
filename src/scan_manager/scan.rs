@@ -21,31 +21,31 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct FeroxScan {
     /// UUID that uniquely ID's the scan
-    pub id: String,
-    // todo consider pub(super) or similar
+    pub(super) id: String,
+
     /// The URL that to be scanned
-    pub url: String,
+    pub(super) url: String,
 
     /// The type of scan
-    pub scan_type: ScanType,
+    pub(super) scan_type: ScanType,
 
     /// The order in which the scan was received
-    pub scan_order: ScanOrder,
+    pub(super) scan_order: ScanOrder,
 
     /// Number of requests to populate the progress bar with
-    pub num_requests: u64,
+    num_requests: u64,
 
     /// Status of this scan
-    pub status: Mutex<ScanStatus>,
+    status: Mutex<ScanStatus>,
 
     /// The spawned tokio task performing this scan (uses tokio::sync::Mutex)
-    pub task: sync::Mutex<Option<JoinHandle<()>>>,
+    pub(super) task: sync::Mutex<Option<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
-    pub progress_bar: Mutex<Option<ProgressBar>>,
+    progress_bar: Mutex<Option<ProgressBar>>,
 
     /// whether or not the user passed -q on the command line
-    pub quiet: bool,
+    pub(super) quiet: bool,
 }
 
 /// Default implementation for FeroxScan
@@ -83,6 +83,11 @@ impl FeroxScan {
         }
 
         Ok(())
+    }
+
+    /// getter for url
+    pub fn url(&self) -> &str {
+        &self.url
     }
 
     /// small wrapper to set the JoinHandle

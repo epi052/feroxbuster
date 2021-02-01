@@ -88,7 +88,7 @@ pub async fn make_request(
     tx_stats: UnboundedSender<Command>,
 ) -> Result<Response> {
     log::trace!(
-        "enter: make_request(CONFIGURATION.Client, {}, {}, {:?})",
+        "enter: make_request(Configuration::Client, {}, {}, {:?})",
         url,
         quiet,
         tx_stats

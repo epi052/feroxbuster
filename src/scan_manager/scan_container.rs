@@ -116,10 +116,14 @@ impl FeroxScans {
         if let Some(scans) = state.get("scans") {
             if let Some(arr_scans) = scans.as_array() {
                 for scan in arr_scans {
-                    let deser_scan: FeroxScan =
+                    let mut deser_scan: FeroxScan =
                         serde_json::from_value(scan.clone()).unwrap_or_default();
-                    // need to determine if it's complete and based on that create a progress bar
-                    // populate it accordingly based on completion
+                    // FeroxScans gets -q value from config as usual; the FeroxScans themselves
+                    // rely on that value being passed in. If the user starts a scan without -q
+                    // and resumes the scan but adds -q, FeroxScan will not have the proper value
+                    // without the line below
+                    deser_scan.quiet = self.quiet;
+
                     log::debug!("added: {}", deser_scan);
                     self.insert(Arc::new(deser_scan));
                 }
@@ -241,8 +245,11 @@ impl FeroxScans {
 
     /// prints all known responses that the scanner has already seen
     pub fn print_known_responses(&self) {
-        if let Ok(responses) = RESPONSES.responses.read() {
-            for response in responses.iter() {
+        if let Ok(mut responses) = RESPONSES.responses.write() {
+            for response in responses.iter_mut() {
+                if self.quiet != response.quiet {
+                    response.quiet = self.quiet;
+                }
                 PROGRESS_PRINTER.println(response.as_str());
             }
         }
@@ -250,21 +257,19 @@ impl FeroxScans {
 
     /// if a resumed scan is already complete, display a completed progress bar to the user
     pub fn print_completed_bars(&self, bar_length: usize) -> Result<()> {
-        // todo check this with -q, probably just check for self.quiet and return doing nowhting
+        if self.quiet {
+            // fast exit when -q was used
+            return Ok(());
+        }
+
         if let Ok(scans) = self.scans.read() {
             for scan in scans.iter() {
                 if scan.is_complete() {
                     // these scans are complete, and just need to be shown to the user
-                    let bar_type = if self.quiet {
-                        BarType::Hidden
-                    } else {
-                        BarType::Message
-                    };
-
                     let pb = add_bar(
                         &scan.url,
                         bar_length.try_into().unwrap_or_default(),
-                        bar_type,
+                        BarType::Message,
                     );
                     pb.finish();
                 }

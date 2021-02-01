@@ -49,7 +49,7 @@ pub struct FeroxResponse {
     wildcard: bool,
 
     /// whether the user passed -q on the command line
-    quiet: bool,
+    pub(crate) quiet: bool,
 }
 
 /// implement Default trait for FeroxResponse
@@ -315,8 +315,9 @@ impl FeroxSerialize for FeroxResponse {
         let status = self.status().as_str();
         let wild_status = status_colorizer("WLD");
 
-        if self.wildcard {
-            // response is a wildcard, special messages abound when this is the case...
+        if self.wildcard && !self.quiet {
+            // -q was not used and response is a wildcard, special messages abound when
+            // this is the case...
 
             // create the base message
             let mut message = format!(
