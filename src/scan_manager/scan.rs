@@ -33,16 +33,16 @@ pub struct FeroxScan {
     pub(super) scan_order: ScanOrder,
 
     /// Number of requests to populate the progress bar with
-    num_requests: u64,
+    pub(super) num_requests: u64,
 
     /// Status of this scan
-    status: Mutex<ScanStatus>,
+    pub(super) status: Mutex<ScanStatus>,
 
     /// The spawned tokio task performing this scan (uses tokio::sync::Mutex)
     pub(super) task: sync::Mutex<Option<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
-    progress_bar: Mutex<Option<ProgressBar>>,
+    pub(super) progress_bar: Mutex<Option<ProgressBar>>,
 
     /// whether or not the user passed -q on the command line
     pub(super) quiet: bool,
