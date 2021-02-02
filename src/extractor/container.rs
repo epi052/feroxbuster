@@ -3,7 +3,6 @@ use crate::{
     client,
     event_handlers::{Command, Command::UpdateUsizeField, Handles},
     scan_manager::ScanOrder,
-    scanner::send_report,
     statistics::StatField::{LinksExtracted, TotalExpected},
     url::FeroxUrl,
     utils::make_request,
@@ -84,7 +83,9 @@ impl<'a> Extractor<'a> {
 
                 scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
 
-                send_report(self.handles.output.tx.clone(), resp);
+                if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
+                    log::warn!("Could not send FeroxResponse to output handler: {}", e);
+                }
 
                 continue;
             }
