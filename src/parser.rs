@@ -328,6 +328,13 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Limit total number of concurrent scans (default: 0, i.e. no limit)")
         )
         .arg(
+            Arg::with_name("rate_limit")
+                .long("rate-limit")
+                .value_name("RATE_LIMIT")
+                .takes_value(true)
+                .help("Limit number of requests per second (per directory) (default: 0, i.e. no limit)")
+        )
+        .arg(
             Arg::with_name("time_limit")
                 .long("time-limit")
                 .value_name("TIME_SPEC")
