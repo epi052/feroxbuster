@@ -8,7 +8,7 @@ use crate::response::FeroxResponse;
 use crate::url::FeroxUrl;
 use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
-    scanner::scan_url,
+    scanner::FeroxScanner,
     statistics::StatField::TotalScans,
     CommandReceiver, CommandSender, FeroxChannel, Joiner,
 };
@@ -219,11 +219,16 @@ impl ScanHandler {
                 self.depths.push((target.clone(), depth));
             }
 
-            let handles_clone = self.handles.clone();
-            let limiter_clone = self.limiter.clone();
+            let scanner = FeroxScanner::new(
+                &target,
+                order,
+                list,
+                self.limiter.clone(),
+                self.handles.clone(),
+            );
 
             let task = tokio::spawn(async move {
-                if let Err(e) = scan_url(&target, order, list, handles_clone, limiter_clone).await {
+                if let Err(e) = scanner.scan_url().await {
                     log::warn!("{}", e);
                 }
             });

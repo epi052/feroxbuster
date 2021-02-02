@@ -5,236 +5,256 @@ use std::{
 
 use anyhow::{bail, Result};
 use futures::{stream, StreamExt};
-use fuzzyhash::FuzzyHash;
 use lazy_static::lazy_static;
-use regex::Regex;
-use reqwest::Url;
 use tokio::sync::{oneshot, Semaphore};
 
-use crate::response::FeroxResponse;
-use crate::url::FeroxUrl;
 use crate::{
     event_handlers::{
-        Command::{self, AddFilter, UpdateF64Field, UpdateUsizeField},
+        Command::{self, UpdateF64Field, UpdateUsizeField},
         Handles,
     },
     extractor::{
         ExtractionTarget::{ResponseBody, RobotsTxt},
-        ExtractorBuilder,
-    },
-    filters::{
-        LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
+        ExtractorBuilder, // todo this isn't really necessary anymore
     },
     heuristics,
+    response::FeroxResponse,
     scan_manager::{FeroxResponses, ScanOrder, ScanStatus, PAUSE_SCAN},
-    skip_fail,
     statistics::StatField::{DirScanTimes, ExpectedPerScan},
+    url::FeroxUrl,
     utils::{fmt_err, make_request},
-    CommandSender, SIMILARITY_THRESHOLD,
 };
 
 lazy_static! {
     /// Vector of FeroxResponse objects
     pub static ref RESPONSES: FeroxResponses = FeroxResponses::default();
+    // todo consider removing this
 }
 
-/// Wrapper for [make_request](fn.make_request.html)
-///
 /// Makes multiple requests based on the presence of extensions
-///
-/// Attempts recursion when appropriate and sends Responses to the output handler for processing
-async fn make_requests(target_url: &str, word: &str, handles: Arc<Handles>) -> Result<()> {
-    log::trace!(
-        "enter: make_requests({}, {}, {:?})",
-        target_url,
-        word,
-        handles
-    );
+struct Requester {
+    /// handles to handlers and config
+    handles: Arc<Handles>,
 
-    let urls = FeroxUrl::from_string(target_url, handles.clone()).formatted_urls(word)?;
+    /// url that will be scanned
+    target_url: String,
+}
 
-    for url in urls {
-        let response = make_request(
-            &handles.config.client,
-            &url,
-            handles.config.quiet,
-            handles.stats.tx.clone(),
-        )
-        .await?;
+/// Requester implementation
+impl Requester {
+    /// given a FeroxScanner, create a Requester
+    pub fn from(scanner: &FeroxScanner) -> Self {
+        Self {
+            handles: scanner.handles.clone(),
+            target_url: scanner.target_url.to_owned(),
+        }
+    }
 
-        // response came back without error, convert it to FeroxResponse
-        let ferox_response = FeroxResponse::from(response, true, handles.config.quiet).await;
+    /// Wrapper for [make_request](fn.make_request.html)
+    ///
+    /// Attempts recursion when appropriate and sends Responses to the output handler for processing
+    async fn request(&self, word: &str) -> Result<()> {
+        log::trace!("enter: request({})", word);
 
-        // do recursion if appropriate
-        if !handles.config.no_recursion {
-            handles.send_scan_command(Command::TryRecursion(Box::new(ferox_response.clone())))?;
-            let (tx, rx) = oneshot::channel::<bool>();
-            handles.send_scan_command(Command::Sync(tx))?;
-            rx.await?;
+        let urls =
+            FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
+
+        for url in urls {
+            let response = make_request(
+                &self.handles.config.client,
+                &url,
+                self.handles.config.quiet,
+                self.handles.stats.tx.clone(),
+            )
+            .await?;
+
+            // response came back without error, convert it to FeroxResponse
+            let ferox_response =
+                FeroxResponse::from(response, true, self.handles.config.quiet).await;
+
+            // do recursion if appropriate
+            if !self.handles.config.no_recursion {
+                self.handles
+                    .send_scan_command(Command::TryRecursion(Box::new(ferox_response.clone())))?;
+                let (tx, rx) = oneshot::channel::<bool>();
+                self.handles.send_scan_command(Command::Sync(tx))?;
+                rx.await?;
+            }
+
+            // purposefully doing recursion before filtering. the thought process is that
+            // even though this particular url is filtered, subsequent urls may not
+            if self
+                .handles
+                .filters
+                .data
+                .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
+            {
+                continue;
+            }
+
+            if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
+                let extractor = ExtractorBuilder::default()
+                    .target(ResponseBody)
+                    .response(&ferox_response)
+                    .handles(self.handles.clone())
+                    .build()?;
+
+                extractor.extract().await?;
+            }
+
+            // everything else should be reported
+            if let Err(e) = ferox_response.send_report(self.handles.output.tx.clone()) {
+                log::warn!("Could not send FeroxResponse to output handler: {}", e);
+            }
         }
 
-        // purposefully doing recursion before filtering. the thought process is that
-        // even though this particular url is filtered, subsequent urls may not
-        if handles
-            .filters
-            .data
-            .should_filter_response(&ferox_response, handles.stats.tx.clone())
-        {
-            continue;
-        }
+        log::trace!("exit: request");
+        Ok(())
+    }
+}
 
-        if handles.config.extract_links && !ferox_response.status().is_redirection() {
+/// handles the main muscle movement of scanning a url
+pub struct FeroxScanner {
+    /// handles to handlers and config
+    handles: Arc<Handles>,
+
+    /// url that will be scanned
+    target_url: String,
+
+    /// whether or not this scanner is targeting an initial target specified by the user or one
+    /// found via recursion
+    order: ScanOrder,
+
+    /// wordlist that's already been read from disk
+    wordlist: Arc<HashSet<String>>,
+
+    /// limiter that restricts the number of active FeroxScanners  
+    scan_limiter: Arc<Semaphore>,
+}
+
+/// FeroxScanner implementation
+impl FeroxScanner {
+    /// create a new FeroxScanner
+    pub fn new(
+        target_url: &str,
+        order: ScanOrder,
+        wordlist: Arc<HashSet<String>>,
+        scan_limiter: Arc<Semaphore>,
+        handles: Arc<Handles>,
+    ) -> Self {
+        Self {
+            order,
+            handles,
+            wordlist,
+            scan_limiter,
+            target_url: target_url.to_string(),
+        }
+    }
+
+    /// Scan a given url using a given wordlist
+    ///
+    /// This is the primary entrypoint for the scanner
+    pub async fn scan_url(&self) -> Result<()> {
+        log::trace!("enter: scan_url");
+        log::info!("Starting scan against: {}", self.target_url);
+
+        let scan_timer = Instant::now();
+
+        if matches!(self.order, ScanOrder::Initial) && self.handles.config.extract_links {
+            // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
+            // to try_recursion
             let extractor = ExtractorBuilder::default()
-                .target(ResponseBody)
-                .response(&ferox_response)
-                .handles(handles.clone())
+                .url(&self.target_url)
+                .handles(self.handles.clone())
+                .target(RobotsTxt)
                 .build()?;
 
-            extractor.extract().await?;
+            let _ = extractor.extract().await;
         }
 
-        // everything else should be reported
-        send_report(handles.output.tx.clone(), ferox_response);
-    }
+        let scanned_urls = self.handles.ferox_scans()?;
 
-    log::trace!("exit: make_requests");
-    Ok(())
-}
-
-/// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
-pub fn send_report(report_sender: CommandSender, response: FeroxResponse) {
-    log::trace!("enter: send_report({:?}, {}", report_sender, response);
-
-    match report_sender.send(Command::Report(Box::new(response))) {
-        Ok(_) => {}
-        Err(e) => {
-            log::error!("{}", e);
-        }
-    }
-
-    log::trace!("exit: send_report");
-}
-
-/// Scan a given url using a given wordlist
-///
-/// This is the primary entrypoint for the scanner
-pub async fn scan_url(
-    target_url: &str,
-    order: ScanOrder,
-    wordlist: Arc<HashSet<String>>,
-    handles: Arc<Handles>,
-    scan_limiter: Arc<Semaphore>,
-) -> Result<()> {
-    log::trace!(
-        "enter: scan_url({:?}, {:?}, wordlist[{} words...], {:?}, {:?})",
-        target_url,
-        order,
-        wordlist.len(),
-        handles,
-        scan_limiter
-    );
-
-    log::info!("Starting scan against: {}", target_url);
-
-    let scan_timer = Instant::now();
-
-    if matches!(order, ScanOrder::Initial) && handles.config.extract_links {
-        // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
-        // to try_recursion
-        let extractor = ExtractorBuilder::default()
-            .url(target_url)
-            .handles(handles.clone())
-            .target(RobotsTxt)
-            .build()?;
-
-        let _ = extractor.extract().await;
-    }
-
-    let scanned_urls = handles.ferox_scans()?;
-
-    let ferox_scan = match scanned_urls.get_scan_by_url(&target_url) {
-        Some(scan) => {
-            scan.set_status(ScanStatus::Running)?;
-            scan
-        }
-        None => {
-            let msg = format!(
-                "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
-                target_url
-            );
-            bail!(fmt_err(&msg))
-        }
-    };
-
-    let progress_bar = ferox_scan.progress_bar();
-
-    // When acquire is called and the semaphore has remaining permits, the function immediately
-    // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
-    // waits until an outstanding permit is dropped. At this point, the freed permit is assigned
-    // to the caller.
-    let permit = scan_limiter.acquire().await;
-
-    // Arc clones to be passed around to the various scans
-    let looping_words = wordlist.clone();
-
-    {
-        let test = heuristics::HeuristicTests::new(handles.clone());
-        if let Ok(num_reqs) = test.wildcard(&target_url).await {
-            progress_bar.inc(num_reqs);
-        }
-    }
-
-    let increment_len = (handles.config.extensions.len() + 1) as u64;
-
-    // producer tasks (mp of mpsc); responsible for making requests
-    let producers = stream::iter(looping_words.deref().to_owned())
-        .map(|word| {
-            let handles_clone = handles.clone();
-            let pb = progress_bar.clone(); // progress bar is an Arc around internal state
-            let tgt = target_url.to_string(); // done to satisfy 'static lifetime below
-            let scanned_urls_clone = scanned_urls.clone();
-            (
-                tokio::spawn(async move {
-                    if PAUSE_SCAN.load(Ordering::Acquire) {
-                        // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
-                        // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
-                        // to false
-                        scanned_urls_clone.pause(true).await;
-                    }
-                    make_requests(&tgt, &word, handles_clone).await
-                }),
-                pb,
-            )
-        })
-        .for_each_concurrent(handles.config.threads, |(resp, bar)| async move {
-            match resp.await {
-                Ok(_) => {
-                    bar.inc(increment_len);
-                }
-                Err(e) => {
-                    log::error!("error awaiting a response: {}", e);
-                }
+        let ferox_scan = match scanned_urls.get_scan_by_url(&self.target_url) {
+            Some(scan) => {
+                scan.set_status(ScanStatus::Running)?;
+                scan
             }
-        });
+            None => {
+                let msg = format!(
+                    "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
+                    self.target_url
+                );
+                bail!(fmt_err(&msg))
+            }
+        };
 
-    // await tx tasks
-    log::trace!("awaiting scan producers");
-    producers.await;
-    log::trace!("done awaiting scan producers");
+        let progress_bar = ferox_scan.progress_bar();
 
-    handles.stats.send(UpdateF64Field(
-        DirScanTimes,
-        scan_timer.elapsed().as_secs_f64(),
-    ))?;
+        // When acquire is called and the semaphore has remaining permits, the function immediately
+        // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
+        // waits until an outstanding permit is dropped, at which point, the freed permit is assigned
+        // to the caller.
+        let _permit = self.scan_limiter.acquire().await;
 
-    // drop the current permit so the semaphore will allow another scan to proceed
-    drop(permit);
+        // Arc clones to be passed around to the various scans
+        let looping_words = self.wordlist.clone();
 
-    ferox_scan.finish()?;
+        {
+            let test = heuristics::HeuristicTests::new(self.handles.clone());
+            if let Ok(num_reqs) = test.wildcard(&self.target_url).await {
+                progress_bar.inc(num_reqs);
+            }
+        }
 
-    log::trace!("exit: scan_url");
+        let requester = Arc::new(Requester::from(self));
+        let increment_len = (self.handles.config.extensions.len() + 1) as u64;
 
-    Ok(())
+        // producer tasks (mp of mpsc); responsible for making requests
+        let producers = stream::iter(looping_words.deref().to_owned())
+            .map(|word| {
+                let pb = progress_bar.clone(); // progress bar is an Arc around internal state
+                let scanned_urls_clone = scanned_urls.clone();
+                let requester_clone = requester.clone();
+                (
+                    tokio::spawn(async move {
+                        if PAUSE_SCAN.load(Ordering::Acquire) {
+                            // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
+                            // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
+                            // to false
+                            scanned_urls_clone.pause(true).await;
+                        }
+                        requester_clone.request(&word).await
+                    }),
+                    pb,
+                )
+            })
+            .for_each_concurrent(self.handles.config.threads, |(resp, bar)| async move {
+                match resp.await {
+                    Ok(_) => {
+                        bar.inc(increment_len);
+                    }
+                    Err(e) => {
+                        log::error!("error awaiting a response: {}", e);
+                    }
+                }
+            });
+
+        // await tx tasks
+        log::trace!("awaiting scan producers");
+        producers.await;
+        log::trace!("done awaiting scan producers");
+
+        self.handles.stats.send(UpdateF64Field(
+            DirScanTimes,
+            scan_timer.elapsed().as_secs_f64(),
+        ))?;
+
+        ferox_scan.finish()?;
+
+        log::trace!("exit: scan_url");
+
+        Ok(())
+    }
 }
 
 /// Perform steps necessary to run scans that only need to be performed once (warming up the
@@ -262,107 +282,6 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
         num_reqs_expected as usize,
     ))?;
 
-    // add any status code filters to filters handler's FeroxFilters  (-C|--filter-status)
-    for code_filter in &handles.config.filter_status {
-        let filter = StatusCodeFilter {
-            filter_code: *code_filter,
-        };
-        let boxed_filter = Box::new(filter);
-        handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    // add any line count filters to filters handler's FeroxFilters  (-N|--filter-lines)
-    for lines_filter in &handles.config.filter_line_count {
-        let filter = LinesFilter {
-            line_count: *lines_filter,
-        };
-        let boxed_filter = Box::new(filter);
-        handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    // add any line count filters to filters handler's FeroxFilters  (-W|--filter-words)
-    for words_filter in &handles.config.filter_word_count {
-        let filter = WordsFilter {
-            word_count: *words_filter,
-        };
-        let boxed_filter = Box::new(filter);
-        handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    // add any line count filters to filters handler's FeroxFilters  (-S|--filter-size)
-    for size_filter in &handles.config.filter_size {
-        let filter = SizeFilter {
-            content_length: *size_filter,
-        };
-        let boxed_filter = Box::new(filter);
-        handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    // add any regex filters to filters handler's FeroxFilters  (-X|--filter-regex)
-    for regex_filter in &handles.config.filter_regex {
-        let raw = regex_filter;
-        let compiled = skip_fail!(Regex::new(&raw));
-
-        let filter = RegexFilter {
-            raw_string: raw.to_owned(),
-            compiled,
-        };
-        let boxed_filter = Box::new(filter);
-        handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    // add any similarity filters to filters handler's FeroxFilters  (--filter-similar-to)
-    for similarity_filter in &handles.config.filter_similar {
-        // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        let url = skip_fail!(Url::parse(&similarity_filter));
-
-        // attempt to request the given url
-        let resp = skip_fail!(
-            make_request(
-                &handles.config.client,
-                &url,
-                handles.config.quiet,
-                handles.stats.tx.clone()
-            )
-            .await
-        );
-
-        // if successful, create a filter based on the response's body
-        let fr = FeroxResponse::from(resp, true, handles.config.quiet).await;
-
-        // hash the response body and store the resulting hash in the filter object
-        let hash = FuzzyHash::new(&fr.text()).to_string();
-
-        let filter = SimilarityFilter {
-            text: hash,
-            threshold: SIMILARITY_THRESHOLD,
-        };
-
-        let boxed_filter = Box::new(filter);
-        handles.filters.send(AddFilter(boxed_filter))?;
-    }
-
-    handles.filters.sync().await?;
-
     log::trace!("exit: initialize");
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::config::Configuration;
-
-    use super::*;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    #[should_panic]
-    /// call initialize with a bad regex, triggering a panic
-    async fn initialize_panics_on_bad_regex() {
-        let config = Configuration {
-            filter_regex: vec![r"(".to_string()],
-            ..Default::default()
-        };
-        let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
-        initialize(1, handles).await.unwrap();
-    }
 }

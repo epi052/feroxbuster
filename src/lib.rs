@@ -13,7 +13,7 @@ pub mod banner;
 pub mod config;
 mod client;
 pub mod event_handlers;
-mod filters;
+pub mod filters;
 pub mod heuristics;
 pub mod logger;
 mod parser;

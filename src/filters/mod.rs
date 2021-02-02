@@ -6,6 +6,7 @@ use crate::response::FeroxResponse;
 use crate::traits::{FeroxFilter, FeroxSerialize};
 
 pub use self::container::FeroxFilters;
+pub use self::init::initialize;
 pub use self::lines::LinesFilter;
 pub use self::regex::RegexFilter;
 pub use self::similarity::SimilarityFilter;
@@ -24,3 +25,4 @@ mod similarity;
 mod container;
 #[cfg(test)]
 mod tests;
+mod init;

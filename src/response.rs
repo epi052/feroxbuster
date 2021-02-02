@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Response, StatusCode, Url,
@@ -15,11 +15,13 @@ use serde::ser::SerializeStruct;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::event_handlers::Handles;
-use crate::traits::FeroxSerialize;
-use crate::url::FeroxUrl;
-use crate::utils;
-use crate::utils::{fmt_err, status_colorizer};
+use crate::{
+    event_handlers::{Command, Handles},
+    traits::FeroxSerialize,
+    url::FeroxUrl,
+    utils::{self, fmt_err, status_colorizer},
+    CommandSender,
+};
 
 /// A `FeroxResponse`, derived from a `Response` to a submitted `Request`
 #[derive(Debug, Clone)]
@@ -302,6 +304,16 @@ impl FeroxResponse {
 
         log::trace!("exit: is_directory -> false");
         false
+    }
+
+    /// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
+    pub fn send_report(self, report_sender: CommandSender) -> Result<()> {
+        log::trace!("enter: send_report({:?}", report_sender);
+
+        report_sender.send(Command::Report(Box::new(self)))?;
+
+        log::trace!("exit: send_report");
+        Ok(())
     }
 }
 
