@@ -53,8 +53,9 @@ impl Requester {
 
         let rate_limiter = if limit > 0 {
             let bucket = LeakyBucket::builder()
-                .refill_interval(Duration::from_millis(100))
-                .tokens(limit)
+                .refill_interval(Duration::from_millis(100)) // add tokens every 0.1s
+                .refill_amount(limit / 10) // ex: 100 req/s -> 10 tokens per 0.1s
+                .tokens(limit / 2) // reduce initial burst, 2 is arbitrary, but felt good
                 .max(limit)
                 .build()?;
             Some(bucket)
@@ -69,6 +70,16 @@ impl Requester {
         })
     }
 
+    /// limit the number of requests per second
+    pub async fn limit(&self) {
+        self.rate_limiter
+            .as_ref()
+            .unwrap()
+            .acquire_one()
+            .await
+            .unwrap(); // todo unwrap
+    }
+
     /// Wrapper for [make_request](fn.make_request.html)
     ///
     /// Attempts recursion when appropriate and sends Responses to the output handler for processing
@@ -79,6 +90,10 @@ impl Requester {
             FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
 
         for url in urls {
+            if self.rate_limiter.is_some() {
+                self.limit().await;
+            }
+
             let response = make_request(
                 &self.handles.config.client,
                 &url,
@@ -242,6 +257,9 @@ impl FeroxScanner {
                             // to false
                             scanned_urls_clone.pause(true).await;
                         }
+                        // if requester_clone.rate_limiter.is_some() {
+                        //     requester_clone.limit().await;
+                        // }
                         requester_clone.request(&word).await
                     }),
                     pb,
