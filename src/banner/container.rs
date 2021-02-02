@@ -507,7 +507,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
             writeln!(&mut writer, "{}", self.scan_limit)?;
         }
 
-        if config.scan_limit > 0 {
+        if config.rate_limit > 0 {
             writeln!(&mut writer, "{}", self.rate_limit)?;
         }
 
