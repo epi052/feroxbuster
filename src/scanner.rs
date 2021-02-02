@@ -1,6 +1,6 @@
 use std::{
-    collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
-    time::Instant,
+    cmp::max, collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering,
+    sync::Arc, time::Instant,
 };
 
 use anyhow::{bail, Result};
@@ -50,12 +50,15 @@ impl Requester {
     /// given a FeroxScanner, create a Requester
     pub fn from(scanner: &FeroxScanner) -> Result<Self> {
         let limit = scanner.handles.config.rate_limit;
+        let refill = max(limit / 10, 1); // minimum of 1 per second
+        let tokens = max(limit / 2, 1);
+        let interval = if refill == 1 { 1000 } else { 100 }; // 1 second if refill is 1
 
         let rate_limiter = if limit > 0 {
             let bucket = LeakyBucket::builder()
-                .refill_interval(Duration::from_millis(100)) // add tokens every 0.1s
-                .refill_amount(limit / 10) // ex: 100 req/s -> 10 tokens per 0.1s
-                .tokens(limit / 2) // reduce initial burst, 2 is arbitrary, but felt good
+                .refill_interval(Duration::from_millis(interval)) // add tokens every 0.1s
+                .refill_amount(refill) // ex: 100 req/s -> 10 tokens per 0.1s
+                .tokens(tokens) // reduce initial burst, 2 is arbitrary, but felt good
                 .max(limit)
                 .build()?;
             Some(bucket)
