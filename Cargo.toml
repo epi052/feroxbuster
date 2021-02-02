@@ -43,6 +43,7 @@ rlimit = "0.5"
 ctrlc = "3.1"
 fuzzyhash = "0.2.1"
 anyhow = "1.0"
+leaky-bucket = "0.10.0"
 
 [dev-dependencies]
 tempfile = "3.1"
