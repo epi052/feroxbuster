@@ -46,7 +46,7 @@ fuzzyhash = "0.2.1"
 [dev-dependencies]
 tempfile = "3.1"
 httpmock = "0.5.2"
-assert_cmd = "1.0.1"
+assert_cmd = "1.0.3"
 predicates = "1.0.5"
 
 [profile.release]
