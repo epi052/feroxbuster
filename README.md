@@ -102,6 +102,7 @@ Enumeration.
     - [Extract Links from robots.txt (New in `v1.10.2`)](#extract-links-from-robotstxt-new-in-v1102)
     - [Filter Response by Similarity to A Given Page (fuzzy filter) (new in `v1.11.0`)](#filter-response-by-similarity-to-a-given-page-fuzzy-filter-new-in-v1110)
     - [Cancel a Recursive Scan Interactively (new in `v1.12.0`)](#cancel-a-recursive-scan-interactively-new-in-v1120)
+    - [Limit Number of Requests per Second (Rate Limiting) (new in `v2.0.0`)](#limit-number-of-requests-per-second-rate-limiting-new-in-v200)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -278,6 +279,7 @@ Configuration begins with with the following built-in default values baked into 
 - threads: `50`
 - verbosity: `0` (no logging enabled)
 - scan_limit: `0` (no limit imposed on concurrent scans)
+- rate_limit: `0` (no limit imposed on requests per second)
 - status_codes: `200 204 301 302 307 308 401 403 405`
 - user_agent: `feroxbuster/VERSION`
 - recursion depth: `4`
@@ -372,6 +374,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # replay_codes = [200, 302]
 # verbosity = 1
 # scan_limit = 6
+# rate_limit = 250
 # quiet = true
 # json = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
@@ -456,6 +459,9 @@ OPTIONS:
             Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
 
     -Q, --query <QUERY>...                        Specify URL query parameters (ex: -Q token=stuff -Q secret=key)
+        --rate-limit <RATE_LIMIT>
+            Limit number of requests per second (per directory) (default: 0, i.e. no limit)
+
     -R, --replay-codes <REPLAY_CODE>...
             Status Codes to send through a Replay Proxy when found (default: --status-codes value)
 
@@ -475,7 +481,6 @@ OPTIONS:
     -u, --url <URL>...                            The target URL(s) (required, unless --stdin used)
     -a, --user-agent <USER_AGENT>                 Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                         Path to the wordlist
-
 ```
 
 ## 📊 Scan's Display Explained
@@ -805,6 +810,27 @@ Here is a short demonstration of cancelling two in-progress scans found via recu
 
 ![cancel-scan](img/cancel-scan.gif)
 
+### Limit Number of Requests per Second (Rate Limiting) (new in `v2.0.0`)
+
+Version 2.0.0 added the ability to limit the number of requests per second. One thing to note is that the limit is 
+enforced on a per-directory basis. 
+
+Limit number of requests per second, per directory, to 100 (requests per second will increase by 100 for each active 
+directory found during recursion)
+
+```
+./feroxbuster -u http://localhost --rate-limit 100
+```
+
+Limit number of requests per second to 100 to the target as a whole (only one directory at a time will be scanned, thus
+limiting the number of requests per second overall)
+
+```
+./feroxbuster -u http://localhost --rate-limit 100 --scan-limit 1
+```
+
+
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery. Burp Suite Pro, Dirb, Dirbuster, etc...
@@ -850,6 +876,7 @@ few of the use-cases in which feroxbuster may be a better fit:
 | use robots.txt to increase scan coverage (`v1.10.2`)                         | ✔ |   |   |
 | use example page's response to fuzzily filter similar pages  (`v1.11.0`)     | ✔ |   |   |
 | cancel a recursive scan interactively (`v1.12.0`)                            | ✔ |   |   |
+| limit number of requests per second (`v2.0.0`)                               | ✔ | ✔ | ✔ |
 | **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I

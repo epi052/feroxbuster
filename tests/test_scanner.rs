@@ -3,7 +3,7 @@ use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
-use std::process::Command;
+use std::{process::Command, time};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -594,6 +594,44 @@ fn scanner_recursion_works_with_403_directories() {
     assert_eq!(mock.hits(), 1);
     assert_eq!(found_anyway.hits(), 1);
     assert_eq!(forbidden_dir.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
+/// kick off scan with a time limit;  
+fn rate_limit_enforced_when_specified() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(
+        &[
+            "css".to_string(),
+            "stuff".to_string(),
+            "css1".to_string(),
+            "css2".to_string(),
+            "css3".to_string(),
+            "css4".to_string(),
+        ],
+        "wordlist",
+    )
+    .unwrap();
+
+    let now = time::Instant::now();
+    let lower_bound = time::Duration::new(5, 0);
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--rate-limit")
+        .arg("1")
+        .assert()
+        .success();
+
+    // --rate-limit is 1, so the test should take roughly 5 seconds, so elapsed should be at least
+    // 5 seconds. If not rate-limited, this test takes about 500ms without rate limiting
+    assert!(now.elapsed() > lower_bound);
 
     teardown_tmp_directory(tmp_dir);
 }

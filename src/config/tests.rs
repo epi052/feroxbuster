@@ -17,6 +17,7 @@ fn setup_config_test() -> Configuration {
             quiet = true
             verbosity = 1
             scan_limit = 6
+            rate_limit = 250
             time_limit = "10m"
             output = "/some/otherpath"
             debug_log = "/yet/anotherpath"
@@ -135,6 +136,13 @@ fn config_reads_depth() {
 fn config_reads_scan_limit() {
     let config = setup_config_test();
     assert_eq!(config.scan_limit, 6);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_rate_limit() {
+    let config = setup_config_test();
+    assert_eq!(config.rate_limit, 250);
 }
 
 #[test]

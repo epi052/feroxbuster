@@ -17,6 +17,7 @@
 # replay_codes = [200, 302]
 # verbosity = 1
 # scan_limit = 6
+# rate_limit = 250
 # quiet = true
 # json = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"

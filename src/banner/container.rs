@@ -122,6 +122,9 @@ pub struct Banner {
     /// represents Configuration.time_limit
     time_limit: BannerEntry,
 
+    /// represents Configuration.rate_limit
+    rate_limit: BannerEntry,
+
     /// current version of feroxbuster
     pub(super) version: String,
 
@@ -270,6 +273,8 @@ impl Banner {
             BannerEntry::new("🤪", "Filter Wildcards", &(!config.dont_filter).to_string());
         let add_slash = BannerEntry::new("🪓", "Add Slash", &config.add_slash.to_string());
         let time_limit = BannerEntry::new("🕖", "Time Limit", &config.time_limit);
+        let rate_limit =
+            BannerEntry::new("🚧", "Requests per Second", &config.rate_limit.to_string());
 
         Self {
             targets,
@@ -300,6 +305,7 @@ impl Banner {
             verbosity,
             add_slash,
             no_recursion,
+            rate_limit,
             scan_limit,
             time_limit,
             config: cfg,
@@ -500,6 +506,11 @@ by Ben "epi" Risher {}                 ver: {}"#,
         if config.scan_limit > 0 {
             writeln!(&mut writer, "{}", self.scan_limit)?;
         }
+
+        if config.rate_limit > 0 {
+            writeln!(&mut writer, "{}", self.rate_limit)?;
+        }
+
         if !config.time_limit.is_empty() {
             writeln!(&mut writer, "{}", self.time_limit)?;
         }

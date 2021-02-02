@@ -1,11 +1,12 @@
 use std::{
-    collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering, sync::Arc,
-    time::Instant,
+    cmp::max, collections::HashSet, convert::TryInto, ops::Deref, sync::atomic::Ordering,
+    sync::Arc, time::Instant,
 };
 
 use anyhow::{bail, Result};
 use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
+use leaky_bucket::LeakyBucket;
 use tokio::sync::{oneshot, Semaphore};
 
 use crate::{
@@ -24,6 +25,7 @@ use crate::{
     url::FeroxUrl,
     utils::{fmt_err, make_request},
 };
+use tokio::time::Duration;
 
 lazy_static! {
     /// Vector of FeroxResponse objects
@@ -38,16 +40,47 @@ struct Requester {
 
     /// url that will be scanned
     target_url: String,
+
+    /// limits requests per second if present
+    rate_limiter: Option<LeakyBucket>,
 }
 
 /// Requester implementation
 impl Requester {
     /// given a FeroxScanner, create a Requester
-    pub fn from(scanner: &FeroxScanner) -> Self {
-        Self {
+    pub fn from(scanner: &FeroxScanner) -> Result<Self> {
+        let limit = scanner.handles.config.rate_limit;
+        let refill = max(limit / 10, 1); // minimum of 1 per second
+        let tokens = max(limit / 2, 1);
+        let interval = if refill == 1 { 1000 } else { 100 }; // 1 second if refill is 1
+
+        let rate_limiter = if limit > 0 {
+            let bucket = LeakyBucket::builder()
+                .refill_interval(Duration::from_millis(interval)) // add tokens every 0.1s
+                .refill_amount(refill) // ex: 100 req/s -> 10 tokens per 0.1s
+                .tokens(tokens) // reduce initial burst, 2 is arbitrary, but felt good
+                .max(limit)
+                .build()?;
+            Some(bucket)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            rate_limiter,
             handles: scanner.handles.clone(),
             target_url: scanner.target_url.to_owned(),
-        }
+        })
+    }
+
+    /// limit the number of requests per second
+    pub async fn limit(&self) {
+        self.rate_limiter
+            .as_ref()
+            .unwrap()
+            .acquire_one()
+            .await
+            .unwrap(); // todo unwrap
     }
 
     /// Wrapper for [make_request](fn.make_request.html)
@@ -60,6 +93,10 @@ impl Requester {
             FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
 
         for url in urls {
+            if self.rate_limiter.is_some() {
+                self.limit().await;
+            }
+
             let response = make_request(
                 &self.handles.config.client,
                 &url,
@@ -206,7 +243,7 @@ impl FeroxScanner {
             }
         }
 
-        let requester = Arc::new(Requester::from(self));
+        let requester = Arc::new(Requester::from(self)?);
         let increment_len = (self.handles.config.extensions.len() + 1) as u64;
 
         // producer tasks (mp of mpsc); responsible for making requests
@@ -223,6 +260,9 @@ impl FeroxScanner {
                             // to false
                             scanned_urls_clone.pause(true).await;
                         }
+                        // if requester_clone.rate_limiter.is_some() {
+                        //     requester_clone.limit().await;
+                        // }
                         requester_clone.request(&word).await
                     }),
                     pb,

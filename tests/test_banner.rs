@@ -842,3 +842,30 @@ fn banner_prints_similarity_filter() {
                 .and(predicate::str::contains("─┴─")),
         );
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + rate limit
+fn banner_prints_rate_limit() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--rate-limit")
+        .arg("6735")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Requests per Second"))
+                .and(predicate::str::contains("│ 6735"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
