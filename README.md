@@ -829,7 +829,7 @@ limiting the number of requests per second overall)
 ./feroxbuster -u http://localhost --rate-limit 100 --scan-limit 1
 ```
 
-
+![rate-limit](img/rate-limit-demo.gif)
 
 ## 🧐 Comparison w/ Similar Tools
 
