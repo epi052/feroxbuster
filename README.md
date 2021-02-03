@@ -103,6 +103,7 @@ Enumeration.
     - [Filter Response by Similarity to A Given Page (fuzzy filter) (new in `v1.11.0`)](#filter-response-by-similarity-to-a-given-page-fuzzy-filter-new-in-v1110)
     - [Cancel a Recursive Scan Interactively (new in `v1.12.0`)](#cancel-a-recursive-scan-interactively-new-in-v1120)
     - [Limit Number of Requests per Second (Rate Limiting) (new in `v2.0.0`)](#limit-number-of-requests-per-second-rate-limiting-new-in-v200)
+    - [Silence all Output or Be Kinda Quiet (new in `v2.0.0`)](#silence-all-output-or-be-kinda-quiet-new-in-v200)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -376,6 +377,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # scan_limit = 6
 # rate_limit = 250
 # quiet = true
+# silent = true
 # json = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # debug_log = "/var/log/find-the-derp.log"
@@ -430,8 +432,9 @@ FLAGS:
     -k, --insecure         Disables TLS certificate validation
         --json             Emit JSON logs to --output and --debug-log instead of normal text
     -n, --no-recursion     Do not scan recursively
-    -q, --quiet            Only print URLs; Don't print status codes, response size, running config, etc...
+    -q, --quiet            Hide progress bars and banner (good for tmux windows w/ notifications)
     -r, --redirects        Follow redirects
+        --silent           Only print URLs + turn off logging (good for piping a list of urls to other commands)
         --stdin            Read url(s) from STDIN
     -V, --version          Prints version information
     -v, --verbosity        Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably
@@ -481,6 +484,7 @@ OPTIONS:
     -u, --url <URL>...                            The target URL(s) (required, unless --stdin used)
     -a, --user-agent <USER_AGENT>                 Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                         Path to the wordlist
+
 ```
 
 ## 📊 Scan's Display Explained
@@ -538,7 +542,7 @@ same goes for urls, headers, status codes, queries, and size filters.
 ### Read urls from STDIN; pipe only resulting urls out to another tool
 
 ```
-cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 ```
 
 ### Proxy traffic through Burp
@@ -831,6 +835,42 @@ limiting the number of requests per second overall)
 
 ![rate-limit](img/rate-limit-demo.gif)
 
+### Silence all Output or Be Kinda Quiet (new in `v2.0.0`)
+
+Version 2.0.0 introduces `--silent` which is almost equivalent to version 1.x.x's `--quiet`.  
+
+#### `--silent`
+
+Good for piping a list of urls to other commands:
+  - disables logging (no error messages to screen)
+  - don't print banner
+  - only display urls during scan
+
+example output:
+```
+https://localhost.com/contact
+https://localhost.com/about
+https://localhost.com/terms
+```
+
+#### `--quiet`
+
+Good for tmux windows that have notifications enabled as the only updates shown by the scan are new valid responses
+and new directories found that are suitable for recursion.
+  - hide progress bars
+  - don't print banner
+
+example output:
+```
+302        0l        0w        0c https://localhost.com/Login
+200      126l      281w     4091c https://localhost.com/maintenance
+200      126l      281w     4092c https://localhost.com/terms
+... more individual entries, followed by the directories being scanned ...
+Scanning: https://localhost.com
+Scanning: https://localhost.com/homepage
+Scanning: https://localhost.com/api
+```
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery. Burp Suite Pro, Dirb, Dirbuster, etc...
@@ -877,6 +917,7 @@ few of the use-cases in which feroxbuster may be a better fit:
 | use example page's response to fuzzily filter similar pages  (`v1.11.0`)     | ✔ |   |   |
 | cancel a recursive scan interactively (`v1.12.0`)                            | ✔ |   |   |
 | limit number of requests per second (`v2.0.0`)                               | ✔ | ✔ | ✔ |
+| hide progress bars or be silent (or some variation) (`v2.0.0`)               | ✔ | ✔ | ✔ |
 | **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I

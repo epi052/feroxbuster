@@ -1,9 +1,16 @@
 use super::*;
 use crate::{
     client,
-    event_handlers::{Command, Command::UpdateUsizeField, Handles},
+    event_handlers::{
+        Command,
+        Command::{AddError, UpdateUsizeField},
+        Handles,
+    },
     scan_manager::ScanOrder,
-    statistics::StatField::{LinksExtracted, TotalExpected},
+    statistics::{
+        StatError::Other,
+        StatField::{LinksExtracted, TotalExpected},
+    },
     url::FeroxUrl,
     utils::make_request,
 };
@@ -163,7 +170,8 @@ impl<'a> Extractor<'a> {
                         }
                     } else {
                         // unexpected error has occurred
-                        log::error!("Could not parse given url: {}", e);
+                        log::warn!("Could not parse given url: {}", e);
+                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
                     }
                 }
             }
@@ -298,13 +306,13 @@ impl<'a> Extractor<'a> {
         let new_response = make_request(
             &self.handles.config.client,
             &new_url,
-            self.handles.config.quiet,
+            self.handles.config.output_level,
             self.handles.stats.tx.clone(),
         )
         .await?;
 
         let new_ferox_response =
-            FeroxResponse::from(new_response, true, self.handles.config.quiet).await;
+            FeroxResponse::from(new_response, true, self.handles.config.output_level).await;
 
         log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
@@ -379,11 +387,12 @@ impl<'a> Extractor<'a> {
         let response = make_request(
             &client,
             &url,
-            self.handles.config.quiet,
+            self.handles.config.output_level,
             self.handles.stats.tx.clone(),
         )
         .await?;
-        let ferox_response = FeroxResponse::from(response, true, self.handles.config.quiet).await;
+        let ferox_response =
+            FeroxResponse::from(response, true, self.handles.config.output_level).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
         return Ok(ferox_response);

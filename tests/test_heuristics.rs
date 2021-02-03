@@ -295,7 +295,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards() {
 
 #[test]
 /// test finds a static wildcard and reports nothing to stdout
-fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
+fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
@@ -321,7 +321,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_quiet_enabled(
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--add-slash")
-        .arg("-q")
+        .arg("--silent")
         .unwrap();
 
     teardown_tmp_directory(tmp_dir);

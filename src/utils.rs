@@ -11,6 +11,7 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
+    config::OutputLevel,
     event_handlers::Command::{self, AddError, AddStatus},
     progress::PROGRESS_PRINTER,
     send_command,
@@ -84,24 +85,21 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 pub async fn make_request(
     client: &Client,
     url: &Url,
-    quiet: bool,
+    output_level: OutputLevel,
     tx_stats: UnboundedSender<Command>,
 ) -> Result<Response> {
     log::trace!(
-        "enter: make_request(Configuration::Client, {}, {}, {:?})",
+        "enter: make_request(Configuration::Client, {}, {:?}, {:?})",
         url,
-        quiet,
+        output_level,
         tx_stats
     );
 
     match client.get(url.to_owned()).send().await {
         Err(e) => {
-            let mut log_level = log::Level::Error;
-
             log::trace!("exit: make_request -> {}", e);
+
             if e.is_timeout() {
-                // only warn for timeouts, while actual errors are still left as errors
-                log_level = log::Level::Warn;
                 send_command!(tx_stats, AddError(Timeout));
             } else if e.is_redirect() {
                 if let Some(last_redirect) = e.url() {
@@ -116,10 +114,10 @@ pub async fn make_request(
                             "-1",
                             "-1",
                             &fancy_message,
-                            quiet,
+                            output_level,
                         )
                     } else {
-                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message, quiet)
+                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message, output_level)
                     };
 
                     send_command!(tx_stats, AddError(Redirection));
@@ -134,12 +132,7 @@ pub async fn make_request(
                 send_command!(tx_stats, AddError(Other));
             }
 
-            if matches!(log_level, log::Level::Error) {
-                log::error!("Error while making request: {}", e);
-            } else {
-                log::warn!("Error while making request: {}", e);
-            }
-
+            log::warn!("Error while making request: {}", e);
             bail!("{}", e)
         }
         Ok(resp) => {
@@ -160,10 +153,10 @@ pub fn create_report_string(
     word_count: &str,
     content_length: &str,
     url: &str,
-    quiet: bool,
+    output_level: OutputLevel,
 ) -> String {
-    if quiet {
-        // -q used, just need the url
+    if matches!(output_level, OutputLevel::Silent) {
+        // --silent used, just need the url
         format!("{}\n", url)
     } else {
         // normal printing with status and sizes

@@ -11,7 +11,7 @@ use tokio::sync::{oneshot, Semaphore};
 
 use crate::{
     event_handlers::{
-        Command::{self, UpdateF64Field, UpdateUsizeField},
+        Command::{self, AddError, UpdateF64Field, UpdateUsizeField},
         Handles,
     },
     extractor::{
@@ -21,7 +21,10 @@ use crate::{
     heuristics,
     response::FeroxResponse,
     scan_manager::{FeroxResponses, ScanOrder, ScanStatus, PAUSE_SCAN},
-    statistics::StatField::{DirScanTimes, ExpectedPerScan},
+    statistics::{
+        StatError::Other,
+        StatField::{DirScanTimes, ExpectedPerScan},
+    },
     url::FeroxUrl,
     utils::{fmt_err, make_request},
 };
@@ -74,13 +77,9 @@ impl Requester {
     }
 
     /// limit the number of requests per second
-    pub async fn limit(&self) {
-        self.rate_limiter
-            .as_ref()
-            .unwrap()
-            .acquire_one()
-            .await
-            .unwrap(); // todo unwrap
+    pub async fn limit(&self) -> Result<()> {
+        self.rate_limiter.as_ref().unwrap().acquire_one().await?;
+        Ok(())
     }
 
     /// Wrapper for [make_request](fn.make_request.html)
@@ -94,20 +93,24 @@ impl Requester {
 
         for url in urls {
             if self.rate_limiter.is_some() {
-                self.limit().await;
+                // found a rate limiter, limit that junk!
+                if let Err(e) = self.limit().await {
+                    log::warn!("Could not rate limit scan: {}", e);
+                    self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                }
             }
 
             let response = make_request(
                 &self.handles.config.client,
                 &url,
-                self.handles.config.quiet,
+                self.handles.config.output_level,
                 self.handles.stats.tx.clone(),
             )
             .await?;
 
             // response came back without error, convert it to FeroxResponse
             let ferox_response =
-                FeroxResponse::from(response, true, self.handles.config.quiet).await;
+                FeroxResponse::from(response, true, self.handles.config.output_level).await;
 
             // do recursion if appropriate
             if !self.handles.config.no_recursion {
@@ -260,9 +263,6 @@ impl FeroxScanner {
                             // to false
                             scanned_urls_clone.pause(true).await;
                         }
-                        // if requester_clone.rate_limiter.is_some() {
-                        //     requester_clone.limit().await;
-                        // }
                         requester_clone.request(&word).await
                     }),
                     pb,
@@ -274,7 +274,8 @@ impl FeroxScanner {
                         bar.inc(increment_len);
                     }
                     Err(e) => {
-                        log::error!("error awaiting a response: {}", e);
+                        log::warn!("error awaiting a response: {}", e);
+                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
                     }
                 }
             });
@@ -324,4 +325,28 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
 
     log::trace!("exit: initialize");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::OutputLevel;
+    use crate::scan_manager::FeroxScans;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    #[should_panic]
+    /// try to hit struct field coverage of FileOutHandler
+    async fn get_scan_by_url_bails_on_unfound_url() {
+        let sem = Semaphore::new(10);
+        let urls = FeroxScans::new(OutputLevel::Default);
+
+        let scanner = FeroxScanner::new(
+            "http://localhost",
+            ScanOrder::Initial,
+            Arc::new(Default::default()),
+            Arc::new(sem),
+            Arc::new(Handles::for_testing(Some(Arc::new(urls)), None).0),
+        );
+        scanner.scan_url().await.unwrap();
+    }
 }

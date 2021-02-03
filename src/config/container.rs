@@ -1,7 +1,8 @@
 use super::utils::{
     depth, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
-    user_agent, wordlist,
+    user_agent, wordlist, OutputLevel,
 };
+use crate::config::determine_output_level;
 use crate::{
     client, parser, scan_manager::resume_scan, utils::fmt_err, FeroxSerialize, DEFAULT_CONFIG_NAME,
 };
@@ -110,9 +111,17 @@ pub struct Configuration {
     #[serde(default)]
     pub verbosity: u8,
 
-    /// Only print URLs
+    /// Only print URLs (was --quiet in versions < 2.0.0)
+    #[serde(default)]
+    pub silent: bool,
+
+    /// No header, no status bars
     #[serde(default)]
     pub quiet: bool,
+
+    /// more easily differentiate between the three states of output levels
+    #[serde(skip)]
+    pub output_level: OutputLevel,
 
     /// Store log output as NDJSON
     #[serde(default)]
@@ -234,6 +243,7 @@ impl Default for Configuration {
         let status_codes = status_codes();
         let replay_codes = status_codes.clone();
         let kind = serialized_type();
+        let output_level = OutputLevel::Default;
 
         Configuration {
             kind,
@@ -244,7 +254,9 @@ impl Default for Configuration {
             status_codes,
             replay_client,
             dont_filter: false,
+            silent: false,
             quiet: false,
+            output_level,
             resumed: false,
             stdin: false,
             json: false,
@@ -299,6 +311,7 @@ impl Configuration {
     /// - **output**: `None` (print to stdout)
     /// - **debug_log**: `None`
     /// - **quiet**: `false`
+    /// - **silent**: `false`
     /// - **save_state**: `true`
     /// - **user_agent**: `feroxbuster/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
@@ -356,7 +369,7 @@ impl Configuration {
         let mut config = Configuration::default();
 
         // read in all config files
-        let _ = Self::parse_config_files(&mut config);
+        Self::parse_config_files(&mut config)?;
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
@@ -533,12 +546,18 @@ impl Configuration {
                 .collect();
         }
 
-        if args.is_present("quiet") {
+        if args.is_present("silent") {
             // the reason this is protected by an if statement:
-            // consider a user specifying quiet = true in ferox-config.toml
+            // consider a user specifying silent = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
-            // false if no -q is used on the command line
+            // false if no --silent is used on the command line
+            config.silent = true;
+            config.output_level = OutputLevel::Silent;
+        }
+
+        if args.is_present("quiet") {
             config.quiet = true;
+            config.output_level = OutputLevel::Quiet;
         }
 
         if args.is_present("dont_filter") {
@@ -699,7 +718,10 @@ impl Configuration {
         update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
+        update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
+        // use updated quiet/silent values to determin output level
+        conf.output_level = determine_output_level(conf.quiet, conf.silent);
         update_if_not_default!(&mut conf.output, new.output, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);

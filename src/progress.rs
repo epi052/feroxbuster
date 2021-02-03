@@ -23,6 +23,9 @@ pub enum BarType {
 
     /// bar used to show overall scan metrics
     Total,
+
+    /// simpler output bar that shows only the directory being scanned (no updating info)
+    Quiet,
 }
 
 /// Add an [indicatif::ProgressBar](https://docs.rs/indicatif/latest/indicatif/struct.ProgressBar.html)
@@ -41,6 +44,7 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
         BarType::Total => {
             style.template("[{bar:.yellow/blue}] - {elapsed:<4} {pos:>7}/{len:7} {eta:7} {msg}")
         }
+        BarType::Quiet => style.template("Scanning: {prefix}"),
     };
 
     let progress_bar = PROGRESS_BAR.add(ProgressBar::new(length));

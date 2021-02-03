@@ -90,7 +90,6 @@ impl FileOutHandler {
                     skip_fail!(write_to(&*response, &mut file, self.config.json));
                 }
                 Command::Exit => {
-                    log::error!("file handler got Exit");
                     break;
                 }
                 Command::Sync(sender) => {
@@ -214,7 +213,7 @@ impl TermOutHandler {
                         make_request(
                             self.config.replay_client.as_ref().unwrap(),
                             &resp.url(),
-                            self.config.quiet,
+                            self.config.output_level,
                             tx_stats.clone(),
                         )
                         .await
@@ -247,5 +246,40 @@ impl TermOutHandler {
         }
         log::trace!("exit: start");
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// try to hit struct field coverage of FileOutHandler
+    fn struct_fields_of_file_out_handler() {
+        let (_, rx) = mpsc::unbounded_channel::<Command>();
+        let config = Arc::new(Configuration::new().unwrap());
+        let foh = FileOutHandler {
+            config,
+            receiver: rx,
+        };
+        println!("{:?}", foh);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// try to hit struct field coverage of TermOutHandler
+    async fn struct_fields_of_term_out_handler() {
+        let (tx, rx) = mpsc::unbounded_channel::<Command>();
+        let (tx_file, _) = mpsc::unbounded_channel::<Command>();
+        let config = Arc::new(Configuration::new().unwrap());
+
+        let toh = TermOutHandler {
+            config,
+            file_task: None,
+            receiver: rx,
+            tx_file,
+        };
+
+        println!("{:?}", toh);
+        tx.send(Command::Exit).unwrap();
     }
 }
