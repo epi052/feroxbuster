@@ -87,10 +87,6 @@ pub fn resume_scan(filename: &str) -> Configuration {
         }
     }
 
-    log::error!("{:#?}", config);
-
-    log::error!("{:#?}", config);
-
     log::trace!("exit: resume_scan -> {:?}", config);
     config
 }
