@@ -45,7 +45,7 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
             style.template("[{bar:.yellow/blue}] - {elapsed:<4} {pos:>7}/{len:7} {eta:7} {msg}")
         }
         BarType::Quiet => style.template("Scanning: {prefix}"),
-    }; // todo update README with silent/quiet stuff
+    };
 
     let progress_bar = PROGRESS_BAR.add(ProgressBar::new(length));
 

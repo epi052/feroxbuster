@@ -233,7 +233,7 @@ impl HeuristicTests {
                         OutputLevel::Default | OutputLevel::Quiet
                     ) {
                         ferox_print(
-                            &format!("Could not connect to {}, skipping... (try turning on warnings with -v)", target_url),
+                            &format!("Could not connect to {}, skipping...", target_url),
                             &PROGRESS_PRINTER,
                         );
                     }
