@@ -15,7 +15,7 @@ pub(super) fn report_and_exit(err: &str) -> ! {
     );
 
     #[cfg(test)]
-    panic!();
+    panic!(); // todo unit test to hit this branch
     #[cfg(not(test))]
     exit(1);
 }
@@ -93,6 +93,7 @@ pub fn determine_output_level(quiet: bool, silent: bool) -> OutputLevel {
     if quiet && silent {
         // user COULD have both as true in config file, take the more quiet of the two
         OutputLevel::Silent
+    // todo unit test to hit this branch
     } else if quiet {
         OutputLevel::Quiet
     } else if silent {

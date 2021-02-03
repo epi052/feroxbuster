@@ -248,3 +248,29 @@ impl TermOutHandler {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// try to hit struct field coverage of FileOutHandler
+    async fn struct_fields_of_file_out_handler() {
+        let (_, rx) = mpsc::unbounded_channel::<Command>();
+        let config = Arc::new(Configuration::new().unwrap());
+        let foh = FileOutHandler {
+            config,
+            receiver: rx,
+        };
+        foh.receiver;
+        assert_eq!(foh.config.save_state, false);
+        // let task = tokio::spawn(async move {
+        //     foh.start(tx_stats).await.unwrap();
+        // });
+        // let (t, x) = oneshot::channel::<bool>();
+        // tx.send(Command::Sync(t)).unwrap();
+        // x.await.unwrap();
+        // tx.send(Command::Exit).unwrap();
+        // task.await.unwrap()
+    }
+}
