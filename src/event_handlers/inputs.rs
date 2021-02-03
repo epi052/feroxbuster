@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
     progress::PROGRESS_PRINTER,
-    scan_manager::FeroxState,
-    scan_manager::PAUSE_SCAN,
+    scan_manager::{FeroxState, PAUSE_SCAN},
     scanner::RESPONSES,
+    statistics::StatError,
     utils::{open_file, write_to},
     SLEEP_DURATION,
 };
@@ -64,7 +64,11 @@ impl TermInputHandler {
             });
 
             if result.is_err() {
-                log::error!("Could not set Ctrl+c handler; scan state will not be saved");
+                log::warn!("Could not set Ctrl+c handler; scan state will not be saved");
+                self.handles
+                    .stats
+                    .send(Command::AddError(StatError::Other))
+                    .unwrap_or_default();
             }
         }
     }

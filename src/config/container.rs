@@ -2,6 +2,7 @@ use super::utils::{
     depth, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
     user_agent, wordlist, OutputLevel,
 };
+use crate::config::determine_output_level;
 use crate::{
     client, parser, scan_manager::resume_scan, utils::fmt_err, FeroxSerialize, DEFAULT_CONFIG_NAME,
 };
@@ -368,7 +369,7 @@ impl Configuration {
         let mut config = Configuration::default();
 
         // read in all config files
-        let _ = Self::parse_config_files(&mut config);
+        Self::parse_config_files(&mut config)?;
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
@@ -719,16 +720,8 @@ impl Configuration {
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
-        if new.quiet && new.silent {
-            // user COULD have both as true in config file, take the more quiet of the two
-            conf.output_level = OutputLevel::Silent;
-        } else if new.quiet {
-            conf.output_level = OutputLevel::Quiet;
-        } else if new.silent {
-            conf.output_level = OutputLevel::Silent;
-        } else {
-            conf.output_level = OutputLevel::Default;
-        }
+        // use updated quiet/silent values to determin output level
+        conf.output_level = determine_output_level(conf.quiet, conf.silent);
         update_if_not_default!(&mut conf.output, new.output, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);

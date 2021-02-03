@@ -68,7 +68,7 @@ pub(super) fn depth() -> usize {
 }
 
 /// enum representing the three possible states for informational output (not logging verbosity)
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum OutputLevel {
     /// normal scan, no --quiet|--silent
     Default,
@@ -85,5 +85,19 @@ impl Default for OutputLevel {
     /// return Default
     fn default() -> Self {
         Self::Default
+    }
+}
+
+/// given the current settings for quiet and silent, determine output_level (DRY helper)
+pub fn determine_output_level(quiet: bool, silent: bool) -> OutputLevel {
+    if quiet && silent {
+        // user COULD have both as true in config file, take the more quiet of the two
+        OutputLevel::Silent
+    } else if quiet {
+        OutputLevel::Quiet
+    } else if silent {
+        OutputLevel::Silent
+    } else {
+        OutputLevel::Default
     }
 }

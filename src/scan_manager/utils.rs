@@ -46,7 +46,7 @@ pub async fn start_max_time_thread(handles: Arc<Handles>) {
         let _ = TermInputHandler::sigint_handler(handles.clone());
     }
 
-    log::error!(
+    log::warn!(
         "Could not parse the value provided ({}), can't enforce time limit",
         handles.config.time_limit
     );
@@ -86,6 +86,10 @@ pub fn resume_scan(filename: &str) -> Configuration {
             }
         }
     }
+
+    log::error!("{:#?}", config);
+
+    log::error!("{:#?}", config);
 
     log::trace!("exit: resume_scan -> {:?}", config);
     config

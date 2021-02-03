@@ -68,6 +68,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("verbosity")
                 .takes_value(false)
                 .multiple(true)
+                .conflicts_with("silent")
                 .help("Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably too much)"),
         )
         .arg(
@@ -119,7 +120,8 @@ pub fn initialize() -> App<'static, 'static> {
             Arg::with_name("silent")
                 .long("silent")
                 .takes_value(false)
-                .help("Only print URLs (good for piping a list of urls to other commands)")
+                .conflicts_with("quiet")
+                .help("Only print URLs + turn off logging (good for piping a list of urls to other commands)")
         )
         .arg(
             Arg::with_name("quiet")

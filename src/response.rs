@@ -126,7 +126,7 @@ impl FeroxResponse {
                 self.url = url;
             }
             Err(e) => {
-                log::error!("Could not parse {} into a Url: {}", url, e);
+                log::warn!("Could not parse {} into a Url: {}", url, e);
             }
         };
     }
@@ -200,7 +200,7 @@ impl FeroxResponse {
                 // await the response's body
                 Ok(text) => text,
                 Err(e) => {
-                    log::error!("Could not parse body from response: {}", e);
+                    log::warn!("Could not parse body from response: {}", e);
                     String::new()
                 }
             }

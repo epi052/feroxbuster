@@ -90,7 +90,6 @@ impl FileOutHandler {
                     skip_fail!(write_to(&*response, &mut file, self.config.json));
                 }
                 Command::Exit => {
-                    log::error!("file handler got Exit");
                     break;
                 }
                 Command::Sync(sender) => {

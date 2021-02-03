@@ -1,9 +1,16 @@
 use super::*;
 use crate::{
     client,
-    event_handlers::{Command, Command::UpdateUsizeField, Handles},
+    event_handlers::{
+        Command,
+        Command::{AddError, UpdateUsizeField},
+        Handles,
+    },
     scan_manager::ScanOrder,
-    statistics::StatField::{LinksExtracted, TotalExpected},
+    statistics::{
+        StatError::Other,
+        StatField::{LinksExtracted, TotalExpected},
+    },
     url::FeroxUrl,
     utils::make_request,
 };
@@ -163,7 +170,8 @@ impl<'a> Extractor<'a> {
                         }
                     } else {
                         // unexpected error has occurred
-                        log::error!("Could not parse given url: {}", e);
+                        log::warn!("Could not parse given url: {}", e);
+                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
                     }
                 }
             }

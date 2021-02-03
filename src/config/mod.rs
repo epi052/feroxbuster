@@ -6,4 +6,4 @@ mod utils;
 mod tests;
 
 pub use self::container::Configuration;
-pub use self::utils::OutputLevel;
+pub use self::utils::{determine_output_level, OutputLevel};

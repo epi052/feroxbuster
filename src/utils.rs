@@ -97,12 +97,9 @@ pub async fn make_request(
 
     match client.get(url.to_owned()).send().await {
         Err(e) => {
-            let mut log_level = log::Level::Error;
-
             log::trace!("exit: make_request -> {}", e);
+
             if e.is_timeout() {
-                // only warn for timeouts, while actual errors are still left as errors
-                log_level = log::Level::Warn;
                 send_command!(tx_stats, AddError(Timeout));
             } else if e.is_redirect() {
                 if let Some(last_redirect) = e.url() {
@@ -135,12 +132,7 @@ pub async fn make_request(
                 send_command!(tx_stats, AddError(Other));
             }
 
-            if matches!(log_level, log::Level::Error) {
-                log::error!("Error while making request: {}", e);
-            } else {
-                log::warn!("Error while making request: {}", e);
-            }
-
+            log::warn!("Error while making request: {}", e);
             bail!("{}", e)
         }
         Ok(resp) => {

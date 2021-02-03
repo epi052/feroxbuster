@@ -97,7 +97,7 @@ impl FeroxScans {
                     scans.push(scan);
                 }
                 Err(e) => {
-                    log::error!("FeroxScans' container's mutex is poisoned: {}", e);
+                    log::warn!("FeroxScans' container's mutex is poisoned: {}", e);
                     return false;
                 }
             }
@@ -248,8 +248,10 @@ impl FeroxScans {
     pub fn print_known_responses(&self) {
         if let Ok(mut responses) = RESPONSES.responses.write() {
             for response in responses.iter_mut() {
-                let _level = response.output_level;
-                if !matches!(self.output_level, _level) {
+                if self.output_level != response.output_level {
+                    // set the output_level prior to printing the response to ensure that the
+                    // response's setting aligns with the overall configuration (since we're
+                    // calling this from a resumed state)
                     response.output_level = self.output_level;
                 }
                 PROGRESS_PRINTER.println(response.as_str());

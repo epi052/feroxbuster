@@ -436,7 +436,7 @@ fn feroxscan_display() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
-        quiet: false,
+        output_level: OutputLevel::Default,
         status: Default::default(),
         task: tokio::sync::Mutex::new(None),
         progress_bar: std::sync::Mutex::new(None),
@@ -476,7 +476,7 @@ async fn ferox_scan_abort() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
-        quiet: false,
+        output_level: OutputLevel::Default,
         status: std::sync::Mutex::new(ScanStatus::Running),
         task: tokio::sync::Mutex::new(Some(tokio::spawn(async move {
             sleep(Duration::from_millis(SLEEP_DURATION * 2));

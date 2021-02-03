@@ -24,7 +24,7 @@ complete -c feroxbuster -n "__fish_use_subcommand" -s L -l scan-limit -d 'Limit 
 complete -c feroxbuster -n "__fish_use_subcommand" -l rate-limit -d 'Limit number of requests per second (per directory) (default: 0, i.e. no limit)'
 complete -c feroxbuster -n "__fish_use_subcommand" -l time-limit -d 'Limit total run time of all scans (ex: --time-limit 10m)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s v -l verbosity -d 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v\'s is probably too much)'
-complete -c feroxbuster -n "__fish_use_subcommand" -l silent -d 'Only print URLs (good for piping a list of urls to other commands)'
+complete -c feroxbuster -n "__fish_use_subcommand" -l silent -d 'Only print URLs + turn off logging (good for piping a list of urls to other commands)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s q -l quiet -d 'Hide progress bars and banner (good for tmux windows w/ notifications)'
 complete -c feroxbuster -n "__fish_use_subcommand" -l json -d 'Emit JSON logs to --output and --debug-log instead of normal text'
 complete -c feroxbuster -n "__fish_use_subcommand" -s D -l dont-filter -d 'Don\'t auto-filter wildcard responses'
