@@ -16,6 +16,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::{
+    config::OutputLevel,
     event_handlers::{Command, Handles},
     traits::FeroxSerialize,
     url::FeroxUrl,
@@ -50,8 +51,8 @@ pub struct FeroxResponse {
     /// Wildcard response status
     wildcard: bool,
 
-    /// whether the user passed -q on the command line
-    pub(crate) quiet: bool,
+    /// whether the user passed --quiet|--silent on the command line
+    pub(crate) output_level: OutputLevel,
 }
 
 /// implement Default trait for FeroxResponse
@@ -67,7 +68,7 @@ impl Default for FeroxResponse {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
         }
     }
 }
@@ -185,7 +186,7 @@ impl FeroxResponse {
     }
 
     /// Create a new `FeroxResponse` from the given `Response`
-    pub async fn from(response: Response, read_body: bool, quiet: bool) -> Self {
+    pub async fn from(response: Response, read_body: bool, output_level: OutputLevel) -> Self {
         let url = response.url().clone();
         let status = response.status();
         let headers = response.headers().clone();
@@ -218,7 +219,7 @@ impl FeroxResponse {
             headers,
             line_count,
             word_count,
-            quiet,
+            output_level,
             wildcard: false,
         }
     }
@@ -327,8 +328,8 @@ impl FeroxSerialize for FeroxResponse {
         let status = self.status().as_str();
         let wild_status = status_colorizer("WLD");
 
-        if self.wildcard && !self.quiet {
-            // -q was not used and response is a wildcard, special messages abound when
+        if self.wildcard && matches!(self.output_level, OutputLevel::Default | OutputLevel::Quiet) {
+            // --silent was not used and response is a wildcard, special messages abound when
             // this is the case...
 
             // create the base message
@@ -372,7 +373,7 @@ impl FeroxSerialize for FeroxResponse {
                 &words,
                 &chars,
                 self.url().as_str(),
-                self.quiet,
+                self.output_level,
             )
         }
     }
@@ -459,7 +460,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             content_length: 0,
             headers: HeaderMap::new(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
             line_count: 0,
             word_count: 0,
         };
@@ -546,7 +547,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
         };
         let result = response.reached_max_depth(0, 0, handles);
         assert!(!result);
@@ -567,7 +568,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -588,7 +589,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -609,7 +610,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
         };
 
         let result = response.reached_max_depth(2, 2, handles);
@@ -630,7 +631,7 @@ mod tests {
             word_count: 0,
             headers: Default::default(),
             wildcard: false,
-            quiet: false,
+            output_level: Default::default(),
         };
 
         let result = response.reached_max_depth(0, 2, handles);

@@ -12,7 +12,7 @@ use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
-    config::Configuration,
+    config::{Configuration, OutputLevel},
     event_handlers::{
         Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermInputHandler,
@@ -89,8 +89,8 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    if !handles.config.silent {
-        // only create the bar if -q hasn't been used
+    if matches!(handles.config.output_level, OutputLevel::Default) {
+        // only create the bar if no --silent|--quiet
         handles.stats.send(CreateBar)?;
 
         // blocks until the bar is created / avoids race condition in first two bars
@@ -228,8 +228,8 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         }
     };
 
-    if !config.silent {
-        // only print banner if -q isn't used
+    if matches!(config.output_level, OutputLevel::Default) {
+        // only print banner if output level is default (no banner on --quiet|--silent)
         let std_stderr = stderr(); // std::io::stderr
 
         let mut banner = Banner::new(&targets, &config);

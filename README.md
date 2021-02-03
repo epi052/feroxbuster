@@ -376,6 +376,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # scan_limit = 6
 # rate_limit = 250
 # quiet = true
+# silent = true
 # json = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # debug_log = "/var/log/find-the-derp.log"
@@ -538,7 +539,7 @@ same goes for urls, headers, status codes, queries, and size filters.
 ### Read urls from STDIN; pipe only resulting urls out to another tool
 
 ```
-cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 ```
 
 ### Proxy traffic through Burp

@@ -547,20 +547,20 @@ impl Configuration {
 
         if args.is_present("silent") {
             // the reason this is protected by an if statement:
-            // consider a user specifying quiet = true in ferox-config.toml
+            // consider a user specifying silent = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
-            // false if no -q is used on the command line
+            // false if no --silent is used on the command line
             config.silent = true;
             config.output_level = OutputLevel::Silent;
-        }
-
-        if args.is_present("dont_filter") {
-            config.dont_filter = true;
         }
 
         if args.is_present("quiet") {
             config.quiet = true;
             config.output_level = OutputLevel::Quiet;
+        }
+
+        if args.is_present("dont_filter") {
+            config.dont_filter = true;
         }
 
         if args.occurrences_of("verbosity") > 0 {

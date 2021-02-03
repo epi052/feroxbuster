@@ -4,11 +4,12 @@ use anyhow::{bail, Result};
 use console::style;
 use uuid::Uuid;
 
-use crate::response::FeroxResponse;
 use crate::{
+    config::OutputLevel,
     event_handlers::{Command, Handles},
     filters::WildcardFilter,
     progress::PROGRESS_PRINTER,
+    response::FeroxResponse,
     skip_fail,
     url::FeroxUrl,
     utils::{ferox_print, fmt_err, make_request, status_colorizer},
@@ -116,14 +117,20 @@ impl HeuristicTests {
 
             wildcard.dynamic = wc_length - url_len;
 
-            if !self.handles.config.silent {
+            if matches!(
+                handles.config.output_level,
+                OutputLevel::Default | OutputLevel::Quiet
+            ) {
                 let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wildcard.dynamic);
                 ferox_print(&msg, &PROGRESS_PRINTER);
             }
         } else if wc_length == wc2_length {
             wildcard.size = wc_length;
 
-            if !self.handles.config.silent {
+            if matches!(
+                handles.config.output_level,
+                OutputLevel::Default | OutputLevel::Quiet
+            ) {
                 let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wildcard.size);
                 ferox_print(&msg, &PROGRESS_PRINTER);
             }
@@ -179,7 +186,10 @@ impl HeuristicTests {
                 bail!("filtered response")
             }
 
-            if !self.handles.config.silent {
+            if matches!(
+                handles.config.output_level,
+                OutputLevel::Default | OutputLevel::Quiet
+            ) {
                 let boxed = Box::new(ferox_response.clone());
                 self.handles.output.send(Command::Report(boxed))?;
             }
@@ -218,7 +228,10 @@ impl HeuristicTests {
                     good_urls.push(target_url.to_owned());
                 }
                 Err(e) => {
-                    if !self.handles.config.silent {
+                    if matches!(
+                        handles.config.output_level,
+                        OutputLevel::Default | OutputLevel::Quiet
+                    ) {
                         ferox_print(
                             &format!("Could not connect to {}, skipping...", target_url),
                             &PROGRESS_PRINTER,

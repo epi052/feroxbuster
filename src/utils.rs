@@ -11,6 +11,7 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
+    config::OutputLevel,
     event_handlers::Command::{self, AddError, AddStatus},
     progress::PROGRESS_PRINTER,
     send_command,
@@ -160,10 +161,10 @@ pub fn create_report_string(
     word_count: &str,
     content_length: &str,
     url: &str,
-    quiet: bool,
+    output_level: OutputLevel,
 ) -> String {
-    if quiet {
-        // -q used, just need the url
+    if matches!(output_level, OutputLevel::Silent) {
+        // --silent used, just need the url
         format!("{}\n", url)
     } else {
         // normal printing with status and sizes
