@@ -1,7 +1,12 @@
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{
+    collections::HashSet,
+    convert::TryInto,
+    fs::File,
+    io::{BufRead, BufReader},
+    sync::Arc,
+};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use tokio::sync::{mpsc, Semaphore};
 
 use crate::response::FeroxResponse;
@@ -9,7 +14,7 @@ use crate::url::FeroxUrl;
 use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::FeroxScanner,
-    statistics::StatField::TotalScans,
+    statistics::StatField::{ExpectedPerScan, TotalExpected, TotalScans},
     CommandReceiver, CommandSender, FeroxChannel, Joiner,
 };
 
@@ -53,7 +58,7 @@ pub struct ScanHandler {
     receiver: CommandReceiver,
 
     /// wordlist (re)used for each scan
-    wordlist: std::sync::Mutex<Option<Arc<HashSet<String>>>>,
+    wordlist: Option<Arc<HashSet<String>>>,
 
     /// group of scans that need to be joined
     tasks: Vec<Arc<FeroxScan>>,
@@ -96,21 +101,21 @@ impl ScanHandler {
             handles,
             receiver,
             max_depth,
+            wordlist: None,
             tasks: Vec::new(),
             depths: Vec::new(),
             limiter: Arc::new(limiter),
-            wordlist: std::sync::Mutex::new(None),
         }
     }
 
-    /// Set the wordlist
-    fn wordlist(&self, wordlist: Arc<HashSet<String>>) {
-        if let Ok(mut guard) = self.wordlist.lock() {
-            if guard.is_none() {
-                let _ = std::mem::replace(&mut *guard, Some(wordlist));
-            }
-        }
-    }
+    // /// Set the wordlist
+    // fn wordlist(&self, wordlist: Arc<HashSet<String>>) {
+    //     if let Ok(mut guard) = self.wordlist.lock() {
+    //         if guard.is_none() {
+    //             let _ = std::mem::replace(&mut *guard, Some(wordlist));
+    //         }
+    //     }
+    // }
 
     /// Initialize new `FeroxScans` and the sc side of an mpsc channel that is responsible for
     /// updates to the aforementioned object.
@@ -139,14 +144,38 @@ impl ScanHandler {
     pub async fn start(&mut self) -> Result<()> {
         log::trace!("enter: start({:?})", self);
 
+        let words = self.get_unique_words_from_wordlist()?; // todo this error won't propagate, need to do like i did with the other one
+
+        // number of requests only needs to be calculated once, and then can be reused
+        let num_reqs_expected: u64 = if self.handles.config.extensions.is_empty() {
+            words.len().try_into()?
+        } else {
+            let total = words.len() * (self.handles.config.extensions.len() + 1);
+            total.try_into()?
+        };
+
+        {
+            // no real reason to keep the arc around beyond this call
+            let scans = self.handles.ferox_scans()?;
+            scans.set_bar_length(num_reqs_expected);
+        }
+
+        // tell Stats object about the number of expected requests
+        self.handles.stats.send(UpdateUsizeField(
+            ExpectedPerScan,
+            num_reqs_expected as usize,
+        ))?;
+
+        self.wordlist = Some(words);
+
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::ScanInitialUrls(targets) => {
                     self.ordered_scan_url(targets, ScanOrder::Initial).await?;
                 }
-                Command::UpdateWordlist(wordlist) => {
-                    self.wordlist(wordlist);
-                }
+                // Command::UpdateWordlist(wordlist) => {
+                //     self.wordlist(wordlist);
+                // }
                 Command::JoinTasks(sender) => {
                     let ferox_scans = self.handles.ferox_scans().unwrap_or_default();
                     let limiter_clone = self.limiter.clone();
@@ -154,9 +183,7 @@ impl ScanHandler {
                     tokio::spawn(async move {
                         while ferox_scans.has_active_scans() {
                             for scan in ferox_scans.get_active_scans() {
-                                log::debug!("FAFAFA joining {:?}", scan);
                                 scan.join().await;
-                                log::debug!("FAFAFA joined {:?}", scan);
                             }
                         }
                         limiter_clone.close();
@@ -176,13 +203,42 @@ impl ScanHandler {
         log::trace!("exit: start");
         Ok(())
     }
+    /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
+    fn get_unique_words_from_wordlist(&self) -> Result<Arc<HashSet<String>>> {
+        log::trace!("enter: get_unique_words_from_wordlist");
+        let path = &self.handles.config.wordlist;
+
+        let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;
+
+        let reader = BufReader::new(file);
+
+        let mut words = HashSet::new();
+
+        for line in reader.lines() {
+            let result = match line {
+                Ok(read_line) => read_line,
+                Err(_) => continue,
+            };
+
+            if result.starts_with('#') || result.is_empty() {
+                continue;
+            }
+
+            words.insert(result);
+        }
+
+        log::trace!(
+            "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
+            words.len()
+        );
+
+        Ok(Arc::new(words))
+    }
 
     /// Helper to easily get the (locked) underlying wordlist
     pub fn get_wordlist(&self) -> Result<Arc<HashSet<String>>> {
-        if let Ok(guard) = self.wordlist.lock().as_ref() {
-            if let Some(list) = guard.as_ref() {
-                return Ok(list.clone());
-            }
+        if let Some(words) = &self.wordlist {
+            return Ok(words.clone());
         }
 
         bail!("Could not get underlying wordlist")

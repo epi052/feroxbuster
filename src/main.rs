@@ -1,7 +1,5 @@
 use std::{
-    collections::HashSet,
-    fs::File,
-    io::{stderr, BufRead, BufReader},
+    io::stderr,
     sync::{atomic::Ordering, Arc},
 };
 
@@ -14,7 +12,7 @@ use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
     event_handlers::{
-        Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
+        Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls},
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermInputHandler,
         TermOutHandler, SCAN_COMPLETE,
     },
@@ -27,61 +25,19 @@ use feroxbuster::{
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 
-/// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
-fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
-    // todo i'd like to try moving this into the handler and passing the arc into FeroxScanner to
-    // see how that impacts memory usage
-    log::trace!("enter: get_unique_words_from_wordlist({})", path);
-
-    let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;
-
-    let reader = BufReader::new(file);
-
-    let mut words = HashSet::new();
-
-    for line in reader.lines() {
-        let result = match line {
-            Ok(read_line) => read_line,
-            Err(_) => continue,
-        };
-
-        if result.starts_with('#') || result.is_empty() {
-            continue;
-        }
-
-        words.insert(result);
-    }
-
-    log::trace!(
-        "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
-        words.len()
-    );
-
-    Ok(Arc::new(words))
-}
-
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     log::trace!("enter: scan({:?}, {:?})", targets, handles);
-    // cloning an Arc is cheap (it's basically a pointer into the heap)
-    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
-    // as well as additional directories found as part of recursion
 
-    let words = {
-        let words_handles = handles.clone();
-        tokio::spawn(async move { get_unique_words_from_wordlist(&words_handles.config.wordlist) })
-            .await??
-    };
+    let wordlist_len = handles.stats.data.expected_per_scan();
 
-    if words.len() == 0 {
+    if wordlist_len == 0 {
         bail!("Did not find any words in {}", handles.config.wordlist);
     }
 
     let scanned_urls = handles.ferox_scans()?;
 
-    handles.send_scan_command(UpdateWordlist(words.clone()))?;
-
-    scanner::initialize(words.len(), handles.clone()).await?;
+    // todo may need to sync here or in scans.rs
 
     // at this point, the stat thread's progress bar can be created; things that needed to happen
     // first:
@@ -100,7 +56,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     if handles.config.resumed {
         // display what has already been completed
         scanned_urls.print_known_responses();
-        scanned_urls.print_completed_bars(words.len())?;
+        scanned_urls.print_completed_bars(wordlist_len)?;
     }
 
     log::debug!("sending {:?} to be scanned as initial targets", targets);
