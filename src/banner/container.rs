@@ -350,7 +350,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
     ///
     /// ex: v1.1.0
     pub async fn check_for_updates(&mut self, url: &str, handles: Arc<Handles>) -> Result<()> {
-        log::trace!("enter: needs_update({:?})", handles);
+        log::trace!("enter: needs_update({}, {:?})", url, handles);
 
         let api_url = Url::parse(url)?;
 
@@ -376,7 +376,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         // if we've gotten this far, we have a string in the form of X.X.X where X is a number
         // all that's left is to compare the current version with the version found above
 
-        return if latest_version == self.version {
+        if latest_version == self.version {
             // there's really only two possible outcomes if we accept that the tag conforms to
             // the X.X.X pattern:
             //   1. the version strings match, meaning we're up to date
@@ -385,11 +385,12 @@ by Ben "epi" Risher {}                 ver: {}"#,
             // except for developers working on this code, nobody should ever be in a situation
             // where they have a version greater than the latest tagged release
             self.update_status = UpdateStatus::UpToDate;
-            Ok(())
         } else {
             self.update_status = UpdateStatus::OutOfDate;
-            Ok(())
-        };
+        }
+
+        log::trace!("exit: check_for_updates -> {:?}", self.update_status);
+        Ok(())
     }
 
     /// display the banner on Write writer
