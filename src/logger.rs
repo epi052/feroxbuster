@@ -11,8 +11,8 @@ use crate::{
     config::Configuration,
     message::FeroxMessage,
     progress::PROGRESS_PRINTER,
+    traits::FeroxSerialize,
     utils::{fmt_err, write_to},
-    FeroxSerialize,
 };
 
 /// Create a customized instance of

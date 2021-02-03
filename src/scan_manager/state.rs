@@ -1,5 +1,5 @@
 use super::*;
-use crate::{config::Configuration, statistics::Stats, utils::fmt_err, FeroxSerialize};
+use crate::{config::Configuration, statistics::Stats, traits::FeroxSerialize, utils::fmt_err};
 use anyhow::{Context, Result};
 use serde::Serialize;
 use std::sync::Arc;

@@ -12,8 +12,8 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    traits::FeroxSerialize,
     utils::{fmt_err, open_file, write_to},
-    FeroxSerialize,
 };
 
 use super::{error::StatError, field::StatField};

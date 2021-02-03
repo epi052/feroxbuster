@@ -16,7 +16,7 @@ use crate::{
     },
     extractor::{
         ExtractionTarget::{ResponseBody, RobotsTxt},
-        ExtractorBuilder, // todo this isn't really necessary anymore
+        ExtractorBuilder,
     },
     heuristics,
     response::FeroxResponse,

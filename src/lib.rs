@@ -5,9 +5,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-// todo should FeroxSerialize be imported from traits all the places its used? currently most do crate::FeroxSerialize
-// the other option would be to expose all the Ferox stuff here and make them internally private
-use crate::{event_handlers::Command, traits::FeroxSerialize};
+use crate::event_handlers::Command;
 
 pub mod banner;
 pub mod config;

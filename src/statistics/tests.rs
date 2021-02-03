@@ -2,7 +2,8 @@ use super::*;
 use crate::{
     config::Configuration,
     event_handlers::{Command, StatsHandle, StatsHandler},
-    CommandSender, FeroxSerialize, Joiner,
+    traits::FeroxSerialize,
+    CommandSender, Joiner,
 };
 use anyhow::Result;
 use reqwest::StatusCode;

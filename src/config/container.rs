@@ -4,7 +4,8 @@ use super::utils::{
 };
 use crate::config::determine_output_level;
 use crate::{
-    client, parser, scan_manager::resume_scan, utils::fmt_err, FeroxSerialize, DEFAULT_CONFIG_NAME,
+    client, parser, scan_manager::resume_scan, traits::FeroxSerialize, utils::fmt_err,
+    DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};

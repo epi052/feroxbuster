@@ -5,7 +5,8 @@ use crate::{
     response::FeroxResponse,
     scanner::RESPONSES,
     statistics::Stats,
-    FeroxSerialize, SLEEP_DURATION, VERSION,
+    traits::FeroxSerialize,
+    SLEEP_DURATION, VERSION,
 };
 use indicatif::ProgressBar;
 use predicates::prelude::*;

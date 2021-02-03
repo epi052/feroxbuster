@@ -5,7 +5,8 @@ use crate::{
     progress::PROGRESS_PRINTER,
     progress::{add_bar, BarType},
     scanner::RESPONSES,
-    FeroxSerialize, SLEEP_DURATION,
+    traits::FeroxSerialize,
+    SLEEP_DURATION,
 };
 use anyhow::Result;
 use serde::{ser::SerializeSeq, Serialize, Serializer};

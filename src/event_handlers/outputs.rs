@@ -10,8 +10,9 @@ use crate::{
     scanner::RESPONSES,
     send_command, skip_fail,
     statistics::StatField::ResourcesDiscovered,
+    traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
-    CommandReceiver, CommandSender, FeroxSerialize, Joiner,
+    CommandReceiver, CommandSender, Joiner,
 };
 use std::sync::Arc;
 

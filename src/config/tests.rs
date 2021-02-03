@@ -1,6 +1,6 @@
 use super::utils::*;
 use super::*;
-use crate::{FeroxSerialize, DEFAULT_CONFIG_NAME};
+use crate::{traits::FeroxSerialize, DEFAULT_CONFIG_NAME};
 use std::{collections::HashMap, fs::write};
 use tempfile::TempDir;
 
