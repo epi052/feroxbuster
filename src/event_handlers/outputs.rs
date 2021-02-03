@@ -264,13 +264,6 @@ mod tests {
         };
         foh.receiver;
         assert_eq!(foh.config.save_state, false);
-        // let task = tokio::spawn(async move {
-        //     foh.start(tx_stats).await.unwrap();
-        // });
-        // let (t, x) = oneshot::channel::<bool>();
-        // tx.send(Command::Sync(t)).unwrap();
-        // x.await.unwrap();
-        // tx.send(Command::Exit).unwrap();
-        // task.await.unwrap()
+        println!("{:?}", foh);
     }
 }
