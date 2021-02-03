@@ -1,5 +1,8 @@
 use super::*;
-use crate::progress::{add_bar, BarType};
+use crate::{
+    config::OutputLevel,
+    progress::{add_bar, BarType},
+};
 use anyhow::Result;
 use console::style;
 use indicatif::ProgressBar;
@@ -44,8 +47,8 @@ pub struct FeroxScan {
     /// The progress bar associated with this scan
     pub(super) progress_bar: Mutex<Option<ProgressBar>>,
 
-    /// whether or not the user passed -q on the command line
-    pub(super) quiet: bool,
+    /// whether or not the user passed --silent|--quiet on the command line
+    pub(super) output_level: OutputLevel,
 }
 
 /// Default implementation for FeroxScan
@@ -63,7 +66,7 @@ impl Default for FeroxScan {
             url: String::new(),
             progress_bar: Mutex::new(None),
             scan_type: ScanType::File,
-            quiet: false,
+            output_level: Default::default(),
         }
     }
 }
@@ -121,10 +124,10 @@ impl FeroxScan {
                 if guard.is_some() {
                     (*guard).as_ref().unwrap().clone()
                 } else {
-                    let bar_type = if self.quiet {
-                        BarType::Hidden
-                    } else {
-                        BarType::Default
+                    let bar_type = match self.output_level {
+                        OutputLevel::Default => BarType::Default,
+                        OutputLevel::Quiet => BarType::Quiet,
+                        OutputLevel::Silent => BarType::Hidden,
                     };
 
                     let pb = add_bar(&self.url, self.num_requests, bar_type);
@@ -136,10 +139,11 @@ impl FeroxScan {
             }
             Err(_) => {
                 log::warn!("Could not unlock progress bar on {:?}", self);
-                let bar_type = if self.quiet {
-                    BarType::Hidden
-                } else {
-                    BarType::Default
+
+                let bar_type = match self.output_level {
+                    OutputLevel::Default => BarType::Default,
+                    OutputLevel::Quiet => BarType::Quiet,
+                    OutputLevel::Silent => BarType::Hidden,
                 };
 
                 let pb = add_bar(&self.url, self.num_requests, bar_type);
@@ -156,7 +160,7 @@ impl FeroxScan {
         scan_type: ScanType,
         scan_order: ScanOrder,
         num_requests: u64,
-        quiet: bool,
+        output_level: OutputLevel,
         pb: Option<ProgressBar>,
     ) -> Arc<Self> {
         Arc::new(Self {
@@ -164,7 +168,7 @@ impl FeroxScan {
             scan_type,
             scan_order,
             num_requests,
-            quiet,
+            output_level,
             progress_bar: Mutex::new(pb),
             ..Default::default()
         })

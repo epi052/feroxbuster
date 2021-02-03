@@ -298,13 +298,13 @@ impl<'a> Extractor<'a> {
         let new_response = make_request(
             &self.handles.config.client,
             &new_url,
-            self.handles.config.silent,
+            self.handles.config.output_level,
             self.handles.stats.tx.clone(),
         )
         .await?;
 
         let new_ferox_response =
-            FeroxResponse::from(new_response, true, self.handles.config.silent).await;
+            FeroxResponse::from(new_response, true, self.handles.config.output_level).await;
 
         log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
@@ -379,11 +379,12 @@ impl<'a> Extractor<'a> {
         let response = make_request(
             &client,
             &url,
-            self.handles.config.silent,
+            self.handles.config.output_level,
             self.handles.stats.tx.clone(),
         )
         .await?;
-        let ferox_response = FeroxResponse::from(response, true, self.handles.config.silent).await;
+        let ferox_response =
+            FeroxResponse::from(response, true, self.handles.config.output_level).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
         return Ok(ferox_response);

@@ -1,6 +1,7 @@
 use super::scan::ScanType;
 use super::*;
 use crate::{
+    config::OutputLevel,
     progress::PROGRESS_PRINTER,
     progress::{add_bar, BarType},
     scanner::RESPONSES,
@@ -41,8 +42,8 @@ pub struct FeroxScans {
     /// progress bars and feroxscans
     bar_length: Mutex<u64>,
 
-    /// whether or not the user passed -q on the command line
-    quiet: bool,
+    /// whether or not the user passed --silent|--quiet on the command line
+    output_level: OutputLevel,
 }
 
 /// Serialize implementation for FeroxScans
@@ -71,10 +72,10 @@ impl Serialize for FeroxScans {
 
 /// Implementation of `FeroxScans`
 impl FeroxScans {
-    /// given the value for -q, create a new FeroxScans object
-    pub fn new(quiet: bool) -> Self {
+    /// given an OutputLevel, create a new FeroxScans object
+    pub fn new(output_level: OutputLevel) -> Self {
         Self {
-            quiet,
+            output_level,
             ..Default::default()
         }
     }
@@ -122,7 +123,7 @@ impl FeroxScans {
                     // rely on that value being passed in. If the user starts a scan without -q
                     // and resumes the scan but adds -q, FeroxScan will not have the proper value
                     // without the line below
-                    deser_scan.quiet = self.quiet;
+                    deser_scan.output_level = self.output_level;
 
                     log::debug!("added: {}", deser_scan);
                     self.insert(Arc::new(deser_scan));
@@ -247,8 +248,9 @@ impl FeroxScans {
     pub fn print_known_responses(&self) {
         if let Ok(mut responses) = RESPONSES.responses.write() {
             for response in responses.iter_mut() {
-                if self.quiet != response.quiet {
-                    response.quiet = self.quiet;
+                let _level = response.output_level;
+                if !matches!(self.output_level, _level) {
+                    response.output_level = self.output_level;
                 }
                 PROGRESS_PRINTER.println(response.as_str());
             }
@@ -257,10 +259,11 @@ impl FeroxScans {
 
     /// if a resumed scan is already complete, display a completed progress bar to the user
     pub fn print_completed_bars(&self, bar_length: usize) -> Result<()> {
-        if self.quiet {
-            // fast exit when -q was used
-            return Ok(());
-        }
+        let bar_type = match self.output_level {
+            OutputLevel::Default => BarType::Message,
+            OutputLevel::Quiet => BarType::Quiet,
+            OutputLevel::Silent => return Ok(()), // fast exit when --silent was used
+        };
 
         if let Ok(scans) = self.scans.read() {
             for scan in scans.iter() {
@@ -269,7 +272,7 @@ impl FeroxScans {
                     let pb = add_bar(
                         &scan.url,
                         bar_length.try_into().unwrap_or_default(),
-                        BarType::Message,
+                        bar_type,
                     );
                     pb.finish();
                 }
@@ -344,11 +347,12 @@ impl FeroxScans {
 
         let bar = match scan_type {
             ScanType::Directory => {
-                let bar_type = if self.quiet {
-                    BarType::Hidden
-                } else {
-                    BarType::Default
+                let bar_type = match self.output_level {
+                    OutputLevel::Default => BarType::Message,
+                    OutputLevel::Quiet => BarType::Quiet,
+                    OutputLevel::Silent => BarType::Hidden,
                 };
+
                 let progress_bar = add_bar(&url, bar_length, bar_type);
 
                 progress_bar.reset_elapsed();
@@ -358,7 +362,14 @@ impl FeroxScans {
             ScanType::File => None,
         };
 
-        let ferox_scan = FeroxScan::new(&url, scan_type, scan_order, bar_length, self.quiet, bar);
+        let ferox_scan = FeroxScan::new(
+            &url,
+            scan_type,
+            scan_order,
+            bar_length,
+            self.output_level,
+            bar,
+        );
 
         // If the set did not contain the scan, true is returned.
         // If the set did contain the scan, false is returned.

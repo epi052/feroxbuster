@@ -1,6 +1,6 @@
 use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX};
 use super::*;
-use crate::config::Configuration;
+use crate::config::{Configuration, OutputLevel};
 use crate::scan_manager::ScanOrder;
 use crate::{
     event_handlers::Handles, scan_manager::FeroxScans, utils::make_request, Command, FeroxChannel,
@@ -218,13 +218,13 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let client = Client::new();
     let url = Url::parse(&srv.url("/some-path")).unwrap();
 
-    let response = make_request(&client, &url, false, tx_stats.clone())
+    let response = make_request(&client, &url, OutputLevel::Default, tx_stats.clone())
         .await
         .unwrap();
     let (handles, _rx) = Handles::for_testing(None, None);
 
     let handles = Arc::new(handles);
-    let ferox_response = FeroxResponse::from(response, true, false).await;
+    let ferox_response = FeroxResponse::from(response, true, OutputLevel::Default).await;
 
     let extractor = Extractor {
         links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),

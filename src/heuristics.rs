@@ -118,7 +118,7 @@ impl HeuristicTests {
             wildcard.dynamic = wc_length - url_len;
 
             if matches!(
-                handles.config.output_level,
+                self.handles.config.output_level,
                 OutputLevel::Default | OutputLevel::Quiet
             ) {
                 let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wildcard.dynamic);
@@ -128,7 +128,7 @@ impl HeuristicTests {
             wildcard.size = wc_length;
 
             if matches!(
-                handles.config.output_level,
+                self.handles.config.output_level,
                 OutputLevel::Default | OutputLevel::Quiet
             ) {
                 let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wildcard.size);
@@ -161,7 +161,7 @@ impl HeuristicTests {
         let response = make_request(
             &self.handles.config.client,
             &nonexistent_url.to_owned(),
-            self.handles.config.silent,
+            self.handles.config.output_level,
             self.handles.stats.tx.clone(),
         )
         .await?;
@@ -174,7 +174,7 @@ impl HeuristicTests {
         {
             // found a wildcard response
             let mut ferox_response =
-                FeroxResponse::from(response, true, self.handles.config.silent).await;
+                FeroxResponse::from(response, true, self.handles.config.output_level).await;
             ferox_response.set_wildcard(true);
 
             if self
@@ -187,7 +187,7 @@ impl HeuristicTests {
             }
 
             if matches!(
-                handles.config.output_level,
+                self.handles.config.output_level,
                 OutputLevel::Default | OutputLevel::Quiet
             ) {
                 let boxed = Box::new(ferox_response.clone());
@@ -218,7 +218,7 @@ impl HeuristicTests {
             let result = make_request(
                 &self.handles.config.client,
                 &request,
-                self.handles.config.silent,
+                self.handles.config.output_level,
                 self.handles.stats.tx.clone(),
             )
             .await;
@@ -229,7 +229,7 @@ impl HeuristicTests {
                 }
                 Err(e) => {
                     if matches!(
-                        handles.config.output_level,
+                        self.handles.config.output_level,
                         OutputLevel::Default | OutputLevel::Quiet
                     ) {
                         ferox_print(

@@ -76,14 +76,14 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
             make_request(
                 &handles.config.client,
                 &url,
-                handles.config.silent,
+                handles.config.output_level,
                 handles.stats.tx.clone()
             )
             .await
         );
 
         // if successful, create a filter based on the response's body
-        let fr = FeroxResponse::from(resp, true, handles.config.silent).await;
+        let fr = FeroxResponse::from(resp, true, handles.config.output_level).await;
 
         // hash the response body and store the resulting hash in the filter object
         let hash = FuzzyHash::new(&fr.text()).to_string();

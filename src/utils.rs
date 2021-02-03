@@ -85,13 +85,13 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 pub async fn make_request(
     client: &Client,
     url: &Url,
-    quiet: bool,
+    output_level: OutputLevel,
     tx_stats: UnboundedSender<Command>,
 ) -> Result<Response> {
     log::trace!(
-        "enter: make_request(Configuration::Client, {}, {}, {:?})",
+        "enter: make_request(Configuration::Client, {}, {:?}, {:?})",
         url,
-        quiet,
+        output_level,
         tx_stats
     );
 
@@ -117,10 +117,10 @@ pub async fn make_request(
                             "-1",
                             "-1",
                             &fancy_message,
-                            quiet,
+                            output_level,
                         )
                     } else {
-                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message, quiet)
+                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message, output_level)
                     };
 
                     send_command!(tx_stats, AddError(Redirection));
