@@ -66,3 +66,24 @@ pub(super) fn user_agent() -> String {
 pub(super) fn depth() -> usize {
     4
 }
+
+/// enum representing the three possible states for informational output (not logging verbosity)
+#[derive(Debug, Copy, Clone)]
+pub enum OutputLevel {
+    /// normal scan, no --quiet|--silent
+    Default,
+
+    /// quiet scan, print some information, but not all (new in versions >= 2.0.0)
+    Quiet,
+
+    /// silent scan, only print urls (used to be --quiet in versions 1.x.x)
+    Silent,
+}
+
+/// implement a default for OutputLevel
+impl Default for OutputLevel {
+    /// return Default
+    fn default() -> Self {
+        Self::Default
+    }
+}

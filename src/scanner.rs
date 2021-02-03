@@ -100,14 +100,14 @@ impl Requester {
             let response = make_request(
                 &self.handles.config.client,
                 &url,
-                self.handles.config.quiet,
+                self.handles.config.silent,
                 self.handles.stats.tx.clone(),
             )
             .await?;
 
             // response came back without error, convert it to FeroxResponse
             let ferox_response =
-                FeroxResponse::from(response, true, self.handles.config.quiet).await;
+                FeroxResponse::from(response, true, self.handles.config.silent).await;
 
             // do recursion if appropriate
             if !self.handles.config.no_recursion {

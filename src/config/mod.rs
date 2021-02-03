@@ -5,4 +5,5 @@ mod utils;
 #[cfg(test)]
 mod tests;
 
-pub use container::Configuration;
+pub use self::container::Configuration;
+pub use self::utils::OutputLevel;

@@ -214,7 +214,7 @@ impl TermOutHandler {
                         make_request(
                             self.config.replay_client.as_ref().unwrap(),
                             &resp.url(),
-                            self.config.quiet,
+                            self.config.silent,
                             tx_stats.clone(),
                         )
                         .await

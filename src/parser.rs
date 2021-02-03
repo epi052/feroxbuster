@@ -116,11 +116,17 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("silent")
+                .long("silent")
+                .takes_value(false)
+                .help("Only print URLs (good for piping a list of urls to other commands)")
+        )
+        .arg(
             Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
                 .takes_value(false)
-                .help("Only print URLs; Don't print status codes, response size, running config, etc...")
+                .help("Hide progress bars and banner (good for tmux windows w/ notifications)")
         )
         .arg(
             Arg::with_name("json")
@@ -364,7 +370,7 @@ EXAMPLES:
         ./feroxbuster -u http://[::1] --no-recursion -vv
 
     Read urls from STDIN; pipe only resulting urls out to another tool
-        cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+        cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Proxy traffic through Burp
         ./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080

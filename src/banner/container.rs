@@ -357,7 +357,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         let response = make_request(
             &handles.config.client,
             &api_url,
-            handles.config.quiet,
+            handles.config.silent,
             handles.stats.tx.clone(),
         )
         .await?;

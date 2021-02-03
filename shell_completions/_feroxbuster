@@ -62,8 +62,9 @@ _feroxbuster() {
 '--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]' \
 '*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
-'-q[Only print URLs; Don'\''t print status codes, response size, running config, etc...]' \
-'--quiet[Only print URLs; Don'\''t print status codes, response size, running config, etc...]' \
+'--silent[Only print URLs (good for piping a list of urls to other commands)]' \
+'-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
+'--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \

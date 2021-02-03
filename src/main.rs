@@ -89,7 +89,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // - scanner initialized (this sent expected requests per directory to the stats thread, which
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
-    if !handles.config.quiet {
+    if !handles.config.silent {
         // only create the bar if -q hasn't been used
         handles.stats.send(CreateBar)?;
 
@@ -228,7 +228,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         }
     };
 
-    if !config.quiet {
+    if !config.silent {
         // only print banner if -q isn't used
         let std_stderr = stderr(); // std::io::stderr
 

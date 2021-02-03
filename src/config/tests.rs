@@ -15,6 +15,7 @@ fn setup_config_test() -> Configuration {
             proxy = "http://127.0.0.1:8080"
             replay_proxy = "http://127.0.0.1:8081"
             quiet = true
+            silent = true
             verbosity = 1
             scan_limit = 6
             rate_limit = 250
@@ -68,6 +69,7 @@ fn default_configuration() {
     assert_eq!(config.timeout, timeout());
     assert_eq!(config.verbosity, 0);
     assert_eq!(config.scan_limit, 0);
+    assert_eq!(config.silent, false);
     assert_eq!(config.quiet, false);
     assert_eq!(config.dont_filter, false);
     assert_eq!(config.no_recursion, false);
@@ -164,6 +166,13 @@ fn config_reads_proxy() {
 fn config_reads_replay_proxy() {
     let config = setup_config_test();
     assert_eq!(config.replay_proxy, "http://127.0.0.1:8081");
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_silent() {
+    let config = setup_config_test();
+    assert_eq!(config.silent, true);
 }
 
 #[test]
