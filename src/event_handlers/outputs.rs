@@ -262,8 +262,8 @@ mod tests {
             config,
             receiver: rx,
         };
+        println!("{:?}", foh);
         foh.receiver;
         assert_eq!(foh.config.save_state, false);
-        println!("{:?}", foh);
     }
 }
