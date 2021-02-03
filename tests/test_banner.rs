@@ -869,3 +869,51 @@ fn banner_prints_rate_limit() {
                 .and(predicate::str::contains("─┴─")),
         );
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see no banner output
+fn banner_doesnt_print_when_silent() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--silent")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .not()
+                .and(predicate::str::contains("Target Url").not())
+                .and(predicate::str::contains("http://localhost").not())
+                .and(predicate::str::contains("Threads").not())
+                .and(predicate::str::contains("Wordlist").not())
+                .and(predicate::str::contains("Status Codes").not())
+                .and(predicate::str::contains("Timeout (secs)").not())
+                .and(predicate::str::contains("User-Agent").not()),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see no banner output
+fn banner_doesnt_print_when_quiet() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--quiet")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .not()
+                .and(predicate::str::contains("Target Url").not())
+                .and(predicate::str::contains("http://localhost").not())
+                .and(predicate::str::contains("Threads").not())
+                .and(predicate::str::contains("Wordlist").not())
+                .and(predicate::str::contains("Status Codes").not())
+                .and(predicate::str::contains("Timeout (secs)").not())
+                .and(predicate::str::contains("User-Agent").not()),
+        );
+}

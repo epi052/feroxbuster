@@ -220,7 +220,6 @@ impl FeroxScanner {
                 scan
             }
             None => {
-                // todo unit test to hit this branch
                 let msg = format!(
                     "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
                     self.target_url
