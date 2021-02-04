@@ -68,6 +68,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("verbosity")
                 .takes_value(false)
                 .multiple(true)
+                .conflicts_with("silent")
                 .help("Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably too much)"),
         )
         .arg(
@@ -116,11 +117,18 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("silent")
+                .long("silent")
+                .takes_value(false)
+                .conflicts_with("quiet")
+                .help("Only print URLs + turn off logging (good for piping a list of urls to other commands)")
+        )
+        .arg(
             Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
                 .takes_value(false)
-                .help("Only print URLs; Don't print status codes, response size, running config, etc...")
+                .help("Hide progress bars and banner (good for tmux windows w/ notifications)")
         )
         .arg(
             Arg::with_name("json")
@@ -328,6 +336,13 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Limit total number of concurrent scans (default: 0, i.e. no limit)")
         )
         .arg(
+            Arg::with_name("rate_limit")
+                .long("rate-limit")
+                .value_name("RATE_LIMIT")
+                .takes_value(true)
+                .help("Limit number of requests per second (per directory) (default: 0, i.e. no limit)")
+        )
+        .arg(
             Arg::with_name("time_limit")
                 .long("time-limit")
                 .value_name("TIME_SPEC")
@@ -357,7 +372,7 @@ EXAMPLES:
         ./feroxbuster -u http://[::1] --no-recursion -vv
 
     Read urls from STDIN; pipe only resulting urls out to another tool
-        cat targets | ./feroxbuster --stdin --quiet -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
+        cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Proxy traffic through Burp
         ./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080

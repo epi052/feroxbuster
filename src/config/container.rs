@@ -1,34 +1,22 @@
-use crate::{
-    client, parser,
-    progress::{add_bar, BarType},
-    scan_manager::resume_scan,
-    utils::{module_colorizer, status_colorizer},
-    FeroxSerialize, DEFAULT_CONFIG_NAME, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
+use super::utils::{
+    depth, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
+    user_agent, wordlist, OutputLevel,
 };
+use crate::config::determine_output_level;
+use crate::{
+    client, parser, scan_manager::resume_scan, traits::FeroxSerialize, utils::fmt_err,
+    DEFAULT_CONFIG_NAME,
+};
+use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
-use lazy_static::lazy_static;
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-#[cfg(not(test))]
-use std::process::exit;
 use std::{
     collections::HashMap,
     env::{current_dir, current_exe},
     fs::read_to_string,
     path::PathBuf,
 };
-
-lazy_static! {
-    /// Global configuration state
-    pub static ref CONFIGURATION: Configuration = Configuration::new();
-
-    /// Global progress bar that houses other progress bars
-    pub static ref PROGRESS_BAR: MultiProgress = MultiProgress::with_draw_target(ProgressDrawTarget::stdout());
-
-    /// Global progress bar that is only used for printing messages that don't jack up other bars
-    pub static ref PROGRESS_PRINTER: ProgressBar = add_bar("", 0, BarType::Hidden);
-}
 
 /// macro helper to abstract away repetitive configuration updates
 macro_rules! update_config_if_present {
@@ -54,21 +42,6 @@ macro_rules! update_if_not_default {
             *$old = $new;
         }
     };
-}
-
-/// simple helper to clean up some code reuse below; panics under test / exits in prod
-fn report_and_exit(err: &str) -> ! {
-    eprintln!(
-        "{} {}: {}",
-        status_colorizer("ERROR"),
-        module_colorizer("Configuration::new"),
-        err
-    );
-
-    #[cfg(test)]
-    panic!();
-    #[cfg(not(test))]
-    exit(1);
 }
 
 /// Represents the final, global configuration of the program.
@@ -139,9 +112,17 @@ pub struct Configuration {
     #[serde(default)]
     pub verbosity: u8,
 
-    /// Only print URLs
+    /// Only print URLs (was --quiet in versions < 2.0.0)
+    #[serde(default)]
+    pub silent: bool,
+
+    /// No header, no status bars
     #[serde(default)]
     pub quiet: bool,
+
+    /// more easily differentiate between the three states of output levels
+    #[serde(skip)]
+    pub output_level: OutputLevel,
 
     /// Store log output as NDJSON
     #[serde(default)]
@@ -204,6 +185,10 @@ pub struct Configuration {
     #[serde(default)]
     pub scan_limit: usize,
 
+    /// Number of requests per second permitted (per directory); a limit of 0 means no limit is imposed
+    #[serde(default)]
+    pub rate_limit: usize,
+
     /// Filter out messages of a particular size
     #[serde(default)]
     pub filter_size: Vec<u64>,
@@ -248,63 +233,18 @@ pub struct Configuration {
     pub filter_similar: Vec<String>,
 }
 
-// functions timeout, threads, status_codes, user_agent, wordlist, save_state, and depth are used to provide
-// defaults in the event that a ferox-config.toml is found but one or more of the values below
-// aren't listed in the config.  This way, we get the correct defaults upon Deserialization
-
-/// default Configuration type for use in json output
-fn serialized_type() -> String {
-    String::from("configuration")
-}
-
-/// default timeout value
-fn timeout() -> u64 {
-    7
-}
-
-/// default save_state value
-fn save_state() -> bool {
-    true
-}
-
-/// default threads value
-fn threads() -> usize {
-    50
-}
-
-/// default status codes
-fn status_codes() -> Vec<u16> {
-    DEFAULT_STATUS_CODES
-        .iter()
-        .map(|code| code.as_u16())
-        .collect()
-}
-
-/// default wordlist
-fn wordlist() -> String {
-    String::from(DEFAULT_WORDLIST)
-}
-
-/// default user-agent
-fn user_agent() -> String {
-    format!("feroxbuster/{}", VERSION)
-}
-
-/// default recursion depth
-fn depth() -> usize {
-    4
-}
-
 impl Default for Configuration {
     /// Builds the default Configuration for feroxbuster
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None);
+        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None)
+            .expect("Could not build client");
         let replay_client = None;
         let status_codes = status_codes();
         let replay_codes = status_codes.clone();
         let kind = serialized_type();
+        let output_level = OutputLevel::Default;
 
         Configuration {
             kind,
@@ -315,12 +255,15 @@ impl Default for Configuration {
             status_codes,
             replay_client,
             dont_filter: false,
+            silent: false,
             quiet: false,
+            output_level,
             resumed: false,
             stdin: false,
             json: false,
             verbosity: 0,
             scan_limit: 0,
+            rate_limit: 0,
             add_slash: false,
             insecure: false,
             redirects: false,
@@ -369,6 +312,7 @@ impl Configuration {
     /// - **output**: `None` (print to stdout)
     /// - **debug_log**: `None`
     /// - **quiet**: `false`
+    /// - **silent**: `false`
     /// - **save_state**: `true`
     /// - **user_agent**: `feroxbuster/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
@@ -387,6 +331,7 @@ impl Configuration {
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
+    /// - **rate_limit**: `0` (no limit on concurrent scans imposed)
     /// - **time_limit**: `None` (no limit on length of scan imposed)
     /// - **replay_proxy**: `None` (no limit on concurrent scans imposed)
     /// - **replay_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
@@ -408,14 +353,14 @@ impl Configuration {
     ///
     /// The resulting [Configuration](struct.Configuration.html) is a singleton with a `static`
     /// lifetime.
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         // when compiling for test, we want to eliminate the runtime dependency of the parser
         if cfg!(test) {
             let test_config = Configuration {
                 save_state: false, // don't clutter up junk when testing
                 ..Default::default()
             };
-            return test_config;
+            return Ok(test_config);
         }
 
         let args = parser::initialize().get_matches();
@@ -425,11 +370,11 @@ impl Configuration {
         let mut config = Configuration::default();
 
         // read in all config files
-        Self::parse_config_files(&mut config);
+        Self::parse_config_files(&mut config)?;
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
-        let cli_config = Self::parse_cli_args(&args);
+        let cli_config = Self::parse_cli_args(&args)?;
 
         // --resume-from used, need to first read the Configuration from disk, and then
         // merge the cli_config into the resumed config
@@ -456,7 +401,7 @@ impl Configuration {
             // clients aren't serialized, have to remake them from the previous config
             Self::try_rebuild_clients(&mut previous_config);
 
-            return previous_config;
+            return Ok(previous_config);
         }
 
         // if we've gotten to this point in the code, --resume-from was not used, so we need to
@@ -466,12 +411,12 @@ impl Configuration {
         // rebuild clients is the last step in either code branch
         Self::try_rebuild_clients(&mut config);
 
-        config
+        Ok(config)
     }
 
     /// Parse all possible versions of the ferox-config.toml file, adhering to the order of
     /// precedence outlined above
-    fn parse_config_files(mut config: &mut Self) {
+    fn parse_config_files(mut config: &mut Self) -> Result<()> {
         // Next, we parse the ferox-config.toml file, if present and set the values
         // therein to overwrite our default values. Deserialized defaults are specified
         // in the Configuration struct so that we don't change anything that isn't
@@ -487,42 +432,42 @@ impl Configuration {
         let config_file = PathBuf::new()
             .join("/etc/feroxbuster")
             .join(DEFAULT_CONFIG_NAME);
-        Self::parse_and_merge_config(config_file, &mut config);
+        Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found at ~/.config/feroxbuster/ferox-config.toml
-        if let Some(config_dir) = dirs::config_dir() {
-            // config_dir() resolves to one of the following
-            //   - linux: $XDG_CONFIG_HOME or $HOME/.config
-            //   - macOS: $HOME/Library/Application Support
-            //   - windows: {FOLDERID_RoamingAppData}
-
-            let config_file = config_dir.join("feroxbuster").join(DEFAULT_CONFIG_NAME);
-            Self::parse_and_merge_config(config_file, &mut config);
-        };
+        // config_dir() resolves to one of the following
+        //   - linux: $XDG_CONFIG_HOME or $HOME/.config
+        //   - macOS: $HOME/Library/Application Support
+        //   - windows: {FOLDERID_RoamingAppData}
+        let config_dir = dirs::config_dir().ok_or_else(|| anyhow!("Couldn't load config"))?;
+        let config_file = config_dir.join("feroxbuster").join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found in same the directory as feroxbuster executable
-        if let Ok(exe_path) = current_exe() {
-            if let Some(bin_dir) = exe_path.parent() {
-                let config_file = bin_dir.join(DEFAULT_CONFIG_NAME);
-                Self::parse_and_merge_config(config_file, &mut config);
-            };
-        };
+        let exe_path = current_exe()?;
+        let bin_dir = exe_path
+            .parent()
+            .ok_or_else(|| anyhow!("Couldn't load config"))?;
+        let config_file = bin_dir.join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config)?;
 
         // merge a config found in the user's current working directory
-        if let Ok(cwd) = current_dir() {
-            let config_file = cwd.join(DEFAULT_CONFIG_NAME);
-            Self::parse_and_merge_config(config_file, &mut config);
-        }
+        let cwd = current_dir()?;
+        let config_file = cwd.join(DEFAULT_CONFIG_NAME);
+        Self::parse_and_merge_config(config_file, &mut config)?;
+
+        Ok(())
     }
 
     /// Given a set of ArgMatches read from the CLI, update and return the default Configuration
     /// settings
-    fn parse_cli_args(args: &ArgMatches) -> Self {
+    fn parse_cli_args(args: &ArgMatches) -> Result<Self> {
         let mut config = Configuration::default();
 
         update_config_if_present!(&mut config.threads, args, "threads", usize);
         update_config_if_present!(&mut config.depth, args, "depth", usize);
         update_config_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
+        update_config_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
@@ -602,12 +547,18 @@ impl Configuration {
                 .collect();
         }
 
-        if args.is_present("quiet") {
+        if args.is_present("silent") {
             // the reason this is protected by an if statement:
-            // consider a user specifying quiet = true in ferox-config.toml
+            // consider a user specifying silent = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
-            // false if no -q is used on the command line
+            // false if no --silent is used on the command line
+            config.silent = true;
+            config.output_level = OutputLevel::Silent;
+        }
+
+        if args.is_present("quiet") {
             config.quiet = true;
+            config.output_level = OutputLevel::Quiet;
         }
 
         if args.is_present("dont_filter") {
@@ -685,7 +636,7 @@ impl Configuration {
             }
         }
 
-        config
+        Ok(config)
     }
 
     /// this function determines if we've gotten a Client configuration change from
@@ -709,6 +660,7 @@ impl Configuration {
                     &configuration.headers,
                     None,
                 )
+                .expect("Could not rebuild client")
             } else {
                 configuration.client = client::initialize(
                     configuration.timeout,
@@ -718,40 +670,41 @@ impl Configuration {
                     &configuration.headers,
                     Some(&configuration.proxy),
                 )
+                .expect("Could not rebuild client")
             }
         }
 
         if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
-            configuration.replay_client = Some(client::initialize(
-                configuration.timeout,
-                &configuration.user_agent,
-                configuration.redirects,
-                configuration.insecure,
-                &configuration.headers,
-                Some(&configuration.replay_proxy),
-            ));
+            configuration.replay_client = Some(
+                client::initialize(
+                    configuration.timeout,
+                    &configuration.user_agent,
+                    configuration.redirects,
+                    configuration.insecure,
+                    &configuration.headers,
+                    Some(&configuration.replay_proxy),
+                )
+                .expect("Could not rebuild client"),
+            );
         }
     }
 
     /// Given a configuration file's location and an instance of `Configuration`, read in
     /// the config file if found and update the current settings with the settings found therein
-    fn parse_and_merge_config(config_file: PathBuf, mut config: &mut Self) {
+    fn parse_and_merge_config(config_file: PathBuf, mut config: &mut Self) -> Result<()> {
         if config_file.exists() {
             // save off a string version of the path before it goes out of scope
-            let conf_str = match config_file.to_str() {
-                Some(cs) => String::from(cs),
-                None => String::new(),
-            };
+            let conf_str = config_file.to_str().unwrap_or("").to_string();
+            let settings = Self::parse_config(config_file)?;
 
-            if let Some(settings) = Self::parse_config(config_file) {
-                // set the config used for viewing in the banner
-                config.config = conf_str;
+            // set the config used for viewing in the banner
+            config.config = conf_str;
 
-                // update the settings
-                Self::merge_config(&mut config, settings);
-            }
+            // update the settings
+            Self::merge_config(&mut config, settings);
         }
+        Ok(())
     }
 
     /// Given two Configurations, overwrite `settings` with the fields found in `settings_to_merge`
@@ -766,7 +719,10 @@ impl Configuration {
         update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
+        update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
+        // use updated quiet/silent values to determin output level
+        conf.output_level = determine_output_level(conf.quiet, conf.silent);
         update_if_not_default!(&mut conf.output, new.output, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
@@ -805,6 +761,7 @@ impl Configuration {
         );
         update_if_not_default!(&mut conf.dont_filter, new.dont_filter, false);
         update_if_not_default!(&mut conf.scan_limit, new.scan_limit, 0);
+        update_if_not_default!(&mut conf.rate_limit, new.rate_limit, 0);
         update_if_not_default!(&mut conf.replay_proxy, new.replay_proxy, "");
         update_if_not_default!(&mut conf.debug_log, new.debug_log, "");
         update_if_not_default!(&mut conf.resume_from, new.resume_from, "");
@@ -824,23 +781,10 @@ impl Configuration {
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
     ///
     /// uses serde to deserialize the toml into a `Configuration` struct
-    fn parse_config(config_file: PathBuf) -> Option<Self> {
-        if let Ok(content) = read_to_string(config_file) {
-            match toml::from_str(content.as_str()) {
-                Ok(config) => {
-                    return Some(config);
-                }
-                Err(e) => {
-                    println!(
-                        "{} {} {}",
-                        status_colorizer("ERROR"),
-                        module_colorizer("config::parse_config"),
-                        e
-                    );
-                }
-            }
-        }
-        None
+    pub(super) fn parse_config(config_file: PathBuf) -> Result<Self> {
+        let content = read_to_string(config_file)?;
+        let config: Self = toml::from_str(content.as_str())?;
+        Ok(config)
     }
 }
 
@@ -875,375 +819,10 @@ impl FeroxSerialize for Configuration {
     ///    ],
     /// ...
     /// }\n
-    fn as_json(&self) -> String {
-        if let Ok(mut json) = serde_json::to_string(&self) {
-            json.push('\n');
-            json
-        } else {
-            String::from("{\"error\":\"could not Configuration convert to json\"}")
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::write;
-    use tempfile::TempDir;
-
-    /// creates a dummy configuration file for testing
-    fn setup_config_test() -> Configuration {
-        let data = r#"
-            wordlist = "/some/path"
-            status_codes = [201, 301, 401]
-            replay_codes = [201, 301]
-            threads = 40
-            timeout = 5
-            proxy = "http://127.0.0.1:8080"
-            replay_proxy = "http://127.0.0.1:8081"
-            quiet = true
-            verbosity = 1
-            scan_limit = 6
-            time_limit = "10m"
-            output = "/some/otherpath"
-            debug_log = "/yet/anotherpath"
-            resume_from = "/some/state/file"
-            redirects = true
-            insecure = true
-            extensions = ["html", "php", "js"]
-            headers = {stuff = "things", mostuff = "mothings"}
-            queries = [["name","value"], ["rick", "astley"]]
-            no_recursion = true
-            add_slash = true
-            stdin = true
-            dont_filter = true
-            extract_links = true
-            json = true
-            save_state = false
-            depth = 1
-            filter_size = [4120]
-            filter_regex = ["^ignore me$"]
-            filter_similar = ["https://somesite.com/soft404"]
-            filter_word_count = [994, 992]
-            filter_line_count = [34]
-            filter_status = [201]
-        "#;
-        let tmp_dir = TempDir::new().unwrap();
-        let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
-        write(&file, data).unwrap();
-        Configuration::parse_config(file).unwrap()
-    }
-
-    #[test]
-    /// test that all default config values meet expectations
-    fn default_configuration() {
-        let config = Configuration::default();
-        assert_eq!(config.wordlist, wordlist());
-        assert_eq!(config.proxy, String::new());
-        assert_eq!(config.target_url, String::new());
-        assert_eq!(config.time_limit, String::new());
-        assert_eq!(config.resume_from, String::new());
-        assert_eq!(config.debug_log, String::new());
-        assert_eq!(config.config, String::new());
-        assert_eq!(config.replay_proxy, String::new());
-        assert_eq!(config.status_codes, status_codes());
-        assert_eq!(config.replay_codes, config.status_codes);
-        assert!(config.replay_client.is_none());
-        assert_eq!(config.threads, threads());
-        assert_eq!(config.depth, depth());
-        assert_eq!(config.timeout, timeout());
-        assert_eq!(config.verbosity, 0);
-        assert_eq!(config.scan_limit, 0);
-        assert_eq!(config.quiet, false);
-        assert_eq!(config.dont_filter, false);
-        assert_eq!(config.no_recursion, false);
-        assert_eq!(config.json, false);
-        assert_eq!(config.save_state, true);
-        assert_eq!(config.stdin, false);
-        assert_eq!(config.add_slash, false);
-        assert_eq!(config.redirects, false);
-        assert_eq!(config.extract_links, false);
-        assert_eq!(config.insecure, false);
-        assert_eq!(config.queries, Vec::new());
-        assert_eq!(config.extensions, Vec::<String>::new());
-        assert_eq!(config.filter_size, Vec::<u64>::new());
-        assert_eq!(config.filter_regex, Vec::<String>::new());
-        assert_eq!(config.filter_similar, Vec::<String>::new());
-        assert_eq!(config.filter_word_count, Vec::<usize>::new());
-        assert_eq!(config.filter_line_count, Vec::<usize>::new());
-        assert_eq!(config.filter_status, Vec::<u16>::new());
-        assert_eq!(config.headers, HashMap::new());
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_wordlist() {
-        let config = setup_config_test();
-        assert_eq!(config.wordlist, "/some/path");
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_debug_log() {
-        let config = setup_config_test();
-        assert_eq!(config.debug_log, "/yet/anotherpath");
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_status_codes() {
-        let config = setup_config_test();
-        assert_eq!(config.status_codes, vec![201, 301, 401]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_replay_codes() {
-        let config = setup_config_test();
-        assert_eq!(config.replay_codes, vec![201, 301]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_threads() {
-        let config = setup_config_test();
-        assert_eq!(config.threads, 40);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_depth() {
-        let config = setup_config_test();
-        assert_eq!(config.depth, 1);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_scan_limit() {
-        let config = setup_config_test();
-        assert_eq!(config.scan_limit, 6);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_timeout() {
-        let config = setup_config_test();
-        assert_eq!(config.timeout, 5);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_proxy() {
-        let config = setup_config_test();
-        assert_eq!(config.proxy, "http://127.0.0.1:8080");
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_replay_proxy() {
-        let config = setup_config_test();
-        assert_eq!(config.replay_proxy, "http://127.0.0.1:8081");
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_quiet() {
-        let config = setup_config_test();
-        assert_eq!(config.quiet, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_json() {
-        let config = setup_config_test();
-        assert_eq!(config.json, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_verbosity() {
-        let config = setup_config_test();
-        assert_eq!(config.verbosity, 1);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_output() {
-        let config = setup_config_test();
-        assert_eq!(config.output, "/some/otherpath");
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_redirects() {
-        let config = setup_config_test();
-        assert_eq!(config.redirects, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_insecure() {
-        let config = setup_config_test();
-        assert_eq!(config.insecure, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_no_recursion() {
-        let config = setup_config_test();
-        assert_eq!(config.no_recursion, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_stdin() {
-        let config = setup_config_test();
-        assert_eq!(config.stdin, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_dont_filter() {
-        let config = setup_config_test();
-        assert_eq!(config.dont_filter, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_add_slash() {
-        let config = setup_config_test();
-        assert_eq!(config.add_slash, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_extract_links() {
-        let config = setup_config_test();
-        assert_eq!(config.extract_links, true);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_extensions() {
-        let config = setup_config_test();
-        assert_eq!(config.extensions, vec!["html", "php", "js"]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_filter_regex() {
-        let config = setup_config_test();
-        assert_eq!(config.filter_regex, vec!["^ignore me$"]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_filter_similar() {
-        let config = setup_config_test();
-        assert_eq!(config.filter_similar, vec!["https://somesite.com/soft404"]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_filter_size() {
-        let config = setup_config_test();
-        assert_eq!(config.filter_size, vec![4120]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_filter_word_count() {
-        let config = setup_config_test();
-        assert_eq!(config.filter_word_count, vec![994, 992]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_filter_line_count() {
-        let config = setup_config_test();
-        assert_eq!(config.filter_line_count, vec![34]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_filter_status() {
-        let config = setup_config_test();
-        assert_eq!(config.filter_status, vec![201]);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_save_state() {
-        let config = setup_config_test();
-        assert_eq!(config.save_state, false);
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_time_limit() {
-        let config = setup_config_test();
-        assert_eq!(config.time_limit, "10m");
-    }
-
-    #[test]
-    /// parse the test config and see that the value parsed is correct
-    fn config_reads_resume_from() {
-        let config = setup_config_test();
-        assert_eq!(config.resume_from, "/some/state/file");
-    }
-
-    #[test]
-    /// parse the test config and see that the values parsed are correct
-    fn config_reads_headers() {
-        let config = setup_config_test();
-        let mut headers = HashMap::new();
-        headers.insert("stuff".to_string(), "things".to_string());
-        headers.insert("mostuff".to_string(), "mothings".to_string());
-        assert_eq!(config.headers, headers);
-    }
-
-    #[test]
-    /// parse the test config and see that the values parsed are correct
-    fn config_reads_queries() {
-        let config = setup_config_test();
-        let mut queries = vec![];
-        queries.push(("name".to_string(), "value".to_string()));
-        queries.push(("rick".to_string(), "astley".to_string()));
-        assert_eq!(config.queries, queries);
-    }
-
-    #[test]
-    #[should_panic]
-    /// test that an error message is printed and panic is called when report_and_exit is called
-    fn config_report_and_exit_works() {
-        report_and_exit("some message");
-    }
-
-    #[test]
-    /// test as_str method of Configuration
-    fn as_str_returns_string_with_newline() {
-        let config = Configuration::new();
-        let config_str = config.as_str();
-        println!("{}", config_str);
-        assert!(config_str.starts_with("Configuration {"));
-        assert!(config_str.ends_with("}\n"));
-        assert!(config_str.contains("replay_codes:"));
-        assert!(config_str.contains("client: Client {"));
-        assert!(config_str.contains("user_agent: \"feroxbuster"));
-    }
-
-    #[test]
-    /// test as_json method of Configuration
-    fn as_json_returns_json_representation_of_configuration_with_newline() {
-        let mut config = Configuration::new();
-        config.timeout = 12;
-        config.depth = 2;
-        let config_str = config.as_json();
-        let json: Configuration = serde_json::from_str(&config_str).unwrap();
-        assert_eq!(json.config, config.config);
-        assert_eq!(json.wordlist, config.wordlist);
-        assert_eq!(json.replay_codes, config.replay_codes);
-        assert_eq!(json.timeout, config.timeout);
-        assert_eq!(json.depth, config.depth);
+    fn as_json(&self) -> Result<String> {
+        let mut json = serde_json::to_string(&self)
+            .with_context(|| fmt_err("Could not convert Configuration to JSON"))?;
+        json.push('\n');
+        Ok(json)
     }
 }

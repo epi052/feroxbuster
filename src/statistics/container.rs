@@ -1,46 +1,22 @@
-use crate::{
-    config::CONFIGURATION,
-    progress::{add_bar, BarType},
-    reporter::{get_cached_file_handle, safe_file_write},
-    FeroxChannel, FeroxSerialize,
-};
-use console::style;
-use indicatif::ProgressBar;
-use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::BufReader,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
+        Mutex,
     },
-    time::Instant,
-};
-use tokio::{
-    sync::mpsc::{self, UnboundedReceiver, UnboundedSender},
-    task::JoinHandle,
 };
 
-/// Wrapper `Atomic*.fetch_add` to save me from writing Ordering::Relaxed a bajillion times
-///
-/// default is to increment by 1, second arg can be used to increment by a different value
-macro_rules! atomic_increment {
-    ($metric:expr) => {
-        $metric.fetch_add(1, Ordering::Relaxed);
-    };
+use anyhow::{Context, Result};
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
 
-    ($metric:expr, $value:expr) => {
-        $metric.fetch_add($value, Ordering::Relaxed);
-    };
-}
+use crate::{
+    traits::FeroxSerialize,
+    utils::{fmt_err, open_file, write_to},
+};
 
-/// Wrapper around `Atomic*.load` to save me from writing Ordering::Relaxed a bajillion times
-macro_rules! atomic_load {
-    ($metric:expr) => {
-        $metric.load(Ordering::Relaxed);
-    };
-}
+use super::{error::StatError, field::StatField};
 
 /// Data collection of statistics related to a scan
 #[derive(Default, Deserialize, Debug, Serialize)]
@@ -59,7 +35,7 @@ pub struct Stats {
     ///
     /// Note: this is a per-scan expectation; `expected_requests * current # of scans` would be
     /// indicative of the current expectation at any given time, but is a moving target.  
-    pub expected_per_scan: AtomicUsize,
+    expected_per_scan: AtomicUsize,
 
     /// tracker for accumulating total number of requests expected (i.e. as a new scan is started
     /// this value should increase by `expected_requests`
@@ -85,7 +61,7 @@ pub struct Stats {
     total_scans: AtomicUsize,
 
     /// tracker for initial number of requested targets
-    pub initial_targets: AtomicUsize,
+    initial_targets: AtomicUsize,
 
     /// tracker for number of links extracted when `--extract-links` is used; sources are
     /// response bodies and robots.txt as of v1.11.0
@@ -147,6 +123,14 @@ pub struct Stats {
 
     /// tracker for total runtime
     total_runtime: Mutex<Vec<f64>>,
+
+    /// tracker for the number of extensions the user specified
+    #[serde(skip)]
+    num_extensions: usize,
+
+    /// tracker for whether to use json during serialization or not
+    #[serde(skip)]
+    json: bool,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -158,8 +142,8 @@ impl FeroxSerialize for Stats {
     }
 
     /// Simple call to produce a JSON string using the given Stats object
-    fn as_json(&self) -> String {
-        serde_json::to_string(&self).unwrap_or_default()
+    fn as_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self)?)
     }
 }
 
@@ -167,16 +151,43 @@ impl FeroxSerialize for Stats {
 impl Stats {
     /// Small wrapper for default to set `kind` to "statistics" and `total_runtime` to have at least
     /// one value
-    pub fn new() -> Self {
+    pub fn new(num_extensions: usize, is_json: bool) -> Self {
         Self {
+            num_extensions,
+            json: is_json,
             kind: String::from("statistics"),
             total_runtime: Mutex::new(vec![0.0]),
             ..Default::default()
         }
     }
 
+    /// public getter for expected_per_scan
+    pub fn expected_per_scan(&self) -> usize {
+        atomic_load!(self.expected_per_scan)
+    }
+
+    /// public getter for resources_discovered
+    pub fn resources_discovered(&self) -> usize {
+        atomic_load!(self.resources_discovered)
+    }
+
+    /// public getter for errors
+    pub fn errors(&self) -> usize {
+        atomic_load!(self.errors)
+    }
+
+    /// public getter for total_expected
+    pub fn total_expected(&self) -> usize {
+        atomic_load!(self.total_expected)
+    }
+
+    /// public getter for initial_targets
+    pub fn initial_targets(&self) -> usize {
+        atomic_load!(self.initial_targets)
+    }
+
     /// increment `requests` field by one
-    fn add_request(&self) {
+    pub fn add_request(&self) {
         atomic_increment!(self.requests);
     }
 
@@ -188,17 +199,14 @@ impl Stats {
     }
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
-    fn save(&self, seconds: f64, location: &str) {
-        let buffered_file = match get_cached_file_handle(location) {
-            Some(file) => file,
-            None => {
-                return;
-            }
-        };
+    pub fn save(&self, seconds: f64, location: &str) -> Result<()> {
+        let mut file = open_file(location)?;
 
         self.update_runtime(seconds);
 
-        safe_file_write(self, buffered_file, CONFIGURATION.json);
+        write_to(self, &mut file, self.json)?;
+
+        Ok(())
     }
 
     /// Inspect the given `StatError` and increment the appropriate fields
@@ -242,7 +250,7 @@ impl Stats {
     ///     - requests
     ///     - status_403s (when code is 403)
     ///     - errors (when code is [45]xx)
-    fn add_status_code(&self, status: StatusCode) {
+    pub fn add_status_code(&self, status: StatusCode) {
         self.add_request();
 
         if status.is_success() {
@@ -291,7 +299,7 @@ impl Stats {
     }
 
     /// Update a `Stats` field of type f64
-    fn update_f64_field(&self, field: StatField, value: f64) {
+    pub fn update_f64_field(&self, field: StatField, value: f64) {
         if let StatField::DirScanTimes = field {
             if let Ok(mut locked_times) = self.directory_scan_times.lock() {
                 locked_times.push(value);
@@ -300,13 +308,13 @@ impl Stats {
     }
 
     /// Update a `Stats` field of type usize
-    fn update_usize_field(&self, field: StatField, value: usize) {
+    pub fn update_usize_field(&self, field: StatField, value: usize) {
         match field {
             StatField::ExpectedPerScan => {
                 atomic_increment!(self.expected_per_scan, value);
             }
             StatField::TotalScans => {
-                let multiplier = CONFIGURATION.extensions.len().max(1);
+                let multiplier = self.num_extensions.max(1);
 
                 atomic_increment!(self.total_scans, value);
                 atomic_increment!(
@@ -340,302 +348,91 @@ impl Stats {
     /// Merge a given `Stats` object from a json entry written to disk when handling a Ctrl+c
     ///
     /// This is only ever called when resuming a scan from disk
-    pub fn merge_from(&self, filename: &str) {
-        if let Ok(file) = File::open(filename) {
-            let reader = BufReader::new(file);
-            let state: serde_json::Value = serde_json::from_reader(reader).unwrap();
+    pub fn merge_from(&self, filename: &str) -> Result<()> {
+        let file = File::open(filename)
+            .with_context(|| fmt_err(&format!("Could not open {}", filename)))?;
+        let reader = BufReader::new(file);
+        let state: serde_json::Value = serde_json::from_reader(reader)?;
 
-            if let Some(state_stats) = state.get("statistics") {
-                if let Ok(d_stats) = serde_json::from_value::<Stats>(state_stats.clone()) {
-                    atomic_increment!(self.successes, atomic_load!(d_stats.successes));
-                    atomic_increment!(self.timeouts, atomic_load!(d_stats.timeouts));
-                    atomic_increment!(self.requests, atomic_load!(d_stats.requests));
-                    atomic_increment!(self.errors, atomic_load!(d_stats.errors));
-                    atomic_increment!(self.redirects, atomic_load!(d_stats.redirects));
-                    atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
-                    atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
-                    atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
-                    atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
-                    atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
-                    atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
-                    atomic_increment!(self.status_401s, atomic_load!(d_stats.status_401s));
-                    atomic_increment!(self.status_403s, atomic_load!(d_stats.status_403s));
-                    atomic_increment!(self.status_429s, atomic_load!(d_stats.status_429s));
-                    atomic_increment!(self.status_500s, atomic_load!(d_stats.status_500s));
-                    atomic_increment!(self.status_503s, atomic_load!(d_stats.status_503s));
-                    atomic_increment!(self.status_504s, atomic_load!(d_stats.status_504s));
-                    atomic_increment!(self.status_508s, atomic_load!(d_stats.status_508s));
-                    atomic_increment!(
-                        self.wildcards_filtered,
-                        atomic_load!(d_stats.wildcards_filtered)
-                    );
-                    atomic_increment!(
-                        self.responses_filtered,
-                        atomic_load!(d_stats.responses_filtered)
-                    );
-                    atomic_increment!(
-                        self.resources_discovered,
-                        atomic_load!(d_stats.resources_discovered)
-                    );
-                    atomic_increment!(
-                        self.url_format_errors,
-                        atomic_load!(d_stats.url_format_errors)
-                    );
-                    atomic_increment!(
-                        self.connection_errors,
-                        atomic_load!(d_stats.connection_errors)
-                    );
-                    atomic_increment!(
-                        self.redirection_errors,
-                        atomic_load!(d_stats.redirection_errors)
-                    );
-                    atomic_increment!(self.request_errors, atomic_load!(d_stats.request_errors));
+        if let Some(state_stats) = state.get("statistics") {
+            let d_stats = serde_json::from_value::<Stats>(state_stats.clone())?;
+            atomic_increment!(self.successes, atomic_load!(d_stats.successes));
+            atomic_increment!(self.timeouts, atomic_load!(d_stats.timeouts));
+            atomic_increment!(self.requests, atomic_load!(d_stats.requests));
+            atomic_increment!(self.errors, atomic_load!(d_stats.errors));
+            atomic_increment!(self.redirects, atomic_load!(d_stats.redirects));
+            atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
+            atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
+            atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
+            atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
+            atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
+            atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
+            atomic_increment!(self.status_401s, atomic_load!(d_stats.status_401s));
+            atomic_increment!(self.status_403s, atomic_load!(d_stats.status_403s));
+            atomic_increment!(self.status_429s, atomic_load!(d_stats.status_429s));
+            atomic_increment!(self.status_500s, atomic_load!(d_stats.status_500s));
+            atomic_increment!(self.status_503s, atomic_load!(d_stats.status_503s));
+            atomic_increment!(self.status_504s, atomic_load!(d_stats.status_504s));
+            atomic_increment!(self.status_508s, atomic_load!(d_stats.status_508s));
+            atomic_increment!(
+                self.wildcards_filtered,
+                atomic_load!(d_stats.wildcards_filtered)
+            );
+            atomic_increment!(
+                self.responses_filtered,
+                atomic_load!(d_stats.responses_filtered)
+            );
+            atomic_increment!(
+                self.resources_discovered,
+                atomic_load!(d_stats.resources_discovered)
+            );
+            atomic_increment!(
+                self.url_format_errors,
+                atomic_load!(d_stats.url_format_errors)
+            );
+            atomic_increment!(
+                self.connection_errors,
+                atomic_load!(d_stats.connection_errors)
+            );
+            atomic_increment!(
+                self.redirection_errors,
+                atomic_load!(d_stats.redirection_errors)
+            );
+            atomic_increment!(self.request_errors, atomic_load!(d_stats.request_errors));
 
-                    if let Ok(scan_times) = d_stats.directory_scan_times.lock() {
-                        for scan_time in scan_times.iter() {
-                            self.update_f64_field(StatField::DirScanTimes, *scan_time);
-                        }
-                    }
+            if let Ok(scan_times) = d_stats.directory_scan_times.lock() {
+                for scan_time in scan_times.iter() {
+                    self.update_f64_field(StatField::DirScanTimes, *scan_time);
                 }
-            }
+            };
         }
+        Ok(())
     }
-}
-
-#[derive(Debug)]
-/// Enum variants used to inform the `StatCommand` protocol what `Stats` fields should be updated
-pub enum StatError {
-    /// Represents a 403 response code
-    Status403,
-
-    /// Represents a timeout error
-    Timeout,
-
-    /// Represents a URL formatting error
-    UrlFormat,
-
-    /// Represents an error encountered during redirection
-    Redirection,
-
-    /// Represents an error encountered during connection
-    Connection,
-
-    /// Represents an error resulting from the client's request
-    Request,
-
-    /// Represents any other error not explicitly defined above
-    Other,
-}
-
-/// Protocol definition for updating a Stats object via mpsc
-#[derive(Debug)]
-pub enum StatCommand {
-    /// Add one to the total number of requests
-    AddRequest,
-
-    /// Add one to the proper field(s) based on the given `StatError`
-    AddError(StatError),
-
-    /// Add one to the proper field(s) based on the given `StatusCode`
-    AddStatus(StatusCode),
-
-    /// Create the progress bar (`BarType::Total`) that is updated from the stats thread
-    CreateBar,
-
-    /// Update a `Stats` field that corresponds to the given `StatField` by the given `usize` value
-    UpdateUsizeField(StatField, usize),
-
-    /// Update a `Stats` field that corresponds to the given `StatField` by the given `f64` value
-    UpdateF64Field(StatField, f64),
-
-    /// Save a `Stats` object to disk using `reporter::get_cached_file_handle`
-    Save,
-
-    /// Load a `Stats` object from disk
-    LoadStats(String),
-
-    /// Break out of the (infinite) mpsc receive loop
-    Exit,
-}
-
-/// Enum representing fields whose updates need to be performed in batches instead of one at
-/// a time
-#[derive(Debug)]
-pub enum StatField {
-    /// Due to the necessary order of events, the number of requests expected to be sent isn't
-    /// known until after `statistics::initialize` is called. This command allows for updating
-    /// the `expected_per_scan` field after initialization
-    ExpectedPerScan,
-
-    /// Translates to `total_scans`
-    TotalScans,
-
-    /// Translates to `links_extracted`
-    LinksExtracted,
-
-    /// Translates to `total_expected`
-    TotalExpected,
-
-    /// Translates to `wildcards_filtered`
-    WildcardsFiltered,
-
-    /// Translates to `responses_filtered`
-    ResponsesFiltered,
-
-    /// Translates to `resources_discovered`
-    ResourcesDiscovered,
-
-    /// Translates to `initial_targets`
-    InitialTargets,
-
-    /// Translates to `directory_scan_times`; assumes a single append to the vector
-    DirScanTimes,
-}
-
-/// Spawn a single consumer task (sc side of mpsc)
-///
-/// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
-pub async fn spawn_statistics_handler(
-    mut rx_stats: UnboundedReceiver<StatCommand>,
-    stats: Arc<Stats>,
-    tx_stats: UnboundedSender<StatCommand>,
-) {
-    log::trace!(
-        "enter: spawn_statistics_handler({:?}, {:?}, {:?})",
-        rx_stats,
-        stats,
-        tx_stats
-    );
-
-    // will be updated later via StatCommand; delay is for banner to print first
-    let mut bar = ProgressBar::hidden();
-
-    let start = Instant::now();
-
-    while let Some(command) = rx_stats.recv().await {
-        match command as StatCommand {
-            StatCommand::AddError(err) => {
-                stats.add_error(err);
-                increment_bar(&bar, stats.clone());
-            }
-            StatCommand::AddStatus(status) => {
-                stats.add_status_code(status);
-                increment_bar(&bar, stats.clone());
-            }
-            StatCommand::AddRequest => {
-                stats.add_request();
-                increment_bar(&bar, stats.clone());
-            }
-            StatCommand::Save => stats.save(start.elapsed().as_secs_f64(), &CONFIGURATION.output),
-            StatCommand::UpdateUsizeField(field, value) => {
-                let update_len = matches!(field, StatField::TotalScans);
-                stats.update_usize_field(field, value);
-
-                if update_len {
-                    bar.set_length(atomic_load!(stats.total_expected) as u64)
-                }
-            }
-            StatCommand::UpdateF64Field(field, value) => stats.update_f64_field(field, value),
-            StatCommand::CreateBar => {
-                bar = add_bar(
-                    "",
-                    atomic_load!(stats.total_expected) as u64,
-                    BarType::Total,
-                );
-            }
-            StatCommand::LoadStats(filename) => {
-                stats.merge_from(&filename);
-            }
-            StatCommand::Exit => break,
-        }
-    }
-
-    bar.finish();
-
-    log::debug!("{:#?}", *stats);
-    log::trace!("exit: spawn_statistics_handler")
-}
-
-/// Wrapper around incrementing the overall scan's progress bar
-fn increment_bar(bar: &ProgressBar, stats: Arc<Stats>) {
-    let msg = format!(
-        "{}:{:<7} {}:{:<7}",
-        style("found").green(),
-        atomic_load!(stats.resources_discovered),
-        style("errors").red(),
-        atomic_load!(stats.errors),
-    );
-
-    bar.set_message(&msg);
-    bar.inc(1);
-}
-
-/// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for
-/// updates to the aforementioned object.
-pub fn initialize() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
-    log::trace!("enter: initialize");
-
-    let stats_tracker = Arc::new(Stats::new());
-    let stats_cloned = stats_tracker.clone();
-    let (tx_stats, rx_stats): FeroxChannel<StatCommand> = mpsc::unbounded_channel();
-    let tx_stats_cloned = tx_stats.clone();
-    let stats_thread = tokio::spawn(async move {
-        spawn_statistics_handler(rx_stats, stats_cloned, tx_stats_cloned).await
-    });
-
-    log::trace!(
-        "exit: initialize -> ({:?}, {:?}, {:?})",
-        stats_tracker,
-        tx_stats,
-        stats_thread
-    );
-
-    (stats_tracker, tx_stats, stats_thread)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{config::Configuration, Command};
     use std::fs::write;
     use tempfile::NamedTempFile;
 
-    /// simple helper to reduce code reuse
-    fn setup_stats_test() -> (Arc<Stats>, UnboundedSender<StatCommand>, JoinHandle<()>) {
-        initialize()
-    }
-
-    /// another helper to stay DRY; must be called after any sent commands and before any checks
-    /// performed against the Stats object
-    async fn teardown_stats_test(sender: UnboundedSender<StatCommand>, handle: JoinHandle<()>) {
-        // send exit and await, once the await completes, stats should be updated
-        sender.send(StatCommand::Exit).unwrap_or_default();
-        handle.await.unwrap();
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// when sent StatCommand::Exit, function should exit its while loop (runs forever otherwise)
-    async fn statistics_handler_exits() {
-        let (_, sender, handle) = setup_stats_test();
-
-        sender.send(StatCommand::Exit).unwrap_or_default();
-
-        handle.await.unwrap(); // blocks on the handler's while loop
-
-        // if we've made it here, the test has succeeded
-    }
+    use super::super::*;
+    use super::*;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     /// when sent StatCommand::AddRequest, stats object should reflect the change
-    async fn statistics_handler_increments_requests() {
-        let (stats, tx, handle) = setup_stats_test();
+    async fn statistics_handler_increments_requests() -> Result<()> {
+        let (task, handle) = setup_stats_test();
 
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
-        tx.send(StatCommand::AddRequest).unwrap_or_default();
+        handle.tx.send(Command::AddRequest)?;
+        handle.tx.send(Command::AddRequest)?;
+        handle.tx.send(Command::AddRequest)?;
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 3);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 3);
+
+        Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -646,20 +443,20 @@ mod tests {
     ///     - requests
     ///     - client_errors
     async fn statistics_handler_increments_403() {
-        let (stats, tx, handle) = setup_stats_test();
+        let (task, handle) = setup_stats_test();
 
-        let err = StatCommand::AddError(StatError::Status403);
-        let err2 = StatCommand::AddError(StatError::Status403);
+        let err = Command::AddError(StatError::Status403);
+        let err2 = Command::AddError(StatError::Status403);
 
-        tx.send(err).unwrap_or_default();
-        tx.send(err2).unwrap_or_default();
+        handle.tx.send(err).unwrap_or_default();
+        handle.tx.send(err2).unwrap_or_default();
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.errors.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.status_403s.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -669,19 +466,19 @@ mod tests {
     ///     - requests
     ///     - client_errors
     async fn statistics_handler_increments_403_via_status_code() {
-        let (stats, tx, handle) = setup_stats_test();
+        let (task, handle) = setup_stats_test();
 
-        let err = StatCommand::AddStatus(reqwest::StatusCode::FORBIDDEN);
-        let err2 = StatCommand::AddStatus(reqwest::StatusCode::FORBIDDEN);
+        let err = Command::AddStatus(reqwest::StatusCode::FORBIDDEN);
+        let err2 = Command::AddStatus(reqwest::StatusCode::FORBIDDEN);
 
-        tx.send(err).unwrap_or_default();
-        tx.send(err2).unwrap_or_default();
+        handle.tx.send(err).unwrap_or_default();
+        handle.tx.send(err2).unwrap_or_default();
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.status_403s.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.client_errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -689,19 +486,21 @@ mod tests {
     ///
     /// incrementing a 500 (tracked in server_errors) should also increment:
     ///     - requests
-    async fn statistics_handler_increments_500_via_status_code() {
-        let (stats, tx, handle) = setup_stats_test();
+    async fn statistics_handler_increments_500_via_status_code() -> Result<()> {
+        let (task, handle) = setup_stats_test();
 
-        let err = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
-        let err2 = StatCommand::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err = Command::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
+        let err2 = Command::AddStatus(reqwest::StatusCode::INTERNAL_SERVER_ERROR);
 
-        tx.send(err).unwrap_or_default();
-        tx.send(err2).unwrap_or_default();
+        handle.tx.send(err)?;
+        handle.tx.send(err2)?;
 
-        teardown_stats_test(tx, handle).await;
+        teardown_stats_test(handle.tx.clone(), task).await;
 
-        assert_eq!(stats.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(stats.server_errors.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
+        assert_eq!(handle.data.server_errors.load(Ordering::Relaxed), 2);
+
+        Ok(())
     }
 
     #[test]
@@ -710,7 +509,9 @@ mod tests {
     ///     - requests
     ///     - errors
     fn stats_increments_timeouts() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
@@ -726,7 +527,9 @@ mod tests {
     /// the following:
     ///     - responses_filtered
     fn stats_increments_wildcards() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
         assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 0);
 
@@ -740,7 +543,9 @@ mod tests {
     #[test]
     /// when Stats::update_usize_field receives StatField::ResponsesFiltered, it should increment
     fn stats_increments_responses_filtered() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
 
         stats.update_usize_field(StatField::ResponsesFiltered, 1);
@@ -751,14 +556,16 @@ mod tests {
     }
 
     #[test]
-    /// Stats::merge_from should properly incrememnt expected fields and ignore others
+    /// Stats::merge_from should properly increment expected fields and ignore others
     fn stats_merge_from_alters_correct_fields() {
         let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         let tfile = NamedTempFile::new().unwrap();
         write(&tfile, contents).unwrap();
 
-        stats.merge_from(tfile.path().to_str().unwrap());
+        stats.merge_from(tfile.path().to_str().unwrap()).unwrap();
 
         // as of 1.11.1; all Stats fields are accounted for whether they're updated in merge_from
         // or not
@@ -803,31 +610,11 @@ mod tests {
     #[test]
     /// ensure update runtime overwrites the default 0th entry
     fn update_runtime_works() {
-        let stats = Stats::new();
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+
         assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
         stats.update_runtime(20.2);
         assert!((stats.total_runtime.lock().unwrap()[0] - 20.2).abs() < f64::EPSILON);
-    }
-
-    #[test]
-    /// Stats::save should write contents of Stats to disk
-    fn save_writes_stats_object_to_disk() {
-        let stats = Stats::new();
-        stats.add_request();
-        stats.add_request();
-        stats.add_request();
-        stats.add_request();
-        stats.add_error(StatError::Timeout);
-        stats.add_error(StatError::Timeout);
-        stats.add_error(StatError::Timeout);
-        stats.add_error(StatError::Timeout);
-        stats.add_status_code(StatusCode::OK);
-        stats.add_status_code(StatusCode::OK);
-        stats.add_status_code(StatusCode::OK);
-        let outfile = "/tmp/stuff";
-        stats.save(174.33, outfile);
-        assert!(stats.as_json().contains("statistics"));
-        assert!(stats.as_json().contains("11")); // requests made
-        assert!(stats.as_str().is_empty());
     }
 }

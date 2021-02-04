@@ -1,4 +1,9 @@
-use super::*;
+//! collection of all traits used
+use crate::response::FeroxResponse;
+use anyhow::Result;
+use serde::Serialize;
+use std::any::Any;
+use std::fmt::Debug;
 
 // references:
 //   https://dev.to/magnusstrale/rust-trait-objects-in-a-vector-non-trivial-4co5
@@ -24,4 +29,15 @@ impl PartialEq for Box<dyn FeroxFilter> {
     fn eq(&self, other: &Box<dyn FeroxFilter>) -> bool {
         self.box_eq(other.as_any())
     }
+}
+
+/// FeroxSerialize trait; represents different types that are Serialize and also implement
+/// as_str / as_json methods
+pub trait FeroxSerialize: Serialize {
+    /// Return a String representation of the object, generally the human readable version of the
+    /// implementor
+    fn as_str(&self) -> String;
+
+    /// Return an NDJSON representation of the object
+    fn as_json(&self) -> Result<String>;
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::url::FeroxUrl;
 
 /// Data holder for two pieces of data needed when auto-filtering out wildcard responses
 ///
@@ -8,7 +9,7 @@ use super::*;
 ///
 /// `size` is size of the response that should be included with filters passed via runtime
 /// configuration and any static wildcard lengths.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WildcardFilter {
     /// size of the response that will later be combined with the length of the path of the url
     /// requested
@@ -16,6 +17,32 @@ pub struct WildcardFilter {
 
     /// size of the response that should be included with filters passed via runtime configuration
     pub size: u64,
+
+    /// whether or not the user passed -D on the command line
+    pub(super) dont_filter: bool,
+}
+
+/// implementation of WildcardFilter
+impl WildcardFilter {
+    /// given a boolean representing whether -D was used or not, create a new WildcardFilter
+    pub fn new(dont_filter: bool) -> Self {
+        Self {
+            dont_filter,
+            ..Default::default()
+        }
+    }
+}
+
+/// implement default that populates both values with u64::MAX
+impl Default for WildcardFilter {
+    /// populate both values with u64::MAX
+    fn default() -> Self {
+        Self {
+            dont_filter: false,
+            size: u64::MAX,
+            dynamic: u64::MAX,
+        }
+    }
 }
 
 /// implementation of FeroxFilter for WildcardFilter
@@ -26,14 +53,14 @@ impl FeroxFilter for WildcardFilter {
         log::trace!("enter: should_filter_response({:?} {})", self, response);
 
         // quick return if dont_filter is set
-        if CONFIGURATION.dont_filter {
+        if self.dont_filter {
             // --dont-filter applies specifically to wildcard filters, it is not a 100% catch all
             // for not filtering anything.  As such, it should live in the implementation of
             // a wildcard filter
             return false;
         }
 
-        if self.size > 0 && self.size == response.content_length() {
+        if self.size != u64::MAX && self.size == response.content_length() {
             // static wildcard size found during testing
             // size isn't default, size equals response length, and auto-filter is on
             log::debug!("static wildcard: filtered out {}", response.url());
@@ -41,7 +68,7 @@ impl FeroxFilter for WildcardFilter {
             return true;
         }
 
-        if self.dynamic > 0 {
+        if self.dynamic != u64::MAX {
             // dynamic wildcard offset found during testing
 
             // I'm about to manually split this url path instead of using reqwest::Url's
@@ -49,7 +76,7 @@ impl FeroxFilter for WildcardFilter {
             // except that I don't want an empty string taking up the last index in the
             // event that the url ends with a forward slash.  It's ugly enough to be split
             // into its own function for readability.
-            let url_len = get_url_path_length(&response.url());
+            let url_len = FeroxUrl::path_length_of_url(&response.url());
 
             if url_len + self.dynamic == response.content_length() {
                 log::debug!("dynamic wildcard: filtered out {}", response.url());

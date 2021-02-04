@@ -30,7 +30,7 @@ fn resume_scan_works() {
     let scans = format!(r#""scans":[{},{}]"#, complete_scan, incomplete_scan);
 
     let config = format!(
-        r#""config": {{"type":"configuration","wordlist":"{}","config":"","proxy":"","replay_proxy":"","target_url":"{}","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/1.9.0","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":2,"scan_limit":1,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false}}"#,
+        r#""config": {{"type":"configuration","wordlist":"{}","config":"","proxy":"","replay_proxy":"","target_url":"{}","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"silent":false,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/1.9.0","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":2,"scan_limit":1,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false}}"#,
         file.to_string_lossy(),
         srv.url("/")
     );

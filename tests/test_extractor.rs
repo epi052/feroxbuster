@@ -263,7 +263,7 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
 
     let mock_disallowed = srv.mock(|when, then| {
         when.method(GET).path("/disallowed-subdir");
-        then.status(404);
+        then.status(403);
     });
 
     let cmd = Command::cargo_bin("feroxbuster")
@@ -293,6 +293,80 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
     assert_eq!(mock_file.hits(), 1);
     assert_eq!(mock_disallowed.hits(), 1);
     assert_eq!(mock_scanned_file.hits(), 1);
+    teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
+/// serve a robots.txt with a file and and a folder link contained within it. ferox should
+/// find both links and request each one. This is the non-recursive version of the test above
+fn extractor_finds_robots_txt_links_and_displays_files_non_recursive() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("im a little teapot"); // 18
+    });
+
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/robots.txt");
+        then.status(200).body(
+            r#"
+            User-agent: *
+            Crawl-delay: 10
+            # CSS, JS, Images
+            Allow: /misc/*.css$
+            Disallow: /misc/stupidfile.php
+               Disallow: /disallowed-subdir/
+            "#,
+        );
+    });
+
+    let mock_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/stupidfile.php");
+        then.status(200).body("im a little teapot too"); // 22
+    });
+
+    let mock_scanned_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/LICENSE");
+        then.status(200).body("i too, am a container for tea"); // 29
+    });
+
+    let mock_dir = srv.mock(|when, _| {
+        when.method(GET).path("/misc/");
+    });
+
+    let mock_disallowed = srv.mock(|when, then| {
+        when.method(GET).path("/disallowed-subdir");
+        then.status(404);
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--extract-links")
+        .arg("--no-recursion")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("18c"))
+            .and(predicate::str::contains("/misc/stupidfile.php"))
+            .and(predicate::str::contains("22c"))
+            .and(predicate::str::contains("/misc/LICENSE").not())
+            .and(predicate::str::contains("29c").not())
+            .and(predicate::str::contains("200").count(2)),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_dir.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock_file.hits(), 1);
+    assert_eq!(mock_disallowed.hits(), 1);
+    assert_eq!(mock_scanned_file.hits(), 0);
     teardown_tmp_directory(tmp_dir);
 }
 

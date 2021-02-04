@@ -17,7 +17,9 @@
 # replay_codes = [200, 302]
 # verbosity = 1
 # scan_limit = 6
+# rate_limit = 250
 # quiet = true
+# silent = true
 # json = true
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # debug_log = "/var/log/find-the-derp.log"

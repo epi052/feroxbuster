@@ -3,7 +3,7 @@ use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
-use std::process::Command;
+use std::{process::Command, time};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -235,7 +235,7 @@ fn scanner_single_request_scan_with_file_output_and_tack_q(
 }
 
 #[test]
-/// send an invalid output file, expect nothing to be written to disk
+/// send an invalid output file, expect scan to fail
 fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn std::error::Error>>
 {
     let srv = MockServer::start();
@@ -263,7 +263,7 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
     let contents = std::fs::read_to_string(outfile);
     assert!(contents.is_err());
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.hits(), 0);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -458,7 +458,7 @@ fn scanner_single_request_scan_with_debug_logging() {
     assert!(contents.contains("DBG"));
     assert!(contents.contains("INF"));
     assert!(contents.contains("feroxbuster All scans complete!"));
-    assert!(contents.contains("feroxbuster exit: terminal_input_handler"));
+    assert!(contents.contains("feroxbuster::event_handlers::inputs exit: start_enter_handler"));
 
     assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
@@ -497,8 +497,9 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     assert!(contents.contains("\"level\":\"INFO\""));
     assert!(contents.contains("time_offset"));
     assert!(contents.contains("\"module\":\"feroxbuster::scanner\""));
+    assert!(contents.contains("\"module\":\"feroxbuster::event_handlers::inputs\""));
+    assert!(contents.contains("exit: start_enter_handler"));
     assert!(contents.contains("All scans complete!"));
-    assert!(contents.contains("exit: terminal_input_handler"));
 
     assert_eq!(mock.hits(), 1);
     teardown_tmp_directory(tmp_dir);
@@ -593,6 +594,44 @@ fn scanner_recursion_works_with_403_directories() {
     assert_eq!(mock.hits(), 1);
     assert_eq!(found_anyway.hits(), 1);
     assert_eq!(forbidden_dir.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
+/// kick off scan with a time limit;  
+fn rate_limit_enforced_when_specified() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(
+        &[
+            "css".to_string(),
+            "stuff".to_string(),
+            "css1".to_string(),
+            "css2".to_string(),
+            "css3".to_string(),
+            "css4".to_string(),
+        ],
+        "wordlist",
+    )
+    .unwrap();
+
+    let now = time::Instant::now();
+    let lower_bound = time::Duration::new(5, 0);
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--rate-limit")
+        .arg("1")
+        .assert()
+        .success();
+
+    // --rate-limit is 1, so the test should take roughly 5 seconds, so elapsed should be at least
+    // 5 seconds. If not rate-limited, this test takes about 500ms without rate limiting
+    assert!(now.elapsed() > lower_bound);
 
     teardown_tmp_directory(tmp_dir);
 }
