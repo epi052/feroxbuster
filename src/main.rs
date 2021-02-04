@@ -29,8 +29,6 @@ use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
-    // todo i'd like to try moving this into the handler and passing the arc into FeroxScanner to
-    // see how that impacts memory usage
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
 
     let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;

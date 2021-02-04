@@ -154,9 +154,7 @@ impl ScanHandler {
                     tokio::spawn(async move {
                         while ferox_scans.has_active_scans() {
                             for scan in ferox_scans.get_active_scans() {
-                                log::debug!("FAFAFA joining {:?}", scan);
                                 scan.join().await;
-                                log::debug!("FAFAFA joined {:?}", scan);
                             }
                         }
                         limiter_clone.close();
