@@ -499,7 +499,6 @@ by Ben "epi" Risher {}                 ver: {}"#,
         if config.auto_bail {
             writeln!(&mut writer, "{}", self.auto_bail)?;
         }
-
         if config.auto_tune {
             writeln!(&mut writer, "{}", self.auto_tune)?;
         }

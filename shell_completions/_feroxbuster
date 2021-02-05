@@ -65,6 +65,8 @@ _feroxbuster() {
 '(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
+'(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
+'--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \

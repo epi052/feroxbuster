@@ -750,6 +750,8 @@ impl Configuration {
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
+        update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
+        update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
         conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);

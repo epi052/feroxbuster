@@ -131,6 +131,19 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Hide progress bars and banner (good for tmux windows w/ notifications)")
         )
         .arg(
+            Arg::with_name("auto_tune")
+                .long("auto-tune")
+                .takes_value(false)
+                .conflicts_with("auto_bail")
+                .help("Automatically lower scan rate when an excessive amount of errors are encountered")
+        )
+        .arg(
+            Arg::with_name("auto_bail")
+                .long("auto-bail")
+                .takes_value(false)
+                .help("Automatically stop scanning when an excessive amount of errors are encountered")
+        )
+        .arg(
             Arg::with_name("json")
                 .long("json")
                 .takes_value(false)
