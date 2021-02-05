@@ -125,6 +125,12 @@ pub struct Banner {
     /// represents Configuration.rate_limit
     rate_limit: BannerEntry,
 
+    /// represents Configuration.auto_tune
+    auto_tune: BannerEntry,
+
+    /// represents Configuration.auto_bail
+    auto_bail: BannerEntry,
+
     /// current version of feroxbuster
     pub(super) version: String,
 
@@ -251,6 +257,8 @@ impl Banner {
         );
 
         let replay_proxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
+        let auto_tune = BannerEntry::new("🎶", "Auto Tune", &config.auto_tune.to_string());
+        let auto_bail = BannerEntry::new("🪣", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
@@ -284,6 +292,8 @@ impl Banner {
             filter_status,
             timeout,
             user_agent,
+            auto_bail,
+            auto_tune,
             proxy,
             replay_codes,
             replay_proxy,
@@ -484,6 +494,14 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.insecure {
             writeln!(&mut writer, "{}", self.insecure)?;
+        }
+
+        if config.auto_bail {
+            writeln!(&mut writer, "{}", self.auto_bail)?;
+        }
+
+        if config.auto_tune {
+            writeln!(&mut writer, "{}", self.auto_tune)?;
         }
 
         if config.redirects {
