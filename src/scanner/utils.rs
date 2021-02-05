@@ -1,5 +1,6 @@
 use super::FeroxScanner;
 use crate::{
+    config::RequesterPolicy,
     event_handlers::{
         Command::{self, AddError},
         Handles,
@@ -14,19 +15,6 @@ use anyhow::Result;
 use leaky_bucket::LeakyBucket;
 use std::{cmp::max, sync::Arc};
 use tokio::{sync::oneshot, time::Duration};
-
-/// represents actions the Requester should take in certain situations
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum RequesterPolicy {
-    /// automatically try to lower request rate in order to reduce errors
-    AutoTune,
-
-    /// automatically bail at certain error thresholds
-    AutoBail,
-
-    /// just let that junk run super natural
-    Default,
-}
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {

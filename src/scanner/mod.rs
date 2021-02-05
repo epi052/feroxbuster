@@ -6,4 +6,3 @@ mod tests;
 
 pub use self::container::{FeroxScanner, RESPONSES};
 pub use self::init::initialize;
-pub use self::utils::RequesterPolicy;
