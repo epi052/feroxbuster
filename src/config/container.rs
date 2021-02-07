@@ -185,6 +185,10 @@ pub struct Configuration {
     #[serde(default)]
     pub scan_limit: usize,
 
+    /// Number of parallel scans permitted; a limit of 0 means no limit is imposed
+    #[serde(default)]
+    pub parallel: usize,
+
     /// Number of requests per second permitted (per directory); a limit of 0 means no limit is imposed
     #[serde(default)]
     pub rate_limit: usize,
@@ -263,6 +267,7 @@ impl Default for Configuration {
             json: false,
             verbosity: 0,
             scan_limit: 0,
+            parallel: 0,
             rate_limit: 0,
             add_slash: false,
             insecure: false,
@@ -331,7 +336,8 @@ impl Configuration {
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
-    /// - **rate_limit**: `0` (no limit on concurrent scans imposed)
+    /// - **parallel**: `0` (no limit on parallel scans imposed)
+    /// - **rate_limit**: `0` (no limit on requests per second imposed)
     /// - **time_limit**: `None` (no limit on length of scan imposed)
     /// - **replay_proxy**: `None` (no limit on concurrent scans imposed)
     /// - **replay_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
@@ -467,6 +473,7 @@ impl Configuration {
         update_config_if_present!(&mut config.threads, args, "threads", usize);
         update_config_if_present!(&mut config.depth, args, "depth", usize);
         update_config_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
+        update_config_if_present!(&mut config.parallel, args, "parallel", usize);
         update_config_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
@@ -761,6 +768,7 @@ impl Configuration {
         );
         update_if_not_default!(&mut conf.dont_filter, new.dont_filter, false);
         update_if_not_default!(&mut conf.scan_limit, new.scan_limit, 0);
+        update_if_not_default!(&mut conf.parallel, new.parallel, 0);
         update_if_not_default!(&mut conf.rate_limit, new.rate_limit, 0);
         update_if_not_default!(&mut conf.replay_proxy, new.replay_proxy, "");
         update_if_not_default!(&mut conf.debug_log, new.debug_log, "");

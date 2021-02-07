@@ -125,6 +125,9 @@ pub struct Banner {
     /// represents Configuration.rate_limit
     rate_limit: BannerEntry,
 
+    /// represents Configuration.parallel
+    parallel: BannerEntry,
+
     /// current version of feroxbuster
     pub(super) version: String,
 
@@ -273,6 +276,7 @@ impl Banner {
             BannerEntry::new("🤪", "Filter Wildcards", &(!config.dont_filter).to_string());
         let add_slash = BannerEntry::new("🪓", "Add Slash", &config.add_slash.to_string());
         let time_limit = BannerEntry::new("🕖", "Time Limit", &config.time_limit);
+        let parallel = BannerEntry::new("🛤", "Parallel Scans", &config.parallel.to_string());
         let rate_limit =
             BannerEntry::new("🚧", "Requests per Second", &config.rate_limit.to_string());
 
@@ -294,6 +298,7 @@ impl Banner {
             filter_line_count,
             filter_regex,
             extract_links,
+            parallel,
             json,
             queries,
             output,
@@ -506,6 +511,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.scan_limit > 0 {
             writeln!(&mut writer, "{}", self.scan_limit)?;
+        }
+
+        if config.parallel > 0 {
+            writeln!(&mut writer, "{}", self.parallel)?;
         }
 
         if config.rate_limit > 0 {

@@ -18,6 +18,7 @@ fn setup_config_test() -> Configuration {
             silent = true
             verbosity = 1
             scan_limit = 6
+            parallel = 14
             rate_limit = 250
             time_limit = "10m"
             output = "/some/otherpath"
@@ -138,6 +139,13 @@ fn config_reads_depth() {
 fn config_reads_scan_limit() {
     let config = setup_config_test();
     assert_eq!(config.scan_limit, 6);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_parallel() {
+    let config = setup_config_test();
+    assert_eq!(config.parallel, 14);
 }
 
 #[test]

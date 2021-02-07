@@ -63,6 +63,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--filter-similar-to', 'filter-similar-to', [CompletionResultType]::ParameterName, 'Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)')
             [CompletionResult]::new('-L', 'L', [CompletionResultType]::ParameterName, 'Limit total number of concurrent scans (default: 0, i.e. no limit)')
             [CompletionResult]::new('--scan-limit', 'scan-limit', [CompletionResultType]::ParameterName, 'Limit total number of concurrent scans (default: 0, i.e. no limit)')
+            [CompletionResult]::new('--parallel', 'parallel', [CompletionResultType]::ParameterName, 'Run parallel feroxbuster instances (one child process per url passed via stdin)')
             [CompletionResult]::new('--rate-limit', 'rate-limit', [CompletionResultType]::ParameterName, 'Limit number of requests per second (per directory) (default: 0, i.e. no limit)')
             [CompletionResult]::new('--time-limit', 'time-limit', [CompletionResultType]::ParameterName, 'Limit total run time of all scans (ex: --time-limit 10m)')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)')
