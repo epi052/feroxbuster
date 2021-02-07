@@ -210,7 +210,7 @@ impl TermOutHandler {
 
                     if self.config.replay_client.is_some() && should_process_response {
                         // replay proxy specified/client created and this response's status code is one that
-                        // should be replayed
+                        // should be replayed; not using logged_request due to replay proxy client
                         make_request(
                             self.config.replay_client.as_ref().unwrap(),
                             &resp.url(),

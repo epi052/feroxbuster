@@ -89,6 +89,7 @@ impl StatsHandler {
                 }
                 Command::AddStatus(status) => {
                     self.stats.add_status_code(status);
+
                     self.increment_bar();
                 }
                 Command::AddRequest => {

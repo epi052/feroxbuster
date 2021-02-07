@@ -29,7 +29,7 @@ pub struct Stats {
     timeouts: AtomicUsize,
 
     /// tracker for total number of requests sent by the client
-    requests: AtomicUsize,
+    pub(crate) requests: AtomicUsize,
 
     /// tracker for total number of requests expected to send if the scan runs to completion
     ///
@@ -42,7 +42,7 @@ pub struct Stats {
     total_expected: AtomicUsize,
 
     /// tracker for total number of errors encountered by the client
-    errors: AtomicUsize,
+    pub(crate) errors: AtomicUsize,
 
     /// tracker for overall number of 2xx status codes seen by the client
     successes: AtomicUsize,
@@ -58,7 +58,7 @@ pub struct Stats {
 
     /// tracker for number of scans performed, this directly equates to number of directories
     /// recursed into and affects the total number of expected requests
-    total_scans: AtomicUsize,
+    pub(crate) total_scans: AtomicUsize,
 
     /// tracker for initial number of requested targets
     initial_targets: AtomicUsize,
@@ -80,10 +80,10 @@ pub struct Stats {
     status_401s: AtomicUsize,
 
     /// tracker for overall number of 403s seen by the client
-    status_403s: AtomicUsize,
+    pub(crate) status_403s: AtomicUsize,
 
     /// tracker for overall number of 429s seen by the client
-    status_429s: AtomicUsize,
+    pub(crate) status_429s: AtomicUsize,
 
     /// tracker for overall number of 500s seen by the client
     status_500s: AtomicUsize,
@@ -222,10 +222,6 @@ impl Stats {
             StatError::Timeout => {
                 atomic_increment!(self.timeouts);
             }
-            StatError::Status403 => {
-                atomic_increment!(self.status_403s);
-                atomic_increment!(self.client_errors);
-            }
             StatError::UrlFormat => {
                 atomic_increment!(self.url_format_errors);
             }
@@ -238,9 +234,7 @@ impl Stats {
             StatError::Request => {
                 atomic_increment!(self.request_errors);
             }
-            StatError::Other => {
-                atomic_increment!(self.errors);
-            }
+            _ => {} // no need to hit Other as we always increment self.errors anyway
         }
     }
 
@@ -248,7 +242,7 @@ impl Stats {
     ///
     /// Implies incrementing:
     ///     - requests
-    ///     - status_403s (when code is 403)
+    ///     - appropriate status_* codes
     ///     - errors (when code is [45]xx)
     pub fn add_status_code(&self, status: StatusCode) {
         self.add_request();
@@ -264,9 +258,6 @@ impl Stats {
         }
 
         match status {
-            StatusCode::FORBIDDEN => {
-                atomic_increment!(self.status_403s);
-            }
             StatusCode::OK => {
                 atomic_increment!(self.status_200s);
             }
@@ -278,6 +269,9 @@ impl Stats {
             }
             StatusCode::UNAUTHORIZED => {
                 atomic_increment!(self.status_401s);
+            }
+            StatusCode::FORBIDDEN => {
+                atomic_increment!(self.status_403s);
             }
             StatusCode::TOO_MANY_REQUESTS => {
                 atomic_increment!(self.status_429s);
@@ -433,30 +427,6 @@ mod tests {
         assert_eq!(handle.data.requests.load(Ordering::Relaxed), 3);
 
         Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// when sent StatCommand::AddRequest, stats object should reflect the change
-    ///
-    /// incrementing a 403 (tracked in status_403s) should also increment:
-    ///     - errors
-    ///     - requests
-    ///     - client_errors
-    async fn statistics_handler_increments_403() {
-        let (task, handle) = setup_stats_test();
-
-        let err = Command::AddError(StatError::Status403);
-        let err2 = Command::AddError(StatError::Status403);
-
-        handle.tx.send(err).unwrap_or_default();
-        handle.tx.send(err2).unwrap_or_default();
-
-        teardown_stats_test(handle.tx.clone(), task).await;
-
-        assert_eq!(handle.data.errors.load(Ordering::Relaxed), 2);
-        assert_eq!(handle.data.requests.load(Ordering::Relaxed), 2);
-        assert_eq!(handle.data.status_403s.load(Ordering::Relaxed), 2);
-        assert_eq!(handle.data.client_errors.load(Ordering::Relaxed), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

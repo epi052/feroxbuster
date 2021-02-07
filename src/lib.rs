@@ -57,7 +57,10 @@ pub const DEFAULT_WORDLIST: &str =
     "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
 
 /// Number of milliseconds to wait between polls of `PAUSE_SCAN` when user pauses a scan
-pub(crate) static SLEEP_DURATION: u64 = 500;
+pub(crate) const SLEEP_DURATION: u64 = 500;
+
+/// The percentage of requests as errors it takes to be deemed too high
+pub const HIGH_ERROR_RATIO: f64 = 0.90;
 
 /// Default list of status codes to report
 ///

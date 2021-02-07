@@ -1,8 +1,8 @@
 use super::entry::BannerEntry;
-use crate::event_handlers::Handles;
 use crate::{
     config::Configuration,
-    utils::{make_request, status_colorizer},
+    event_handlers::Handles,
+    utils::{logged_request, status_colorizer},
     VERSION,
 };
 use anyhow::{bail, Result};
@@ -364,15 +364,8 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let api_url = Url::parse(url)?;
 
-        let response = make_request(
-            &handles.config.client,
-            &api_url,
-            handles.config.output_level,
-            handles.stats.tx.clone(),
-        )
-        .await?;
-
-        let body = response.text().await?;
+        let result = logged_request(&api_url, handles.clone()).await?;
+        let body = result.text().await?;
 
         let json_response: Value = serde_json::from_str(&body)?;
 

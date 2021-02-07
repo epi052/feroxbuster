@@ -438,9 +438,12 @@ fn feroxscan_display() {
         scan_type: Default::default(),
         num_requests: 0,
         output_level: OutputLevel::Default,
+        status_403s: Default::default(),
+        status_429s: Default::default(),
         status: Default::default(),
         task: tokio::sync::Mutex::new(None),
         progress_bar: std::sync::Mutex::new(None),
+        errors: Default::default(),
     };
 
     let not_started = format!("{}", scan);
@@ -478,11 +481,14 @@ async fn ferox_scan_abort() {
         scan_type: Default::default(),
         num_requests: 0,
         output_level: OutputLevel::Default,
+        status_403s: Default::default(),
+        status_429s: Default::default(),
         status: std::sync::Mutex::new(ScanStatus::Running),
         task: tokio::sync::Mutex::new(Some(tokio::spawn(async move {
             sleep(Duration::from_millis(SLEEP_DURATION * 2));
         }))),
         progress_bar: std::sync::Mutex::new(None),
+        errors: Default::default(),
     };
 
     scan.abort().await.unwrap();

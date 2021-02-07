@@ -9,6 +9,7 @@ use crate::{
     SLEEP_DURATION,
 };
 use anyhow::Result;
+use reqwest::StatusCode;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
     convert::TryInto,
@@ -159,6 +160,28 @@ impl FeroxScans {
             }
         }
         None
+    }
+
+    /// add one to either 403 or 429 tracker in the scan related to the given url
+    pub fn increment_status_code(&self, url: &str, code: StatusCode) {
+        if let Some(scan) = self.get_scan_by_url(url) {
+            match code {
+                StatusCode::TOO_MANY_REQUESTS => {
+                    scan.add_429();
+                }
+                StatusCode::FORBIDDEN => {
+                    scan.add_403();
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// add one to either 403 or 429 tracker in the scan related to the given url
+    pub fn increment_error(&self, url: &str) {
+        if let Some(scan) = self.get_scan_by_url(url) {
+            scan.add_error();
+        }
     }
 
     /// Print all FeroxScans of type Directory

@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     config::OutputLevel,
     progress::{add_bar, BarType},
+    scanner::PolicyTrigger,
 };
 use anyhow::Result;
 use console::style;
@@ -14,6 +15,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::{sync, task::JoinHandle};
 use uuid::Uuid;
 
@@ -49,6 +51,15 @@ pub struct FeroxScan {
 
     /// whether or not the user passed --silent|--quiet on the command line
     pub(super) output_level: OutputLevel,
+
+    /// todo
+    pub(super) status_403s: AtomicUsize,
+
+    /// todo
+    pub(super) status_429s: AtomicUsize,
+
+    /// todo
+    pub(super) errors: AtomicUsize,
 }
 
 /// Default implementation for FeroxScan
@@ -67,6 +78,9 @@ impl Default for FeroxScan {
             progress_bar: Mutex::new(None),
             scan_type: ScanType::File,
             output_level: Default::default(),
+            errors: Default::default(),
+            status_429s: Default::default(),
+            status_403s: Default::default(),
         }
     }
 }
@@ -75,8 +89,10 @@ impl Default for FeroxScan {
 impl FeroxScan {
     /// Stop a currently running scan
     pub async fn abort(&self) -> Result<()> {
+        println!("IN ABORT: {:?}", self);
         let mut guard = self.task.lock().await;
 
+        println!("IN ABORT: {:?}", self);
         if guard.is_some() {
             if let Some(task) = std::mem::replace(&mut *guard, None) {
                 task.abort();
@@ -216,6 +232,42 @@ impl FeroxScan {
         }
 
         log::trace!("exit join({:?})", self);
+    }
+    /// increment the value in question by 1
+    pub(super) fn add_403(&self) {
+        self.status_403s.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// increment the value in question by 1
+    pub(super) fn add_429(&self) {
+        self.status_429s.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// increment the value in question by 1
+    pub(super) fn add_error(&self) {
+        self.errors.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// simple wrapper to call the appropriate getter based on the given PolicyTrigger
+    pub fn num_errors(&self, trigger: PolicyTrigger) -> usize {
+        return match trigger {
+            PolicyTrigger::Status403 => self.status_403s(),
+            PolicyTrigger::Status429 => self.status_429s(),
+            PolicyTrigger::Errors => self.errors(),
+        };
+    }
+
+    /// return the number of errors seen by this scan
+    fn errors(&self) -> usize {
+        self.errors.load(Ordering::Relaxed)
+    }
+    /// return the number of 403s seen by this scan
+    fn status_403s(&self) -> usize {
+        self.status_403s.load(Ordering::Relaxed)
+    }
+    /// return the number of 429s seen by this scan
+    fn status_429s(&self) -> usize {
+        self.status_429s.load(Ordering::Relaxed)
     }
 }
 
@@ -358,5 +410,36 @@ impl Default for ScanStatus {
     /// Default variant for ScanStatus is NotStarted
     fn default() -> Self {
         Self::NotStarted
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// ensure that num_errors returns the correct values for the given PolicyTrigger
+    ///
+    /// covers tests for add_[403,429,error] and the related getters in addition to num_errors
+    fn num_errors_returns_correct_values() {
+        let scan = FeroxScan::new(
+            "http://localhost",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            1000,
+            OutputLevel::Default,
+            None,
+        );
+
+        scan.add_error();
+        scan.add_403();
+        scan.add_403();
+        scan.add_429();
+        scan.add_429();
+        scan.add_429();
+
+        assert_eq!(scan.num_errors(PolicyTrigger::Errors), 1);
+        assert_eq!(scan.num_errors(PolicyTrigger::Status403), 2);
+        assert_eq!(scan.num_errors(PolicyTrigger::Status429), 3);
     }
 }
