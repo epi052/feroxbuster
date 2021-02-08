@@ -90,3 +90,45 @@ fn main_use_empty_stdin_targets() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+/// send three targets over stdin, expect parallel to spawn children (not tested), mostly just hits
+/// coverage for the --parallel branch of code
+fn main_parallel_spawns_children() -> Result<(), Box<dyn std::error::Error>> {
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+    let t3 = MockServer::start();
+
+    let words = [
+        String::from("LICENSE"),
+        String::from("stuff"),
+        String::from("things"),
+        String::from("mostuff"),
+        String::from("mothings"),
+    ];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (tgt_tmp_dir, targets) =
+        setup_tmp_directory(&[t1.url("/"), t2.url("/"), t3.url("/")], "targets")?;
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--stdin")
+        .arg("--parallel")
+        .arg("2")
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .pipe_stdin(targets)
+        .unwrap()
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("Could not connect to any target provided")
+                .and(predicate::str::contains("Target Url"))
+                .not(), // no target url found
+        );
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
+
+    Ok(())
+}
