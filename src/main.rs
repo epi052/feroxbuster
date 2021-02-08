@@ -36,7 +36,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 lazy_static! {
-    /// todo doc
+    /// Limits the number of parallel scans active at any given time when using --parallel
     static ref PARALLEL_LIMITER: Semaphore = Semaphore::new(0);
 }
 
@@ -269,6 +269,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         // from removing --parallel)
         original.remove(parallel_index);
 
+        // unvalidated targets fresh from stdin, just spawn children and let them do all checks
         for target in targets {
             // add the current target to the provided command
             let mut cloned = original.clone();
@@ -276,17 +277,17 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             cloned.push(target);
 
             let bin = cloned.index(0).to_owned(); // user's path to feroxbuster
-            let args = cloned.index(1..).to_vec();
+            let args = cloned.index(1..).to_vec(); // and args
 
-            let permit = PARALLEL_LIMITER.acquire().await.unwrap();
+            let permit = PARALLEL_LIMITER.acquire().await?;
 
             tokio::task::spawn_blocking(move || {
                 let result = Command::new(bin)
                     .args(&args)
                     .spawn()
-                    .expect("failed to exec")
+                    .expect("failed to spawn a child process")
                     .wait()
-                    .expect("command errored out");
+                    .expect("child process errored during execution");
 
                 drop(permit);
                 result
