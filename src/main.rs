@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    env::args,
     fs::File,
     io::{stderr, BufRead, BufReader},
     ops::Index,
@@ -238,18 +239,14 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         }
     };
 
-    //
+    // --parallel branch
     if config.parallel > 0 {
         PARALLEL_LIMITER.add_permits(config.parallel);
 
-        use std::env::args;
         let invocation = args();
-
-        println!("invoc: {:?}", invocation); // todo remove
 
         let para_regex = Regex::new("--stdin|--quiet|--silent").unwrap();
 
-        // remove parallel from command line so we don't hit this branch over and over again
         // remove stdin since only the original process will process targets
         // remove quiet and silent so we can force silent later to normalize output
         let mut original = invocation
@@ -258,18 +255,19 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
         original.push("--silent".to_string()); // only output modifier allowed
 
-        // need to remove --parallel N manually; the filter above never sees --parallel and the
+        // we need remove --parallel from command line so we don't hit this branch over and over
+        // but we must remove --parallel N manually; the filter above never sees --parallel and the
         // value passed to it at the same time, so can't filter them out in one pass
 
         // unwrap is fine, as it has to be in the args for us to be in this code branch
         let parallel_index = original.iter().position(|s| *s == "--parallel").unwrap();
 
-        original.remove(parallel_index); // remove --parallel
-                                         // remove N passed to --parallel (it's the same index again since everything shifts
-                                         // from removing --parallel)
+        // remove --parallel
         original.remove(parallel_index);
 
-        println!("orig: {:?}", original); // todo remove
+        // remove N passed to --parallel (it's the same index again since everything shifts
+        // from removing --parallel)
+        original.remove(parallel_index);
 
         for target in targets {
             // add the current target to the provided command
@@ -289,7 +287,6 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
                     .expect("failed to exec")
                     .wait()
                     .expect("command errored out");
-                // todo expects above
 
                 drop(permit);
                 result
@@ -297,7 +294,9 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         }
 
         clean_up(handles, tasks).await?;
-        bail!(fmt_err("testing things"));
+
+        log::trace!("exit: wrapped_main");
+        return Ok(());
     }
 
     if matches!(config.output_level, OutputLevel::Default) {
