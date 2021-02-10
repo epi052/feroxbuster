@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
-use reqwest::{Client, Response, Url};
+use reqwest::{Client, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::{
@@ -98,10 +98,16 @@ pub async fn logged_request(url: &Url, handles: Arc<Handles>) -> Result<Response
 
     match response {
         Ok(resp) => {
-            scans.increment_status_code(url.as_str(), resp.status());
+            match resp.status() {
+                StatusCode::TOO_MANY_REQUESTS | StatusCode::FORBIDDEN => {
+                    scans.increment_status_code(url.as_str(), resp.status());
+                }
+                _ => {}
+            }
             Ok(resp)
         }
         Err(e) => {
+            log::warn!("err: {:?}", e);
             scans.increment_error(url.as_str());
             bail!(e)
         }

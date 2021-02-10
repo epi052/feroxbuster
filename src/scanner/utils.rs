@@ -137,11 +137,6 @@ impl Requester {
         {
             if let Ok(guard) = scans.scans.read() {
                 for (i, scan) in guard.iter().enumerate() {
-                    PROGRESS_PRINTER.println(format!(
-                        "{} {}",
-                        scan.is_active(),
-                        scan.num_errors(trigger)
-                    ));
                     if scan.is_active() && scan.num_errors(trigger) > 0 {
                         // only active scans that have at least 1 error
 

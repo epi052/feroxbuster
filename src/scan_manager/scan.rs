@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     config::OutputLevel,
-    progress::{add_bar, BarType},
+    progress::{add_bar, BarType, PROGRESS_PRINTER},
     scanner::PolicyTrigger,
 };
 use anyhow::Result;
@@ -89,10 +89,8 @@ impl Default for FeroxScan {
 impl FeroxScan {
     /// Stop a currently running scan
     pub async fn abort(&self) -> Result<()> {
-        println!("IN ABORT: {:?}", self);
         let mut guard = self.task.lock().await;
 
-        println!("IN ABORT: {:?}", self);
         if guard.is_some() {
             if let Some(task) = std::mem::replace(&mut *guard, None) {
                 task.abort();

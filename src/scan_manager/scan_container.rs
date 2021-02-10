@@ -9,7 +9,7 @@ use crate::{
     SLEEP_DURATION,
 };
 use anyhow::Result;
-use reqwest::StatusCode;
+use reqwest::{StatusCode, Url};
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
     convert::TryInto,
@@ -162,9 +162,42 @@ impl FeroxScans {
         None
     }
 
+    fn get_base_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
+        log::trace!("enter: get_sub_paths_from_path({})", url);
+
+        // rmatch_indices returns tuples in index, match form, i.e. (10, "/")
+        // with the furthest-right match in the first position in the vector
+        let matches: Vec<_> = url.rmatch_indices("/").collect();
+
+        // iterate from the furthest right matching index and check the given url from the
+        // start to the furthest-right '/' character. compare that slice to the urls associated
+        // with directory scans and return the first match, since it should be the 'deepest'
+        // match.
+        // Example:
+        //   url: http://shmocalhost/src/release/examples/stuff.php
+        //   scans:
+        //      http://shmocalhost/src/statistics
+        //      http://shmocalhost/src/banner
+        //      http://shmocalhost/src/release
+        //      http://shmocalhost/src/release/examples
+        //
+        //  returns: http://shmocalhost/src/release/examples
+        if let Ok(guard) = self.scans.read() {
+            for (idx, _) in &matches {
+                for scan in guard.iter() {
+                    let slice = url.index(0..*idx);
+                    if slice == scan.url {
+                        return Some(scan.clone());
+                    }
+                }
+            }
+        }
+
+        None
+    }
     /// add one to either 403 or 429 tracker in the scan related to the given url
     pub fn increment_status_code(&self, url: &str, code: StatusCode) {
-        if let Some(scan) = self.get_scan_by_url(url) {
+        if let Some(scan) = self.get_base_scan_by_url(url) {
             match code {
                 StatusCode::TOO_MANY_REQUESTS => {
                     scan.add_429();
@@ -179,7 +212,7 @@ impl FeroxScans {
 
     /// add one to either 403 or 429 tracker in the scan related to the given url
     pub fn increment_error(&self, url: &str) {
-        if let Some(scan) = self.get_scan_by_url(url) {
+        if let Some(scan) = self.get_base_scan_by_url(url) {
             scan.add_error();
         }
     }
