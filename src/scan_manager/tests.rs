@@ -522,3 +522,42 @@ fn split_to_nums_is_correct() {
 
     assert_eq!(nums, vec![1, 3, 4]);
 }
+
+#[test]
+/// given a deep url, find the correct scan
+fn get_base_scan_by_url_finds_correct_scan() {
+    let urls = FeroxScans::default();
+    let url = "http://localhost";
+    let url1 = "http://localhost/stuff";
+    let url2 = "http://shlocalhost/stuff/things";
+    let url3 = "http://shlocalhost/stuff/things/mostuff";
+    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan1) = urls.add_scan(url1, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan2) = urls.add_scan(url2, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan3) = urls.add_scan(url3, ScanType::Directory, ScanOrder::Latest);
+
+    assert_eq!(
+        urls.get_base_scan_by_url("http://localhost/things.php")
+            .unwrap()
+            .id,
+        scan.id
+    );
+    assert_eq!(
+        urls.get_base_scan_by_url("http://localhost/stuff/things.php")
+            .unwrap()
+            .id,
+        scan1.id
+    );
+    assert_eq!(
+        urls.get_base_scan_by_url("http://shlocalhost/stuff/things/mostuff.php")
+            .unwrap()
+            .id,
+        scan2.id
+    );
+    assert_eq!(
+        urls.get_base_scan_by_url("http://shlocalhost/stuff/things/mostuff/mothings.php")
+            .unwrap()
+            .id,
+        scan3.id
+    );
+}

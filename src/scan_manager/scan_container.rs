@@ -162,7 +162,7 @@ impl FeroxScans {
         None
     }
 
-    fn get_base_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
+    pub(super) fn get_base_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
         log::trace!("enter: get_sub_paths_from_path({})", url);
 
         // rmatch_indices returns tuples in index, match form, i.e. (10, "/")
@@ -187,12 +187,14 @@ impl FeroxScans {
                 for scan in guard.iter() {
                     let slice = url.index(0..*idx);
                     if slice == scan.url {
+                        log::trace!("enter: get_sub_paths_from_path -> {}", scan);
                         return Some(scan.clone());
                     }
                 }
             }
         }
 
+        log::trace!("enter: get_sub_paths_from_path -> None");
         None
     }
     /// add one to either 403 or 429 tracker in the scan related to the given url
