@@ -499,7 +499,6 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     assert!(contents.contains("exit: main"));
     assert!(contents.contains(&srv.url("/LICENSE")));
     assert!(contents.contains("\"module\":\"feroxbuster::response\""));
-    assert!(contents.contains("\"module\":\"feroxbuster::extractor::container\""));
     assert!(contents.contains("\"module\":\"feroxbuster::url\""));
     assert!(contents.contains("\"module\":\"feroxbuster::event_handlers::inputs\""));
     assert!(contents.contains("exit: start_enter_handler"));
