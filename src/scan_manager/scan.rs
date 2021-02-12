@@ -90,10 +90,7 @@ impl FeroxScan {
     /// Stop a currently running scan
     pub async fn abort(&self) -> Result<()> {
         let mut guard = self.task.lock().await;
-        log::error!("got the guard for {}", self); // todo remove or debug
-
         if guard.is_some() {
-            log::error!("guard is some {}", self); // todo remove or debug
             if let Some(task) = std::mem::replace(&mut *guard, None) {
                 task.abort();
                 self.set_status(ScanStatus::Cancelled)?;

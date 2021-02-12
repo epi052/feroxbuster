@@ -432,8 +432,13 @@ mod tests {
     /// helper to stay DRY
     async fn increment_scan_errors(handles: Arc<Handles>, url: &str, num_errors: usize) {
         let scans = handles.ferox_scans().unwrap();
+
         for _ in 0..num_errors {
-            scans.increment_error(url);
+            if !url.ends_with('/') {
+                scans.increment_error(format!("{}/", url).as_str());
+            } else {
+                scans.increment_error(url);
+            };
         }
     }
 
@@ -602,13 +607,11 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// bail should return call abort on the scan with the most errors
+    /// bail should call abort on the scan with the most errors
     async fn bail_calls_abort_on_highest_errored_feroxscan() {
-        let url = "http://one";
-
         let (handles, _) = setup_requester_test(None).await;
 
-        let scan_one = create_scan(handles.clone(), url, 10, PolicyTrigger::Errors).await;
+        let scan_one = create_scan(handles.clone(), "http://one", 10, PolicyTrigger::Errors).await;
         let scan_two = create_scan(handles.clone(), "http://two", 14, PolicyTrigger::Errors).await;
         let scan_three =
             create_scan(handles.clone(), "http://three", 4, PolicyTrigger::Errors).await;
@@ -628,7 +631,7 @@ mod tests {
 
         let requester = Requester {
             handles,
-            target_url: url.to_string(),
+            target_url: "http://one/one/stuff.php".to_string(),
             rate_limiter: None,
             policy_data: Default::default(),
         };
