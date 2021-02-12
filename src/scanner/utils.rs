@@ -1,4 +1,5 @@
 use super::FeroxScanner;
+use crate::scan_manager::ScanStatus;
 use crate::{
     config::RequesterPolicy,
     event_handlers::{
@@ -6,9 +7,11 @@ use crate::{
         Handles,
     },
     extractor::{ExtractionTarget::ResponseBody, ExtractorBuilder},
-    progress::PROGRESS_PRINTER,
     response::FeroxResponse,
-    statistics::StatError::Other,
+    statistics::{
+        StatError::Other,
+        StatField::{Enforced403s, Enforced429s, EnforcedErrors},
+    },
     url::FeroxUrl,
     utils::logged_request,
     HIGH_ERROR_RATIO,
@@ -16,9 +19,15 @@ use crate::{
 use anyhow::Result;
 use leaky_bucket::LeakyBucket;
 use std::ops::Index;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::{cmp::max, sync::Arc};
-use tokio::{sync::oneshot, time::Duration};
+use tokio::{
+    sync::oneshot,
+    time::{sleep, Duration},
+};
+
+/// default number of seconds to wait during a cooldown period
+const WAIT_TIME: u64 = 5; // todo mv to lib?
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 /// represents different situations where different criteria can trigger auto-tune/bail behavior
@@ -33,6 +42,60 @@ pub enum PolicyTrigger {
     Errors,
 }
 
+/// data regarding policy and metadata about last enforced trigger etc...
+#[derive(Default)]
+pub struct PolicyData {
+    /// how to handle exceptional cases such as too many errors / 403s / 429s etc
+    policy: RequesterPolicy,
+
+    /// number of seconds to wait between checks for policy enforcement
+    wait_time: AtomicU64,
+
+    /// whether or not we're in the middle of a cooldown period
+    cooling_down: AtomicBool,
+}
+
+/// implementation of PolicyData
+impl PolicyData {
+    /// given a RequesterPolicy, create a new PolicyData
+    fn new(policy: RequesterPolicy) -> Self {
+        Self {
+            policy,
+            wait_time: AtomicU64::new(WAIT_TIME),
+            cooling_down: AtomicBool::new(false),
+        }
+    }
+
+    /// todo doc
+    async fn backoff(&self, wait: Option<u64>) {
+        if self.cooling_down.load(Ordering::SeqCst) {
+            // prevents a few racy threads making it in here and doubling the wait time erroneously
+            return;
+        }
+
+        let current = if let Some(wt) = wait {
+            // called with optional wait param, only sleep for this length of time
+            wt
+        } else {
+            // exponential backoff, doubles with each policy trigger
+            self.wait_time
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |wt| Some(wt * 2))
+                .unwrap_or(WAIT_TIME)
+        };
+
+        log::error!(
+            "backoff called with cooldown period of {:?} seconds",
+            current
+        ); // todo remove
+
+        self.cooling_down.store(true, Ordering::SeqCst);
+
+        sleep(Duration::new(current, 0)).await;
+
+        self.cooling_down.store(false, Ordering::SeqCst);
+    }
+}
+
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
     /// handles to handlers and config
@@ -44,8 +107,8 @@ pub(super) struct Requester {
     /// limits requests per second if present
     rate_limiter: Option<LeakyBucket>,
 
-    /// how to handle exceptional cases such as too many errors / 403s / 429s etc
-    policy: RequesterPolicy,
+    /// data regarding policy and metadata about last enforced trigger etc...
+    policy_data: PolicyData,
 }
 
 /// Requester implementation
@@ -69,10 +132,10 @@ impl Requester {
             None
         };
 
-        let policy = scanner.handles.config.requester_policy;
+        let policy_data = PolicyData::new(scanner.handles.config.requester_policy);
 
         Ok(Self {
-            policy,
+            policy_data,
             rate_limiter,
             handles: scanner.handles.clone(),
             target_url: scanner.target_url.to_owned(),
@@ -85,6 +148,20 @@ impl Requester {
         Ok(())
     }
 
+    /// simple wrapper to update the appropriate usize field on the Stats object
+    fn update_error_field(&self, num_errors: usize, trigger: PolicyTrigger) {
+        let field = match trigger {
+            PolicyTrigger::Status403 => Enforced403s,
+            PolicyTrigger::Status429 => Enforced429s,
+            PolicyTrigger::Errors => EnforcedErrors,
+        };
+
+        self.handles
+            .stats
+            .data
+            .update_usize_field(field, num_errors);
+    }
+
     /// determine whether or not a policy needs to be enforce
     ///
     /// criteria:
@@ -92,7 +169,12 @@ impl Requester {
     /// - 90% of requests are 403
     /// - 30% of requests are 429
     fn should_enforce_policy(&self) -> Option<PolicyTrigger> {
-        let requests = self.handles.stats.data.requests.load(Ordering::Relaxed);
+        if self.policy_data.cooling_down.load(Ordering::SeqCst) {
+            // prevents a few racy threads making it in here and doubling the wait time erroneously
+            return None;
+        }
+
+        let requests = self.handles.stats.data.requests.load(Ordering::SeqCst);
 
         if requests < max(self.handles.config.threads, 50) {
             // check whether at least a full round of threads has made requests or 50 (default # of
@@ -100,25 +182,39 @@ impl Requester {
             return None;
         }
 
-        let errors = self.handles.stats.data.errors.load(Ordering::Relaxed);
-        let s403s = self.handles.stats.data.status_403s.load(Ordering::Relaxed);
-        let s429s = self.handles.stats.data.status_429s.load(Ordering::Relaxed);
+        let total_errors = self.handles.stats.data.errors();
+        let enforced_errors = self.handles.stats.data.enforced_errors();
 
-        let threshold = self.handles.config.threads * 2;
-        if errors >= threshold {
-            // general errors should not exceed the given threshold
+        let unenforced_errors = total_errors.saturating_sub(enforced_errors);
+
+        let threshold = self.handles.config.threads * 2; // todo is this too high?
+
+        if unenforced_errors >= threshold {
+            self.update_error_field(unenforced_errors, PolicyTrigger::Errors);
             return Some(PolicyTrigger::Errors);
         }
 
-        let ratio_403s = s403s as f64 / requests as f64;
+        let total_403s = self.handles.stats.data.status_403s();
+        let enforced_403s = self.handles.stats.data.enforced_403s();
+
+        let unenforced_403s = total_403s.saturating_sub(enforced_403s);
+
+        let ratio_403s = unenforced_403s as f64 / requests as f64;
         if ratio_403s >= HIGH_ERROR_RATIO {
             // almost exclusively 403
+            self.update_error_field(unenforced_403s, PolicyTrigger::Status403);
             return Some(PolicyTrigger::Status403);
         }
 
-        let ratio_429s = s429s as f64 / requests as f64;
+        let total_429s = self.handles.stats.data.status_429s();
+        let enforced_429s = self.handles.stats.data.enforced_429s();
+
+        let unenforced_429s = total_429s.saturating_sub(enforced_429s);
+
+        let ratio_429s = unenforced_429s as f64 / requests as f64;
         if ratio_429s >= HIGH_ERROR_RATIO / 3.0 {
             // high # of 429 responses
+            self.update_error_field(unenforced_429s, PolicyTrigger::Status429);
             return Some(PolicyTrigger::Status429);
         }
 
@@ -134,26 +230,23 @@ impl Requester {
 
         let mut scan_tuples = vec![];
 
-        {
-            if let Ok(guard) = scans.scans.read() {
-                for (i, scan) in guard.iter().enumerate() {
-                    if scan.is_active() && scan.num_errors(trigger) > 0 {
-                        // only active scans that have at least 1 error
-
-                        scan_tuples.push((i, scan.num_errors(trigger)));
-                    }
+        if let Ok(guard) = scans.scans.read() {
+            for (i, scan) in guard.iter().enumerate() {
+                if scan.is_active() && scan.num_errors(trigger) > 0 {
+                    // only active scans that have at least 1 error
+                    scan_tuples.push((i, scan.num_errors(trigger)));
                 }
             }
         }
 
-        if scan_tuples.len() == 0 {
+        if scan_tuples.is_empty() {
             return Ok(());
         }
 
         // sort by number of errors
         scan_tuples.sort_unstable_by(|x, y| y.1.cmp(&x.1));
 
-        for (idx, _errors) in scan_tuples {
+        for (idx, _) in scan_tuples {
             let scan = if let Ok(guard) = scans.scans.read() {
                 guard.index(idx).clone()
             } else {
@@ -161,7 +254,33 @@ impl Requester {
                 continue;
             };
 
+            // todo scan doesn't exit properly
+            // todo need way to track info about last enforce (done, added to stats)
+            // todo go through memory ordering and see if relaxed works now with stats update
+            // todo trim or remove PolicyData
+            // todo bail should use an internal error counter and subtract that from errors when
+            // determining whether or not to trigger; counter should reset when trigger occurs
+            // todo tune should use the backoff strategy
+            // todo abort should update overall scan bar (maybe)
+
             if scan.is_active() {
+                log::error!(
+                    "Too many {:?} ({}) triggered {:?} Policy on {}",
+                    trigger,
+                    scan.num_errors(trigger),
+                    self.handles.config.requester_policy,
+                    scan
+                ); // todo change to warn
+
+                // if allowed to be called within .abort, the inner .await makes it so other
+                // in-flight requests don't see the Cancelled status, doing it here ensures a
+                // minimum number of requests entering this block
+                scan.set_status(ScanStatus::Cancelled)
+                    .unwrap_or_else(|e| log::warn!("Could not set scan status: {}", e));
+
+                // set cooldown flag before awaiting the abort to reduce chance of races
+                self.policy_data.backoff(Some(1)).await;
+
                 scan.abort()
                     .await
                     .unwrap_or_else(|e| log::warn!("Could not bail on scan: {}", e));
@@ -192,18 +311,21 @@ impl Requester {
 
             let response = logged_request(&url, self.handles.clone()).await?;
 
-            match self.policy {
-                RequesterPolicy::AutoTune => {
-                    if let Some(trigger) = self.should_enforce_policy() {
-                        self.tune(trigger);
+            if !self.policy_data.cooling_down.load(Ordering::SeqCst) {
+                // only check for policy enforcement when the trigger isn't on cooldown
+                match self.policy_data.policy {
+                    RequesterPolicy::AutoTune => {
+                        if let Some(trigger) = self.should_enforce_policy() {
+                            self.tune(trigger);
+                        }
                     }
-                }
-                RequesterPolicy::AutoBail => {
-                    if let Some(trigger) = self.should_enforce_policy() {
-                        self.bail(trigger).await?; // todo may or may not be right to bubble up
+                    RequesterPolicy::AutoBail => {
+                        if let Some(trigger) = self.should_enforce_policy() {
+                            self.bail(trigger).await?; // todo may or may not be right to bubble up
+                        }
                     }
+                    RequesterPolicy::Default => {}
                 }
-                RequesterPolicy::Default => {}
             }
 
             // response came back without error, convert it to FeroxResponse
@@ -401,7 +523,7 @@ mod tests {
             handles,
             target_url: "http://localhost".to_string(),
             rate_limiter: None,
-            policy: Default::default(),
+            policy_data: Default::default(),
         };
 
         increment_errors(requester.handles.clone(), 49).await;
@@ -422,7 +544,7 @@ mod tests {
             handles,
             target_url: "http://localhost".to_string(),
             rate_limiter: None,
-            policy: Default::default(),
+            policy_data: Default::default(),
         };
 
         increment_errors(requester.handles.clone(), 50).await;
@@ -443,7 +565,7 @@ mod tests {
             handles,
             target_url: "http://localhost".to_string(),
             rate_limiter: None,
-            policy: Default::default(),
+            policy_data: Default::default(),
         };
 
         increment_status_codes(requester.handles.clone(), 45, StatusCode::FORBIDDEN).await;
@@ -467,7 +589,7 @@ mod tests {
             handles,
             target_url: "http://localhost".to_string(),
             rate_limiter: None,
-            policy: Default::default(),
+            policy_data: Default::default(),
         };
 
         increment_status_codes(requester.handles.clone(), 15, StatusCode::TOO_MANY_REQUESTS).await;
@@ -508,7 +630,7 @@ mod tests {
             handles,
             target_url: url.to_string(),
             rate_limiter: None,
-            policy: Default::default(),
+            policy_data: Default::default(),
         };
 
         requester.bail(PolicyTrigger::Errors).await.unwrap();

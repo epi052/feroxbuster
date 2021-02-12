@@ -9,7 +9,7 @@ use crate::{
     SLEEP_DURATION,
 };
 use anyhow::Result;
-use reqwest::{StatusCode, Url};
+use reqwest::StatusCode;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
     convert::TryInto,
@@ -167,7 +167,7 @@ impl FeroxScans {
 
         // rmatch_indices returns tuples in index, match form, i.e. (10, "/")
         // with the furthest-right match in the first position in the vector
-        let matches: Vec<_> = url.rmatch_indices("/").collect();
+        let matches: Vec<_> = url.rmatch_indices('/').collect();
 
         // iterate from the furthest right matching index and check the given url from the
         // start to the furthest-right '/' character. compare that slice to the urls associated

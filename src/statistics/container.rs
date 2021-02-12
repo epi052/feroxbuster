@@ -44,6 +44,9 @@ pub struct Stats {
     /// tracker for total number of errors encountered by the client
     pub(crate) errors: AtomicUsize,
 
+    /// tracker for total number of errors that have been used to enforce a policy
+    enforced_errors: AtomicUsize,
+
     /// tracker for overall number of 2xx status codes seen by the client
     successes: AtomicUsize,
 
@@ -82,8 +85,14 @@ pub struct Stats {
     /// tracker for overall number of 403s seen by the client
     pub(crate) status_403s: AtomicUsize,
 
+    /// tracker for total number of 403s that have been used to enforce a policy
+    enforced_403s: AtomicUsize,
+
     /// tracker for overall number of 429s seen by the client
     pub(crate) status_429s: AtomicUsize,
+
+    /// tracker for total number of 429s that have been used to enforce a policy
+    enforced_429s: AtomicUsize,
 
     /// tracker for overall number of 500s seen by the client
     status_500s: AtomicUsize,
@@ -174,6 +183,31 @@ impl Stats {
     /// public getter for errors
     pub fn errors(&self) -> usize {
         atomic_load!(self.errors)
+    }
+
+    /// public getter for enforced_errors
+    pub fn enforced_errors(&self) -> usize {
+        atomic_load!(self.enforced_errors)
+    }
+
+    /// public getter for enforced_403s
+    pub fn enforced_403s(&self) -> usize {
+        atomic_load!(self.enforced_403s)
+    }
+
+    /// public getter for enforced_429s
+    pub fn enforced_429s(&self) -> usize {
+        atomic_load!(self.enforced_429s)
+    }
+
+    /// public getter for status_403s
+    pub fn status_403s(&self) -> usize {
+        atomic_load!(self.status_403s)
+    }
+
+    /// public getter for status_429s
+    pub fn status_429s(&self) -> usize {
+        atomic_load!(self.status_429s)
     }
 
     /// public getter for total_expected
@@ -334,6 +368,15 @@ impl Stats {
             }
             StatField::InitialTargets => {
                 atomic_increment!(self.initial_targets, value);
+            }
+            StatField::EnforcedErrors => {
+                atomic_increment!(self.enforced_errors, value);
+            }
+            StatField::Enforced403s => {
+                atomic_increment!(self.enforced_403s, value);
+            }
+            StatField::Enforced429s => {
+                atomic_increment!(self.enforced_429s, value);
             }
             _ => {} // f64 fields
         }

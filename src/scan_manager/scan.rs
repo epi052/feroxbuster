@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     config::OutputLevel,
-    progress::{add_bar, BarType, PROGRESS_PRINTER},
+    progress::{add_bar, BarType},
     scanner::PolicyTrigger,
 };
 use anyhow::Result;
@@ -90,8 +90,10 @@ impl FeroxScan {
     /// Stop a currently running scan
     pub async fn abort(&self) -> Result<()> {
         let mut guard = self.task.lock().await;
+        log::error!("got the guard for {}", self); // todo remove or debug
 
         if guard.is_some() {
+            log::error!("guard is some {}", self); // todo remove or debug
             if let Some(task) = std::mem::replace(&mut *guard, None) {
                 task.abort();
                 self.set_status(ScanStatus::Cancelled)?;
@@ -248,24 +250,24 @@ impl FeroxScan {
 
     /// simple wrapper to call the appropriate getter based on the given PolicyTrigger
     pub fn num_errors(&self, trigger: PolicyTrigger) -> usize {
-        return match trigger {
+        match trigger {
             PolicyTrigger::Status403 => self.status_403s(),
             PolicyTrigger::Status429 => self.status_429s(),
             PolicyTrigger::Errors => self.errors(),
-        };
+        }
     }
 
     /// return the number of errors seen by this scan
     fn errors(&self) -> usize {
-        self.errors.load(Ordering::Relaxed)
+        self.errors.load(Ordering::SeqCst)
     }
     /// return the number of 403s seen by this scan
     fn status_403s(&self) -> usize {
-        self.status_403s.load(Ordering::Relaxed)
+        self.status_403s.load(Ordering::SeqCst)
     }
     /// return the number of 429s seen by this scan
     fn status_429s(&self) -> usize {
-        self.status_429s.load(Ordering::Relaxed)
+        self.status_429s.load(Ordering::SeqCst)
     }
 }
 
