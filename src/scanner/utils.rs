@@ -455,7 +455,11 @@ mod tests {
     ) {
         let scans = handles.ferox_scans().unwrap();
         for _ in 0..num_errors {
-            scans.increment_status_code(url, code);
+            if !url.ends_with('/') {
+                scans.increment_status_code(format!("{}/", url).as_str(), code);
+            } else {
+                scans.increment_status_code(url, code);
+            };
         }
     }
 
@@ -646,5 +650,55 @@ mod tests {
         assert!(scan_three.is_active());
         assert!(scan_four.is_active());
         assert!(!scan_two.is_active());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// bail is ok when no active scans are found
+    async fn bail_returns_ok_on_no_active_scans() {
+        let (handles, _) = setup_requester_test(None).await;
+
+        let scan_one =
+            create_scan(handles.clone(), "http://one", 10, PolicyTrigger::Status403).await;
+        let scan_two =
+            create_scan(handles.clone(), "http://two", 10, PolicyTrigger::Status429).await;
+
+        scan_one.set_status(ScanStatus::Complete).unwrap();
+        scan_two.set_status(ScanStatus::Cancelled).unwrap();
+
+        let scans = handles.ferox_scans().unwrap();
+        assert_eq!(scans.get_active_scans().len(), 0);
+
+        let requester = Requester {
+            handles,
+            target_url: "http://one/one/stuff.php".to_string(),
+            rate_limiter: None,
+            policy_data: Default::default(),
+        };
+
+        let result = requester.bail(PolicyTrigger::Status403).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// should_enforce should early exit when cooldown flag is set
+    async fn should_enforce_policy_returns_none_on_cooldown() {
+        let mut config = Configuration::new().unwrap_or_default();
+        config.threads = 50;
+
+        let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
+
+        let requester = Requester {
+            handles,
+            target_url: "http://localhost".to_string(),
+            rate_limiter: None,
+            policy_data: Default::default(),
+        };
+
+        requester
+            .policy_data
+            .cooling_down
+            .store(true, Ordering::Relaxed);
+
+        assert_eq!(requester.should_enforce_policy(), None);
     }
 }
