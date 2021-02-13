@@ -3,7 +3,7 @@ use crate::{
     client,
     event_handlers::{
         Command,
-        Command::{AddError, UpdateUsizeField},
+        Command::{AddError, AddToUsizeField},
         Handles,
     },
     scan_manager::ScanOrder,
@@ -400,10 +400,10 @@ impl<'a> Extractor<'a> {
 
         self.handles
             .stats
-            .send(UpdateUsizeField(LinksExtracted, num_links))?;
+            .send(AddToUsizeField(LinksExtracted, num_links))?;
         self.handles
             .stats
-            .send(UpdateUsizeField(TotalExpected, num_links * multiplier))?;
+            .send(AddToUsizeField(TotalExpected, num_links * multiplier))?;
 
         Ok(())
     }

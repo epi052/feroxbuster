@@ -1,4 +1,4 @@
-use super::Command::UpdateUsizeField;
+use super::Command::AddToUsizeField;
 use super::*;
 
 use anyhow::{Context, Result};
@@ -195,7 +195,7 @@ impl TermOutHandler {
                         // print to stdout
                         ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
 
-                        send_command!(tx_stats, UpdateUsizeField(ResourcesDiscovered, 1));
+                        send_command!(tx_stats, AddToUsizeField(ResourcesDiscovered, 1));
 
                         if self.file_task.is_some() {
                             // -o used, need to send the report to be written out to disk

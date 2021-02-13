@@ -1,16 +1,17 @@
 use super::FeroxScanner;
 use crate::scan_manager::ScanStatus;
+use crate::statistics::StatField;
 use crate::{
     config::RequesterPolicy,
     event_handlers::{
-        Command::{self, AddError},
+        Command::{self, AddError, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget::ResponseBody, ExtractorBuilder},
     response::FeroxResponse,
     statistics::{
         StatError::Other,
-        StatField::{Enforced403s, Enforced429s, EnforcedErrors},
+        StatField::{Enforced403s, Enforced429s, EnforcedErrors, TotalExpected},
     },
     url::FeroxUrl,
     utils::logged_request,
@@ -68,7 +69,7 @@ impl PolicyData {
 
     /// todo doc
     async fn backoff(&self, wait: Option<u64>) {
-        if self.cooling_down.load(Ordering::SeqCst) {
+        if self.cooling_down.load(Ordering::Relaxed) {
             // prevents a few racy threads making it in here and doubling the wait time erroneously
             return;
         }
@@ -78,21 +79,16 @@ impl PolicyData {
             wt
         } else {
             // exponential backoff, doubles with each policy trigger
+            // todo update comment above, i think i want to start at half and go back up to the
+            // original
             self.wait_time
                 .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |wt| Some(wt * 2))
                 .unwrap_or(WAIT_TIME)
         };
 
-        log::error!(
-            "backoff called with cooldown period of {:?} seconds",
-            current
-        ); // todo remove
-
-        self.cooling_down.store(true, Ordering::SeqCst);
-
+        self.cooling_down.store(true, Ordering::Relaxed);
         sleep(Duration::new(current, 0)).await;
-
-        self.cooling_down.store(false, Ordering::SeqCst);
+        self.cooling_down.store(false, Ordering::Relaxed);
     }
 }
 
@@ -165,16 +161,16 @@ impl Requester {
     /// determine whether or not a policy needs to be enforce
     ///
     /// criteria:
-    /// - threads * 2 for general errors (timeouts etc)
+    /// - number of threads (50 default) for general errors (timeouts etc)
     /// - 90% of requests are 403
     /// - 30% of requests are 429
     fn should_enforce_policy(&self) -> Option<PolicyTrigger> {
-        if self.policy_data.cooling_down.load(Ordering::SeqCst) {
+        if self.policy_data.cooling_down.load(Ordering::Relaxed) {
             // prevents a few racy threads making it in here and doubling the wait time erroneously
             return None;
         }
 
-        let requests = self.handles.stats.data.requests.load(Ordering::SeqCst);
+        let requests = self.handles.stats.data.requests.load(Ordering::Relaxed);
 
         if requests < max(self.handles.config.threads, 50) {
             // check whether at least a full round of threads has made requests or 50 (default # of
@@ -187,7 +183,8 @@ impl Requester {
 
         let unenforced_errors = total_errors.saturating_sub(enforced_errors);
 
-        let threshold = self.handles.config.threads * 2; // todo is this too high?
+        // at least 50 errors
+        let threshold = max(self.handles.config.threads, 50);
 
         if unenforced_errors >= threshold {
             self.update_error_field(unenforced_errors, PolicyTrigger::Errors);
@@ -250,27 +247,21 @@ impl Requester {
             let scan = if let Ok(guard) = scans.scans.read() {
                 guard.index(idx).clone()
             } else {
-                // todo think about logging
+                log::warn!("Could not acquire the FeroxScans.scans lock");
                 continue;
             };
 
-            // todo scan doesn't exit properly
-            // todo need way to track info about last enforce (done, added to stats)
-            // todo go through memory ordering and see if relaxed works now with stats update
-            // todo trim or remove PolicyData
-            // todo bail should use an internal error counter and subtract that from errors when
-            // determining whether or not to trigger; counter should reset when trigger occurs
+            // todo scan doesn't exit properly (sometimes? -n did it once)
             // todo tune should use the backoff strategy
-            // todo abort should update overall scan bar (maybe)
 
             if scan.is_active() {
-                log::error!(
-                    "Too many {:?} ({}) triggered {:?} Policy on {}",
+                log::debug!(
+                    "too many {:?} ({}) triggered {:?} Policy on {}",
                     trigger,
                     scan.num_errors(trigger),
                     self.handles.config.requester_policy,
                     scan
-                ); // todo change to warn
+                );
 
                 // if allowed to be called within .abort, the inner .await makes it so other
                 // in-flight requests don't see the Cancelled status, doing it here ensures a
@@ -281,9 +272,22 @@ impl Requester {
                 // set cooldown flag before awaiting the abort to reduce chance of races
                 self.policy_data.backoff(Some(1)).await;
 
+                // kill the scan
                 scan.abort()
                     .await
                     .unwrap_or_else(|e| log::warn!("Could not bail on scan: {}", e));
+
+                // figure out how many requests are skipped as a result
+                let pb = scan.progress_bar();
+                let num_skipped = pb.length().saturating_sub(pb.position()) as usize;
+
+                // update the overall scan bar by subtracting the number of skipped requests from
+                // the total
+                self.handles
+                    .stats
+                    .send(SubtractFromUsizeField(TotalExpected, num_skipped))
+                    .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {}", e));
+
                 break;
             }
         }
@@ -311,7 +315,7 @@ impl Requester {
 
             let response = logged_request(&url, self.handles.clone()).await?;
 
-            if !self.policy_data.cooling_down.load(Ordering::SeqCst) {
+            if !self.policy_data.cooling_down.load(Ordering::Relaxed) {
                 // only check for policy enforcement when the trigger isn't on cooldown
                 match self.policy_data.policy {
                     RequesterPolicy::AutoTune => {

@@ -13,7 +13,7 @@ use crate::{
     CommandReceiver, CommandSender, FeroxChannel, Joiner,
 };
 
-use super::command::Command::UpdateUsizeField;
+use super::command::Command::AddToUsizeField;
 use super::*;
 
 #[derive(Debug)]
@@ -231,7 +231,7 @@ impl ScanHandler {
                 }
             });
 
-            self.handles.stats.send(UpdateUsizeField(TotalScans, 1))?;
+            self.handles.stats.send(AddToUsizeField(TotalScans, 1))?;
 
             scan.set_task(task).await?;
 

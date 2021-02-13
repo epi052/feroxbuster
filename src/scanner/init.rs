@@ -1,5 +1,5 @@
 use crate::{
-    event_handlers::{Command::UpdateUsizeField, Handles},
+    event_handlers::{Command::AddToUsizeField, Handles},
     statistics::StatField::ExpectedPerScan,
 };
 use anyhow::Result;
@@ -25,10 +25,9 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
     }
 
     // tell Stats object about the number of expected requests
-    handles.stats.send(UpdateUsizeField(
-        ExpectedPerScan,
-        num_reqs_expected as usize,
-    ))?;
+    handles
+        .stats
+        .send(AddToUsizeField(ExpectedPerScan, num_reqs_expected as usize))?;
 
     log::trace!("exit: initialize");
     Ok(())

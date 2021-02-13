@@ -25,11 +25,14 @@ pub enum Command {
     /// Create the progress bar (`BarType::Total`) that is updated from the stats thread
     CreateBar,
 
-    /// Update a `Stats` field that corresponds to the given `StatField` by the given `usize` value
-    UpdateUsizeField(StatField, usize),
+    /// Add to a `Stats` field that corresponds to the given `StatField` by the given `usize` value
+    AddToUsizeField(StatField, usize),
+
+    /// Subtract from a `Stats` field that corresponds to the given `StatField` by the given `usize` value
+    SubtractFromUsizeField(StatField, usize),
 
     /// Update a `Stats` field that corresponds to the given `StatField` by the given `f64` value
-    UpdateF64Field(StatField, f64),
+    AddToF64Field(StatField, f64),
 
     /// Save a `Stats` object to disk using `reporter::get_cached_file_handle`
     Save,

@@ -52,13 +52,13 @@ pub struct FeroxScan {
     /// whether or not the user passed --silent|--quiet on the command line
     pub(super) output_level: OutputLevel,
 
-    /// todo
+    /// tracker for overall number of 403s seen by the FeroxScan instance
     pub(super) status_403s: AtomicUsize,
 
-    /// todo
+    /// tracker for overall number of 429s seen by the FeroxScan instance
     pub(super) status_429s: AtomicUsize,
 
-    /// todo
+    /// tracker for total number of errors encountered by the FeroxScan instance
     pub(super) errors: AtomicUsize,
 }
 

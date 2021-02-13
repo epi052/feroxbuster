@@ -100,14 +100,21 @@ impl StatsHandler {
                     self.stats
                         .save(start.elapsed().as_secs_f64(), output_file)?;
                 }
-                Command::UpdateUsizeField(field, value) => {
+                Command::AddToUsizeField(field, value) => {
                     self.stats.update_usize_field(field, value);
 
                     if matches!(field, StatField::TotalScans) {
                         self.bar.set_length(self.stats.total_expected() as u64);
                     }
                 }
-                Command::UpdateF64Field(field, value) => self.stats.update_f64_field(field, value),
+                Command::SubtractFromUsizeField(field, value) => {
+                    self.stats.subtract_from_usize_field(field, value);
+
+                    if matches!(field, StatField::TotalExpected) {
+                        self.bar.set_length(self.stats.total_expected() as u64);
+                    }
+                }
+                Command::AddToF64Field(field, value) => self.stats.update_f64_field(field, value),
                 Command::CreateBar => {
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
                 }

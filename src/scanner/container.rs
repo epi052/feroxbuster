@@ -9,13 +9,16 @@ use super::utils::Requester;
 
 use crate::{
     event_handlers::{
-        Command::{AddError, UpdateF64Field},
+        Command::{AddError, AddToF64Field, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget::RobotsTxt, ExtractorBuilder},
     heuristics,
     scan_manager::{FeroxResponses, ScanOrder, ScanStatus, PAUSE_SCAN},
-    statistics::{StatError::Other, StatField::DirScanTimes},
+    statistics::{
+        StatError::Other,
+        StatField::{DirScanTimes, TotalExpected},
+    },
     utils::fmt_err,
 };
 
@@ -126,13 +129,22 @@ impl FeroxScanner {
                 let pb = progress_bar.clone(); // progress bar is an Arc around internal state
                 let scanned_urls_clone = scanned_urls.clone();
                 let requester_clone = requester.clone();
+                let handles_clone = self.handles.clone();
                 (
                     tokio::spawn(async move {
                         if PAUSE_SCAN.load(Ordering::Acquire) {
                             // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
                             // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                             // to false
-                            scanned_urls_clone.pause(true).await;
+                            let num_cancelled = scanned_urls_clone.pause(true).await;
+                            if num_cancelled > 0 {
+                                handles_clone
+                                    .stats
+                                    .send(SubtractFromUsizeField(TotalExpected, num_cancelled))
+                                    .unwrap_or_else(|e| {
+                                        log::warn!("Could not update overall scan bar: {}", e)
+                                    });
+                            }
                         }
                         requester_clone.request(&word).await
                     }),
@@ -156,7 +168,7 @@ impl FeroxScanner {
         producers.await;
         log::trace!("done awaiting scan producers");
 
-        self.handles.stats.send(UpdateF64Field(
+        self.handles.stats.send(AddToF64Field(
             DirScanTimes,
             scan_timer.elapsed().as_secs_f64(),
         ))?;

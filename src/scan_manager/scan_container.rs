@@ -252,8 +252,10 @@ impl FeroxScans {
     }
 
     /// Given a list of indexes, cancel their associated FeroxScans
-    async fn cancel_scans(&self, indexes: Vec<usize>) {
+    async fn cancel_scans(&self, indexes: Vec<usize>) -> usize {
         let menu_pause_duration = Duration::from_millis(SLEEP_DURATION);
+
+        let mut num_cancelled = 0_usize;
 
         for num in indexes {
             let selected = match self.scans.read() {
@@ -275,32 +277,42 @@ impl FeroxScans {
 
             if input == 'y' || input == '\n' {
                 self.menu.println(&format!("Stopping {}...", selected.url));
+
                 selected
                     .abort()
                     .await
                     .unwrap_or_else(|e| log::warn!("Could not cancel task: {}", e));
+
+                let pb = selected.progress_bar();
+                num_cancelled += pb.length() as usize - pb.position() as usize
             } else {
                 self.menu.println("Ok, doing nothing...");
             }
 
             sleep(menu_pause_duration);
         }
+
+        num_cancelled
     }
 
     /// CLI menu that allows for interactive cancellation of recursed-into directories
-    async fn interactive_menu(&self) {
+    async fn interactive_menu(&self) -> usize {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
         self.display_scans().await;
         self.menu.print_footer();
 
+        let mut num_cancelled = 0_usize;
+
         if let Some(input) = self.menu.get_scans_from_user() {
-            self.cancel_scans(input).await
+            num_cancelled += self.cancel_scans(input).await;
         };
 
         self.menu.clear_screen();
         self.menu.show_progress_bars();
+
+        num_cancelled
     }
 
     /// prints all known responses that the scanner has already seen
@@ -348,18 +360,19 @@ impl FeroxScans {
     ///
     /// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
     /// loop
-    pub async fn pause(&self, get_user_input: bool) {
+    pub async fn pause(&self, get_user_input: bool) -> usize {
         // function uses tokio::time, not std
 
         // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
         // concurrent scans rose when SLEEP_DURATION was set to 500, using that as the default for now
         let mut interval = time::interval(time::Duration::from_millis(SLEEP_DURATION));
+        let mut num_cancelled = 0_usize;
 
         if INTERACTIVE_BARRIER.load(Ordering::Relaxed) == 0 {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                self.interactive_menu().await;
+                num_cancelled += self.interactive_menu().await;
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
                 self.print_known_responses();
             }
@@ -376,8 +389,8 @@ impl FeroxScans {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
                 }
 
-                log::trace!("exit: pause_scan");
-                return;
+                log::trace!("exit: pause_scan -> {}", num_cancelled);
+                return num_cancelled;
             }
         }
     }
