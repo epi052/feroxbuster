@@ -148,7 +148,6 @@ fn auto_bail_cancels_scan_with_403s() {
         .success();
 
     println!("log filesize: {}", logfile.metadata().unwrap().len());
-    std::fs::copy(&logfile, "/tmp/fuck").unwrap();
     let debug_log = read_to_string(logfile).unwrap();
 
     // read debug log to get the number of errors enforced
@@ -232,7 +231,6 @@ fn auto_bail_cancels_scan_with_429s() {
         .success();
 
     println!("log filesize: {}", logfile.metadata().unwrap().len());
-    std::fs::copy(&logfile, "/tmp/fuck").unwrap();
     let debug_log = read_to_string(logfile).unwrap();
 
     // read debug log to get the number of errors enforced
