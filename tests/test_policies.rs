@@ -72,7 +72,7 @@ fn auto_bail_cancels_scan_with_timeouts() {
         .assert()
         .success();
 
-    let debug_log = read_to_string("fuckface").unwrap();
+    let debug_log = read_to_string(logfile).unwrap();
 
     // read debug log to get the number of errors enforced
     for line in debug_log.lines() {
@@ -101,4 +101,172 @@ fn auto_bail_cancels_scan_with_timeouts() {
     assert!(normal_reqs_mock.hits() < 6000); // not all requests should make it
     assert!(error_mock.hits() >= 50); // need at least 50 to trigger the policy
     assert!(other_errors_mock.hits() <= 120); // may or may not see all other error requests
+}
+
+#[test]
+/// --auto-bail should cancel a scan with spurious 403s
+fn auto_bail_cancels_scan_with_403s() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["ignored".to_string()], "wordlist").unwrap();
+    let (log_dir, logfile) = setup_tmp_directory(&[], "debug-log").unwrap();
+
+    let policy_words = read_to_string(Path::new("tests/policy-test-words.shuffled")).unwrap();
+
+    write(&file, policy_words).unwrap();
+
+    assert_eq!(file.metadata().unwrap().len(), 117720); // sanity check on wordlist size
+
+    let error_mock = srv.mock(|when, then| {
+        when.method(GET).path_matches(
+            Regex::new("/[a-zA-Z]{6}(error|status429|status403)[a-zA-Z]{6}").unwrap(),
+        );
+        then.status(200).body("other errors are still a 200");
+    });
+
+    let normal_reqs_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z]{6}normal[a-zA-Z]{6}").unwrap());
+        then.status(403)
+            .body("these guys need to be 403 in order to trigger 90% threshold");
+    });
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--auto-bail")
+        .arg("--dont-filter")
+        .arg("--threads")
+        .arg("4")
+        .arg("--debug-log")
+        .arg(logfile.as_os_str())
+        .arg("-vvvv")
+        .arg("--json")
+        .assert()
+        .success();
+
+    println!("log filesize: {}", logfile.metadata().unwrap().len());
+    std::fs::copy(&logfile, "/tmp/fuck").unwrap();
+    let debug_log = read_to_string(logfile).unwrap();
+
+    // read debug log to get the number of errors enforced
+    for line in debug_log.lines() {
+        let log: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+        if let Some(message) = log.get("message") {
+            let str_msg = message.as_str().unwrap_or_default().to_string();
+
+            if str_msg.starts_with("Stats") {
+                println!("{}", str_msg);
+                let re = Regex::new("enforced_403s: ([0-9]+),").unwrap();
+                assert!(re.is_match(&str_msg));
+                let num_enforced = re
+                    .captures(&str_msg)
+                    .unwrap()
+                    .get(1)
+                    .map_or("", |m| m.as_str())
+                    .parse::<usize>()
+                    .unwrap();
+                println!("num_enforced: {}", num_enforced);
+                // 30 is slightly arbitrary, but high enough to feel sure about functionality
+                assert!(num_enforced > 40);
+            }
+        }
+    }
+
+    teardown_tmp_directory(tmp_dir);
+    teardown_tmp_directory(log_dir);
+
+    assert!(normal_reqs_mock.hits() + error_mock.hits() > 50); // must have at least 50 reqs fly
+
+    // expect much less in the way of requests for this one, 90% is measured against requests made,
+    // not requests expected, so 90% can be reached very quickly. for the same reason, the
+    // num_enforced can be less than 50
+    assert!(normal_reqs_mock.hits() < 500);
+    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+}
+
+#[test]
+/// --auto-bail should cancel a scan with spurious 429s
+fn auto_bail_cancels_scan_with_429s() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["ignored".to_string()], "wordlist").unwrap();
+    let (log_dir, logfile) = setup_tmp_directory(&[], "debug-log").unwrap();
+
+    let policy_words = read_to_string(Path::new("tests/policy-test-words.shuffled")).unwrap();
+
+    write(&file, policy_words).unwrap();
+
+    assert_eq!(file.metadata().unwrap().len(), 117720); // sanity check on wordlist size
+
+    let error_mock = srv.mock(|when, then| {
+        when.method(GET).path_matches(
+            Regex::new("/[a-zA-Z]{6}(error|status429|status403)[a-zA-Z]{6}").unwrap(),
+        );
+        then.status(200).body("other errors are still a 200");
+    });
+
+    let normal_reqs_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z]{6}normal[a-zA-Z]{6}").unwrap());
+        then.status(429)
+            .body("these guys need to be 403 in order to trigger 90% threshold");
+    });
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--auto-bail")
+        .arg("--dont-filter")
+        .arg("--threads")
+        .arg("4")
+        .arg("--debug-log")
+        .arg(logfile.as_os_str())
+        .arg("-vvvv")
+        .arg("--json")
+        .assert()
+        .success();
+
+    println!("log filesize: {}", logfile.metadata().unwrap().len());
+    std::fs::copy(&logfile, "/tmp/fuck").unwrap();
+    let debug_log = read_to_string(logfile).unwrap();
+
+    // read debug log to get the number of errors enforced
+    for line in debug_log.lines() {
+        let log: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+        if let Some(message) = log.get("message") {
+            let str_msg = message.as_str().unwrap_or_default().to_string();
+
+            if str_msg.starts_with("Stats") {
+                println!("{}", str_msg);
+                let re = Regex::new("enforced_429s: ([0-9]+),").unwrap();
+                assert!(re.is_match(&str_msg));
+                let num_enforced = re
+                    .captures(&str_msg)
+                    .unwrap()
+                    .get(1)
+                    .map_or("", |m| m.as_str())
+                    .parse::<usize>()
+                    .unwrap();
+                println!("num_enforced: {}", num_enforced);
+                // 30 is slightly arbitrary, but high enough to feel sure about functionality
+                assert!(num_enforced > 40);
+            }
+        }
+    }
+
+    teardown_tmp_directory(tmp_dir);
+    teardown_tmp_directory(log_dir);
+
+    assert!(normal_reqs_mock.hits() + error_mock.hits() > 50); // must have at least 50 reqs fly
+
+    // expect much less in the way of requests for this one, 90% is measured against requests made,
+    // not requests expected, so 90% can be reached very quickly. for the same reason, the
+    // num_enforced can be less than 50
+    assert!(normal_reqs_mock.hits() < 500);
+    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
 }
