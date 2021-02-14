@@ -1,6 +1,5 @@
 use super::FeroxScanner;
 use crate::scan_manager::ScanStatus;
-use crate::statistics::StatField;
 use crate::{
     config::RequesterPolicy,
     event_handlers::{
@@ -28,7 +27,7 @@ use tokio::{
 };
 
 /// default number of seconds to wait during a cooldown period
-const WAIT_TIME: u64 = 5; // todo mv to lib?
+const WAIT_TIME: u64 = 5;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 /// represents different situations where different criteria can trigger auto-tune/bail behavior
@@ -239,7 +238,6 @@ impl Requester {
         if scan_tuples.is_empty() {
             return Ok(());
         }
-
         // sort by number of errors
         scan_tuples.sort_unstable_by(|x, y| y.1.cmp(&x.1));
 
@@ -251,7 +249,6 @@ impl Requester {
                 continue;
             };
 
-            // todo scan doesn't exit properly (sometimes? -n did it once)
             // todo tune should use the backoff strategy
 
             if scan.is_active() {
@@ -560,9 +557,9 @@ mod tests {
             policy_data: Default::default(),
         };
 
-        increment_errors(requester.handles.clone(), 50).await;
+        increment_errors(requester.handles.clone(), 25).await;
         assert_eq!(requester.should_enforce_policy(), None);
-        increment_errors(requester.handles.clone(), 50).await;
+        increment_errors(requester.handles.clone(), 25).await;
         assert_eq!(
             requester.should_enforce_policy(),
             Some(PolicyTrigger::Errors)

@@ -89,15 +89,22 @@ impl Default for FeroxScan {
 impl FeroxScan {
     /// Stop a currently running scan
     pub async fn abort(&self) -> Result<()> {
-        let mut guard = self.task.lock().await;
-        if guard.is_some() {
-            if let Some(task) = std::mem::replace(&mut *guard, None) {
-                task.abort();
-                self.set_status(ScanStatus::Cancelled)?;
-                self.stop_progress_bar();
+        log::trace!("enter: abort");
+
+        match self.task.try_lock() {
+            Ok(mut guard) => {
+                if let Some(task) = std::mem::replace(&mut *guard, None) {
+                    log::trace!("aborting {:?}", self);
+                    task.abort();
+                    self.set_status(ScanStatus::Cancelled)?;
+                    self.stop_progress_bar();
+                }
+            }
+            Err(e) => {
+                log::warn!("Could not acquire lock to abort scan (we're already waiting for its results): {:?} {}", self, e);
             }
         }
-
+        log::trace!("exit: abort");
         Ok(())
     }
 

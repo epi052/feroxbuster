@@ -337,13 +337,11 @@ impl Stats {
 
     /// subtract a value from the given field
     pub fn subtract_from_usize_field(&self, field: StatField, value: usize) {
-        match field {
-            StatField::TotalExpected => {
-                self.total_expected.fetch_sub(value, Ordering::Relaxed);
-            }
-            _ => {}
+        if let StatField::TotalExpected = field {
+            self.total_expected.fetch_sub(value, Ordering::Relaxed);
         }
     }
+
     /// Update a `Stats` field of type usize
     pub fn update_usize_field(&self, field: StatField, value: usize) {
         match field {

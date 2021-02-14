@@ -186,7 +186,7 @@ impl FeroxScans {
             for (idx, _) in &matches {
                 for scan in guard.iter() {
                     let slice = url.index(0..*idx);
-                    if slice == scan.url {
+                    if slice == scan.url || format!("{}/", slice).as_str() == scan.url {
                         log::trace!("enter: get_sub_paths_from_path -> {}", scan);
                         return Some(scan.clone());
                     }

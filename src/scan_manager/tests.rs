@@ -563,13 +563,29 @@ fn get_base_scan_by_url_finds_correct_scan() {
 }
 
 #[test]
-/// given a shallow url, find the correct scan
-fn get_base_scan_by_url_finds_correct_shallow_scan() {
+/// given a shallow url without a trailing slash, find the correct scan
+fn get_base_scan_by_url_finds_correct_scan_without_trailing_slash() {
     let urls = FeroxScans::default();
     let url = "http://localhost";
     let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
     assert_eq!(
-        urls.get_base_scan_by_url("http://localhost/").unwrap().id,
+        urls.get_base_scan_by_url("http://localhost/BKPMiherrortBPKcw")
+            .unwrap()
+            .id,
+        scan.id
+    );
+}
+
+#[test]
+/// given a shallow url with a trailing slash, find the correct scan
+fn get_base_scan_by_url_finds_correct_scan_with_trailing_slash() {
+    let urls = FeroxScans::default();
+    let url = "http://127.0.0.1:41971/";
+    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    assert_eq!(
+        urls.get_base_scan_by_url("http://127.0.0.1:41971/BKPMiherrortBPKcw")
+            .unwrap()
+            .id,
         scan.id
     );
 }
