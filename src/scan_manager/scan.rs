@@ -139,9 +139,15 @@ impl FeroxScan {
 
     /// Simple helper get a progress bar
     pub fn progress_bar(&self) -> ProgressBar {
+        // log::error!("enter progressbar: {:?} ", self); // todo remove
+
         match self.progress_bar.lock() {
             Ok(mut guard) => {
+                // log::error!("{} - got lock", self.url); // todo remove
+
                 if guard.is_some() {
+                    // log::error!("{} - returned {:?} clone", self.url, self.output_level); // todo remove
+
                     (*guard).as_ref().unwrap().clone()
                 } else {
                     let bar_type = match self.output_level {
@@ -154,11 +160,13 @@ impl FeroxScan {
                     pb.reset_elapsed();
 
                     let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
+                    log::error!("{} - creating new {:?} bar", self.url, self.output_level); // todo remove
+
                     pb
                 }
             }
             Err(_) => {
-                log::warn!("Could not unlock progress bar on {:?}", self);
+                log::error!("Could not unlock progress bar on {:?}", self); // todo change to warn
 
                 let bar_type = match self.output_level {
                     OutputLevel::Default => BarType::Default,
@@ -249,7 +257,7 @@ impl FeroxScan {
 
     /// increment the value in question by 1
     pub(super) fn add_error(&self) {
-        self.errors.fetch_add(1, Ordering::SeqCst);
+        self.errors.fetch_add(1, Ordering::Relaxed);
     }
 
     /// simple wrapper to call the appropriate getter based on the given PolicyTrigger
@@ -263,15 +271,17 @@ impl FeroxScan {
 
     /// return the number of errors seen by this scan
     fn errors(&self) -> usize {
-        self.errors.load(Ordering::SeqCst)
+        self.errors.load(Ordering::Relaxed)
     }
+
     /// return the number of 403s seen by this scan
     fn status_403s(&self) -> usize {
-        self.status_403s.load(Ordering::SeqCst)
+        self.status_403s.load(Ordering::Relaxed)
     }
+
     /// return the number of 429s seen by this scan
     fn status_429s(&self) -> usize {
-        self.status_429s.load(Ordering::SeqCst)
+        self.status_429s.load(Ordering::Relaxed)
     }
 }
 
