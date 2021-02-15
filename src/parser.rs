@@ -353,6 +353,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("rate-limit")
                 .value_name("RATE_LIMIT")
                 .takes_value(true)
+                .conflicts_with("auto_tune")
                 .help("Limit number of requests per second (per directory) (default: 0, i.e. no limit)")
         )
         .arg(
