@@ -25,4 +25,5 @@ lcov_cobertura.py
 # state file created during tests
 ferox-http*
 
+# python stuff cuz reasons
 Pipfile*
