@@ -351,7 +351,7 @@ impl FeroxScans {
         let bar = match scan_type {
             ScanType::Directory => {
                 let bar_type = match self.output_level {
-                    OutputLevel::Default => BarType::Message,
+                    OutputLevel::Default => BarType::Default,
                     OutputLevel::Quiet => BarType::Quiet,
                     OutputLevel::Silent => BarType::Hidden,
                 };
