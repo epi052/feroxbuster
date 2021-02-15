@@ -393,7 +393,7 @@ impl Configuration {
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
-        let cli_config = Self::parse_cli_args(&args)?;
+        let cli_config = Self::parse_cli_args(&args);
 
         // --resume-from used, need to first read the Configuration from disk, and then
         // merge the cli_config into the resumed config
@@ -480,7 +480,7 @@ impl Configuration {
 
     /// Given a set of ArgMatches read from the CLI, update and return the default Configuration
     /// settings
-    fn parse_cli_args(args: &ArgMatches) -> Result<Self> {
+    fn parse_cli_args(args: &ArgMatches) -> Self {
         let mut config = Configuration::default();
 
         update_config_if_present!(&mut config.threads, args, "threads", usize);
@@ -665,7 +665,7 @@ impl Configuration {
             }
         }
 
-        Ok(config)
+        config
     }
 
     /// this function determines if we've gotten a Client configuration change from
