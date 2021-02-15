@@ -124,6 +124,11 @@ impl StatsHandler {
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
                 }
+                Command::GetRuntime(sender) => {
+                    sender
+                        .send(start.elapsed().as_secs_f64())
+                        .unwrap_or_default();
+                }
                 Command::Exit => break,
                 _ => {} // no more commands needed
             }

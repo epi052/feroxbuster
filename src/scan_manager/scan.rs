@@ -160,7 +160,6 @@ impl FeroxScan {
                     pb.reset_elapsed();
 
                     let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
-                    log::error!("{} - creating new {:?} bar", self.url, self.output_level); // todo remove
 
                     pb
                 }

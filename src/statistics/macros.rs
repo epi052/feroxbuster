@@ -21,3 +21,11 @@ macro_rules! atomic_load {
         $metric.load(Ordering::Relaxed);
     };
 }
+
+/// Wrapper around `Atomic*.store` to save me from writing Ordering::Relaxed a bajillion times
+#[macro_export]
+macro_rules! atomic_store {
+    ($metric:expr, $value:expr) => {
+        $metric.store($value, Ordering::Relaxed);
+    };
+}

@@ -61,6 +61,9 @@ pub enum Command {
     /// Command used to test that a spawned task succeeded in initialization
     Ping,
 
+    /// Query the statistics handler about the total elapsed scan time
+    GetRuntime(Sender<f64>),
+
     /// Just receive a sender and reply, used for slowing down the main thread
     Sync(Sender<bool>),
 
