@@ -120,17 +120,16 @@ impl PolicyData {
                     // the tree's structure makes it so that sometimes 2 moves up results in a
                     // value greater than the current node's and other times we need to move 3 up
                     // to arrive at a greater value
-                    if heap.has_parent() {
+                    if heap.has_parent() && heap.parent_value() > current {
                         // all nodes except 0th node (root)
                         heap.move_up();
-                    } else {
+                    } else if !heap.has_parent() {
                         // been here enough that we can try resuming the scan to its original
                         // speed (no limiting at all)
                         atomic_store!(self.remove_limit, true);
                     }
-
-                    self.set_limit(heap.value() as usize);
                 }
+                self.set_limit(heap.value() as usize);
             } else if heap.has_children() {
                 // streak not at 3, just check that we can move down, and do so
                 heap.move_left();
@@ -1100,5 +1099,120 @@ mod tests {
 
         pd.adjust_down();
         assert_eq!(pd.get_limit(), 27);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_simple() {
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+        pd.adjust_up(&0);
+        assert_eq!(pd.get_limit(), 300);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_with_streak_and_2_moves() {
+        // original: 400
+        // [200, 300, 100, 350, 250, 150, 50, 375, 325, 275, 225, 175, 125, 75, 25, ...]
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+
+        // 2 moves
+        pd.heap.write().unwrap().move_to(9);
+        assert_eq!(pd.heap.read().unwrap().value(), 275);
+        pd.adjust_up(&3);
+        assert_eq!(pd.heap.read().unwrap().value(), 300);
+        assert_eq!(pd.limit.load(Ordering::Relaxed), 300);
+        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_with_streak_and_2_moves_to_arrive_at_root() {
+        // original: 400
+        // [200, 300, 100, 350, 250, 150, 50, 375, 325, 275, 225, 175, 125, 75, 25, ...]
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+
+        pd.heap.write().unwrap().move_to(4);
+        assert_eq!(pd.heap.read().unwrap().value(), 250);
+        pd.adjust_up(&3);
+        assert_eq!(pd.heap.read().unwrap().value(), 200);
+        assert_eq!(pd.limit.load(Ordering::Relaxed), 200);
+        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), true);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_with_streak_and_2_moves_to_find_less_than_current() {
+        // original: 400
+        // [200, 300, 100, 350, 250, 150, 50, 375, 325, 275, 225, 175, 125, 75, 25, ...]
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+
+        pd.heap.write().unwrap().move_to(15);
+        assert_eq!(pd.heap.read().unwrap().value(), 387);
+        pd.adjust_up(&3);
+        assert_eq!(pd.heap.read().unwrap().value(), 350);
+        assert_eq!(pd.limit.load(Ordering::Relaxed), 350);
+        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_with_streak_and_3_moves() {
+        // original: 400
+        // [200, 300, 100, 350, 250, 150, 50, 375, 325, 275, 225, 175, 125, 75, 25, ...]
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+
+        pd.heap.write().unwrap().move_to(19);
+        assert_eq!(pd.heap.read().unwrap().value(), 287);
+        pd.adjust_up(&3);
+        assert_eq!(pd.heap.read().unwrap().value(), 300);
+        assert_eq!(pd.limit.load(Ordering::Relaxed), 300);
+        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_with_no_children_2_moves() {
+        // original: 400
+        // [200, 300, 100, 350, 250, 150, 50, 375, 325, 275, 225, 175, 125, 75, 25, ...]
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+
+        pd.heap.write().unwrap().move_to(241);
+
+        assert_eq!(pd.heap.read().unwrap().value(), 41);
+        pd.adjust_up(&0);
+        assert_eq!(pd.heap.read().unwrap().value(), 43);
+        assert_eq!(pd.limit.load(Ordering::Relaxed), 43);
+        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+    }
+
+    #[test]
+    /// PolicyData adjust_up sets the limit to the correct value
+    fn policy_data_adjust_up_with_no_children_3_moves() {
+        // original: 400
+        // [200, 300, 100, 350, 250, 150, 50, 375, 325, 275, 225, 175, 125, 75, 25, ...]
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+
+        pd.heap.write().unwrap().move_to(240);
+
+        assert_eq!(pd.heap.read().unwrap().value(), 45);
+        pd.adjust_up(&0);
+        assert_eq!(pd.heap.read().unwrap().value(), 37);
+        assert_eq!(pd.limit.load(Ordering::Relaxed), 37);
+        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
     }
 }
