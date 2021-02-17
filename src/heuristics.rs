@@ -237,7 +237,6 @@ impl HeuristicTests {
                                 &format!("Could not connect to {} due to SSL errors (run with -k to ignore), skipping...", target_url),
                                 &PROGRESS_PRINTER,
                             );
-                            
                         } else {
                             ferox_print(
                                 &format!("Could not connect to {}, skipping...", target_url),
