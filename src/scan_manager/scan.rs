@@ -13,6 +13,7 @@ use std::{
     collections::HashMap,
     fmt,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -60,6 +61,9 @@ pub struct FeroxScan {
 
     /// tracker for total number of errors encountered by the FeroxScan instance
     pub(super) errors: AtomicUsize,
+
+    /// tracker for the time at which this scan was started
+    pub(super) start_time: Instant
 }
 
 /// Default implementation for FeroxScan
@@ -81,6 +85,7 @@ impl Default for FeroxScan {
             errors: Default::default(),
             status_429s: Default::default(),
             status_403s: Default::default(),
+            start_time: Instant::now(),
         }
     }
 }
@@ -281,6 +286,23 @@ impl FeroxScan {
     /// return the number of 429s seen by this scan
     fn status_429s(&self) -> usize {
         self.status_429s.load(Ordering::Relaxed)
+    }
+
+    /// return the number of requests per second performed by this scan's scanner
+    pub fn requests_per_second(&self) -> u64 {
+        if !self.is_active() {
+            return 0;
+        }
+
+        let reqs = self.requests();
+        let seconds = self.start_time.elapsed().as_secs();
+
+        reqs / seconds
+    }
+
+    /// return the number of requests performed by this scan's scanner
+    pub fn requests(&self) -> u64 {
+        self.progress_bar().position()
     }
 }
 

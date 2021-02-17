@@ -120,7 +120,7 @@ impl FeroxScanner {
             }
         }
 
-        let requester = Arc::new(Requester::from(self)?);
+        let requester = Arc::new(Requester::from(self, ferox_scan.clone())?);
         let increment_len = (self.handles.config.extensions.len() + 1) as u64;
 
         // producer tasks (mp of mpsc); responsible for making requests
