@@ -198,9 +198,9 @@ Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/f
 that, use your favorite package manager to install the `.deb`.
 
 ```
-wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
+curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
 unzip feroxbuster_amd64.deb.zip
-sudo apt install ./feroxbuster_amd64.deb
+sudo apt install ./feroxbuster_*_amd64.deb
 ```
 
 ### AUR Install

@@ -409,7 +409,7 @@ fn banner_prints_verbosity_one() {
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=2
-fn banner_prints_verbosity_two() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_verbosity_two() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -430,13 +430,12 @@ fn banner_prints_verbosity_two() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("│ 2"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=3
-fn banner_prints_verbosity_three() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_verbosity_three() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -457,13 +456,12 @@ fn banner_prints_verbosity_three() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("│ 3"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=4
-fn banner_prints_verbosity_four() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_verbosity_four() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -484,13 +482,12 @@ fn banner_prints_verbosity_four() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("│ 4"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + add slash
-fn banner_prints_add_slash() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_add_slash() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -511,13 +508,12 @@ fn banner_prints_add_slash() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("true"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + INFINITE recursion
-fn banner_prints_infinite_depth() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_infinite_depth() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -539,13 +535,12 @@ fn banner_prints_infinite_depth() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("INFINITE"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + recursion depth
-fn banner_prints_recursion_depth() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_recursion_depth() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -567,13 +562,12 @@ fn banner_prints_recursion_depth() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("343214"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + no recursion
-fn banner_prints_no_recursion() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_no_recursion() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -594,13 +588,12 @@ fn banner_prints_no_recursion() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("true"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see nothing
-fn banner_doesnt_print() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_doesnt_print() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -611,13 +604,12 @@ fn banner_doesnt_print() -> Result<(), Box<dyn std::error::Error>> {
         .stderr(predicate::str::contains(
             "Could not connect to any target provided",
         ));
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + extract-links
-fn banner_prints_extract_links() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_extract_links() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -638,13 +630,12 @@ fn banner_prints_extract_links() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("true"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + scan-limit
-fn banner_prints_scan_limit() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_scan_limit() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -666,13 +657,12 @@ fn banner_prints_scan_limit() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("│ 4"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + filter-status
-fn banner_prints_filter_status() -> Result<(), Box<dyn std::error::Error>> {
+fn banner_prints_filter_status() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
@@ -694,7 +684,6 @@ fn banner_prints_filter_status() -> Result<(), Box<dyn std::error::Error>> {
                 .and(predicate::str::contains("│ [200]"))
                 .and(predicate::str::contains("─┴─")),
         );
-    Ok(())
 }
 
 #[test]
