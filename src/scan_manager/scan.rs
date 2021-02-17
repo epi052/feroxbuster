@@ -445,6 +445,8 @@ impl Default for ScanStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread::sleep;
+    use tokio::time::Duration;
 
     #[test]
     /// ensure that num_errors returns the correct values for the given PolicyTrigger
@@ -470,5 +472,37 @@ mod tests {
         assert_eq!(scan.num_errors(PolicyTrigger::Errors), 1);
         assert_eq!(scan.num_errors(PolicyTrigger::Status403), 2);
         assert_eq!(scan.num_errors(PolicyTrigger::Status429), 3);
+    }
+
+    #[test]
+    /// ensure that requests_per_second returns the correct values
+    fn requests_per_second_returns_correct_values() {
+        let scan = FeroxScan {
+            id: "".to_string(),
+            url: "".to_string(),
+            scan_type: ScanType::Directory,
+            scan_order: ScanOrder::Initial,
+            num_requests: 0,
+            status: Mutex::new(ScanStatus::Running),
+            task: Default::default(),
+            progress_bar: Mutex::new(None),
+            output_level: Default::default(),
+            status_403s: Default::default(),
+            status_429s: Default::default(),
+            errors: Default::default(),
+            start_time: Instant::now(),
+        };
+
+        let pb = scan.progress_bar();
+        pb.set_position(100);
+
+        sleep(Duration::new(1, 0));
+
+        let req_sec = scan.requests_per_second();
+
+        assert_eq!(req_sec, 100);
+
+        scan.finish().unwrap();
+        assert_eq!(scan.requests_per_second(), 0);
     }
 }
