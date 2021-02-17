@@ -28,15 +28,6 @@ pub enum StatField {
     /// Translates to `initial_targets`
     InitialTargets,
 
-    /// Translates to `enforced_errors`
-    EnforcedErrors,
-
-    /// Translates to `enforced_403s`
-    Enforced403s,
-
-    /// Translates to `enforced_429s`
-    Enforced429s,
-
     /// Translates to `directory_scan_times`; assumes a single append to the vector
     DirScanTimes,
 }

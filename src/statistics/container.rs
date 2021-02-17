@@ -44,9 +44,6 @@ pub struct Stats {
     /// tracker for total number of errors encountered by the client
     pub(crate) errors: AtomicUsize,
 
-    /// tracker for total number of errors that have been used to enforce a policy
-    enforced_errors: AtomicUsize,
-
     /// tracker for overall number of 2xx status codes seen by the client
     successes: AtomicUsize,
 
@@ -85,14 +82,8 @@ pub struct Stats {
     /// tracker for overall number of 403s seen by the client
     pub(crate) status_403s: AtomicUsize,
 
-    /// tracker for total number of 403s that have been used to enforce a policy
-    enforced_403s: AtomicUsize,
-
     /// tracker for overall number of 429s seen by the client
     pub(crate) status_429s: AtomicUsize,
-
-    /// tracker for total number of 429s that have been used to enforce a policy
-    enforced_429s: AtomicUsize,
 
     /// tracker for overall number of 500s seen by the client
     status_500s: AtomicUsize,
@@ -183,21 +174,6 @@ impl Stats {
     /// public getter for errors
     pub fn errors(&self) -> usize {
         atomic_load!(self.errors)
-    }
-
-    /// public getter for enforced_errors
-    pub fn enforced_errors(&self) -> usize {
-        atomic_load!(self.enforced_errors)
-    }
-
-    /// public getter for enforced_403s
-    pub fn enforced_403s(&self) -> usize {
-        atomic_load!(self.enforced_403s)
-    }
-
-    /// public getter for enforced_429s
-    pub fn enforced_429s(&self) -> usize {
-        atomic_load!(self.enforced_429s)
     }
 
     /// public getter for status_403s
@@ -376,15 +352,6 @@ impl Stats {
             StatField::InitialTargets => {
                 atomic_increment!(self.initial_targets, value);
             }
-            StatField::EnforcedErrors => {
-                atomic_increment!(self.enforced_errors, value);
-            }
-            StatField::Enforced403s => {
-                atomic_increment!(self.enforced_403s, value);
-            }
-            StatField::Enforced429s => {
-                atomic_increment!(self.enforced_429s, value);
-            }
             _ => {} // f64 fields
         }
     }
@@ -408,9 +375,6 @@ impl Stats {
             atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
             atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
             atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
-            atomic_increment!(self.enforced_errors, atomic_load!(d_stats.enforced_errors));
-            atomic_increment!(self.enforced_403s, atomic_load!(d_stats.enforced_403s));
-            atomic_increment!(self.enforced_429s, atomic_load!(d_stats.enforced_429s));
             atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
             atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
             atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
@@ -581,7 +545,7 @@ mod tests {
     #[test]
     /// Stats::merge_from should properly increment expected fields and ignore others
     fn stats_merge_from_alters_correct_fields() {
-        let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"enforced_errors":41,"enforced_429s":42,"enforced_403s":43,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
+        let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
         let config = Configuration::new().unwrap();
         let stats = Stats::new(config.extensions.len(), config.json);
 
@@ -621,9 +585,6 @@ mod tests {
         assert_eq!(atomic_load!(stats.redirection_errors), 12);
         assert_eq!(atomic_load!(stats.connection_errors), 21);
         assert_eq!(atomic_load!(stats.request_errors), 4);
-        assert_eq!(atomic_load!(stats.enforced_errors), 41);
-        assert_eq!(atomic_load!(stats.enforced_429s), 42);
-        assert_eq!(atomic_load!(stats.enforced_403s), 43);
         assert_eq!(stats.directory_scan_times.lock().unwrap().len(), 13);
         for scan in stats.directory_scan_times.lock().unwrap().iter() {
             assert!(scan.max(0.0) > 0.0); // all scans are non-zero
