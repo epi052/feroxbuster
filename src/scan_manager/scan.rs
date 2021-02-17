@@ -244,17 +244,17 @@ impl FeroxScan {
         log::trace!("exit join({:?})", self);
     }
     /// increment the value in question by 1
-    pub(super) fn add_403(&self) {
+    pub(crate) fn add_403(&self) {
         self.status_403s.fetch_add(1, Ordering::Relaxed);
     }
 
     /// increment the value in question by 1
-    pub(super) fn add_429(&self) {
+    pub(crate) fn add_429(&self) {
         self.status_429s.fetch_add(1, Ordering::Relaxed);
     }
 
     /// increment the value in question by 1
-    pub(super) fn add_error(&self) {
+    pub(crate) fn add_error(&self) {
         self.errors.fetch_add(1, Ordering::Relaxed);
     }
 

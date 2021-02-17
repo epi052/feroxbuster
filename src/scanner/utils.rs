@@ -721,12 +721,13 @@ mod tests {
     }
 
     /// helper to stay DRY
-    async fn increment_errors(handles: Arc<Handles>, num_errors: usize) {
+    async fn increment_errors(handles: Arc<Handles>, scan: Arc<FeroxScan>, num_errors: usize) {
         for _ in 0..num_errors {
             handles
                 .stats
                 .send(Command::AddError(StatError::Other))
                 .unwrap();
+            scan.add_error();
         }
 
         handles.stats.sync().await.unwrap();
@@ -763,9 +764,19 @@ mod tests {
     }
 
     /// helper to stay DRY
-    async fn increment_status_codes(handles: Arc<Handles>, num_codes: usize, code: StatusCode) {
+    async fn increment_status_codes(
+        handles: Arc<Handles>,
+        scan: Arc<FeroxScan>,
+        num_codes: usize,
+        code: StatusCode,
+    ) {
         for _ in 0..num_codes {
             handles.stats.send(Command::AddStatus(code)).unwrap();
+            if code == StatusCode::FORBIDDEN {
+                scan.add_403();
+            } else {
+                scan.add_429();
+            }
         }
 
         handles.stats.sync().await.unwrap();
@@ -835,7 +846,9 @@ mod tests {
             policy_data: Default::default(),
         };
 
-        increment_errors(requester.handles.clone(), 49).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
+
+        increment_errors(requester.handles.clone(), ferox_scan.clone(), 49).await;
         // 49 errors is false because we haven't hit the min threshold
         assert_eq!(atomic_load!(requester.handles.stats.data.requests), 49);
         assert_eq!(requester.should_enforce_policy(), None);
@@ -849,18 +862,20 @@ mod tests {
 
         let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
 
+        let ferox_scan = Arc::new(FeroxScan::default());
+
         let requester = Requester {
             handles,
             tuning_lock: Mutex::new(0),
-            ferox_scan: Arc::new(FeroxScan::default()),
+            ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
 
-        increment_errors(requester.handles.clone(), 25).await;
+        increment_errors(requester.handles.clone(), ferox_scan.clone(), 25).await;
         assert_eq!(requester.should_enforce_policy(), None);
-        increment_errors(requester.handles.clone(), 25).await;
+        increment_errors(requester.handles.clone(), ferox_scan, 25).await;
         assert_eq!(
             requester.should_enforce_policy(),
             Some(PolicyTrigger::Errors)
@@ -871,19 +886,32 @@ mod tests {
     /// should_enforce_policy should return true when # of requests is >= 50 and 403s >= 45 (90%)
     async fn should_enforce_policy_returns_true_on_excessive_403s() {
         let (handles, _) = setup_requester_test(None).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
 
         let requester = Requester {
             handles,
             tuning_lock: Mutex::new(0),
-            ferox_scan: Arc::new(FeroxScan::default()),
+            ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
 
-        increment_status_codes(requester.handles.clone(), 45, StatusCode::FORBIDDEN).await;
+        increment_status_codes(
+            requester.handles.clone(),
+            ferox_scan.clone(),
+            45,
+            StatusCode::FORBIDDEN,
+        )
+        .await;
         assert_eq!(requester.should_enforce_policy(), None);
-        increment_status_codes(requester.handles.clone(), 5, StatusCode::OK).await;
+        increment_status_codes(
+            requester.handles.clone(),
+            ferox_scan.clone(),
+            5,
+            StatusCode::OK,
+        )
+        .await;
         assert_eq!(
             requester.should_enforce_policy(),
             Some(PolicyTrigger::Status403)
@@ -897,19 +925,32 @@ mod tests {
         config.threads = 50;
 
         let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
 
         let requester = Requester {
             handles,
             tuning_lock: Mutex::new(0),
-            ferox_scan: Arc::new(FeroxScan::default()),
+            ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
 
-        increment_status_codes(requester.handles.clone(), 15, StatusCode::TOO_MANY_REQUESTS).await;
+        increment_status_codes(
+            requester.handles.clone(),
+            ferox_scan.clone(),
+            15,
+            StatusCode::TOO_MANY_REQUESTS,
+        )
+        .await;
         assert_eq!(requester.should_enforce_policy(), None);
-        increment_status_codes(requester.handles.clone(), 35, StatusCode::OK).await;
+        increment_status_codes(
+            requester.handles.clone(),
+            ferox_scan.clone(),
+            35,
+            StatusCode::OK,
+        )
+        .await;
         assert_eq!(
             requester.should_enforce_policy(),
             Some(PolicyTrigger::Status429)
@@ -939,10 +980,11 @@ mod tests {
         let scans = handles.ferox_scans().unwrap();
         assert_eq!(scans.get_active_scans().len(), 4);
 
+        let req_clone = scan_two.clone();
         let requester = Requester {
             handles,
             tuning_lock: Mutex::new(0),
-            ferox_scan: Arc::new(FeroxScan::default()),
+            ferox_scan: req_clone,
             target_url: "http://one/one/stuff.php".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),

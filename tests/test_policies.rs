@@ -81,16 +81,19 @@ fn auto_bail_cancels_scan_with_timeouts() {
             let str_msg = message.as_str().unwrap_or_default().to_string();
 
             if str_msg.starts_with("Stats") {
-                let re = Regex::new("enforced_errors: ([0-9]+),").unwrap();
+                let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
-                let num_enforced = re
+                let total_expected = re
                     .captures(&str_msg)
                     .unwrap()
                     .get(1)
                     .map_or("", |m| m.as_str())
                     .parse::<usize>()
                     .unwrap();
-                assert!(num_enforced >= 50);
+
+                println!("expected: {}", total_expected);
+                // without bailing, should be 6180; after bail decreases significantly
+                assert!(total_expected < 5000);
             }
         }
     }
@@ -99,7 +102,7 @@ fn auto_bail_cancels_scan_with_timeouts() {
     teardown_tmp_directory(log_dir);
 
     assert!(normal_reqs_mock.hits() < 6000); // not all requests should make it
-    assert!(error_mock.hits() >= 50); // need at least 50 to trigger the policy
+    assert!(error_mock.hits() >= 25); // need at least 25 to trigger the policy
     assert!(other_errors_mock.hits() <= 120); // may or may not see all other error requests
 }
 
@@ -158,18 +161,17 @@ fn auto_bail_cancels_scan_with_403s() {
 
             if str_msg.starts_with("Stats") {
                 println!("{}", str_msg);
-                let re = Regex::new("enforced_403s: ([0-9]+),").unwrap();
+                let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
-                let num_enforced = re
+                let total_expected = re
                     .captures(&str_msg)
                     .unwrap()
                     .get(1)
                     .map_or("", |m| m.as_str())
                     .parse::<usize>()
                     .unwrap();
-                println!("num_enforced: {}", num_enforced);
-                // 30 is slightly arbitrary, but high enough to feel sure about functionality
-                assert!(num_enforced > 40);
+                println!("total_expected: {}", total_expected);
+                assert!(total_expected < 5000);
             }
         }
     }
@@ -177,7 +179,7 @@ fn auto_bail_cancels_scan_with_403s() {
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(log_dir);
 
-    assert!(normal_reqs_mock.hits() + error_mock.hits() > 50); // must have at least 50 reqs fly
+    assert!(normal_reqs_mock.hits() + error_mock.hits() > 25); // must have at least 50 reqs fly
 
     // expect much less in the way of requests for this one, 90% is measured against requests made,
     // not requests expected, so 90% can be reached very quickly. for the same reason, the
@@ -241,18 +243,17 @@ fn auto_bail_cancels_scan_with_429s() {
 
             if str_msg.starts_with("Stats") {
                 println!("{}", str_msg);
-                let re = Regex::new("enforced_429s: ([0-9]+),").unwrap();
+                let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
-                let num_enforced = re
+                let total_expected = re
                     .captures(&str_msg)
                     .unwrap()
                     .get(1)
                     .map_or("", |m| m.as_str())
                     .parse::<usize>()
                     .unwrap();
-                println!("num_enforced: {}", num_enforced);
-                // 30 is slightly arbitrary, but high enough to feel sure about functionality
-                assert!(num_enforced > 40);
+                println!("total_expected: {}", total_expected);
+                assert!(total_expected < 5000);
             }
         }
     }
@@ -260,7 +261,7 @@ fn auto_bail_cancels_scan_with_429s() {
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(log_dir);
 
-    assert!(normal_reqs_mock.hits() + error_mock.hits() > 50); // must have at least 50 reqs fly
+    assert!(normal_reqs_mock.hits() + error_mock.hits() > 25); // must have at least 50 reqs fly
 
     // expect much less in the way of requests for this one, 90% is measured against requests made,
     // not requests expected, so 90% can be reached very quickly. for the same reason, the
