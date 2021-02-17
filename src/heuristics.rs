@@ -232,10 +232,18 @@ impl HeuristicTests {
                         self.handles.config.output_level,
                         OutputLevel::Default | OutputLevel::Quiet
                     ) {
-                        ferox_print(
-                            &format!("Could not connect to {}, skipping...", target_url),
-                            &PROGRESS_PRINTER,
-                        );
+                        if e.to_string().contains(":SSL") {
+                            ferox_print(
+                                &format!("Could not connect to {} due to SSL errors (run with -k to ignore), skipping...", target_url),
+                                &PROGRESS_PRINTER,
+                            );
+                            
+                        } else {
+                            ferox_print(
+                                &format!("Could not connect to {}, skipping...", target_url),
+                                &PROGRESS_PRINTER,
+                            );
+                        }
                     }
                     log::warn!("{}", e);
                 }
