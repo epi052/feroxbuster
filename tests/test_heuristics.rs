@@ -91,6 +91,28 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 }
 
 #[test]
+/// test passes one target with SSL issues via -u to the scanner, expected result is that the
+/// scanner dies and prints an SSL specific error message
+fn test_single_target_cannot_connect_due_to_ssl_errors() -> Result<(), Box<dyn std::error::Error>> {
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("https://expired.badssl.com")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("Could not connect to https://expired.badssl.com due to SSL errors (run with -k to ignore), skipping...", )
+        );
+
+    teardown_tmp_directory(tmp_dir);
+    Ok(())
+}
+
+#[test]
 /// test pipes two good targets to the scanner, expected result is that both targets
 /// are scanned successfully and no error is reported (result of issue #169)
 fn test_two_good_targets_scan_succeeds() -> Result<(), Box<dyn std::error::Error>> {
