@@ -604,4 +604,22 @@ mod tests {
         stats.update_runtime(20.2);
         assert!((stats.total_runtime.lock().unwrap()[0] - 20.2).abs() < f64::EPSILON);
     }
+
+    #[test]
+    /// ensure status_403s returns the correct value
+    fn status_403s_returns_correct_value() {
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+        stats.status_403s.store(12, Ordering::Relaxed);
+        assert_eq!(stats.status_403s(), 12);
+    }
+
+    #[test]
+    /// ensure status_403s returns the correct value
+    fn status_429s_returns_correct_value() {
+        let config = Configuration::new().unwrap();
+        let stats = Stats::new(config.extensions.len(), config.json);
+        stats.status_429s.store(141, Ordering::Relaxed);
+        assert_eq!(stats.status_429s(), 141);
+    }
 }
