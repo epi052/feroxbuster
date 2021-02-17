@@ -146,7 +146,10 @@ impl FeroxScanner {
                                     });
                             }
                         }
-                        requester_clone.request(&word).await
+                        requester_clone
+                            .request(&word)
+                            .await
+                            .unwrap_or_else(|e| log::warn!("Requester encountered an error: {}", e))
                     }),
                     pb,
                 )

@@ -12,6 +12,7 @@ use indicatif::ProgressBar;
 use predicates::prelude::*;
 use std::sync::{atomic::Ordering, Arc};
 use std::thread::sleep;
+use std::time::Instant;
 use tokio::time::{self, Duration};
 
 #[test]
@@ -437,6 +438,7 @@ fn feroxscan_display() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        start_time: Instant::now(),
         output_level: OutputLevel::Default,
         status_403s: Default::default(),
         status_429s: Default::default(),
@@ -480,6 +482,7 @@ async fn ferox_scan_abort() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        start_time: Instant::now(),
         output_level: OutputLevel::Default,
         status_403s: Default::default(),
         status_429s: Default::default(),

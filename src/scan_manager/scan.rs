@@ -63,7 +63,7 @@ pub struct FeroxScan {
     pub(super) errors: AtomicUsize,
 
     /// tracker for the time at which this scan was started
-    pub(super) start_time: Instant
+    pub(super) start_time: Instant,
 }
 
 /// Default implementation for FeroxScan
@@ -144,15 +144,9 @@ impl FeroxScan {
 
     /// Simple helper get a progress bar
     pub fn progress_bar(&self) -> ProgressBar {
-        // log::error!("enter progressbar: {:?} ", self); // todo remove
-
         match self.progress_bar.lock() {
             Ok(mut guard) => {
-                // log::error!("{} - got lock", self.url); // todo remove
-
                 if guard.is_some() {
-                    // log::error!("{} - returned {:?} clone", self.url, self.output_level); // todo remove
-
                     (*guard).as_ref().unwrap().clone()
                 } else {
                     let bar_type = match self.output_level {
@@ -170,7 +164,7 @@ impl FeroxScan {
                 }
             }
             Err(_) => {
-                log::error!("Could not unlock progress bar on {:?}", self); // todo change to warn
+                log::warn!("Could not unlock progress bar on {:?}", self);
 
                 let bar_type = match self.output_level {
                     OutputLevel::Default => BarType::Default,
