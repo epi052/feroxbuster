@@ -1215,4 +1215,18 @@ mod tests {
         assert_eq!(pd.limit.load(Ordering::Relaxed), 37);
         assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
     }
+
+    #[test]
+    /// hit some of the out of the way corners of limitheap for coverage
+    fn increase_limit_heap_coverage_by_hitting_edge_cases() {
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        println!("{:?}", pd.heap.read().unwrap()); // debug derivation
+        pd.heap.write().unwrap().move_to(240);
+        assert_eq!(pd.heap.write().unwrap().move_right(), 240);
+        assert_eq!(pd.heap.write().unwrap().move_left(), 240);
+        pd.heap.write().unwrap().move_to(0);
+        assert_eq!(pd.heap.write().unwrap().move_up(), 0);
+        assert_eq!(pd.heap.write().unwrap().parent_value(), 400);
+    }
 }
