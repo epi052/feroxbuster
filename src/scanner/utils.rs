@@ -1051,4 +1051,54 @@ mod tests {
 
         assert_eq!(requester.should_enforce_policy(), None);
     }
+
+    #[test]
+    /// PolicyData builds and sets correct values for the inner heap when set_reqs_sec is called
+    fn set_reqs_sec_builds_heap_and_sets_initial_value() {
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        assert_eq!(pd.wait_time, 3500);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+        assert_eq!(pd.heap.read().unwrap().original, 400);
+        assert_eq!(pd.heap.read().unwrap().current, 0);
+        assert_eq!(pd.heap.read().unwrap().inner[0], 200);
+        assert_eq!(pd.heap.read().unwrap().inner[1], 300);
+        assert_eq!(pd.heap.read().unwrap().inner[2], 100);
+    }
+
+    #[test]
+    /// PolicyData setters/getters tests for code coverage / sanity
+    fn policy_data_getters_and_setters() {
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_errors(20);
+        assert_eq!(pd.errors.load(Ordering::Relaxed), 20);
+        pd.set_limit(200);
+        assert_eq!(pd.get_limit(), 200);
+    }
+
+    #[test]
+    /// PolicyData adjust_down sets the limit to the correct value
+    fn policy_data_adjust_down_simple() {
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+        pd.adjust_down();
+        assert_eq!(pd.get_limit(), 100);
+    }
+
+    #[test]
+    /// PolicyData adjust_down sets the limit to the correct value when no child nodes are present
+    fn policy_data_adjust_down_no_children() {
+        let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
+        pd.set_reqs_sec(400);
+        assert_eq!(pd.get_limit(), 200);
+        let mut guard = pd.heap.write().unwrap();
+        guard.move_to(250);
+        guard.set_value(27);
+        pd.set_limit(guard.value() as usize);
+        drop(guard);
+
+        pd.adjust_down();
+        assert_eq!(pd.get_limit(), 27);
+    }
 }
