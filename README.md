@@ -105,6 +105,7 @@ Enumeration.
     - [Limit Number of Requests per Second (Rate Limiting) (new in `v2.0.0`)](#limit-number-of-requests-per-second-rate-limiting-new-in-v200)
     - [Silence all Output or Be Kinda Quiet (new in `v2.0.0`)](#silence-all-output-or-be-kinda-quiet-new-in-v200)
     - [Auto-tune or Auto-bail from Scans (new in `v2.1.0`)](#auto-tune-or-auto-bail-from-scans-new-in-v210)
+    - [Run Scans in Parallel (new in `v2.2.0`)](#)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -370,6 +371,7 @@ A pre-made configuration file with examples of all available settings can be fou
 # status_codes = [200, 500]
 # filter_status = [301]
 # threads = 1
+# parallel = 2
 # timeout = 5
 # auto_tune = true
 # auto_bail = true
@@ -463,6 +465,9 @@ OPTIONS:
     -W, --filter-words <WORDS>...                 Filter out messages of a particular word count (ex: -W 312 -W 91,82)
     -H, --headers <HEADER>...                     Specify HTTP headers (ex: -H Header:val 'stuff: things')
     -o, --output <FILE>                           Output file to write results to (use w/ --json for JSON entries)
+        --parallel <PARALLEL_SCANS>
+            Run parallel feroxbuster instances (one child process per url passed via stdin)
+
     -p, --proxy <PROXY>
             Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)
 
@@ -898,6 +903,29 @@ The AutoBail policy aborts individual directory scans when one of the criteria a
 
 ![auto-bail](img/auto-bail-demo.gif)
 
+### Run Scans in Parallel (new in `v2.2.0`)
+
+Version 2.2.0 introduces the `--parallel` option.  If you're one of those people who use `feroxbuster` to scan 100s of hosts at a time, this is the option for you! `--parallel` spawns a child process per target passed in over stdin (recursive directories are still async within each child).
+
+The number of parallel scans is limited to whatever you pass to `--parallel`. When one child finishes its scan, the next child will be spawned.  
+
+Unfortunately, using `--parallel` limits terminal output such that only discovered URLs are shown. No amount of `-v`'s will help you here. I imagine this isn't too big of a deal, as folks that need `--parallel` probably aren't sitting there watching the output... 🙃
+
+Example Command:
+```
+cat large-target-list | ./feroxbuster --stdin --parallel 10 --extract-links --auto-bail
+```
+
+Resuling Process List (illustrative):
+```
+\_ target/debug/feroxbuster --stdin --parallel 10
+    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-one
+    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-two
+    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-three
+    \_ ...
+    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-ten
+```
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery. Burp Suite Pro, Dirb, Dirbuster, etc...
@@ -947,6 +975,7 @@ few of the use-cases in which feroxbuster may be a better fit:
 | hide progress bars or be silent (or some variation) (`v2.0.0`)               | ✔ | ✔ | ✔ |
 | automatically tune scans based on errors/403s/429s  (`v2.1.0`)               | ✔ |   |   |
 | automatically stop scans based on errors/403s/429s  (`v2.1.0`)               | ✔ |   | ✔ |
+| run scans in parallel (1 process per target) (`v2.2.0`)                      | ✔ |   |   |
 | **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I
