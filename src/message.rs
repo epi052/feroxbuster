@@ -118,4 +118,13 @@ mod tests {
         assert_eq!(json.level, message.level);
         assert_eq!(json.kind, message.kind);
     }
+
+    #[test]
+    fn message_defaults() {
+        let mut msg = FeroxMessage::default();
+        msg.level = "WILDCARD".to_string();
+        assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("WLD"));
+        msg.level = "UNKNOWN".to_string();
+        assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("UNK"));
+    }
 }
