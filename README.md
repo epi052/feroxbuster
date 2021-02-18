@@ -105,7 +105,7 @@ Enumeration.
     - [Limit Number of Requests per Second (Rate Limiting) (new in `v2.0.0`)](#limit-number-of-requests-per-second-rate-limiting-new-in-v200)
     - [Silence all Output or Be Kinda Quiet (new in `v2.0.0`)](#silence-all-output-or-be-kinda-quiet-new-in-v200)
     - [Auto-tune or Auto-bail from Scans (new in `v2.1.0`)](#auto-tune-or-auto-bail-from-scans-new-in-v210)
-    - [Run Scans in Parallel (new in `v2.2.0`)](#)
+    - [Run Scans in Parallel (new in `v2.2.0`)](#run-scans-in-parallel-new-in-v220)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
