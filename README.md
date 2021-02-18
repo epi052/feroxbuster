@@ -918,12 +918,12 @@ cat large-target-list | ./feroxbuster --stdin --parallel 10 --extract-links --au
 
 Resuling Process List (illustrative):
 ```
-\_ target/debug/feroxbuster --stdin --parallel 10
-    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-one
-    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-two
-    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-three
-    \_ ...
-    \_ target/debug/feroxbuster --silent --extract-links --auto-bail -u https://target-ten
+feroxbuster --stdin --parallel 10
+ \_ feroxbuster --silent --extract-links --auto-bail -u https://target-one
+ \_ feroxbuster --silent --extract-links --auto-bail -u https://target-two
+ \_ feroxbuster --silent --extract-links --auto-bail -u https://target-three
+ \_ ...
+ \_ feroxbuster --silent --extract-links --auto-bail -u https://target-ten
 ```
 
 ## 🧐 Comparison w/ Similar Tools
