@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Formatter, Result};
+
 /// bespoke variation on an array-backed max-heap
 ///
 /// 255 possible values generated from the initial requests/second
@@ -8,7 +10,6 @@
 /// formula for each child:
 /// - left: (|parent - current|) / 2 + current
 /// - right: current - ((|parent - current|) / 2)
-#[derive(Debug)]
 pub(super) struct LimitHeap {
     /// backing array, 255 nodes == height of 7 ( 2^(h+1) -1 nodes )
     pub(super) inner: [i32; 255],
@@ -29,6 +30,18 @@ impl Default for LimitHeap {
             original: 0,
             current: 0,
         }
+    }
+}
+
+/// Debug implementation of a LimitHeap
+impl Debug for LimitHeap {
+    /// return debug representation that conforms to <32 elements in array
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let msg = format!(
+            "LimitHeap {{ original: {}, current: {}, inner: [{}...] }}",
+            self.original, self.current, self.inner[0]
+        );
+        write!(f, "{}", msg)
     }
 }
 
