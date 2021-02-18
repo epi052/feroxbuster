@@ -120,10 +120,28 @@ mod tests {
     }
 
     #[test]
+    /// test defaults for coverage
     fn message_defaults() {
-        let mut msg = FeroxMessage::default();
-        msg.level = "WILDCARD".to_string();
+        let msg = FeroxMessage::default();
+        assert_eq!(msg.level, String::new());
+        assert_eq!(msg.kind, String::new());
+        assert_eq!(msg.message, String::new());
+        assert_eq!(msg.module, String::new());
+        assert!(msg.time_offset < 0.1);
+    }
+
+    #[test]
+    /// ensure WILDCARD messages serialize to WLD and anything not known to UNK
+    fn message_as_str_edges() {
+        let mut msg = FeroxMessage {
+            message: "message".to_string(),
+            module: "utils".to_string(),
+            time_offset: 1.0,
+            level: "WILDCARD".to_string(),
+            kind: "log".to_string(),
+        };
         assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("WLD"));
+
         msg.level = "UNKNOWN".to_string();
         assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("UNK"));
     }
