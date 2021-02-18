@@ -241,11 +241,14 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
     // --parallel branch
     if config.parallel > 0 {
+        log::trace!("enter: parallel branch");
+
         PARALLEL_LIMITER.add_permits(config.parallel);
 
         let invocation = args();
 
-        let para_regex = Regex::new("--stdin|--quiet|--silent").unwrap();
+        let para_regex =
+            Regex::new("--stdin|-q|--quiet|--silent|--verbosity|-v|-vv|-vvv|-vvvv").unwrap();
 
         // remove stdin since only the original process will process targets
         // remove quiet and silent so we can force silent later to normalize output
@@ -281,6 +284,8 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
             let permit = PARALLEL_LIMITER.acquire().await?;
 
+            log::debug!("parallel exec: {} {}", bin, args.join(" "));
+
             tokio::task::spawn_blocking(move || {
                 let result = Command::new(bin)
                     .args(&args)
@@ -296,7 +301,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
         clean_up(handles, tasks).await?;
 
-        log::trace!("exit: wrapped_main");
+        log::trace!("exit: parallel branch && wrapped main");
         return Ok(());
     }
 
