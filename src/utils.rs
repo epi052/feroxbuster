@@ -1,18 +1,22 @@
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
-use reqwest::{Client, Response, Url};
+use reqwest::{Client, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource, Rlim};
 use std::{
     fs,
     io::{self, BufWriter, Write},
+    sync::Arc,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     config::OutputLevel,
-    event_handlers::Command::{self, AddError, AddStatus},
+    event_handlers::{
+        Command::{self, AddError, AddStatus},
+        Handles,
+    },
     progress::PROGRESS_PRINTER,
     send_command,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
@@ -78,6 +82,35 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
     } else {
         let stripped = strip_ansi_codes(msg);
         println!("{}", stripped);
+    }
+}
+
+/// wrapper for make_request used to pass error/response codes to FeroxScans for per-scan stats
+/// tracking of information related to auto-tune/bail
+pub async fn logged_request(url: &Url, handles: Arc<Handles>) -> Result<Response> {
+    let client = &handles.config.client;
+    let level = handles.config.output_level;
+    let tx_stats = handles.stats.tx.clone();
+
+    let response = make_request(client, url, level, tx_stats).await;
+
+    let scans = handles.ferox_scans()?;
+
+    match response {
+        Ok(resp) => {
+            match resp.status() {
+                StatusCode::TOO_MANY_REQUESTS | StatusCode::FORBIDDEN => {
+                    scans.increment_status_code(url.as_str(), resp.status());
+                }
+                _ => {}
+            }
+            Ok(resp)
+        }
+        Err(e) => {
+            log::warn!("err: {:?}", e);
+            scans.increment_error(url.as_str());
+            bail!(e)
+        }
     }
 }
 

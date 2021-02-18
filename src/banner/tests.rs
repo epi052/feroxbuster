@@ -1,6 +1,6 @@
 use super::container::UpdateStatus;
 use super::*;
-use crate::{config::Configuration, event_handlers::Handles};
+use crate::{config::Configuration, event_handlers::Handles, scan_manager::FeroxScans};
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use std::{io::stderr, sync::Arc, time::Duration};
@@ -73,8 +73,9 @@ async fn banner_needs_update_returns_up_to_date() {
         when.method(GET).path("/latest");
         then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
     });
+    let scans = Arc::new(FeroxScans::default());
 
-    let handles = Arc::new(Handles::for_testing(None, None).0);
+    let handles = Arc::new(Handles::for_testing(Some(scans), None).0);
 
     let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
     banner.version = String::from("1.1.0");
@@ -95,7 +96,9 @@ async fn banner_needs_update_returns_out_of_date() {
         then.status(200).body("{\"tag_name\":\"v1.1.0\"}");
     });
 
-    let handles = Arc::new(Handles::for_testing(None, None).0);
+    let scans = Arc::new(FeroxScans::default());
+
+    let handles = Arc::new(Handles::for_testing(Some(scans), None).0);
 
     let mut banner = Banner::new(&[srv.url("")], &Configuration::new().unwrap());
     banner.version = String::from("1.0.1");

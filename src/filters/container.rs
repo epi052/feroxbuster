@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::response::FeroxResponse;
 use crate::{
-    event_handlers::Command::UpdateUsizeField, statistics::StatField::WildcardsFiltered,
+    event_handlers::Command::AddToUsizeField, statistics::StatField::WildcardsFiltered,
     CommandSender,
 };
 
@@ -44,7 +44,7 @@ impl FeroxFilters {
                 if filter.should_filter_response(&response) {
                     if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
                         tx_stats
-                            .send(UpdateUsizeField(WildcardsFiltered, 1))
+                            .send(AddToUsizeField(WildcardsFiltered, 1))
                             .unwrap_or_default();
                     }
                     return true;

@@ -10,11 +10,12 @@ use crate::{
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::FeroxScanner,
     statistics::StatField::TotalScans,
-    CommandReceiver, CommandSender, FeroxChannel, Joiner,
+    CommandReceiver, CommandSender, FeroxChannel, Joiner, SLEEP_DURATION,
 };
 
-use super::command::Command::UpdateUsizeField;
+use super::command::Command::AddToUsizeField;
 use super::*;
+use tokio::time::Duration;
 
 #[derive(Debug)]
 /// Container for recursion transmitter and FeroxScans object
@@ -153,9 +154,7 @@ impl ScanHandler {
 
                     tokio::spawn(async move {
                         while ferox_scans.has_active_scans() {
-                            for scan in ferox_scans.get_active_scans() {
-                                scan.join().await;
-                            }
+                            tokio::time::sleep(Duration::from_millis(SLEEP_DURATION + 250)).await;
                         }
                         limiter_clone.close();
                         sender.send(true).expect("oneshot channel failed");
@@ -231,7 +230,7 @@ impl ScanHandler {
                 }
             });
 
-            self.handles.stats.send(UpdateUsizeField(TotalScans, 1))?;
+            self.handles.stats.send(AddToUsizeField(TotalScans, 1))?;
 
             scan.set_task(task).await?;
 

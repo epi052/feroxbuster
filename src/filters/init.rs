@@ -5,7 +5,7 @@ use crate::{
     event_handlers::Handles,
     response::FeroxResponse,
     skip_fail,
-    utils::{fmt_err, make_request},
+    utils::{fmt_err, logged_request},
     Command::AddFilter,
     SIMILARITY_THRESHOLD,
 };
@@ -72,15 +72,7 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
         let url = skip_fail!(Url::parse(&similarity_filter));
 
         // attempt to request the given url
-        let resp = skip_fail!(
-            make_request(
-                &handles.config.client,
-                &url,
-                handles.config.output_level,
-                handles.stats.tx.clone()
-            )
-            .await
-        );
+        let resp = skip_fail!(logged_request(&url, handles.clone()).await);
 
         // if successful, create a filter based on the response's body
         let fr = FeroxResponse::from(resp, true, handles.config.output_level).await;
