@@ -1,11 +1,14 @@
-use super::*;
+use std::sync::Arc;
+
+use tokio::sync::Semaphore;
+
 use crate::{
     config::OutputLevel,
     event_handlers::Handles,
     scan_manager::{FeroxScans, ScanOrder},
 };
-use std::sync::Arc;
-use tokio::sync::Semaphore;
+
+use super::*;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 #[should_panic]

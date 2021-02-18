@@ -1,9 +1,9 @@
 use anyhow::Context;
 use console::{style, Color};
+use serde::{Deserialize, Serialize};
 
 use crate::traits::FeroxSerialize;
 use crate::utils::fmt_err;
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default)]
 /// Representation of a log entry, can be represented as a human readable string or JSON

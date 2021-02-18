@@ -5,8 +5,6 @@ use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
-use super::utils::Requester;
-
 use crate::{
     event_handlers::{
         Command::{AddError, AddToF64Field, SubtractFromUsizeField},
@@ -21,6 +19,8 @@ use crate::{
     },
     utils::fmt_err,
 };
+
+use super::requester::Requester;
 
 lazy_static! {
     /// Vector of FeroxResponse objects
