@@ -12,7 +12,7 @@ use crate::{
     response::FeroxResponse,
     skip_fail,
     url::FeroxUrl,
-    utils::{ferox_print, fmt_err, make_request, status_colorizer},
+    utils::{ferox_print, fmt_err, logged_request, status_colorizer},
 };
 
 /// length of a standard UUID, used when determining wildcard responses
@@ -158,13 +158,7 @@ impl HeuristicTests {
         let unique_str = self.unique_string(length);
         let nonexistent_url = target.format(&unique_str, None)?;
 
-        let response = make_request(
-            &self.handles.config.client,
-            &nonexistent_url.to_owned(),
-            self.handles.config.output_level,
-            self.handles.stats.tx.clone(),
-        )
-        .await?;
+        let response = logged_request(&nonexistent_url.to_owned(), self.handles.clone()).await?;
 
         if self
             .handles
@@ -215,13 +209,8 @@ impl HeuristicTests {
         for target_url in target_urls {
             let url = FeroxUrl::from_string(&target_url, self.handles.clone());
             let request = skip_fail!(url.format("", None));
-            let result = make_request(
-                &self.handles.config.client,
-                &request,
-                self.handles.config.output_level,
-                self.handles.stats.tx.clone(),
-            )
-            .await;
+
+            let result = logged_request(&request, self.handles.clone()).await;
 
             match result {
                 Ok(_) => {
@@ -232,10 +221,17 @@ impl HeuristicTests {
                         self.handles.config.output_level,
                         OutputLevel::Default | OutputLevel::Quiet
                     ) {
-                        ferox_print(
-                            &format!("Could not connect to {}, skipping...", target_url),
-                            &PROGRESS_PRINTER,
-                        );
+                        if e.to_string().contains(":SSL") {
+                            ferox_print(
+                                &format!("Could not connect to {} due to SSL errors (run with -k to ignore), skipping...", target_url),
+                                &PROGRESS_PRINTER,
+                            );
+                        } else {
+                            ferox_print(
+                                &format!("Could not connect to {}, skipping...", target_url),
+                                &PROGRESS_PRINTER,
+                            );
+                        }
                     }
                     log::warn!("{}", e);
                 }

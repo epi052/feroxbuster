@@ -320,7 +320,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
         // The TermOutHandler spawns a FileOutHandler, so errors in the FileOutHandler never bubble
         // up due to the TermOutHandler never awaiting the result of FileOutHandler::start (that's
-        // done later here in main). Ping checks that the tx/rx connection to the file handler works
+        // done later here in main). sync checks that the tx/rx connection to the file handler works
         if send_to_file && handles.output.sync(send_to_file).await.is_err() {
             // output file specified and file handler could not initialize
             clean_up(handles, tasks).await?;

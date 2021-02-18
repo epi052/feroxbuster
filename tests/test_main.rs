@@ -7,7 +7,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
 /// send the function a file to which we dont have permission in order to execute error branch
-fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Error>> {
+fn main_use_root_owned_file_as_wordlist() {
     let srv = MockServer::start();
 
     let mock = srv.mock(|when, then| {
@@ -30,7 +30,6 @@ fn main_use_root_owned_file_as_wordlist() -> Result<(), Box<dyn std::error::Erro
 
     // connectivity test hits it once
     assert_eq!(mock.hits(), 1);
-    Ok(())
 }
 
 #[test]

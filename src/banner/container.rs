@@ -1,8 +1,8 @@
 use super::entry::BannerEntry;
-use crate::event_handlers::Handles;
 use crate::{
     config::Configuration,
-    utils::{make_request, status_colorizer},
+    event_handlers::Handles,
+    utils::{logged_request, status_colorizer},
     VERSION,
 };
 use anyhow::{bail, Result};
@@ -127,6 +127,12 @@ pub struct Banner {
 
     /// represents Configuration.parallel
     parallel: BannerEntry,
+
+    /// represents Configuration.auto_tune
+    auto_tune: BannerEntry,
+
+    /// represents Configuration.auto_bail
+    auto_bail: BannerEntry,
 
     /// current version of feroxbuster
     pub(super) version: String,
@@ -254,6 +260,8 @@ impl Banner {
         );
 
         let replay_proxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
+        let auto_tune = BannerEntry::new("🎶", "Auto Tune", &config.auto_tune.to_string());
+        let auto_bail = BannerEntry::new("🪣", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
@@ -288,6 +296,8 @@ impl Banner {
             filter_status,
             timeout,
             user_agent,
+            auto_bail,
+            auto_tune,
             proxy,
             replay_codes,
             replay_proxy,
@@ -359,15 +369,8 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let api_url = Url::parse(url)?;
 
-        let response = make_request(
-            &handles.config.client,
-            &api_url,
-            handles.config.output_level,
-            handles.stats.tx.clone(),
-        )
-        .await?;
-
-        let body = response.text().await?;
+        let result = logged_request(&api_url, handles.clone()).await?;
+        let body = result.text().await?;
 
         let json_response: Value = serde_json::from_str(&body)?;
 
@@ -489,6 +492,13 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.insecure {
             writeln!(&mut writer, "{}", self.insecure)?;
+        }
+
+        if config.auto_bail {
+            writeln!(&mut writer, "{}", self.auto_bail)?;
+        }
+        if config.auto_tune {
+            writeln!(&mut writer, "{}", self.auto_tune)?;
         }
 
         if config.redirects {

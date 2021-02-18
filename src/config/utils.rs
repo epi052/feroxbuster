@@ -102,6 +102,41 @@ pub fn determine_output_level(quiet: bool, silent: bool) -> OutputLevel {
     }
 }
 
+/// represents actions the Requester should take in certain situations
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum RequesterPolicy {
+    /// automatically try to lower request rate in order to reduce errors
+    AutoTune,
+
+    /// automatically bail at certain error thresholds
+    AutoBail,
+
+    /// just let that junk run super natural
+    Default,
+}
+
+/// default implementation for RequesterPolicy
+impl Default for RequesterPolicy {
+    /// Default as default
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+/// given the current settings for quiet and silent, determine output_level (DRY helper)
+pub fn determine_requester_policy(auto_tune: bool, auto_bail: bool) -> RequesterPolicy {
+    if auto_tune && auto_bail {
+        // user COULD have both as true in config file, take the more aggressive of the two
+        RequesterPolicy::AutoBail
+    } else if auto_tune {
+        RequesterPolicy::AutoTune
+    } else if auto_bail {
+        RequesterPolicy::AutoBail
+    } else {
+        RequesterPolicy::Default
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,6 +155,22 @@ mod tests {
 
         level = determine_output_level(true, false);
         assert_eq!(level, OutputLevel::Quiet);
+    }
+
+    #[test]
+    /// test determine_requester_policy returns higher of the two levels if both given values are true
+    fn determine_requester_policy_returns_correct_results() {
+        let mut level = determine_requester_policy(true, true);
+        assert_eq!(level, RequesterPolicy::AutoBail);
+
+        level = determine_requester_policy(false, true);
+        assert_eq!(level, RequesterPolicy::AutoBail);
+
+        level = determine_requester_policy(false, false);
+        assert_eq!(level, RequesterPolicy::Default);
+
+        level = determine_requester_policy(true, false);
+        assert_eq!(level, RequesterPolicy::AutoTune);
     }
 
     #[test]

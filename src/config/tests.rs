@@ -16,6 +16,8 @@ fn setup_config_test() -> Configuration {
             replay_proxy = "http://127.0.0.1:8081"
             quiet = true
             silent = true
+            auto_tune = true
+            auto_bail = true
             verbosity = 1
             scan_limit = 6
             parallel = 14
@@ -72,7 +74,11 @@ fn default_configuration() {
     assert_eq!(config.scan_limit, 0);
     assert_eq!(config.silent, false);
     assert_eq!(config.quiet, false);
+    assert_eq!(config.output_level, OutputLevel::Default);
     assert_eq!(config.dont_filter, false);
+    assert_eq!(config.auto_tune, false);
+    assert_eq!(config.auto_bail, false);
+    assert_eq!(config.requester_policy, RequesterPolicy::Default);
     assert_eq!(config.no_recursion, false);
     assert_eq!(config.json, false);
     assert_eq!(config.save_state, true);
@@ -195,6 +201,20 @@ fn config_reads_quiet() {
 fn config_reads_json() {
     let config = setup_config_test();
     assert_eq!(config.json, true);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_auto_bail() {
+    let config = setup_config_test();
+    assert_eq!(config.auto_bail, true);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_auto_tune() {
+    let config = setup_config_test();
+    assert_eq!(config.auto_tune, true);
 }
 
 #[test]

@@ -12,6 +12,7 @@ use indicatif::ProgressBar;
 use predicates::prelude::*;
 use std::sync::{atomic::Ordering, Arc};
 use std::thread::sleep;
+use std::time::Instant;
 use tokio::time::{self, Duration};
 
 #[test]
@@ -382,7 +383,7 @@ fn feroxstates_feroxserialize_implementation() {
 
     let json_state = ferox_state.as_json().unwrap();
     let expected = format!(
-        r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"silent":false,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"parallel":0,"rate_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
+        r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"silent":false,"quiet":false,"auto_bail":false,"auto_tune":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"parallel":0,"rate_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
         saved_id, VERSION
     );
     println!("{}\n{}", expected, json_state);
@@ -437,10 +438,14 @@ fn feroxscan_display() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        start_time: Instant::now(),
         output_level: OutputLevel::Default,
+        status_403s: Default::default(),
+        status_429s: Default::default(),
         status: Default::default(),
         task: tokio::sync::Mutex::new(None),
         progress_bar: std::sync::Mutex::new(None),
+        errors: Default::default(),
     };
 
     let not_started = format!("{}", scan);
@@ -477,12 +482,16 @@ async fn ferox_scan_abort() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        start_time: Instant::now(),
         output_level: OutputLevel::Default,
+        status_403s: Default::default(),
+        status_429s: Default::default(),
         status: std::sync::Mutex::new(ScanStatus::Running),
         task: tokio::sync::Mutex::new(Some(tokio::spawn(async move {
             sleep(Duration::from_millis(SLEEP_DURATION * 2));
         }))),
         progress_bar: std::sync::Mutex::new(None),
+        errors: Default::default(),
     };
 
     scan.abort().await.unwrap();
@@ -515,4 +524,71 @@ fn split_to_nums_is_correct() {
     let nums = menu.split_to_nums("1, 3,      4");
 
     assert_eq!(nums, vec![1, 3, 4]);
+}
+
+#[test]
+/// given a deep url, find the correct scan
+fn get_base_scan_by_url_finds_correct_scan() {
+    let urls = FeroxScans::default();
+    let url = "http://localhost";
+    let url1 = "http://localhost/stuff";
+    let url2 = "http://shlocalhost/stuff/things";
+    let url3 = "http://shlocalhost/stuff/things/mostuff";
+    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan1) = urls.add_scan(url1, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan2) = urls.add_scan(url2, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan3) = urls.add_scan(url3, ScanType::Directory, ScanOrder::Latest);
+
+    assert_eq!(
+        urls.get_base_scan_by_url("http://localhost/things.php")
+            .unwrap()
+            .id,
+        scan.id
+    );
+    assert_eq!(
+        urls.get_base_scan_by_url("http://localhost/stuff/things.php")
+            .unwrap()
+            .id,
+        scan1.id
+    );
+    assert_eq!(
+        urls.get_base_scan_by_url("http://shlocalhost/stuff/things/mostuff.php")
+            .unwrap()
+            .id,
+        scan2.id
+    );
+    assert_eq!(
+        urls.get_base_scan_by_url("http://shlocalhost/stuff/things/mostuff/mothings.php")
+            .unwrap()
+            .id,
+        scan3.id
+    );
+}
+
+#[test]
+/// given a shallow url without a trailing slash, find the correct scan
+fn get_base_scan_by_url_finds_correct_scan_without_trailing_slash() {
+    let urls = FeroxScans::default();
+    let url = "http://localhost";
+    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    assert_eq!(
+        urls.get_base_scan_by_url("http://localhost/BKPMiherrortBPKcw")
+            .unwrap()
+            .id,
+        scan.id
+    );
+}
+
+#[test]
+/// given a shallow url with a trailing slash, find the correct scan
+fn get_base_scan_by_url_finds_correct_scan_with_trailing_slash() {
+    let urls = FeroxScans::default();
+    let url = "http://127.0.0.1:41971/";
+    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    assert_eq!(
+        urls.get_base_scan_by_url("http://127.0.0.1:41971/BKPMiherrortBPKcw")
+            .unwrap()
+            .id,
+        scan.id
+    );
 }

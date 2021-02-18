@@ -3,7 +3,7 @@ use crate::{
     client,
     event_handlers::{
         Command,
-        Command::{AddError, UpdateUsizeField},
+        Command::{AddError, AddToUsizeField},
         Handles,
     },
     scan_manager::ScanOrder,
@@ -12,7 +12,7 @@ use crate::{
         StatField::{LinksExtracted, TotalExpected},
     },
     url::FeroxUrl,
-    utils::make_request,
+    utils::{logged_request, make_request},
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
@@ -303,13 +303,7 @@ impl<'a> Extractor<'a> {
         }
 
         // make the request and store the response
-        let new_response = make_request(
-            &self.handles.config.client,
-            &new_url,
-            self.handles.config.output_level,
-            self.handles.stats.tx.clone(),
-        )
-        .await?;
+        let new_response = logged_request(&new_url, self.handles.clone()).await?;
 
         let new_ferox_response =
             FeroxResponse::from(new_response, true, self.handles.config.output_level).await;
@@ -384,6 +378,7 @@ impl<'a> Extractor<'a> {
         let mut url = Url::parse(&self.url)?;
         url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
 
+        // purposefully not using logged_request here due to using the special client
         let response = make_request(
             &client,
             &url,
@@ -391,6 +386,7 @@ impl<'a> Extractor<'a> {
             self.handles.stats.tx.clone(),
         )
         .await?;
+
         let ferox_response =
             FeroxResponse::from(response, true, self.handles.config.output_level).await;
 
@@ -404,10 +400,10 @@ impl<'a> Extractor<'a> {
 
         self.handles
             .stats
-            .send(UpdateUsizeField(LinksExtracted, num_links))?;
+            .send(AddToUsizeField(LinksExtracted, num_links))?;
         self.handles
             .stats
-            .send(UpdateUsizeField(TotalExpected, num_links * multiplier))?;
+            .send(AddToUsizeField(TotalExpected, num_links * multiplier))?;
 
         Ok(())
     }

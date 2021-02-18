@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/epi052/feroxbuster/actions?query=workflow%3A%22CI+Pipeline%22">
-    <img src="https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/master?logo=github">
+    <img src="https://img.shields.io/github/workflow/status/epi052/feroxbuster/CI%20Pipeline/main?logo=github">
   </a>
 
   <a href="https://github.com/epi052/feroxbuster/releases">
@@ -104,6 +104,7 @@ Enumeration.
     - [Cancel a Recursive Scan Interactively (new in `v1.12.0`)](#cancel-a-recursive-scan-interactively-new-in-v1120)
     - [Limit Number of Requests per Second (Rate Limiting) (new in `v2.0.0`)](#limit-number-of-requests-per-second-rate-limiting-new-in-v200)
     - [Silence all Output or Be Kinda Quiet (new in `v2.0.0`)](#silence-all-output-or-be-kinda-quiet-new-in-v200)
+    - [Auto-tune or Auto-bail from Scans (new in `v2.1.0`)](#auto-tune-or-auto-bail-from-scans-new-in-v210)
 - [Comparison w/ Similar Tools](#-comparison-w-similar-tools)
 - [Common Problems/Issues (FAQ)](#-common-problemsissues-faq)
     - [No file descriptors available](#no-file-descriptors-available)
@@ -198,9 +199,9 @@ Download `feroxbuster_amd64.deb` from the [Releases](https://github.com/epi052/f
 that, use your favorite package manager to install the `.deb`.
 
 ```
-wget -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
+curl -sLO https://github.com/epi052/feroxbuster/releases/latest/download/feroxbuster_amd64.deb.zip
 unzip feroxbuster_amd64.deb.zip
-sudo apt install ./feroxbuster_amd64.deb
+sudo apt install ./feroxbuster_*_amd64.deb
 ```
 
 ### AUR Install
@@ -370,6 +371,8 @@ A pre-made configuration file with examples of all available settings can be fou
 # filter_status = [301]
 # threads = 1
 # timeout = 5
+# auto_tune = true
+# auto_bail = true
 # proxy = "http://127.0.0.1:8080"
 # replay_proxy = "http://127.0.0.1:8081"
 # replay_codes = [200, 302]
@@ -425,6 +428,8 @@ USAGE:
 
 FLAGS:
     -f, --add-slash        Append / to each request
+        --auto-bail        Automatically stop scanning when an excessive amount of errors are encountered
+        --auto-tune        Automatically lower scan rate when an excessive amount of errors are encountered
     -D, --dont-filter      Don't auto-filter wildcard responses
     -e, --extract-links    Extract links from response body (html, javascript, etc...); make new requests based on
                            findings (default: false)
@@ -484,7 +489,6 @@ OPTIONS:
     -u, --url <URL>...                            The target URL(s) (required, unless --stdin used)
     -a, --user-agent <USER_AGENT>                 Sets the User-Agent (default: feroxbuster/VERSION)
     -w, --wordlist <FILE>                         Path to the wordlist
-
 ```
 
 ## 📊 Scan's Display Explained
@@ -871,6 +875,29 @@ Scanning: https://localhost.com/homepage
 Scanning: https://localhost.com/api
 ```
 
+### Auto-tune or Auto-bail from scans (new in `v2.1.0`)
+
+Version 2.1.0 introduces the `--auto-tune` and `--auto-bail` flags. You can think of these flags as Policies. Both actions (tuning and bailing) are triggered by the same criteria (below).  Policies are only enforced after at least 50 requests have been made (or # of threads, if that's > 50).
+
+Policy Enforcement Criteria:
+  - number of general errors (timeouts, etc) is higher than half the number of threads (or at least 25 if threads are lower) (per directory scanned)
+  - 90% of responses are `403|Forbidden` (per directory scanned)
+  - 30% of requests are `429|Too Many Requests` (per directory scanned)
+
+> both demo gifs below use --timeout to overload a single-threaded python web server and elicit timeouts
+
+#### --auto-tune
+
+The AutoTune policy enforces a rate limit on individual directory scans when one of the criteria above is met.  The rate limit self-adjusts every (`timeout / 2`) seconds. If the number of errors have increased during that time, the allowed rate of requests is lowered.  On the other hand, if the number of errors hasn't moved, the allowed rate of requests is increased.  If no additional errors are found after a certain number of checks, the rate limit will be removed completely. 
+
+![auto-tune](img/auto-tune-demo.gif)
+
+#### --auto-bail
+
+The AutoBail policy aborts individual directory scans when one of the criteria above is met.  They just stop getting scanned, no muss, no fuss. 
+
+![auto-bail](img/auto-bail-demo.gif)
+
 ## 🧐 Comparison w/ Similar Tools
 
 There are quite a few similar tools for forced browsing/content discovery. Burp Suite Pro, Dirb, Dirbuster, etc...
@@ -918,6 +945,8 @@ few of the use-cases in which feroxbuster may be a better fit:
 | cancel a recursive scan interactively (`v1.12.0`)                            | ✔ |   |   |
 | limit number of requests per second (`v2.0.0`)                               | ✔ | ✔ | ✔ |
 | hide progress bars or be silent (or some variation) (`v2.0.0`)               | ✔ | ✔ | ✔ |
+| automatically tune scans based on errors/403s/429s  (`v2.1.0`)               | ✔ |   |   |
+| automatically stop scans based on errors/403s/429s  (`v2.1.0`)               | ✔ |   | ✔ |
 | **huge** number of other options                                             |   |   | ✔ |
 
 Of note, there's another written-in-rust content discovery tool, [rustbuster](https://github.com/phra/rustbuster). I

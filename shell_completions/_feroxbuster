@@ -58,7 +58,7 @@ _feroxbuster() {
 '*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]' \
 '-L+[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
 '--scan-limit=[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
-'--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]' \
+'(--auto-tune)--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]' \
 '--rate-limit=[Limit number of requests per second (per directory) (default: 0, i.e. no limit)]' \
 '--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
@@ -66,6 +66,8 @@ _feroxbuster() {
 '(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
+'(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
+'--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \

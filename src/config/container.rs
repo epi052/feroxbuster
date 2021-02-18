@@ -1,8 +1,9 @@
 use super::utils::{
     depth, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
-    user_agent, wordlist, OutputLevel,
+    user_agent, wordlist, OutputLevel, RequesterPolicy,
 };
 use crate::config::determine_output_level;
+use crate::config::utils::determine_requester_policy;
 use crate::{
     client, parser, scan_manager::resume_scan, traits::FeroxSerialize, utils::fmt_err,
     DEFAULT_CONFIG_NAME,
@@ -123,6 +124,18 @@ pub struct Configuration {
     /// more easily differentiate between the three states of output levels
     #[serde(skip)]
     pub output_level: OutputLevel,
+
+    /// automatically bail at certain error thresholds
+    #[serde(default)]
+    pub auto_bail: bool,
+
+    /// automatically try to lower request rate in order to reduce errors
+    #[serde(default)]
+    pub auto_tune: bool,
+
+    /// more easily differentiate between the three requester policies
+    #[serde(skip)]
+    pub requester_policy: RequesterPolicy,
 
     /// Store log output as NDJSON
     #[serde(default)]
@@ -249,6 +262,7 @@ impl Default for Configuration {
         let replay_codes = status_codes.clone();
         let kind = serialized_type();
         let output_level = OutputLevel::Default;
+        let requester_policy = RequesterPolicy::Default;
 
         Configuration {
             kind,
@@ -258,7 +272,10 @@ impl Default for Configuration {
             replay_codes,
             status_codes,
             replay_client,
+            requester_policy,
             dont_filter: false,
+            auto_bail: false,
+            auto_tune: false,
             silent: false,
             quiet: false,
             output_level,
@@ -318,6 +335,8 @@ impl Configuration {
     /// - **debug_log**: `None`
     /// - **quiet**: `false`
     /// - **silent**: `false`
+    /// - **auto_tune**: `false`
+    /// - **auto_bail**: `false`
     /// - **save_state**: `true`
     /// - **user_agent**: `feroxbuster/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
@@ -380,7 +399,7 @@ impl Configuration {
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
-        let cli_config = Self::parse_cli_args(&args)?;
+        let cli_config = Self::parse_cli_args(&args);
 
         // --resume-from used, need to first read the Configuration from disk, and then
         // merge the cli_config into the resumed config
@@ -467,7 +486,7 @@ impl Configuration {
 
     /// Given a set of ArgMatches read from the CLI, update and return the default Configuration
     /// settings
-    fn parse_cli_args(args: &ArgMatches) -> Result<Self> {
+    fn parse_cli_args(args: &ArgMatches) -> Self {
         let mut config = Configuration::default();
 
         update_config_if_present!(&mut config.threads, args, "threads", usize);
@@ -568,6 +587,16 @@ impl Configuration {
             config.output_level = OutputLevel::Quiet;
         }
 
+        if args.is_present("auto_tune") {
+            config.auto_tune = true;
+            config.requester_policy = RequesterPolicy::AutoTune;
+        }
+
+        if args.is_present("auto_bail") {
+            config.auto_bail = true;
+            config.requester_policy = RequesterPolicy::AutoBail;
+        }
+
         if args.is_present("dont_filter") {
             config.dont_filter = true;
         }
@@ -643,7 +672,7 @@ impl Configuration {
             }
         }
 
-        Ok(config)
+        config
     }
 
     /// this function determines if we've gotten a Client configuration change from
@@ -728,8 +757,11 @@ impl Configuration {
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
-        // use updated quiet/silent values to determin output level
+        update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
+        update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
+        // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
+        conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);
         update_if_not_default!(&mut conf.output, new.output, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
