@@ -6,6 +6,7 @@ use regex::Regex;
 use std::fs::{read_to_string, write};
 use std::path::Path;
 use std::process::Command;
+use std::time::Instant;
 use tokio::time::Duration;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -268,4 +269,164 @@ fn auto_bail_cancels_scan_with_429s() {
     // num_enforced can be less than 50
     assert!(normal_reqs_mock.hits() < 500);
     assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+}
+
+#[test]
+/// --auto-tune should slow a scan with spurious 429s
+fn auto_tune_slows_scan_with_429s() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["ignored".to_string()], "wordlist").unwrap();
+
+    let policy_words = read_to_string(Path::new("tests/policy-test-words.shuffled")).unwrap();
+
+    write(&file, policy_words).unwrap();
+
+    assert_eq!(file.metadata().unwrap().len(), 117720); // sanity check on wordlist size
+
+    let error_mock = srv.mock(|when, then| {
+        when.method(GET).path_matches(
+            Regex::new("/[a-zA-Z]{6}(error|status429|status403)[a-zA-Z]{6}").unwrap(),
+        );
+        then.status(200).body("other errors are still a 200");
+    });
+
+    let normal_reqs_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z]{6}normal[a-zA-Z]{6}").unwrap());
+        then.status(429)
+            .body("these guys need to be 429 in order to trigger 30% threshold");
+    });
+
+    let start = Instant::now();
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--auto-tune")
+        .arg("--dont-filter")
+        .arg("--time-limit")
+        .arg("7s")
+        .arg("--threads")
+        .arg("4")
+        .assert()
+        .failure();
+
+    teardown_tmp_directory(tmp_dir);
+
+    assert!(normal_reqs_mock.hits() + error_mock.hits() > 25); // must have at least 50 reqs fly
+
+    println!("elapsed: {}", start.elapsed().as_millis()); // 3523ms without tuning
+    assert!(normal_reqs_mock.hits() < 500);
+    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+    assert!(start.elapsed().as_millis() >= 7000); // scan should hit time limit due to limiting
+}
+
+#[test]
+/// --auto-tune should slow a scan with spurious 403s
+fn auto_tune_slows_scan_with_403s() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["ignored".to_string()], "wordlist").unwrap();
+
+    let policy_words = read_to_string(Path::new("tests/policy-test-words.shuffled")).unwrap();
+
+    write(&file, policy_words).unwrap();
+
+    assert_eq!(file.metadata().unwrap().len(), 117720); // sanity check on wordlist size
+
+    let error_mock = srv.mock(|when, then| {
+        when.method(GET).path_matches(
+            Regex::new("/[a-zA-Z]{6}(error|status429|status403)[a-zA-Z]{6}").unwrap(),
+        );
+        then.status(200).body("other errors are still a 200");
+    });
+
+    let normal_reqs_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z]{6}normal[a-zA-Z]{6}").unwrap());
+        then.status(403)
+            .body("these guys need to be 403 in order to trigger 90% threshold");
+    });
+
+    let start = Instant::now();
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--auto-tune")
+        .arg("--dont-filter")
+        .arg("--time-limit")
+        .arg("7s")
+        .arg("--threads")
+        .arg("4")
+        .assert()
+        .failure();
+
+    teardown_tmp_directory(tmp_dir);
+
+    assert!(normal_reqs_mock.hits() + error_mock.hits() > 25); // must have at least 50 reqs fly
+
+    println!("elapsed: {}", start.elapsed().as_millis()); // 3523ms without tuning
+    assert!(normal_reqs_mock.hits() < 500);
+    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+    assert!(start.elapsed().as_millis() >= 7000); // scan should hit time limit due to limiting
+}
+
+#[test]
+/// --auto-tune should slow a scan with spurious errors
+fn auto_tune_slows_scan_with_general_errors() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["ignored".to_string()], "wordlist").unwrap();
+
+    let policy_words = read_to_string(Path::new("tests/policy-test-words.shuffled")).unwrap();
+
+    write(&file, policy_words).unwrap();
+
+    assert_eq!(file.metadata().unwrap().len(), 117720); // sanity check on wordlist size
+
+    let error_mock = srv.mock(|when, then| {
+        when.method(GET).path_matches(
+            Regex::new("/[a-zA-Z]{6}(error|status429|status403)[a-zA-Z]{6}").unwrap(),
+        );
+        then.status(200).body("other errors are still a 200");
+    });
+
+    let normal_reqs_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/[a-zA-Z]{6}normal[a-zA-Z]{6}").unwrap());
+        then.status(200)
+            .body("these guys need to be 429 in order to trigger 30% threshold")
+            .delay(Duration::new(3, 0));
+    });
+
+    let start = Instant::now();
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--auto-tune")
+        .arg("--dont-filter")
+        .arg("--time-limit")
+        .arg("7s")
+        .arg("--threads")
+        .arg("4")
+        .arg("--timeout")
+        .arg("2")
+        .assert()
+        .failure();
+
+    teardown_tmp_directory(tmp_dir);
+
+    println!("elapsed: {}", start.elapsed().as_millis()); // 3523ms without tuning
+    assert!(normal_reqs_mock.hits() < 500);
+    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+    assert!(start.elapsed().as_millis() >= 7000); // scan should hit time limit due to limiting
 }

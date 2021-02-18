@@ -291,7 +291,7 @@ impl FeroxScan {
         let reqs = self.requests();
         let seconds = self.start_time.elapsed().as_secs();
 
-        reqs / seconds
+        reqs.checked_div(seconds).unwrap_or(0)
     }
 
     /// return the number of requests performed by this scan's scanner
