@@ -948,3 +948,27 @@ fn banner_doesnt_print_when_quiet() {
                 .and(predicate::str::contains("User-Agent").not()),
         );
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see nothing as --parallel forces --silent to be true
+fn banner_prints_parallel() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--stdin")
+        .arg("--parallel")
+        .arg("4316")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .not()
+                .and(predicate::str::contains("Target Url").not())
+                .and(predicate::str::contains("Parallel Scans").not())
+                .and(predicate::str::contains("Threads").not())
+                .and(predicate::str::contains("Wordlist").not())
+                .and(predicate::str::contains("Status Codes").not())
+                .and(predicate::str::contains("Timeout (secs)").not())
+                .and(predicate::str::contains("User-Agent").not()),
+        );
+}

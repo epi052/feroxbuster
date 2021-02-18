@@ -1,13 +1,19 @@
 use std::{
     collections::HashSet,
+    env::args,
     fs::File,
     io::{stderr, BufRead, BufReader},
+    ops::Index,
+    process::Command,
     sync::{atomic::Ordering, Arc},
 };
 
 use anyhow::{bail, Context, Result};
 use futures::StreamExt;
-use tokio::{io, sync::oneshot};
+use tokio::{
+    io,
+    sync::{oneshot, Semaphore},
+};
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
@@ -26,6 +32,13 @@ use feroxbuster::{
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
+use lazy_static::lazy_static;
+use regex::Regex;
+
+lazy_static! {
+    /// Limits the number of parallel scans active at any given time when using --parallel
+    static ref PARALLEL_LIMITER: Semaphore = Semaphore::new(0);
+}
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
@@ -225,6 +238,72 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             bail!("Could not get determine initial targets: {}", e);
         }
     };
+
+    // --parallel branch
+    if config.parallel > 0 {
+        log::trace!("enter: parallel branch");
+
+        PARALLEL_LIMITER.add_permits(config.parallel);
+
+        let invocation = args();
+
+        let para_regex =
+            Regex::new("--stdin|-q|--quiet|--silent|--verbosity|-v|-vv|-vvv|-vvvv").unwrap();
+
+        // remove stdin since only the original process will process targets
+        // remove quiet and silent so we can force silent later to normalize output
+        let mut original = invocation
+            .filter(|s| !para_regex.is_match(s))
+            .collect::<Vec<String>>();
+
+        original.push("--silent".to_string()); // only output modifier allowed
+
+        // we need remove --parallel from command line so we don't hit this branch over and over
+        // but we must remove --parallel N manually; the filter above never sees --parallel and the
+        // value passed to it at the same time, so can't filter them out in one pass
+
+        // unwrap is fine, as it has to be in the args for us to be in this code branch
+        let parallel_index = original.iter().position(|s| *s == "--parallel").unwrap();
+
+        // remove --parallel
+        original.remove(parallel_index);
+
+        // remove N passed to --parallel (it's the same index again since everything shifts
+        // from removing --parallel)
+        original.remove(parallel_index);
+
+        // unvalidated targets fresh from stdin, just spawn children and let them do all checks
+        for target in targets {
+            // add the current target to the provided command
+            let mut cloned = original.clone();
+            cloned.push("-u".to_string());
+            cloned.push(target);
+
+            let bin = cloned.index(0).to_owned(); // user's path to feroxbuster
+            let args = cloned.index(1..).to_vec(); // and args
+
+            let permit = PARALLEL_LIMITER.acquire().await?;
+
+            log::debug!("parallel exec: {} {}", bin, args.join(" "));
+
+            tokio::task::spawn_blocking(move || {
+                let result = Command::new(bin)
+                    .args(&args)
+                    .spawn()
+                    .expect("failed to spawn a child process")
+                    .wait()
+                    .expect("child process errored during execution");
+
+                drop(permit);
+                result
+            });
+        }
+
+        clean_up(handles, tasks).await?;
+
+        log::trace!("exit: parallel branch && wrapped main");
+        return Ok(());
+    }
 
     if matches!(config.output_level, OutputLevel::Default) {
         // only print banner if output level is default (no banner on --quiet|--silent)

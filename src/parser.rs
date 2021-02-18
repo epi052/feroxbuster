@@ -349,6 +349,14 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Limit total number of concurrent scans (default: 0, i.e. no limit)")
         )
         .arg(
+            Arg::with_name("parallel")
+                .long("parallel")
+                .value_name("PARALLEL_SCANS")
+                .takes_value(true)
+                .requires("stdin")
+                .help("Run parallel feroxbuster instances (one child process per url passed via stdin)")
+        )
+        .arg(
             Arg::with_name("rate_limit")
                 .long("rate-limit")
                 .value_name("RATE_LIMIT")
