@@ -171,7 +171,7 @@ impl Banner {
             code_filters.push(status_colorizer(&code.to_string()))
         }
         let filter_status = BannerEntry::new(
-            "🗑",
+            "🪣",
             "Status Code Filters",
             &format!("[{}]", code_filters.join(", ")),
         );
