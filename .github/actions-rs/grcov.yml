@@ -1,0 +1,8 @@
+branch: false
+ignore-not-existing: true
+llvm: true
+output-type: lcov
+output-path: ./lcov.info
+# excl-br-line: "^\\s*((debug_)?assert(_eq|_ne)?!|#\\[derive\\(|log::)"
+ignore:
+  - "../*"

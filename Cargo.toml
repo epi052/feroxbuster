@@ -1,0 +1,66 @@
+[package]
+name = "feroxbuster"
+version = "2.2.1"
+authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
+license = "MIT"
+edition = "2018"
+homepage = "https://github.com/epi052/feroxbuster"
+repository = "https://github.com/epi052/feroxbuster"
+description = "A fast, simple, recursive content discovery tool."
+categories = ["command-line-utilities"]
+keywords = ["pentest", "enumeration", "url-bruteforce", "content-discovery", "web"]
+exclude = [".github/*", "img/*", "check-coverage.sh"]
+build = "build.rs"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[build-dependencies]
+clap = "2.33"
+regex = "1"
+lazy_static = "1.4"
+
+[dependencies]
+futures = { version = "0.3"}
+tokio = { version = "1.2.0", features = ["full"] }
+tokio-util = {version = "0.6.3", features = ["codec"]}
+log = "0.4"
+env_logger = "0.8.3"
+reqwest = { version = "0.11.1", features = ["socks"] }
+clap = "2.33"
+lazy_static = "1.4"
+toml = "0.5"
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0.62"
+uuid = { version = "0.8", features = ["v4"] }
+indicatif = "0.15"
+console = "0.14"
+openssl = { version = "0.10", features = ["vendored"] }
+dirs = "3.0"
+regex = "1"
+crossterm = "0.19"
+rlimit = "0.5"
+ctrlc = "3.1"
+fuzzyhash = "0.2.1"
+anyhow = "1.0"
+leaky-bucket = "0.10.0"
+
+[dev-dependencies]
+tempfile = "3.1"
+httpmock = "0.5.2"
+assert_cmd = "1.0.3"
+predicates = "1.0.7"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = 'abort'
+
+[package.metadata.deb]
+section = "utility"
+license-file = ["LICENSE", "4"]
+conf-files = ["/etc/feroxbuster/ferox-config.toml"]
+assets = [
+    ["target/release/feroxbuster", "/usr/bin/", "755"],
+    ["ferox-config.toml.example", "/etc/feroxbuster/ferox-config.toml", "644"],
+]

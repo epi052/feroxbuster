@@ -1,0 +1,44 @@
+on: [push]
+
+name: Code Coverage Pipeline
+
+jobs:
+  upload-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clean
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --no-fail-fast
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort'
+          RUSTDOCFLAGS: '-Cpanic=abort'
+      - uses: actions-rs/grcov@v0.1
+      - uses: actions/upload-artifact@v2
+        with:
+          name: lcov.info
+          path: lcov.info
+      - name: Convert lcov to xml
+        run: |
+          curl -O https://raw.githubusercontent.com/epi052/lcov-to-cobertura-xml/master/lcov_cobertura/lcov_cobertura.py
+          chmod +x lcov_cobertura.py
+          ./lcov_cobertura.py ./lcov.info
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
+          name: codecov-umbrella
+          fail_ci_if_error: true
+      - uses: actions/upload-artifact@v2
+        with:
+          name: coverage.xml
+          path: ./coverage.xml
