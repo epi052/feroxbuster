@@ -44,7 +44,7 @@ vendor.tar:
 	rm -rf vendor
 
 install-cli: cli
-	install -Dm 0644 "$(completion_prefix).bash" "$(DESTDIR)/etc/bash_completion.d/$(BIN).bash"
+	install -Dm 0644 "$(completion_prefix).bash" "$(DESTDIR)/usr/share/bash-completion/completions/$(BIN).bash"
 	install -Dm 0644 "$(completion_prefix).fish" "$(DESTDIR)/usr/share/fish/completions/$(BIN).fish"
 	install -Dm 0644 "$(completion_dir)/_$(BIN)" "$(DESTDIR)/usr/share/zsh/vendor-completions/_$(BIN)"
 	install -sDm 0755 "$(TARGET)/$(BIN)" "$(DESTDIR)$(bindir)/$(BIN)"
@@ -55,7 +55,7 @@ uninstall:
 	rm -f "$(DESTDIR)$(bindir)/$(BIN)"
 	rm -f "$(DESTDIR)$(datadir)/man/man1/$(BIN).1.gz"
 	rm -rf "$(DESTDIR)/etc/$(BIN)/"
-	rm -f "$(DESTDIR)/etc/bash_completion.d/$(BIN).bash"
+	rm -f "$(DESTDIR)/usr/share/bash-completion/completions/$(BIN).bash"
 	rm -f "$(DESTDIR)/usr/share/zsh/vendor-completions/_$(BIN)"
 	rm -f "$(DESTDIR)/usr/share/fish/completions/$(BIN).fish"
 
