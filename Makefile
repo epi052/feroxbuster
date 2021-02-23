@@ -6,12 +6,16 @@ datarootdir = $(prefix)/share
 datadir = $(datarootdir)
 example_config = ferox-config.toml.example
 config_file = ferox-config.toml
+completion_dir = shell_completions
+completion_prefix = $(completion_dir)/$(BIN)
 
+BIN=feroxbuster
 SHR_SOURCES = $(shell find src -type f -wholename '*src/*.rs') Cargo.toml Cargo.lock
 
 RELEASE = debug
 DEBUG ?= 0
-ifeq (0,$(DEBUG))
+
+ifeq (0, $(DEBUG))
 	ARGS = --release
 	RELEASE = release
 endif
@@ -23,54 +27,47 @@ endif
 
 TARGET = target/$(RELEASE)
 
-.PHONY: all clean distclean install uninstall update
-
-BIN=feroxbuster
-DESKTOP=$(APPID).desktop
+.PHONY: all clean install uninstall
 
 all: cli
-
 cli: $(TARGET)/$(BIN) $(TARGET)/$(BIN).1.gz $(SHR_SOURCES)
+install: all install-cli
 
 clean:
 	cargo clean
 
-distclean: clean
-	rm -rf .cargo vendor Cargo.lock vendor.tar
-
 vendor: vendor.tar
 
 vendor.tar:
-	mkdir -p .cargo
-	cargo vendor | head -n -1 > .cargo/config
-	echo 'directory = "vendor"' >> .cargo/config
+	cargo vendor
 	tar pcf vendor.tar vendor
 	rm -rf vendor
 
 install-cli: cli
-	install -Dm 0755 "$(TARGET)/$(BIN)" "$(DESTDIR)$(bindir)/$(BIN)"
+	install -Dm 0644 "$(completion_prefix).bash" "$(DESTDIR)/usr/share/bash-completion/completions/$(BIN).bash"
+	install -Dm 0644 "$(completion_prefix).fish" "$(DESTDIR)/usr/share/fish/completions/$(BIN).fish"
+	install -Dm 0644 "$(completion_dir)/_$(BIN)" "$(DESTDIR)/usr/share/zsh/vendor-completions/_$(BIN)"
+	install -sDm 0755 "$(TARGET)/$(BIN)" "$(DESTDIR)$(bindir)/$(BIN)"
 	install -Dm 0644 "$(TARGET)/$(BIN).1.gz" "$(DESTDIR)$(datadir)/man/man1/$(BIN).1.gz"
-	install -Dm 0644 "$(example_config)" "/etc/$(BIN)/$(config_File)"
+	install -Dm 0644 "$(example_config)" "$(DESTDIR)/etc/$(BIN)/$(config_file)"
 
-install: all install-cli
-
-uninstall-cli:
+uninstall:
 	rm -f "$(DESTDIR)$(bindir)/$(BIN)"
 	rm -f "$(DESTDIR)$(datadir)/man/man1/$(BIN).1.gz"
-	rm -rf "/etc/$(BIN)/"
-
-uninstall: uninstall-cli
-
-update:
-	cargo update
+	rm -rf "$(DESTDIR)/etc/$(BIN)/"
+	rm -f "$(DESTDIR)/usr/share/bash-completion/completions/$(BIN).bash"
+	rm -f "$(DESTDIR)/usr/share/zsh/vendor-completions/_$(BIN)"
+	rm -f "$(DESTDIR)/usr/share/fish/completions/$(BIN).fish"
 
 extract:
-ifeq ($(VENDORED),1)
+ifeq (1, $(VENDORED))
 	tar pxf vendor.tar
 endif
 
 $(TARGET)/$(BIN): extract
-	cargo build --manifest-path Cargo.toml $(ARGS)
+	mkdir -p .cargo
+	cp debian/cargo.config .cargo/config.toml
+	cargo build $(ARGS)
 
 $(TARGET)/$(BIN).1.gz: $(TARGET)/$(BIN)
 	help2man --no-info $< | gzip -c > $@.partial
