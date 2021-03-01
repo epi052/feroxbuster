@@ -31,7 +31,7 @@ clap = "2.33"
 lazy_static = "1.4"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0.62"
+serde_json = "1.0.64"
 uuid = { version = "0.8", features = ["v4"] }
 indicatif = "0.15"
 console = "0.14"
@@ -39,8 +39,8 @@ openssl = { version = "0.10", features = ["vendored"] }
 dirs = "3.0"
 regex = "1"
 crossterm = "0.19"
-rlimit = "0.5"
-ctrlc = "3.1"
+rlimit = "0.5.4"
+ctrlc = "3.1.8"
 fuzzyhash = "0.2.1"
 anyhow = "1.0"
 leaky-bucket = "0.10.0"
@@ -63,4 +63,7 @@ conf-files = ["/etc/feroxbuster/ferox-config.toml"]
 assets = [
     ["target/release/feroxbuster", "/usr/bin/", "755"],
     ["ferox-config.toml.example", "/etc/feroxbuster/ferox-config.toml", "644"],
+    ["shell_completions/feroxbuster.bash", "/usr/share/bash-completion/completions/feroxbuster.bash", "644"],
+    ["shell_completions/feroxbuster.fish", "/usr/share/fish/completions/feroxbuster.fish", "644"],
+    ["shell_completions/_feroxbuster", "/usr/share/zsh/vendor-completions/_feroxbuster", "644"],
 ]
