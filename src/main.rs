@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     env::args,
     fs::File,
     io::{stderr, BufRead, BufReader},
@@ -41,14 +40,14 @@ lazy_static! {
 }
 
 /// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
-fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
+fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
 
     let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;
 
     let reader = BufReader::new(file);
 
-    let mut words = HashSet::new();
+    let mut words = Vec::new();
 
     for line in reader.lines() {
         let result = match line {
@@ -60,7 +59,7 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<HashSet<String>>> {
             continue;
         }
 
-        words.insert(result);
+        words.push(result);
     }
 
     log::trace!(
@@ -78,11 +77,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
 
-    let words = {
-        let words_handles = handles.clone();
-        tokio::spawn(async move { get_unique_words_from_wordlist(&words_handles.config.wordlist) })
-            .await??
-    };
+    let words = get_unique_words_from_wordlist(&handles.config.wordlist)?;
 
     if words.len() == 0 {
         bail!("Did not find any words in {}", handles.config.wordlist);
