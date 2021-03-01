@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
+use std::{ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
 
 use anyhow::{bail, Result};
 use futures::{stream, StreamExt};
@@ -40,7 +40,7 @@ pub struct FeroxScanner {
     order: ScanOrder,
 
     /// wordlist that's already been read from disk
-    wordlist: Arc<HashSet<String>>,
+    wordlist: Arc<Vec<String>>,
 
     /// limiter that restricts the number of active FeroxScanners  
     scan_limiter: Arc<Semaphore>,
@@ -52,7 +52,7 @@ impl FeroxScanner {
     pub fn new(
         target_url: &str,
         order: ScanOrder,
-        wordlist: Arc<HashSet<String>>,
+        wordlist: Arc<Vec<String>>,
         scan_limiter: Arc<Semaphore>,
         handles: Arc<Handles>,
     ) -> Self {

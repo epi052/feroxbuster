@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
@@ -54,7 +53,7 @@ pub struct ScanHandler {
     receiver: CommandReceiver,
 
     /// wordlist (re)used for each scan
-    wordlist: std::sync::Mutex<Option<Arc<HashSet<String>>>>,
+    wordlist: std::sync::Mutex<Option<Arc<Vec<String>>>>,
 
     /// group of scans that need to be joined
     tasks: Vec<Arc<FeroxScan>>,
@@ -105,7 +104,7 @@ impl ScanHandler {
     }
 
     /// Set the wordlist
-    fn wordlist(&self, wordlist: Arc<HashSet<String>>) {
+    fn wordlist(&self, wordlist: Arc<Vec<String>>) {
         if let Ok(mut guard) = self.wordlist.lock() {
             if guard.is_none() {
                 let _ = std::mem::replace(&mut *guard, Some(wordlist));
@@ -175,7 +174,7 @@ impl ScanHandler {
     }
 
     /// Helper to easily get the (locked) underlying wordlist
-    pub fn get_wordlist(&self) -> Result<Arc<HashSet<String>>> {
+    pub fn get_wordlist(&self) -> Result<Arc<Vec<String>>> {
         if let Ok(guard) = self.wordlist.lock().as_ref() {
             if let Some(list) = guard.as_ref() {
                 return Ok(list.clone());

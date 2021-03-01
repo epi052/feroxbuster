@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use reqwest::StatusCode;
@@ -53,7 +52,7 @@ pub enum Command {
     TryRecursion(Box<FeroxResponse>),
 
     /// Send a pointer to the wordlist to the recursion handler
-    UpdateWordlist(Arc<HashSet<String>>),
+    UpdateWordlist(Arc<Vec<String>>),
 
     /// Instruct the ScanHandler to join on all known scans, use sender to notify main when done
     JoinTasks(Sender<bool>),
