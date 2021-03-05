@@ -1,4 +1,6 @@
 use std::{
+    collections::HashMap,
+    convert::TryFrom,
     fs::File,
     io::BufReader,
     sync::{
@@ -9,7 +11,8 @@ use std::{
 
 use anyhow::{Context, Result};
 use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::Value;
 
 use crate::{
     traits::FeroxSerialize,
@@ -19,9 +22,8 @@ use crate::{
 use super::{error::StatError, field::StatField};
 
 /// Data collection of statistics related to a scan
-#[derive(Default, Deserialize, Debug, Serialize)]
+#[derive(Default, Debug)]
 pub struct Stats {
-    #[serde(rename = "type")]
     /// Name of this type of struct, used for serialization, i.e. `{"type":"statistics"}`
     kind: String,
 
@@ -125,11 +127,9 @@ pub struct Stats {
     total_runtime: Mutex<Vec<f64>>,
 
     /// tracker for the number of extensions the user specified
-    #[serde(skip)]
     num_extensions: usize,
 
     /// tracker for whether to use json during serialization or not
-    #[serde(skip)]
     json: bool,
 }
 
@@ -144,6 +144,301 @@ impl FeroxSerialize for Stats {
     /// Simple call to produce a JSON string using the given Stats object
     fn as_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self)?)
+    }
+}
+
+/// Serialize implementation for Stats
+impl Serialize for Stats {
+    /// Function that handles serialization of Stats
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Stats", 32)?;
+
+        state.serialize_field("type", &self.kind)?;
+        state.serialize_field("timeouts", &atomic_load!(self.timeouts))?;
+        state.serialize_field("requests", &atomic_load!(self.requests))?;
+        state.serialize_field("expected_per_scan", &atomic_load!(self.expected_per_scan))?;
+        state.serialize_field("total_expected", &atomic_load!(self.total_expected))?;
+        state.serialize_field("errors", &atomic_load!(self.errors))?;
+        state.serialize_field("successes", &atomic_load!(self.successes))?;
+        state.serialize_field("redirects", &atomic_load!(self.redirects))?;
+        state.serialize_field("client_errors", &atomic_load!(self.client_errors))?;
+        state.serialize_field("server_errors", &atomic_load!(self.server_errors))?;
+        state.serialize_field("total_scans", &atomic_load!(self.total_scans))?;
+        state.serialize_field("initial_targets", &atomic_load!(self.initial_targets))?;
+        state.serialize_field("links_extracted", &atomic_load!(self.links_extracted))?;
+        state.serialize_field("status_200s", &atomic_load!(self.status_200s))?;
+        state.serialize_field("status_301s", &atomic_load!(self.status_301s))?;
+        state.serialize_field("status_302s", &atomic_load!(self.status_302s))?;
+        state.serialize_field("status_401s", &atomic_load!(self.status_401s))?;
+        state.serialize_field("status_403s", &atomic_load!(self.status_403s))?;
+        state.serialize_field("status_429s", &atomic_load!(self.status_429s))?;
+        state.serialize_field("status_500s", &atomic_load!(self.status_500s))?;
+        state.serialize_field("status_503s", &atomic_load!(self.status_503s))?;
+        state.serialize_field("status_504s", &atomic_load!(self.status_504s))?;
+        state.serialize_field("status_508s", &atomic_load!(self.status_508s))?;
+        state.serialize_field("wildcards_filtered", &atomic_load!(self.wildcards_filtered))?;
+        state.serialize_field("responses_filtered", &atomic_load!(self.responses_filtered))?;
+        state.serialize_field(
+            "resources_discovered",
+            &atomic_load!(self.resources_discovered),
+        )?;
+        state.serialize_field("url_format_errors", &atomic_load!(self.url_format_errors))?;
+        state.serialize_field("redirection_errors", &atomic_load!(self.redirection_errors))?;
+        state.serialize_field("connection_errors", &atomic_load!(self.connection_errors))?;
+        state.serialize_field("request_errors", &atomic_load!(self.request_errors))?;
+        state.serialize_field("directory_scan_times", &self.directory_scan_times)?;
+        state.serialize_field("total_runtime", &self.total_runtime)?;
+
+        state.end()
+    }
+}
+
+/// Deserialize implementation for Stats
+impl<'a> Deserialize<'a> for Stats {
+    /// Deserialize a Stats object from a serde_json::Value
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'a>,
+    {
+        let stats = Self::new(0, false);
+
+        let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
+
+        for (key, value) in &map {
+            match key.as_str() {
+                "timeouts" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.timeouts, parsed);
+                        }
+                    }
+                }
+                "requests" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.requests, parsed);
+                        }
+                    }
+                }
+                "expected_per_scan" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.expected_per_scan, parsed);
+                        }
+                    }
+                }
+                "total_expected" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.total_expected, parsed);
+                        }
+                    }
+                }
+                "errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.errors, parsed);
+                        }
+                    }
+                }
+                "successes" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.successes, parsed);
+                        }
+                    }
+                }
+                "redirects" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.redirects, parsed);
+                        }
+                    }
+                }
+                "client_errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.client_errors, parsed);
+                        }
+                    }
+                }
+                "server_errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.server_errors, parsed);
+                        }
+                    }
+                }
+                "total_scans" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.total_scans, parsed);
+                        }
+                    }
+                }
+                "initial_targets" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.initial_targets, parsed);
+                        }
+                    }
+                }
+                "links_extracted" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.links_extracted, parsed);
+                        }
+                    }
+                }
+                "status_200s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_200s, parsed);
+                        }
+                    }
+                }
+                "status_301s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_301s, parsed);
+                        }
+                    }
+                }
+                "status_302s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_302s, parsed);
+                        }
+                    }
+                }
+                "status_401s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_401s, parsed);
+                        }
+                    }
+                }
+                "status_403s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_403s, parsed);
+                        }
+                    }
+                }
+                "status_429s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_429s, parsed);
+                        }
+                    }
+                }
+                "status_500s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_500s, parsed);
+                        }
+                    }
+                }
+                "status_503s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_503s, parsed);
+                        }
+                    }
+                }
+                "status_504s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_504s, parsed);
+                        }
+                    }
+                }
+                "status_508s" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.status_508s, parsed);
+                        }
+                    }
+                }
+                "wildcards_filtered" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.wildcards_filtered, parsed);
+                        }
+                    }
+                }
+                "responses_filtered" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.responses_filtered, parsed);
+                        }
+                    }
+                }
+                "resources_discovered" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.resources_discovered, parsed);
+                        }
+                    }
+                }
+                "url_format_errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.url_format_errors, parsed);
+                        }
+                    }
+                }
+                "redirection_errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.redirection_errors, parsed);
+                        }
+                    }
+                }
+                "connection_errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.connection_errors, parsed);
+                        }
+                    }
+                }
+                "request_errors" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.request_errors, parsed);
+                        }
+                    }
+                }
+                "directory_scan_times" => {
+                    if let Some(arr) = value.as_array() {
+                        for val in arr {
+                            if let Some(parsed) = val.as_f64() {
+                                if let Ok(mut guard) = stats.directory_scan_times.lock() {
+                                    guard.push(parsed)
+                                }
+                            }
+                        }
+                    }
+                }
+                "total_runtime" => {
+                    if let Some(arr) = value.as_array() {
+                        for val in arr {
+                            if let Some(parsed) = val.as_f64() {
+                                if let Ok(mut guard) = stats.total_runtime.lock() {
+                                    guard.push(parsed)
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(stats)
     }
 }
 
