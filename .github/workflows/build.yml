@@ -5,10 +5,10 @@ on: [push]
 jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/main'
+#    if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        type: [ubuntu-x64, ubuntu-x86]
+        type: [ubuntu-x64, ubuntu-x86, armv7]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
@@ -22,12 +22,18 @@ jobs:
             name: x86-linux-feroxbuster
             path: target/i686-unknown-linux-musl/release/feroxbuster
             pkg_config_path: /usr/lib/i686-linux-gnu/pkgconfig
+          - type: armv7
+            os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            name: armv7-feroxbuster
+            path: target/armv7-unknown-linux-gnueabihf/release/feroxbuster
+            pkg_config_path: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
       - uses: actions/checkout@v2
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config
+          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
