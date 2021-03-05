@@ -147,9 +147,9 @@ impl FeroxSerialize for Stats {
     }
 }
 
-/// Serialize implementation for FeroxResponses
+/// Serialize implementation for Stats
 impl Serialize for Stats {
-    /// Function that handles serialization of FeroxResponses
+    /// Function that handles serialization of Stats
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
