@@ -49,7 +49,7 @@ jobs:
           args: --release --target=${{ matrix.target }}
       - name: Strip symbols from binary
         run: |
-          strip -s ${{ matrix.path }}
+          strip -s ${{ matrix.path }} || arm-linux-gnueabihf-strip -s ${{ matrix.path }}
       - name: Build tar.gz for homebrew installs
         if: matrix.type == 'ubuntu-x64'
         run: |
