@@ -11,7 +11,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use reqwest::StatusCode;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::{
@@ -22,9 +22,8 @@ use crate::{
 use super::{error::StatError, field::StatField};
 
 /// Data collection of statistics related to a scan
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug)]
 pub struct Stats {
-    #[serde(rename = "type")]
     /// Name of this type of struct, used for serialization, i.e. `{"type":"statistics"}`
     kind: String,
 
@@ -128,11 +127,9 @@ pub struct Stats {
     total_runtime: Mutex<Vec<f64>>,
 
     /// tracker for the number of extensions the user specified
-    #[serde(skip)]
     num_extensions: usize,
 
     /// tracker for whether to use json during serialization or not
-    #[serde(skip)]
     json: bool,
 }
 
@@ -147,6 +144,55 @@ impl FeroxSerialize for Stats {
     /// Simple call to produce a JSON string using the given Stats object
     fn as_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self)?)
+    }
+}
+
+/// Serialize implementation for FeroxResponses
+impl Serialize for Stats {
+    /// Function that handles serialization of FeroxResponses
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Stats", 32)?;
+
+        state.serialize_field("type", &self.kind)?;
+        state.serialize_field("timeouts", &atomic_load!(self.timeouts))?;
+        state.serialize_field("requests", &atomic_load!(self.requests))?;
+        state.serialize_field("expected_per_scan", &atomic_load!(self.expected_per_scan))?;
+        state.serialize_field("total_expected", &atomic_load!(self.total_expected))?;
+        state.serialize_field("errors", &atomic_load!(self.errors))?;
+        state.serialize_field("successes", &atomic_load!(self.successes))?;
+        state.serialize_field("redirects", &atomic_load!(self.redirects))?;
+        state.serialize_field("client_errors", &atomic_load!(self.client_errors))?;
+        state.serialize_field("server_errors", &atomic_load!(self.server_errors))?;
+        state.serialize_field("total_scans", &atomic_load!(self.total_scans))?;
+        state.serialize_field("initial_targets", &atomic_load!(self.initial_targets))?;
+        state.serialize_field("links_extracted", &atomic_load!(self.links_extracted))?;
+        state.serialize_field("status_200s", &atomic_load!(self.status_200s))?;
+        state.serialize_field("status_301s", &atomic_load!(self.status_301s))?;
+        state.serialize_field("status_302s", &atomic_load!(self.status_302s))?;
+        state.serialize_field("status_401s", &atomic_load!(self.status_401s))?;
+        state.serialize_field("status_403s", &atomic_load!(self.status_403s))?;
+        state.serialize_field("status_429s", &atomic_load!(self.status_429s))?;
+        state.serialize_field("status_500s", &atomic_load!(self.status_500s))?;
+        state.serialize_field("status_503s", &atomic_load!(self.status_503s))?;
+        state.serialize_field("status_504s", &atomic_load!(self.status_504s))?;
+        state.serialize_field("status_508s", &atomic_load!(self.status_508s))?;
+        state.serialize_field("wildcards_filtered", &atomic_load!(self.wildcards_filtered))?;
+        state.serialize_field("responses_filtered", &atomic_load!(self.responses_filtered))?;
+        state.serialize_field(
+            "resources_discovered",
+            &atomic_load!(self.resources_discovered),
+        )?;
+        state.serialize_field("url_format_errors", &atomic_load!(self.url_format_errors))?;
+        state.serialize_field("redirection_errors", &atomic_load!(self.redirection_errors))?;
+        state.serialize_field("connection_errors", &atomic_load!(self.connection_errors))?;
+        state.serialize_field("request_errors", &atomic_load!(self.request_errors))?;
+        state.serialize_field("directory_scan_times", &self.directory_scan_times)?;
+        state.serialize_field("total_runtime", &self.total_runtime)?;
+
+        state.end()
     }
 }
 
