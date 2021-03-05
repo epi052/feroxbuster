@@ -8,7 +8,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
-        type: [ubuntu-x64, ubuntu-x86, armv7]
+        type: [ubuntu-x64, ubuntu-x86, armv7, aarch64]
         include:
           - type: ubuntu-x64
             os: ubuntu-latest
