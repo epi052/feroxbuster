@@ -225,6 +225,14 @@ Install `feroxbuster-git` on Arch Linux with your AUR helper of choice:
 yay -S feroxbuster-git
 ```
 
+### BlackArch install
+
+Install `feroxbuster` on BlackArch Linux:
+
+```
+pacman -S feroxbuster
+```
+
 ### Docker Install
 
 > The following steps assume you have docker installed / setup
