@@ -926,9 +926,9 @@ checksum = "494b4d60369511e7dea41cf646832512a94e542f68bb9c49e54518e0f468eb47"
 
 [[package]]
 name = "httpmock"
-version = "0.5.6"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f570c6cc03ec30e35acdd516591f1c1b58f463fe41beb817e2ee3d83132a37cf"
+checksum = "80f03ddf0ad11ee376849c4abc6008ae399dd91e6cdfcaef2d7e552289350b46"
 dependencies = [
  "assert-json-diff",
  "async-object-pool",
