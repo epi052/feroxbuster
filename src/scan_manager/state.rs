@@ -47,7 +47,7 @@ impl FeroxSerialize for FeroxState {
 
     /// Simple call to produce a JSON string using the given FeroxState
     fn as_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self)
-            .with_context(|| fmt_err("Could not convert scan's running state to JSON"))?)
+        serde_json::to_string(&self)
+            .with_context(|| fmt_err("Could not convert scan's running state to JSON"))
     }
 }

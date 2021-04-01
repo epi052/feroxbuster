@@ -364,9 +364,10 @@ fn config_reads_headers() {
 /// parse the test config and see that the values parsed are correct
 fn config_reads_queries() {
     let config = setup_config_test();
-    let mut queries = vec![];
-    queries.push(("name".to_string(), "value".to_string()));
-    queries.push(("rick".to_string(), "astley".to_string()));
+    let queries = vec![
+        ("name".to_string(), "value".to_string()),
+        ("rick".to_string(), "astley".to_string()),
+    ];
     assert_eq!(config.queries, queries);
 }
 
