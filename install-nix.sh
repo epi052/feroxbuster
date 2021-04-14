@@ -15,6 +15,15 @@ EMOJI_URL=https://gist.github.com/epi052/8196b550ea51d0907ad4b93751b1b57d/raw/61
 
 echo "[+] Installing feroxbuster!"
 
+which unzip &>/dev/null
+if [ "$?" = "0" ]
+then
+	echo "[+] unzip found"
+else
+	echo "[ ] unzip not found, exiting. "
+	exit -1
+fi
+
 if [[ "$(uname)" == "Darwin" ]]; then
     echo "[=] Found MacOS, downloading from ${MAC_URL}"
 
