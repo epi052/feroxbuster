@@ -16,55 +16,50 @@ EMOJI_URL=https://gist.github.com/epi052/8196b550ea51d0907ad4b93751b1b57d/raw/61
 echo "[+] Installing feroxbuster!"
 
 which unzip &>/dev/null
-if [ "$?" = "0" ]
-then
-	echo "[+] unzip found"
+if [ "$?" = "0" ]; then
+  echo "[+] unzip found"
 else
-	echo "[ ] unzip not found, exiting. "
-	exit -1
+  echo "[ ] unzip not found, exiting. "
+  exit -1
 fi
 
 if [[ "$(uname)" == "Darwin" ]]; then
-    echo "[=] Found MacOS, downloading from $MAC_URL"
+  echo "[=] Found MacOS, downloading from $MAC_URL"
 
-    curl -sLO "$MAC_URL"
-    unzip -o "$MAC_ZIP" > /dev/null
-    rm "$MAC_ZIP"
+  curl -sLO "$MAC_URL"
+  unzip -o "$MAC_ZIP" >/dev/null
+  rm "$MAC_ZIP"
 elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
-    if [[ $(getconf LONG_BIT) == 32 ]]; then
-        echo "[=] Found 32-bit Linux, downloading from $LIN32_URL"
+  if [[ $(getconf LONG_BIT) == 32 ]]; then
+    echo "[=] Found 32-bit Linux, downloading from $LIN32_URL"
 
-        curl -sLO "$LIN32_URL"
-        unzip -o "$LIN32_ZIP" > /dev/null
-        rm "$LIN32_ZIP"
-    else
-        echo "[=] Found 64-bit Linux, downloading from $LIN64_URL"
+    curl -sLO "$LIN32_URL"
+    unzip -o "$LIN32_ZIP" >/dev/null
+    rm "$LIN32_ZIP"
+  else
+    echo "[=] Found 64-bit Linux, downloading from $LIN64_URL"
 
-        curl -sLO "$LIN64_URL"
-        unzip -o "$LIN64_ZIP" > /dev/null
-        rm "$LIN64_ZIP"
-    fi
+    curl -sLO "$LIN64_URL"
+    unzip -o "$LIN64_ZIP" >/dev/null
+    rm "$LIN64_ZIP"
+  fi
 
-    if [[ -e ~/.fonts/NotoColorEmoji.ttf ]]; then
-       echo "[=] Found Noto Emoji Font, skipping install" 
-    else 
-        echo "[=] Installing Noto Emoji Font"
-        mkdir -p ~/.fonts
-        pushd ~/.fonts 2>&1 >/dev/null
+  if [[ -e ~/.fonts/NotoColorEmoji.ttf ]]; then
+    echo "[=] Found Noto Emoji Font, skipping install"
+  else
+    echo "[=] Installing Noto Emoji Font"
+    mkdir -p ~/.fonts
+    pushd ~/.fonts 2>&1 >/dev/null
 
-        curl -sLO "$EMOJI_URL"
+    curl -sLO "$EMOJI_URL"
 
-        fc-cache -f -v >/dev/null
+    fc-cache -f -v >/dev/null
 
-        popd 2>&1 >/dev/null
-        echo "[+] Noto Emoji Font installed"
-    fi
+    popd 2>&1 >/dev/null
+    echo "[+] Noto Emoji Font installed"
+  fi
 fi
-
 
 chmod +x ./feroxbuster
 
 echo "[+] Installed feroxbuster version $(./feroxbuster -V)"
-
-
-
