@@ -31,9 +31,10 @@ impl Menu {
         let separator = "─".to_string();
 
         let instructions = format!(
-            "Enter a {} list of indexes to {} (ex: 2,3)",
+            "Enter a {} list of indexes/ranges to {} ({}: 1-4,8,9-13)",
             style("comma-separated").yellow(),
             style("cancel").red(),
+            style("ex").cyan(),
         );
 
         let name = format!(
@@ -43,14 +44,22 @@ impl Menu {
             "💀"
         );
 
+        let force_msg = format!(
+            "Add {} to {} confirmation ({}: 3-5 -f)",
+            style("-f").yellow(),
+            style("skip").yellow(),
+            style("ex").cyan(),
+        );
+
         let longest = measure_text_width(&instructions).max(measure_text_width(&name));
 
         let border = separator.repeat(longest);
 
         let padded_name = pad_str(&name, longest, Alignment::Center, None);
+        let padded_force = pad_str(&force_msg, longest, Alignment::Center, None);
 
         let header = format!("{}\n{}\n{}", border, padded_name, border);
-        let footer = format!("{}\n{}\n{}", border, instructions, border);
+        let footer = format!("{}\n{}\n{}\n{}", border, instructions, padded_force, border);
 
         Self {
             separator,
