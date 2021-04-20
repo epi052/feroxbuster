@@ -93,23 +93,71 @@ impl Menu {
         self.term.write_line(msg).unwrap_or_default();
     }
 
-    /// split a string into vec of usizes
-    pub(super) fn split_to_nums(&self, line: &str) -> Vec<usize> {
-        line.split(',')
-            .map(|s| {
-                s.trim().to_string().parse::<usize>().unwrap_or_else(|e| {
-                    self.println(&format!("Found non-numeric input: {}", e));
-                    0
-                })
+    /// Helper for parsing a usize from a str
+    fn str_to_usize(&self, value: &str) -> usize {
+        if value.is_empty() {
+            return 0;
+        }
+
+        value
+            .trim()
+            .to_string()
+            .parse::<usize>()
+            .unwrap_or_else(|e| {
+                self.println(&format!("Found non-numeric input: {}: {:?}", e, value));
+                0
             })
-            .filter(|m| *m != 0)
-            .collect()
+    }
+
+    /// split a comma delimited string into vec of usizes
+    pub(super) fn split_to_nums(&self, line: &str) -> Vec<usize> {
+        let mut nums = Vec::new();
+        let values = line.split(',');
+
+        for mut value in values {
+            value = value.trim();
+
+            if value.contains('-') {
+                // range of two values, needs further processing
+
+                let range: Vec<usize> = value
+                    .split('-')
+                    .map(|s| self.str_to_usize(s))
+                    .filter(|m| *m != 0)
+                    .collect();
+
+                if range.len() != 2 {
+                    // expecting [1, 4] or similar, if a 0 was used, we'd be left with a vec of size 1
+                    self.println(&format!("Found invalid range of scans: {}", value));
+                    continue;
+                }
+
+                (range[0]..=range[1]).for_each(|n| {
+                    // iterate from lower to upper bound and add all interim values, skipping
+                    // any already known
+                    if !nums.contains(&n) {
+                        nums.push(n)
+                    }
+                });
+            } else {
+                let value = self.str_to_usize(value);
+
+                if value != 0 && !nums.contains(&value) {
+                    // the zeroth scan is always skipped, skip already known values
+                    nums.push(value);
+                }
+            }
+        }
+
+        nums
     }
 
     /// get comma-separated list of scan indexes from the user
-    pub(super) fn get_scans_from_user(&self) -> Option<Vec<usize>> {
+    pub(super) fn get_scans_from_user(&self) -> Option<(Vec<usize>, bool)> {
         if let Ok(line) = self.term.read_line() {
-            Some(self.split_to_nums(&line))
+            let force = line.contains("-f");
+            let line = line.replace("-f", "");
+            Some((self.split_to_nums(&line), force))
         } else {
             None
         }
