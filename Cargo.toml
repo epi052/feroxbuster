@@ -49,7 +49,7 @@ leaky-bucket = "0.10.0"
 tempfile = "3.1"
 httpmock = "0.5.7"
 assert_cmd = "1.0.3"
-predicates = "1.0.7"
+predicates = "1.0.8"
 
 [profile.release]
 lto = true
