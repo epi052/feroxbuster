@@ -836,10 +836,11 @@ Below is an example of the Scan Cancel Menu™.
 Using the menu is pretty simple:
 - Press `ENTER` to view the menu
 - Choose a scan to cancel by entering its scan index (`1`)
-  - more than one scan can be selected by using a comma-separated list (`1,2,3` ... etc)
+  - more than one scan can be selected by using a comma-separated list of indexes and/or ranges (`1-4,8,9-13` ... etc)
 - Confirm selections, after which all non-cancelled scans will resume
+  - To skip confirmation, simply add a `-f` somewhere in your input (`3-5 -f`)
 
-Here is a short demonstration of cancelling two in-progress scans found via recursion.
+Here is a short demonstration of force cancelling a range of scans followed by a single scan with interactive prompt.
 
 ![cancel-scan](img/cancel-scan.gif)
 
