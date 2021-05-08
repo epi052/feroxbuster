@@ -47,9 +47,9 @@ leaky-bucket = "0.10.0"
 
 [dev-dependencies]
 tempfile = "3.1"
-httpmock = "0.5.7"
+httpmock = "0.5.8"
 assert_cmd = "1.0.3"
-predicates = "1.0.7"
+predicates = "1.0.8"
 
 [profile.release]
 lto = true

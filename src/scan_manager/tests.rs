@@ -521,9 +521,13 @@ fn menu_print_header_and_footer() {
 fn split_to_nums_is_correct() {
     let menu = Menu::new();
 
-    let nums = menu.split_to_nums("1, 3,      4");
+    let nums = menu.split_to_nums("1, 3,      4, 7 -     12, 10-10, 10-11, 9-12, 12-6, -1, 4-");
 
-    assert_eq!(nums, vec![1, 3, 4]);
+    assert_eq!(nums, vec![1, 3, 4, 7, 8, 9, 10, 11, 12]);
+    assert_eq!(menu.split_to_nums("9-12"), vec![9, 10, 11, 12]);
+    assert!(menu.split_to_nums("-12").is_empty());
+    assert!(menu.split_to_nums("12-").is_empty());
+    assert!(menu.split_to_nums("\n").is_empty());
 }
 
 #[test]

@@ -252,7 +252,7 @@ impl FeroxScans {
     }
 
     /// Given a list of indexes, cancel their associated FeroxScans
-    async fn cancel_scans(&self, indexes: Vec<usize>) -> usize {
+    async fn cancel_scans(&self, indexes: Vec<usize>, force: bool) -> usize {
         let menu_pause_duration = Duration::from_millis(SLEEP_DURATION);
 
         let mut num_cancelled = 0_usize;
@@ -273,7 +273,11 @@ impl FeroxScans {
                 Err(..) => continue,
             };
 
-            let input = self.menu.confirm_cancellation(&selected.url);
+            let input = if force {
+                'y'
+            } else {
+                self.menu.confirm_cancellation(&selected.url)
+            };
 
             if input == 'y' || input == '\n' {
                 self.menu.println(&format!("Stopping {}...", selected.url));
@@ -305,8 +309,8 @@ impl FeroxScans {
 
         let mut num_cancelled = 0_usize;
 
-        if let Some(input) = self.menu.get_scans_from_user() {
-            num_cancelled += self.cancel_scans(input).await;
+        if let Some((input, force)) = self.menu.get_scans_from_user() {
+            num_cancelled += self.cancel_scans(input, force).await;
         };
 
         self.menu.clear_screen();
