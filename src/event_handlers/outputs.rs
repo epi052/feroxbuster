@@ -139,8 +139,8 @@ impl TermOutHandler {
         Self {
             receiver,
             tx_file,
-            config,
             file_task,
+            config,
         }
     }
 
