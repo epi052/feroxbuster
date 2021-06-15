@@ -544,7 +544,7 @@ impl Configuration {
             config.extensions = arg.map(|val| val.to_string()).collect();
         }
 
-        if let Some(arg) = args.values_of("dont_scan") {
+        if let Some(arg) = args.values_of("url_denylist") {
             config.url_denylist = arg.map(|val| val.to_string()).collect();
         }
 
