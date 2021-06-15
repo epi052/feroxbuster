@@ -55,6 +55,10 @@ fn main() {
     //   - linux: $XDG_CONFIG_HOME or $HOME/.config
     //   - macOS: $HOME/Library/Application Support
     //   - windows: {FOLDERID_RoamingAppData}
+    if std::env::var("IN_PIPELINE").is_ok() {
+        return; // only copy the config file when we're not running in the CI/CD pipeline
+    }
+
     let mut config_dir = dirs::config_dir().expect("Couldn't resolve user's config directory");
     config_dir = config_dir.join("feroxbuster"); // $HOME/.config/feroxbuster
 
