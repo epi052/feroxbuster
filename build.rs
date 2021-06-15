@@ -60,7 +60,7 @@ fn main() {
         std::env::var("IN_PIPELINE").unwrap_or(String::from("no"))
     );
     if std::env::var("IN_PIPELINE").is_ok() {
-        return; // only copy the config file when we're not running in the CI/CD pipeline
+        return;
     }
 
     let mut config_dir = dirs::config_dir().expect("Couldn't resolve user's config directory");
@@ -69,8 +69,16 @@ fn main() {
     if !config_dir.exists() {
         // recursively create the feroxbuster directory and all of its parent components if
         // they are missing
-        create_dir_all(&config_dir)
-            .expect("Couldn't create one or more directories needed to copy the config file");
+        if !config_dir.exists() {
+            // recursively create the feroxbuster directory and all of its parent components if
+            // they are missing
+            if create_dir_all(&config_dir).is_err() {
+                // only copy the config file when we're not running in the CI/CD pipeline
+                // which fails with permission denied
+                eprintln!("Couldn't create one or more directories needed to copy the config file");
+                return;
+            }
+        }
     }
 
     // hard-coding config name here to not rely on the crate we're building, if DEFAULT_CONFIG_NAME
@@ -79,7 +87,8 @@ fn main() {
 
     if !config_file.exists() {
         // config file doesn't exist, add it to the config directory
-        copy("ferox-config.toml.example", config_file)
-            .expect("Couldn't copy example config into config directory");
+        if copy("ferox-config.toml.example", config_file).is_err() {
+            eprintln!("Couldn't copy example config into config directory");
+        }
     }
 }
