@@ -19,6 +19,7 @@ maintenance = { status = "actively-developed" }
 clap = "2.33"
 regex = "1"
 lazy_static = "1.4"
+dirs = "3.0"
 
 [dependencies]
 futures = { version = "0.3.14"}
