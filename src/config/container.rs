@@ -248,6 +248,10 @@ pub struct Configuration {
     /// Filter out response bodies that meet a certain threshold of similarity
     #[serde(default)]
     pub filter_similar: Vec<String>,
+
+    /// URLs that should never be scanned/recursed into
+    #[serde(default)]
+    pub url_denylist: Vec<String>,
 }
 
 impl Default for Configuration {
@@ -304,6 +308,7 @@ impl Default for Configuration {
             extensions: Vec::new(),
             filter_size: Vec::new(),
             filter_regex: Vec::new(),
+            url_denylist: Vec::new(),
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
             filter_status: Vec::new(),
@@ -341,6 +346,7 @@ impl Configuration {
     /// - **user_agent**: `feroxbuster/VERSION`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
+    /// - **url_denylist**: `None`
     /// - **filter_size**: `None`
     /// - **filter_similar**: `None`
     /// - **filter_regex**: `None`
@@ -536,6 +542,10 @@ impl Configuration {
 
         if let Some(arg) = args.values_of("extensions") {
             config.extensions = arg.map(|val| val.to_string()).collect();
+        }
+
+        if let Some(arg) = args.values_of("dont_scan") {
+            config.url_denylist = arg.map(|val| val.to_string()).collect();
         }
 
         if let Some(arg) = args.values_of("filter_regex") {
@@ -767,6 +777,11 @@ impl Configuration {
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
+        update_if_not_default!(
+            &mut conf.url_denylist,
+            new.url_denylist,
+            Vec::<String>::new()
+        );
         update_if_not_default!(&mut conf.headers, new.headers, HashMap::new());
         update_if_not_default!(&mut conf.queries, new.queries, Vec::new());
         update_if_not_default!(&mut conf.no_recursion, new.no_recursion, false);

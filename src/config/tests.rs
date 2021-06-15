@@ -29,6 +29,7 @@ fn setup_config_test() -> Configuration {
             redirects = true
             insecure = true
             extensions = ["html", "php", "js"]
+            url_denylist = ["http://dont-scan.me", "https://also-not.me"]
             headers = {stuff = "things", mostuff = "mothings"}
             queries = [["name","value"], ["rick", "astley"]]
             no_recursion = true
@@ -88,8 +89,9 @@ fn default_configuration() {
     assert_eq!(config.extract_links, false);
     assert_eq!(config.insecure, false);
     assert_eq!(config.queries, Vec::new());
-    assert_eq!(config.extensions, Vec::<String>::new());
     assert_eq!(config.filter_size, Vec::<u64>::new());
+    assert_eq!(config.extensions, Vec::<String>::new());
+    assert_eq!(config.url_denylist, Vec::<String>::new());
     assert_eq!(config.filter_regex, Vec::<String>::new());
     assert_eq!(config.filter_similar, Vec::<String>::new());
     assert_eq!(config.filter_word_count, Vec::<usize>::new());
@@ -285,6 +287,16 @@ fn config_reads_extract_links() {
 fn config_reads_extensions() {
     let config = setup_config_test();
     assert_eq!(config.extensions, vec!["html", "php", "js"]);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_url_denylist() {
+    let config = setup_config_test();
+    assert_eq!(
+        config.url_denylist,
+        vec!["http://dont-scan.me", "https://also-not.me"]
+    );
 }
 
 #[test]
