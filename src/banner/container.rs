@@ -134,6 +134,9 @@ pub struct Banner {
     /// represents Configuration.auto_bail
     auto_bail: BannerEntry,
 
+    /// represents Configuration.url_denylist
+    url_denylist: Vec<BannerEntry>,
+
     /// current version of feroxbuster
     pub(super) version: String,
 
@@ -146,6 +149,7 @@ impl Banner {
     /// Create a new Banner from a Configuration and live targets
     pub fn new(tgts: &[String], config: &Configuration) -> Self {
         let mut targets = Vec::new();
+        let mut url_denylist = Vec::new();
         let mut code_filters = Vec::new();
         let mut replay_codes = Vec::new();
         let mut headers = Vec::new();
@@ -158,6 +162,10 @@ impl Banner {
 
         for target in tgts {
             targets.push(BannerEntry::new("🎯", "Target Url", target));
+        }
+
+        for denied_url in &config.url_denylist {
+            url_denylist.push(BannerEntry::new("🚫", "Dont Scan", &denied_url));
         }
 
         let mut codes = vec![];
@@ -323,6 +331,7 @@ impl Banner {
             rate_limit,
             scan_limit,
             time_limit,
+            url_denylist,
             config: cfg,
             version: VERSION.to_string(),
             update_status: UpdateStatus::Unknown,
@@ -411,6 +420,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
         // begin with always printed items
         for target in &self.targets {
             writeln!(&mut writer, "{}", target)?;
+        }
+
+        for denied_url in &self.url_denylist {
+            writeln!(&mut writer, "{}", denied_url)?;
         }
 
         writeln!(&mut writer, "{}", self.threads)?;
