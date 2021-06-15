@@ -55,14 +55,6 @@ fn main() {
     //   - linux: $XDG_CONFIG_HOME or $HOME/.config
     //   - macOS: $HOME/Library/Application Support
     //   - windows: {FOLDERID_RoamingAppData}
-    println!(
-        "did we find it? {}",
-        std::env::var("IN_PIPELINE").unwrap_or(String::from("no"))
-    );
-    if std::env::var("IN_PIPELINE").is_ok() {
-        return;
-    }
-
     let mut config_dir = dirs::config_dir().expect("Couldn't resolve user's config directory");
     config_dir = config_dir.join("feroxbuster"); // $HOME/.config/feroxbuster
 
