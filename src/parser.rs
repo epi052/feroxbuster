@@ -1,6 +1,8 @@
 use clap::{App, Arg, ArgGroup};
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::env;
+use std::process;
 
 lazy_static! {
     /// Regex used to validate values passed to --time-limit
@@ -16,7 +18,7 @@ lazy_static! {
 
 /// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
 pub fn initialize() -> App<'static, 'static> {
-    App::new("feroxbuster")
+    let mut app = App::new("feroxbuster")
         .version(env!("CARGO_PKG_VERSION"))
         .author("Ben 'epi' Risher (@epi052)")
         .about("A fast, simple, recursive content discovery tool written in Rust")
@@ -410,7 +412,20 @@ EXAMPLES:
 
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 -t 200
-    "#)
+    "#);
+
+    for arg in env::args() {
+        // secure-77 noticed that when an incorrect flag/option is used, the short help message is printed
+        // which is fine, but if you add -h|--help, it still errors out on the bad flag/option,
+        // never showing the full help message. This code addresses that behavior
+        if arg == "--help" || arg == "-h" {
+            app.print_long_help().unwrap();
+            println!(); // just a newline to mirror original --help output
+            process::exit(1);
+        }
+    }
+
+    app
 }
 
 /// Validate that a string is formatted as a number followed by s, m, h, or d (10d, 30s, etc...)
