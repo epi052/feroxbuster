@@ -27,11 +27,16 @@ endif
 
 TARGET = target/$(RELEASE)
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall test update
 
 all: cli
 cli: $(TARGET)/$(BIN) $(TARGET)/$(BIN).1.gz $(SHR_SOURCES)
 install: all install-cli
+
+verify:
+	cargo fmt
+	cargo clippy --all-targets --all-features -- -D warnings -A clippy::mutex-atomic
+	cargo test
 
 clean:
 	cargo clean
