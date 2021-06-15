@@ -22,10 +22,10 @@ lazy_static = "1.4"
 
 [dependencies]
 futures = { version = "0.3.14"}
-tokio = { version = "1.5.0", features = ["full"] }
+tokio = { version = "1.6", features = ["full"] }
 tokio-util = {version = "0.6.6", features = ["codec"]}
 log = "0.4"
-env_logger = "0.8.3"
+env_logger = "0.8"
 reqwest = { version = "0.11", features = ["socks"] }
 clap = "2.33"
 lazy_static = "1.4"
@@ -38,7 +38,7 @@ console = "0.14"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "3.0"
 regex = "1"
-crossterm = "0.19"
+crossterm = "0.20"
 rlimit = "0.5.4"
 ctrlc = "3.1.9"
 fuzzyhash = "0.2.1"
@@ -48,7 +48,7 @@ leaky-bucket = "0.10.0"
 [dev-dependencies]
 tempfile = "3.1"
 httpmock = "0.5.8"
-assert_cmd = "1.0.3"
+assert_cmd = "1.0"
 predicates = "1.0.8"
 
 [profile.release]
