@@ -1090,16 +1090,13 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "leaky-bucket"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "152656838516227a1aeeafa54e6c5997f5dbeb625d2ed01e0732b97bbca4574e"
+checksum = "2d96392400fa7340b9ee203a83c6978790929eec36a20feb6fa8155408fbd800"
 dependencies = [
- "futures-util",
- "lazy_static",
- "log",
- "thiserror",
+ "parking_lot",
  "tokio",
- "tokio-stream",
+ "tracing",
 ]
 
 [[package]]
@@ -1997,17 +1994,6 @@ dependencies = [
  "either",
  "futures-util",
  "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "tokio-stream"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8864d706fdb3cc0843a49647ac892720dac98a6eeb818b77190592cf4994066"
-dependencies = [
- "futures-core",
- "pin-project-lite",
  "tokio",
 ]
 
