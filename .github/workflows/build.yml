@@ -2,6 +2,9 @@ name: CD Pipeline
 
 on: [push]
 
+env:
+  IN_PIPELINE: true
+
 jobs:
   build-nix:
     runs-on: ${{ matrix.os }}
