@@ -222,4 +222,4 @@ _feroxbuster() {
     esac
 }
 
-complete -F _feroxbuster -o bashdefault -o default feroxbuster
+complete -F _feroxbuster -o bashdefault -o default -o plusdirs feroxbuster
