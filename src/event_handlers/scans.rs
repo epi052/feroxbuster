@@ -3,12 +3,13 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use tokio::sync::{mpsc, Semaphore};
 
-use crate::response::FeroxResponse;
-use crate::url::FeroxUrl;
 use crate::{
+    response::FeroxResponse,
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::FeroxScanner,
     statistics::StatField::TotalScans,
+    url::FeroxUrl,
+    utils::should_deny_url,
     CommandReceiver, CommandSender, FeroxChannel, Joiner, SLEEP_DURATION,
 };
 
@@ -243,6 +244,11 @@ impl ScanHandler {
     async fn try_recursion(&mut self, response: Box<FeroxResponse>) -> Result<()> {
         log::trace!("enter: try_recursion({:?})", response,);
 
+        if !response.is_directory() {
+            // not a directory, quick exit
+            return Ok(());
+        }
+
         let mut base_depth = 1_usize;
 
         for (base_url, base_url_depth) in &self.depths {
@@ -256,8 +262,10 @@ impl ScanHandler {
             return Ok(());
         }
 
-        if !response.is_directory() {
-            // not a directory
+        if should_deny_url(response.url(), self.handles.clone())? {
+            // response was caught by a user-provided deny list
+            // checking this last, since it's most susceptible to longer runtimes due to what
+            // input is received
             return Ok(());
         }
 

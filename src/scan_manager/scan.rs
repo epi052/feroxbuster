@@ -36,7 +36,7 @@ pub struct FeroxScan {
     pub(super) scan_type: ScanType,
 
     /// The order in which the scan was received
-    pub(super) scan_order: ScanOrder,
+    pub(crate) scan_order: ScanOrder,
 
     /// Number of requests to populate the progress bar with
     pub(super) num_requests: u64,
