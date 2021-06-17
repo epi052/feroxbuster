@@ -772,7 +772,7 @@ mod tests {
 
         requester.cool_down().await;
 
-        assert_eq!(resp.await.unwrap(), true);
+        assert!(resp.await.unwrap());
         println!("{}", start.elapsed().as_millis());
         assert!(start.elapsed().as_millis() >= 3500);
     }
@@ -891,28 +891,16 @@ mod tests {
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
 
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Errors),
-            false
-        );
+        assert!(!requester.too_many_status_errors(PolicyTrigger::Errors));
 
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status429),
-            false
-        );
+        assert!(!requester.too_many_status_errors(PolicyTrigger::Status429));
         requester.ferox_scan.progress_bar().set_position(10);
         requester.ferox_scan.add_429();
         requester.ferox_scan.add_429();
         requester.ferox_scan.add_429();
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status429),
-            true
-        );
+        assert!(requester.too_many_status_errors(PolicyTrigger::Status429));
 
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status403),
-            false
-        );
+        assert!(!requester.too_many_status_errors(PolicyTrigger::Status403));
         requester.ferox_scan = Arc::new(FeroxScan::default());
         requester.ferox_scan.progress_bar().set_position(10);
         requester.ferox_scan.add_403();
@@ -924,10 +912,7 @@ mod tests {
         requester.ferox_scan.add_403();
         requester.ferox_scan.add_403();
         requester.ferox_scan.add_403();
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status403),
-            true
-        );
+        assert!(requester.too_many_status_errors(PolicyTrigger::Status403));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

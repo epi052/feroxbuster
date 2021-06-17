@@ -52,7 +52,7 @@ fn add_url_to_list_of_scanned_urls_with_unknown_url() {
     let urls = FeroxScans::default();
     let url = "http://unknown_url";
     let (result, _scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
-    assert_eq!(result, true);
+    assert!(result);
 }
 
 #[test]
@@ -71,11 +71,11 @@ fn add_url_to_list_of_scanned_urls_with_known_url() {
         Some(pb),
     );
 
-    assert_eq!(urls.insert(scan), true);
+    assert!(urls.insert(scan));
 
     let (result, _scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
 
-    assert_eq!(result, false);
+    assert!(!result);
 }
 
 #[test]
@@ -93,27 +93,23 @@ fn stop_progress_bar_stops_bar() {
         Some(pb),
     );
 
-    assert_eq!(
-        scan.progress_bar
-            .lock()
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .is_finished(),
-        false
-    );
+    assert!(!scan
+        .progress_bar
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .is_finished());
 
     scan.stop_progress_bar();
 
-    assert_eq!(
-        scan.progress_bar
-            .lock()
-            .unwrap()
-            .as_ref()
-            .unwrap()
-            .is_finished(),
-        true
-    );
+    assert!(scan
+        .progress_bar
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .is_finished());
 }
 
 #[test]
@@ -131,11 +127,11 @@ fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         None,
     );
 
-    assert_eq!(urls.insert(scan), true);
+    assert!(urls.insert(scan));
 
     let (result, _scan) = urls.add_scan(url, ScanType::File, ScanOrder::Latest);
 
-    assert_eq!(result, false);
+    assert!(!result);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -171,8 +167,8 @@ async fn call_display_scans() {
         .await
         .unwrap();
 
-    assert_eq!(urls.insert(scan), true);
-    assert_eq!(urls.insert(scan_two), true);
+    assert!(urls.insert(scan));
+    assert!(urls.insert(scan_two));
 
     urls.display_scans().await;
 }
@@ -330,7 +326,7 @@ fn ferox_response_serialize_and_deserialize() {
 
     assert_eq!(response.url().as_str(), "https://nerdcore.com/css");
     assert_eq!(response.url().path(), "/css");
-    assert_eq!(response.wildcard(), true);
+    assert!(response.wildcard());
     assert_eq!(response.status().as_u16(), 301);
     assert_eq!(response.content_length(), 173);
     assert_eq!(response.line_count(), 10);

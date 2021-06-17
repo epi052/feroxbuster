@@ -509,7 +509,7 @@ mod tests {
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
 
-        assert_eq!(should_deny_url(&tested_url, handles).unwrap(), false);
+        assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
 
     #[test]
@@ -528,7 +528,7 @@ mod tests {
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
 
-        assert_eq!(should_deny_url(&tested_url, handles).unwrap(), false);
+        assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
 
     #[test]
@@ -608,7 +608,7 @@ mod tests {
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
 
-        assert_eq!(should_deny_url(&tested_url, handles).unwrap(), false);
+        assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
 
     #[test]
@@ -646,6 +646,6 @@ mod tests {
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
 
-        assert_eq!(should_deny_url(&tested_url, handles).unwrap(), false);
+        assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
 }

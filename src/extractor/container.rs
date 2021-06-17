@@ -391,7 +391,7 @@ impl<'a> Extractor<'a> {
             FeroxResponse::from(response, true, self.handles.config.output_level).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
-        return Ok(ferox_response);
+        Ok(ferox_response)
     }
 
     /// update total number of links extracted and expected responses

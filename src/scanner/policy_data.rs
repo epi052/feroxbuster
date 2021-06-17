@@ -90,11 +90,9 @@ impl PolicyData {
                         atomic_store!(self.remove_limit, true);
                     }
                 }
-                self.set_limit(heap.value() as usize);
             } else if heap.has_children() {
                 // streak not at 3, just check that we can move down, and do so
                 heap.move_left();
-                self.set_limit(heap.value() as usize);
             } else {
                 // tree bottomed out, need to move back up the tree a bit
                 let current = heap.value();
@@ -104,9 +102,8 @@ impl PolicyData {
                 if current > heap.value() {
                     heap.move_up();
                 }
-
-                self.set_limit(heap.value() as usize);
             }
+            self.set_limit(heap.value() as usize);
         }
     }
 
@@ -200,7 +197,7 @@ mod tests {
         pd.adjust_up(&3);
         assert_eq!(pd.heap.read().unwrap().value(), 300);
         assert_eq!(pd.limit.load(Ordering::Relaxed), 300);
-        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+        assert!(!pd.remove_limit.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -217,7 +214,7 @@ mod tests {
         pd.adjust_up(&3);
         assert_eq!(pd.heap.read().unwrap().value(), 200);
         assert_eq!(pd.limit.load(Ordering::Relaxed), 200);
-        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), true);
+        assert!(pd.remove_limit.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -234,7 +231,7 @@ mod tests {
         pd.adjust_up(&3);
         assert_eq!(pd.heap.read().unwrap().value(), 350);
         assert_eq!(pd.limit.load(Ordering::Relaxed), 350);
-        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+        assert!(!pd.remove_limit.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -251,7 +248,7 @@ mod tests {
         pd.adjust_up(&3);
         assert_eq!(pd.heap.read().unwrap().value(), 300);
         assert_eq!(pd.limit.load(Ordering::Relaxed), 300);
-        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+        assert!(!pd.remove_limit.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -269,7 +266,7 @@ mod tests {
         pd.adjust_up(&0);
         assert_eq!(pd.heap.read().unwrap().value(), 43);
         assert_eq!(pd.limit.load(Ordering::Relaxed), 43);
-        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+        assert!(!pd.remove_limit.load(Ordering::Relaxed));
     }
 
     #[test]
@@ -287,7 +284,7 @@ mod tests {
         pd.adjust_up(&0);
         assert_eq!(pd.heap.read().unwrap().value(), 37);
         assert_eq!(pd.limit.load(Ordering::Relaxed), 37);
-        assert_eq!(pd.remove_limit.load(Ordering::Relaxed), false);
+        assert!(!pd.remove_limit.load(Ordering::Relaxed));
     }
 
     #[test]
