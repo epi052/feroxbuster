@@ -54,13 +54,17 @@ pub struct Extractor<'a> {
 
 /// Extractor implementation
 impl<'a> Extractor<'a> {
-    /// business logic that handles getting links from a normal http body response
-    pub async fn extract(&self) -> Result<()> {
-        let links = match self.target {
-            ExtractionTarget::ResponseBody => self.extract_from_body().await?,
-            ExtractionTarget::RobotsTxt => self.extract_from_robots().await?,
-        };
+    /// perform extraction from the given target and return any links found
+    pub async fn extract(&self) -> Result<HashSet<String>> {
+        match self.target {
+            ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
+            ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
+        }
+    }
 
+    /// given a set of links from a normal http body response, task the request handler to make
+    /// the requests
+    pub async fn request_links(&self, links: HashSet<String>) -> Result<()> {
         let recursive = if self.handles.config.no_recursion {
             RecursionStatus::NotRecursive
         } else {

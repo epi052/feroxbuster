@@ -28,6 +28,7 @@ use crate::{
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
 use crate::utils::should_deny_url;
+use std::collections::HashSet;
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
@@ -46,11 +47,16 @@ pub(super) struct Requester {
     /// FeroxScan associated with the creation of this Requester
     ferox_scan: Arc<FeroxScan>,
 
+    /// cache of previously seen links gotten via link extraction. since the requester is passed
+    /// around as an arc, and seen_links needs to be mutable, putting it behind a lock for
+    /// interior mutability, similar to the tuning_lock below
+    seen_links: RwLock<HashSet<String>>,
+
     /// simple lock to control access to tuning to a single thread (per-scan)
     ///
     /// need a usize to determine the number of consecutive non-error calls that a requester has
     /// seen; this will satisfy the non-mut self constraint (due to us being behind an Arc, and
-    /// the need for a counter
+    /// the need for a counter)
     tuning_lock: Mutex<usize>,
 }
 
@@ -74,6 +80,7 @@ impl Requester {
         Ok(Self {
             ferox_scan,
             policy_data,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             rate_limiter: RwLock::new(rate_limiter),
             handles: scanner.handles.clone(),
             target_url: scanner.target_url.to_owned(),
@@ -375,7 +382,26 @@ impl Requester {
                     .handles(self.handles.clone())
                     .build()?;
 
-                extractor.extract().await?;
+                let new_links: HashSet<_>;
+                let extracted = extractor.extract().await?;
+
+                {
+                    // gain and quickly drop the read lock on seen_links, using it while unlocked
+                    // to determine if there are any new links to process
+                    let read_links = self.seen_links.read().await;
+                    new_links = extracted.difference(&read_links).cloned().collect();
+                }
+
+                if !new_links.is_empty() {
+                    // using is_empty instead of direct iteration to acquire the write lock behind
+                    // some kind of less expensive gate (and not in a loop, obv)
+                    let mut write_links = self.seen_links.write().await;
+                    for new_link in &new_links {
+                        write_links.insert(new_link.to_owned());
+                    }
+                }
+
+                extractor.request_links(new_links).await?;
             }
 
             // everything else should be reported
@@ -544,6 +570,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -571,6 +598,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
@@ -595,6 +623,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
@@ -634,6 +663,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
@@ -688,6 +718,7 @@ mod tests {
         let req_clone = scan_two.clone();
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: req_clone,
             target_url: "http://one/one/stuff.php".to_string(),
@@ -721,6 +752,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://one/one/stuff.php".to_string(),
@@ -742,6 +774,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -764,6 +797,7 @@ mod tests {
 
         let requester = Arc::new(Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -793,6 +827,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -830,6 +865,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(scan),
             target_url: "http://localhost".to_string(),
@@ -865,6 +901,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(scan),
             target_url: "http://localhost".to_string(),
@@ -892,6 +929,7 @@ mod tests {
 
         let mut requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -934,6 +972,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -976,6 +1015,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: scan.clone(),
             target_url: "http://localhost".to_string(),

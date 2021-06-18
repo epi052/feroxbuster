@@ -83,7 +83,8 @@ impl FeroxScanner {
                 .target(RobotsTxt)
                 .build()?;
 
-            let _ = extractor.extract().await;
+            let links = extractor.extract().await?;
+            extractor.request_links(links).await?;
         }
 
         let scanned_urls = self.handles.ferox_scans()?;
