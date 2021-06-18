@@ -188,8 +188,6 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
         .arg("-t")
         .arg("1")
         .arg("-vvvv")
-        .arg("--debug-log")
-        .arg("debug.log")
         .arg("--dont-scan")
         .arg(srv.url("/"))
         .unwrap();
