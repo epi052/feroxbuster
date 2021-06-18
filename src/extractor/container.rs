@@ -56,6 +56,7 @@ pub struct Extractor<'a> {
 impl<'a> Extractor<'a> {
     /// perform extraction from the given target and return any links found
     pub async fn extract(&self) -> Result<HashSet<String>> {
+        log::trace!("enter: extract (this fn has associated trace exit msg)");
         match self.target {
             ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
             ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
@@ -65,6 +66,7 @@ impl<'a> Extractor<'a> {
     /// given a set of links from a normal http body response, task the request handler to make
     /// the requests
     pub async fn request_links(&self, links: HashSet<String>) -> Result<()> {
+        log::trace!("enter: request_links({:?})", links);
         let recursive = if self.handles.config.no_recursion {
             RecursionStatus::NotRecursive
         } else {
@@ -126,6 +128,7 @@ impl<'a> Extractor<'a> {
                 rx.await?;
             }
         }
+        log::trace!("exit: request_links");
         Ok(())
     }
 
