@@ -1,4 +1,5 @@
 use super::*;
+use crate::utils::should_deny_url;
 use crate::{
     client,
     event_handlers::{
@@ -300,6 +301,15 @@ impl<'a> Extractor<'a> {
             //we've seen the url before and don't need to scan again
             log::trace!("exit: request_link -> None");
             bail!("previously seen url");
+        }
+
+        if should_deny_url(&new_url, self.handles.clone())? {
+            // can't allow a denied url to be requested
+            bail!(
+                "prevented request to {} due to {:?}",
+                url,
+                self.handles.config.url_denylist
+            );
         }
 
         // make the request and store the response

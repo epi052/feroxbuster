@@ -18,7 +18,6 @@ use crate::{
         Handles,
     },
     progress::PROGRESS_PRINTER,
-    scan_manager::ScanOrder,
     send_command,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
     traits::FeroxSerialize,
@@ -288,6 +287,7 @@ where
     Ok(())
 }
 
+/// todo
 pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     log::trace!(
         "enter: should_deny_url({}, {:?}, {:?})",
@@ -350,13 +350,6 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
             // current deny-url, now we just need to check to see if this deny-url is a parent
             // to a scanned url that is also a parent of the given url
             for ferox_scan in handles.ferox_scans()?.get_active_scans() {
-                // each scan is at least active during iteration
-                if matches!(ferox_scan.scan_order, ScanOrder::Latest) {
-                    // we'll filter out any that aren't of order-type Initial, as those are the
-                    // only ones that are user-specified (Latest means it was found during the scan)
-                    continue;
-                }
-
                 let scanner = Url::parse(ferox_scan.url().trim_end_matches('/'))
                     .with_context(|| format!("Could not parse {} as a url", ferox_scan))?;
 
@@ -395,7 +388,7 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
 mod tests {
     use super::*;
     use crate::config::Configuration;
-    use crate::scan_manager::FeroxScans;
+    use crate::scan_manager::{FeroxScans, ScanOrder};
 
     #[test]
     /// set_open_file_limit with a low requested limit succeeds

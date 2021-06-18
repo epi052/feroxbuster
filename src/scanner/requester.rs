@@ -27,6 +27,7 @@ use crate::{
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
+use crate::utils::should_deny_url;
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
@@ -311,6 +312,11 @@ impl Requester {
                     log::warn!("Could not rate limit scan: {}", e);
                     self.handles.stats.send(AddError(Other)).unwrap_or_default();
                 }
+            }
+
+            if should_deny_url(&url, self.handles.clone())? {
+                // can't allow a denied url to be requested
+                continue;
             }
 
             let response = logged_request(&url, self.handles.clone()).await?;

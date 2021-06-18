@@ -15,6 +15,7 @@ use crate::{
 
 use super::command::Command::AddToUsizeField;
 use super::*;
+use reqwest::Url;
 use tokio::time::Duration;
 
 #[derive(Debug)]
@@ -204,6 +205,13 @@ impl ScanHandler {
                 self.data.add_directory_scan(&target, order).1 // add the new target; return FeroxScan
             };
 
+            if should_deny_url(&Url::parse(&target)?, self.handles.clone())? {
+                // response was caught by a user-provided deny list
+                // checking this last, since it's most susceptible to longer runtimes due to what
+                // input is received
+                continue;
+            }
+
             let list = self.get_wordlist()?;
 
             log::info!("scan handler received {} - beginning scan", target);
@@ -259,13 +267,6 @@ impl ScanHandler {
 
         if response.reached_max_depth(base_depth, self.max_depth, self.handles.clone()) {
             // at or past recursion depth
-            return Ok(());
-        }
-
-        if should_deny_url(response.url(), self.handles.clone())? {
-            // response was caught by a user-provided deny list
-            // checking this last, since it's most susceptible to longer runtimes due to what
-            // input is received
             return Ok(());
         }
 
