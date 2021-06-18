@@ -189,6 +189,7 @@ impl ScanHandler {
     /// wrapper around scanning a url to stay DRY
     async fn ordered_scan_url(&mut self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
         log::trace!("enter: ordered_scan_url({:?}, {:?})", targets, order);
+        let should_test_deny = !self.handles.config.url_denylist.is_empty();
 
         for target in targets {
             if self.data.contains(&target) && matches!(order, ScanOrder::Latest) {
@@ -205,7 +206,7 @@ impl ScanHandler {
                 self.data.add_directory_scan(&target, order).1 // add the new target; return FeroxScan
             };
 
-            if should_deny_url(&Url::parse(&target)?, self.handles.clone())? {
+            if should_test_deny && should_deny_url(&Url::parse(&target)?, self.handles.clone())? {
                 // response was caught by a user-provided deny list
                 // checking this last, since it's most susceptible to longer runtimes due to what
                 // input is received

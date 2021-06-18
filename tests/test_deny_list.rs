@@ -7,7 +7,7 @@ use predicates::prelude::*;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
-///
+/// test that the deny list prevents a request if the requested url is a match
 fn deny_list_works_during_with_a_normal_scan() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
@@ -37,7 +37,7 @@ fn deny_list_works_during_with_a_normal_scan() {
 }
 
 #[test]
-///
+/// test that the deny list prevents requests of urls found during extraction
 fn deny_list_works_during_extraction() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
@@ -77,7 +77,7 @@ fn deny_list_works_during_extraction() {
 }
 
 #[test]
-///
+/// test that the deny list prevents requests of urls found during recursion
 fn deny_list_works_during_recursion() {
     let srv = MockServer::start();
     let urls = [
@@ -140,7 +140,8 @@ fn deny_list_works_during_recursion() {
 }
 
 #[test]
-///
+/// test that the deny list prevents requests of urls found during recursion when the denier is a
+/// parent of a user-specified scan
 fn deny_list_works_during_recursion_with_inverted_parents() {
     let srv = MockServer::start();
     let urls = [

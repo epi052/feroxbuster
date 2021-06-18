@@ -303,7 +303,9 @@ impl<'a> Extractor<'a> {
             bail!("previously seen url");
         }
 
-        if should_deny_url(&new_url, self.handles.clone())? {
+        if !self.handles.config.url_denylist.is_empty()
+            && should_deny_url(&new_url, self.handles.clone())?
+        {
             // can't allow a denied url to be requested
             bail!(
                 "prevented request to {} due to {:?}",

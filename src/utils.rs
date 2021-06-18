@@ -287,7 +287,8 @@ where
     Ok(())
 }
 
-/// todo
+/// determines whether or not a given url should be denied based on the user-supplied --dont-scan
+/// flag 
 pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     log::trace!(
         "enter: should_deny_url({}, {:?}, {:?})",
