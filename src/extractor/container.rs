@@ -1,4 +1,5 @@
 use super::*;
+use crate::utils::should_deny_url;
 use crate::{
     client,
     event_handlers::{
@@ -53,13 +54,19 @@ pub struct Extractor<'a> {
 
 /// Extractor implementation
 impl<'a> Extractor<'a> {
-    /// business logic that handles getting links from a normal http body response
-    pub async fn extract(&self) -> Result<()> {
-        let links = match self.target {
-            ExtractionTarget::ResponseBody => self.extract_from_body().await?,
-            ExtractionTarget::RobotsTxt => self.extract_from_robots().await?,
-        };
+    /// perform extraction from the given target and return any links found
+    pub async fn extract(&self) -> Result<HashSet<String>> {
+        log::trace!("enter: extract (this fn has associated trace exit msg)");
+        match self.target {
+            ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
+            ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
+        }
+    }
 
+    /// given a set of links from a normal http body response, task the request handler to make
+    /// the requests
+    pub async fn request_links(&self, links: HashSet<String>) -> Result<()> {
+        log::trace!("enter: request_links({:?})", links);
         let recursive = if self.handles.config.no_recursion {
             RecursionStatus::NotRecursive
         } else {
@@ -121,6 +128,7 @@ impl<'a> Extractor<'a> {
                 rx.await?;
             }
         }
+        log::trace!("exit: request_links");
         Ok(())
     }
 
@@ -302,6 +310,17 @@ impl<'a> Extractor<'a> {
             bail!("previously seen url");
         }
 
+        if !self.handles.config.url_denylist.is_empty()
+            && should_deny_url(&new_url, self.handles.clone())?
+        {
+            // can't allow a denied url to be requested
+            bail!(
+                "prevented request to {} due to {:?}",
+                url,
+                self.handles.config.url_denylist
+            );
+        }
+
         // make the request and store the response
         let new_response = logged_request(&new_url, self.handles.clone()).await?;
 
@@ -391,7 +410,7 @@ impl<'a> Extractor<'a> {
             FeroxResponse::from(response, true, self.handles.config.output_level).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
-        return Ok(ferox_response);
+        Ok(ferox_response)
     }
 
     /// update total number of links extracted and expected responses

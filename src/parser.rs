@@ -219,6 +219,17 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("url_denylist")
+                .long("dont-scan")
+                .value_name("URL")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "URL(s) to exclude from recursion/scans",
+                ),
+        )
+        .arg(
             Arg::with_name("headers")
                 .short("H")
                 .long("headers")

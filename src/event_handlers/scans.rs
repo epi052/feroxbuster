@@ -3,17 +3,19 @@ use std::sync::Arc;
 use anyhow::{bail, Result};
 use tokio::sync::{mpsc, Semaphore};
 
-use crate::response::FeroxResponse;
-use crate::url::FeroxUrl;
 use crate::{
+    response::FeroxResponse,
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::FeroxScanner,
     statistics::StatField::TotalScans,
+    url::FeroxUrl,
+    utils::should_deny_url,
     CommandReceiver, CommandSender, FeroxChannel, Joiner, SLEEP_DURATION,
 };
 
 use super::command::Command::AddToUsizeField;
 use super::*;
+use reqwest::Url;
 use tokio::time::Duration;
 
 #[derive(Debug)]
@@ -187,6 +189,7 @@ impl ScanHandler {
     /// wrapper around scanning a url to stay DRY
     async fn ordered_scan_url(&mut self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
         log::trace!("enter: ordered_scan_url({:?}, {:?})", targets, order);
+        let should_test_deny = !self.handles.config.url_denylist.is_empty();
 
         for target in targets {
             if self.data.contains(&target) && matches!(order, ScanOrder::Latest) {
@@ -202,6 +205,13 @@ impl ScanHandler {
             } else {
                 self.data.add_directory_scan(&target, order).1 // add the new target; return FeroxScan
             };
+
+            if should_test_deny && should_deny_url(&Url::parse(&target)?, self.handles.clone())? {
+                // response was caught by a user-provided deny list
+                // checking this last, since it's most susceptible to longer runtimes due to what
+                // input is received
+                continue;
+            }
 
             let list = self.get_wordlist()?;
 
@@ -243,6 +253,11 @@ impl ScanHandler {
     async fn try_recursion(&mut self, response: Box<FeroxResponse>) -> Result<()> {
         log::trace!("enter: try_recursion({:?})", response,);
 
+        if !response.is_directory() {
+            // not a directory, quick exit
+            return Ok(());
+        }
+
         let mut base_depth = 1_usize;
 
         for (base_url, base_url_depth) in &self.depths {
@@ -253,11 +268,6 @@ impl ScanHandler {
 
         if response.reached_max_depth(base_depth, self.max_depth, self.handles.clone()) {
             // at or past recursion depth
-            return Ok(());
-        }
-
-        if !response.is_directory() {
-            // not a directory
             return Ok(());
         }
 

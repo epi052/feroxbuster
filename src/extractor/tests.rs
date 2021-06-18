@@ -67,8 +67,8 @@ fn extractor_get_sub_paths_from_path_with_multiple_paths() {
     assert_eq!(r_paths.len(), expected.len());
     assert_eq!(b_paths.len(), expected.len());
     for expected_path in expected {
-        assert_eq!(r_paths.contains(&expected_path.to_string()), true);
-        assert_eq!(b_paths.contains(&expected_path.to_string()), true);
+        assert!(r_paths.contains(&expected_path.to_string()));
+        assert!(b_paths.contains(&expected_path.to_string()));
     }
 }
 
@@ -85,8 +85,8 @@ fn extractor_get_sub_paths_from_path_with_enclosing_slashes() {
     assert_eq!(r_paths.len(), expected.len());
     assert_eq!(b_paths.len(), expected.len());
     for expected_path in expected {
-        assert_eq!(r_paths.contains(&expected_path.to_string()), true);
-        assert_eq!(b_paths.contains(&expected_path.to_string()), true);
+        assert!(r_paths.contains(&expected_path.to_string()));
+        assert!(b_paths.contains(&expected_path.to_string()));
     }
 }
 
@@ -102,8 +102,8 @@ fn extractor_get_sub_paths_from_path_with_only_a_word() {
     assert_eq!(r_paths.len(), expected.len());
     assert_eq!(b_paths.len(), expected.len());
     for expected_path in expected {
-        assert_eq!(r_paths.contains(&expected_path.to_string()), true);
-        assert_eq!(b_paths.contains(&expected_path.to_string()), true);
+        assert!(r_paths.contains(&expected_path.to_string()));
+        assert!(b_paths.contains(&expected_path.to_string()));
     }
 }
 
@@ -118,8 +118,8 @@ fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
     assert_eq!(r_paths.len(), expected.len());
     assert_eq!(b_paths.len(), expected.len());
     for expected_path in expected {
-        assert_eq!(r_paths.contains(&expected_path.to_string()), true);
-        assert_eq!(b_paths.contains(&expected_path.to_string()), true);
+        assert!(r_paths.contains(&expected_path.to_string()));
+        assert!(b_paths.contains(&expected_path.to_string()));
     }
 }
 

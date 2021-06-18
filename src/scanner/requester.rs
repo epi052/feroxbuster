@@ -27,6 +27,8 @@ use crate::{
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
+use crate::utils::should_deny_url;
+use std::collections::HashSet;
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
@@ -45,11 +47,16 @@ pub(super) struct Requester {
     /// FeroxScan associated with the creation of this Requester
     ferox_scan: Arc<FeroxScan>,
 
+    /// cache of previously seen links gotten via link extraction. since the requester is passed
+    /// around as an arc, and seen_links needs to be mutable, putting it behind a lock for
+    /// interior mutability, similar to the tuning_lock below
+    seen_links: RwLock<HashSet<String>>,
+
     /// simple lock to control access to tuning to a single thread (per-scan)
     ///
     /// need a usize to determine the number of consecutive non-error calls that a requester has
     /// seen; this will satisfy the non-mut self constraint (due to us being behind an Arc, and
-    /// the need for a counter
+    /// the need for a counter)
     tuning_lock: Mutex<usize>,
 }
 
@@ -73,6 +80,7 @@ impl Requester {
         Ok(Self {
             ferox_scan,
             policy_data,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             rate_limiter: RwLock::new(rate_limiter),
             handles: scanner.handles.clone(),
             target_url: scanner.target_url.to_owned(),
@@ -298,6 +306,8 @@ impl Requester {
         let urls =
             FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
 
+        let should_test_deny = !self.handles.config.url_denylist.is_empty();
+
         for url in urls {
             // auto_tune is true, or rate_limit was set (mutually exclusive to user)
             // and a rate_limiter has been created
@@ -311,6 +321,11 @@ impl Requester {
                     log::warn!("Could not rate limit scan: {}", e);
                     self.handles.stats.send(AddError(Other)).unwrap_or_default();
                 }
+            }
+
+            if should_test_deny && should_deny_url(&url, self.handles.clone())? {
+                // can't allow a denied url to be requested
+                continue;
             }
 
             let response = logged_request(&url, self.handles.clone()).await?;
@@ -367,7 +382,26 @@ impl Requester {
                     .handles(self.handles.clone())
                     .build()?;
 
-                extractor.extract().await?;
+                let new_links: HashSet<_>;
+                let extracted = extractor.extract().await?;
+
+                {
+                    // gain and quickly drop the read lock on seen_links, using it while unlocked
+                    // to determine if there are any new links to process
+                    let read_links = self.seen_links.read().await;
+                    new_links = extracted.difference(&read_links).cloned().collect();
+                }
+
+                if !new_links.is_empty() {
+                    // using is_empty instead of direct iteration to acquire the write lock behind
+                    // some kind of less expensive gate (and not in a loop, obv)
+                    let mut write_links = self.seen_links.write().await;
+                    for new_link in &new_links {
+                        write_links.insert(new_link.to_owned());
+                    }
+                }
+
+                extractor.request_links(new_links).await?;
             }
 
             // everything else should be reported
@@ -536,6 +570,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -563,6 +598,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
@@ -587,6 +623,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
@@ -626,6 +663,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
@@ -680,6 +718,7 @@ mod tests {
         let req_clone = scan_two.clone();
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: req_clone,
             target_url: "http://one/one/stuff.php".to_string(),
@@ -713,6 +752,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://one/one/stuff.php".to_string(),
@@ -734,6 +774,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -756,6 +797,7 @@ mod tests {
 
         let requester = Arc::new(Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -772,7 +814,7 @@ mod tests {
 
         requester.cool_down().await;
 
-        assert_eq!(resp.await.unwrap(), true);
+        assert!(resp.await.unwrap());
         println!("{}", start.elapsed().as_millis());
         assert!(start.elapsed().as_millis() >= 3500);
     }
@@ -785,6 +827,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -822,6 +865,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(scan),
             target_url: "http://localhost".to_string(),
@@ -857,6 +901,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(scan),
             target_url: "http://localhost".to_string(),
@@ -884,6 +929,7 @@ mod tests {
 
         let mut requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -891,28 +937,16 @@ mod tests {
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
 
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Errors),
-            false
-        );
+        assert!(!requester.too_many_status_errors(PolicyTrigger::Errors));
 
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status429),
-            false
-        );
+        assert!(!requester.too_many_status_errors(PolicyTrigger::Status429));
         requester.ferox_scan.progress_bar().set_position(10);
         requester.ferox_scan.add_429();
         requester.ferox_scan.add_429();
         requester.ferox_scan.add_429();
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status429),
-            true
-        );
+        assert!(requester.too_many_status_errors(PolicyTrigger::Status429));
 
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status403),
-            false
-        );
+        assert!(!requester.too_many_status_errors(PolicyTrigger::Status403));
         requester.ferox_scan = Arc::new(FeroxScan::default());
         requester.ferox_scan.progress_bar().set_position(10);
         requester.ferox_scan.add_403();
@@ -924,10 +958,7 @@ mod tests {
         requester.ferox_scan.add_403();
         requester.ferox_scan.add_403();
         requester.ferox_scan.add_403();
-        assert_eq!(
-            requester.too_many_status_errors(PolicyTrigger::Status403),
-            true
-        );
+        assert!(requester.too_many_status_errors(PolicyTrigger::Status403));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -941,6 +972,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
@@ -983,6 +1015,7 @@ mod tests {
 
         let requester = Requester {
             handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: scan.clone(),
             target_url: "http://localhost".to_string(),

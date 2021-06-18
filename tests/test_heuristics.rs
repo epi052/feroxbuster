@@ -224,11 +224,11 @@ fn test_dynamic_wildcard_request_found() {
 
     teardown_tmp_directory(tmp_dir);
 
-    assert_eq!(contents.contains("WLD"), true);
-    assert_eq!(contents.contains("Got"), true);
-    assert_eq!(contents.contains("200"), true);
-    assert_eq!(contents.contains("(url length: 32)"), true);
-    assert_eq!(contents.contains("(url length: 96)"), true);
+    assert!(contents.contains("WLD"));
+    assert!(contents.contains("Got"));
+    assert!(contents.contains("200"));
+    assert!(contents.contains("(url length: 32)"));
+    assert!(contents.contains("(url length: 96)"));
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
@@ -391,11 +391,11 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
 
     teardown_tmp_directory(tmp_dir);
 
-    assert_eq!(contents.contains("WLD"), true);
-    assert_eq!(contents.contains("Got"), true);
-    assert_eq!(contents.contains("200"), true);
-    assert_eq!(contents.contains("(url length: 32)"), true);
-    assert_eq!(contents.contains("(url length: 96)"), true);
+    assert!(contents.contains("WLD"));
+    assert!(contents.contains("Got"));
+    assert!(contents.contains("200"));
+    assert!(contents.contains("(url length: 32)"));
+    assert!(contents.contains("(url length: 96)"));
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
@@ -451,12 +451,12 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
 
     teardown_tmp_directory(tmp_dir);
 
-    assert_eq!(contents.contains("WLD"), true);
-    assert_eq!(contents.contains("301"), true);
-    assert_eq!(contents.contains("/some-redirect"), true);
-    assert_eq!(contents.contains("redirects to => "), true);
-    assert_eq!(contents.contains(&srv.url("/")), true);
-    assert_eq!(contents.contains("(url length: 32)"), true);
+    assert!(contents.contains("WLD"));
+    assert!(contents.contains("301"));
+    assert!(contents.contains("/some-redirect"));
+    assert!(contents.contains("redirects to => "));
+    assert!(contents.contains(&srv.url("/")));
+    assert!(contents.contains("(url length: 32)"));
 
     cmd.assert().success().stdout(
         predicate::str::contains("redirects to => ")
