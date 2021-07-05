@@ -432,7 +432,7 @@ EXAMPLES:
         if arg == "--help" || arg == "-h" {
             app.print_long_help().unwrap();
             println!(); // just a newline to mirror original --help output
-            process::exit(1);
+            process::exit(0);
         }
     }
 

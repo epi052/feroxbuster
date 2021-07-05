@@ -19,7 +19,7 @@ fn parser_incorrect_param_with_tack_tack_help() {
         .arg("-fc")
         .arg("--help")
         .assert()
-        .failure()
+        .success()
         .stdout(predicate::str::contains("Ludicrous speed... go!"));
 }
 
@@ -41,6 +41,6 @@ fn parser_incorrect_param_with_tack_h() {
         .arg("-fc")
         .arg("-h")
         .assert()
-        .failure()
+        .success()
         .stdout(predicate::str::contains("Ludicrous speed... go!"));
 }
