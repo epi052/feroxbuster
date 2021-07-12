@@ -1001,7 +1001,7 @@ Example Command:
 cat large-target-list | ./feroxbuster --stdin --parallel 10 --extract-links --auto-bail
 ```
 
-Resuling Process List (illustrative):
+Resulting Process List (illustrative):
 ```
 feroxbuster --stdin --parallel 10
  \_ feroxbuster --silent --extract-links --auto-bail -u https://target-one
