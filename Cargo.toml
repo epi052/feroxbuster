@@ -40,7 +40,7 @@ openssl = { version = "0.10", features = ["vendored"] }
 dirs = "3.0"
 regex = "1"
 crossterm = "0.20"
-rlimit = "0.5.4"
+rlimit = "0.6.2"
 ctrlc = "3.1.9"
 fuzzyhash = "0.2.1"
 anyhow = "1.0"
