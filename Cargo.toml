@@ -22,7 +22,7 @@ lazy_static = "1.4"
 dirs = "3.0"
 
 [dependencies]
-futures = { version = "0.3.14"}
+futures = { version = "0.3.16"}
 tokio = { version = "1.6", features = ["full"] }
 tokio-util = {version = "0.6.6", features = ["codec"]}
 log = "0.4"
