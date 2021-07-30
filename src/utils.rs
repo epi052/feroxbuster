@@ -298,7 +298,7 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     );
     // normalization for comparison is to remove the trailing / if one exists, this is done for
     // the given url and any url to which it's compared
-    let normed_url = Url::parse(&url.to_string().trim_end_matches('/'))?;
+    let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
 
     for deny_url in &handles.config.url_denylist {
         // parse the denying url for easier comparison
@@ -476,7 +476,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -495,7 +495,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -514,7 +514,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -535,7 +535,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -556,7 +556,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -575,7 +575,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/api/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -594,7 +594,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/not-denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -613,7 +613,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/stuff/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];
@@ -632,7 +632,7 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/api/not-denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(&scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![String::from(deny_url)];

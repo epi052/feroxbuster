@@ -149,7 +149,7 @@ impl<'a> Extractor<'a> {
 
         let body = self.response.unwrap().text();
 
-        for capture in self.links_regex.captures_iter(&body) {
+        for capture in self.links_regex.captures_iter(body) {
             // remove single & double quotes from both ends of the capture
             // capture[0] is the entire match, additional capture groups start at [1]
             let link = capture[0].trim_matches(|c| c == '\'' || c == '"');
@@ -275,7 +275,7 @@ impl<'a> Extractor<'a> {
         };
 
         let new_url = old_url
-            .join(&link)
+            .join(link)
             .with_context(|| format!("Could not join {} with {}", old_url, link))?;
 
         links.insert(new_url.to_string());
@@ -297,10 +297,10 @@ impl<'a> Extractor<'a> {
     pub(super) async fn request_link(&self, url: &str) -> Result<FeroxResponse> {
         log::trace!("enter: request_link({})", url);
 
-        let ferox_url = FeroxUrl::from_string(&url, self.handles.clone());
+        let ferox_url = FeroxUrl::from_string(url, self.handles.clone());
 
         // create a url based on the given command line options
-        let new_url = ferox_url.format(&"", None)?;
+        let new_url = ferox_url.format("", None)?;
 
         let scanned_urls = self.handles.ferox_scans()?;
 
@@ -351,7 +351,7 @@ impl<'a> Extractor<'a> {
             if let Some(new_path) = capture.name("url_path") {
                 let mut new_url = Url::parse(&self.url)?;
                 new_url.set_path(new_path.as_str());
-                if self.add_all_sub_paths(&new_url.path(), &mut links).is_err() {
+                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
                     log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
                 }
             }

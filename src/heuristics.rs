@@ -207,7 +207,7 @@ impl HeuristicTests {
         let mut good_urls = vec![];
 
         for target_url in target_urls {
-            let url = FeroxUrl::from_string(&target_url, self.handles.clone());
+            let url = FeroxUrl::from_string(target_url, self.handles.clone());
             let request = skip_fail!(url.format("", None));
 
             let result = logged_request(&request, self.handles.clone()).await;

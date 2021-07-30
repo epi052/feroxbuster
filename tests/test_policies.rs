@@ -77,7 +77,7 @@ fn auto_bail_cancels_scan_with_timeouts() {
 
     // read debug log to get the number of errors enforced
     for line in debug_log.lines() {
-        let log: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+        let log: serde_json::Value = serde_json::from_str(line).unwrap_or_default();
         if let Some(message) = log.get("message") {
             let str_msg = message.as_str().unwrap_or_default().to_string();
 
@@ -156,7 +156,7 @@ fn auto_bail_cancels_scan_with_403s() {
 
     // read debug log to get the number of errors enforced
     for line in debug_log.lines() {
-        let log: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+        let log: serde_json::Value = serde_json::from_str(line).unwrap_or_default();
         if let Some(message) = log.get("message") {
             let str_msg = message.as_str().unwrap_or_default().to_string();
 
@@ -238,7 +238,7 @@ fn auto_bail_cancels_scan_with_429s() {
 
     // read debug log to get the number of errors enforced
     for line in debug_log.lines() {
-        let log: serde_json::Value = serde_json::from_str(&line).unwrap_or_default();
+        let log: serde_json::Value = serde_json::from_str(line).unwrap_or_default();
         if let Some(message) = log.get("message") {
             let str_msg = message.as_str().unwrap_or_default().to_string();
 

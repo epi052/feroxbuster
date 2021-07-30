@@ -56,7 +56,7 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
     // add any regex filters to filters handler's FeroxFilters  (-X|--filter-regex)
     for regex_filter in &handles.config.filter_regex {
         let raw = regex_filter;
-        let compiled = skip_fail!(Regex::new(&raw));
+        let compiled = skip_fail!(Regex::new(raw));
 
         let filter = RegexFilter {
             raw_string: raw.to_owned(),
@@ -69,7 +69,7 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
     // add any similarity filters to filters handler's FeroxFilters  (--filter-similar-to)
     for similarity_filter in &handles.config.filter_similar {
         // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        let url = skip_fail!(Url::parse(&similarity_filter));
+        let url = skip_fail!(Url::parse(similarity_filter));
 
         // attempt to request the given url
         let resp = skip_fail!(logged_request(&url, handles.clone()).await);

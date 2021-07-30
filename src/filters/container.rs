@@ -41,7 +41,7 @@ impl FeroxFilters {
         if let Ok(filters) = self.filters.lock() {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
-                if filter.should_filter_response(&response) {
+                if filter.should_filter_response(response) {
                     if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
                         tx_stats
                             .send(AddToUsizeField(WildcardsFiltered, 1))

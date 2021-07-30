@@ -54,8 +54,8 @@ fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> E
 /// in the expected array
 fn extractor_get_sub_paths_from_path_with_multiple_paths() {
     let path = "homepage/assets/img/icons/handshake.svg";
-    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(&path);
-    let b_paths = BODY_EXT.get_sub_paths_from_path(&path);
+    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(path);
+    let b_paths = BODY_EXT.get_sub_paths_from_path(path);
     let expected = vec![
         "homepage/",
         "homepage/assets/",
@@ -78,8 +78,8 @@ fn extractor_get_sub_paths_from_path_with_multiple_paths() {
 /// returned
 fn extractor_get_sub_paths_from_path_with_enclosing_slashes() {
     let path = "/homepage/assets/";
-    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(&path);
-    let b_paths = BODY_EXT.get_sub_paths_from_path(&path);
+    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(path);
+    let b_paths = BODY_EXT.get_sub_paths_from_path(path);
     let expected = vec!["homepage/", "homepage/assets"];
 
     assert_eq!(r_paths.len(), expected.len());
@@ -95,8 +95,8 @@ fn extractor_get_sub_paths_from_path_with_enclosing_slashes() {
 /// included
 fn extractor_get_sub_paths_from_path_with_only_a_word() {
     let path = "homepage";
-    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(&path);
-    let b_paths = BODY_EXT.get_sub_paths_from_path(&path);
+    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(path);
+    let b_paths = BODY_EXT.get_sub_paths_from_path(path);
     let expected = vec!["homepage"];
 
     assert_eq!(r_paths.len(), expected.len());
@@ -111,8 +111,8 @@ fn extractor_get_sub_paths_from_path_with_only_a_word() {
 /// extract sub paths from the given url fragment; expect 1 sub path, forward slash removed
 fn extractor_get_sub_paths_from_path_with_an_absolute_word() {
     let path = "/homepage";
-    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(&path);
-    let b_paths = BODY_EXT.get_sub_paths_from_path(&path);
+    let r_paths = ROBOTS_EXT.get_sub_paths_from_path(path);
+    let b_paths = BODY_EXT.get_sub_paths_from_path(path);
     let expected = vec!["homepage"];
 
     assert_eq!(r_paths.len(), expected.len());

@@ -51,7 +51,7 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
 
     progress_bar.set_style(style);
 
-    progress_bar.set_prefix(&prefix);
+    progress_bar.set_prefix(prefix);
 
     progress_bar
 }

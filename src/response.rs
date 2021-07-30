@@ -121,7 +121,7 @@ impl FeroxResponse {
 
     /// Set `FeroxResponse`'s `url` attribute, has no affect if an error occurs
     pub fn set_url(&mut self, url: &str) {
-        match Url::parse(&url) {
+        match Url::parse(url) {
             Ok(url) => {
                 self.url = url;
             }
@@ -339,7 +339,7 @@ impl FeroxSerialize for FeroxResponse {
                 lines,
                 words,
                 chars,
-                status_colorizer(&status),
+                status_colorizer(status),
                 self.url(),
                 FeroxUrl::path_length_of_url(&self.url)
             );

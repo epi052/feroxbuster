@@ -66,7 +66,7 @@ impl FeroxUrl {
     pub fn format(&self, word: &str, extension: Option<&str>) -> Result<Url> {
         log::trace!("enter: format({}, {:?})", word, extension);
 
-        if Url::parse(&word).is_ok() {
+        if Url::parse(word).is_ok() {
             // when a full url is passed in as a word to be joined to a base url using
             // reqwest::Url::join, the result is that the word (url) completely overwrites the base
             // url, potentially resulting in requests to places that aren't actually the target

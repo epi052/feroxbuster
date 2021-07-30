@@ -76,7 +76,7 @@ impl FeroxFilter for WildcardFilter {
             // except that I don't want an empty string taking up the last index in the
             // event that the url ends with a forward slash.  It's ugly enough to be split
             // into its own function for readability.
-            let url_len = FeroxUrl::path_length_of_url(&response.url());
+            let url_len = FeroxUrl::path_length_of_url(response.url());
 
             if url_len + self.dynamic == response.content_length() {
                 log::debug!("dynamic wildcard: filtered out {}", response.url());

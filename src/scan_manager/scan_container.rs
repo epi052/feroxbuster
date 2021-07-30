@@ -431,7 +431,7 @@ impl FeroxScans {
                     OutputLevel::Silent => BarType::Hidden,
                 };
 
-                let progress_bar = add_bar(&url, bar_length, bar_type);
+                let progress_bar = add_bar(url, bar_length, bar_type);
 
                 progress_bar.reset_elapsed();
 
@@ -441,7 +441,7 @@ impl FeroxScans {
         };
 
         let ferox_scan = FeroxScan::new(
-            &url,
+            url,
             scan_type,
             scan_order,
             bar_length,
@@ -462,7 +462,7 @@ impl FeroxScans {
     ///
     /// Also return a reference to the new `FeroxScan`
     pub fn add_directory_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
-        self.add_scan(&url, ScanType::Directory, scan_order)
+        self.add_scan(url, ScanType::Directory, scan_order)
     }
 
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
@@ -471,7 +471,7 @@ impl FeroxScans {
     ///
     /// Also return a reference to the new `FeroxScan`
     pub fn add_file_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
-        self.add_scan(&url, ScanType::File, scan_order)
+        self.add_scan(url, ScanType::File, scan_order)
     }
 
     /// small helper to determine whether any scans are active or not
