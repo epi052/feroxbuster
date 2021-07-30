@@ -22,17 +22,17 @@ lazy_static = "1.4"
 dirs = "3.0"
 
 [dependencies]
-futures = { version = "0.3.14"}
-tokio = { version = "1.6", features = ["full"] }
+futures = { version = "0.3"}
+tokio = { version = "1.9", features = ["full"] }
 tokio-util = {version = "0.6.6", features = ["codec"]}
 log = "0.4"
-env_logger = "0.8"
+env_logger = "0.9"
 reqwest = { version = "0.11", features = ["socks"] }
 clap = "2.33"
 lazy_static = "1.4"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0.64"
+serde_json = "1.0"
 uuid = { version = "0.8", features = ["v4"] }
 indicatif = "0.15"
 console = "0.14"
@@ -50,7 +50,7 @@ leaky-bucket = "0.10.0"
 tempfile = "3.1"
 httpmock = "0.5.8"
 assert_cmd = "1.0"
-predicates = "1.0.8"
+predicates = "2.0"
 
 [profile.release]
 lto = true
