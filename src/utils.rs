@@ -3,7 +3,7 @@ use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use reqwest::{Client, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
-use rlimit::{getrlimit, setrlimit, Resource, Rlim};
+use rlimit::{getrlimit, setrlimit, Resource};
 use std::{
     fs,
     io::{self, BufWriter, Write},
@@ -217,16 +217,15 @@ pub fn create_report_string(
 /// as the adjustment made here is only valid for the scan itself (and any child processes, of which
 /// there are none).
 #[cfg(not(target_os = "windows"))]
-pub fn set_open_file_limit(limit: usize) -> bool {
+pub fn set_open_file_limit(limit: u64) -> bool {
     log::trace!("enter: set_open_file_limit");
 
     if let Ok((soft, hard)) = getrlimit(Resource::NOFILE) {
-        if hard.as_usize() > limit {
+        if hard > limit {
             // our default open file limit is less than the current hard limit, this means we can
             // set the soft limit to our default
-            let new_soft_limit = Rlim::from_usize(limit);
 
-            if setrlimit(Resource::NOFILE, new_soft_limit, hard).is_ok() {
+            if setrlimit(Resource::NOFILE, limit, hard).is_ok() {
                 log::debug!("set open file descriptor limit to {}", limit);
 
                 log::trace!("exit: set_open_file_limit -> {}", true);
@@ -395,7 +394,7 @@ mod tests {
     /// set_open_file_limit with a low requested limit succeeds
     fn utils_set_open_file_limit_with_low_requested_limit() {
         let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        let lower_limit = hard.as_usize() - 1;
+        let lower_limit = hard - 1;
         assert!(set_open_file_limit(lower_limit));
     }
 
@@ -403,9 +402,9 @@ mod tests {
     /// set_open_file_limit with a high requested limit succeeds
     fn utils_set_open_file_limit_with_high_requested_limit() {
         let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        let higher_limit = hard.as_usize() + 1;
+        let higher_limit = hard + 1;
         // calculate a new soft to ensure soft != hard and hit that logic branch
-        let new_soft = Rlim::from_usize(hard.as_usize() - 1);
+        let new_soft = hard - 1;
         setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
         assert!(set_open_file_limit(higher_limit));
     }
@@ -416,7 +415,7 @@ mod tests {
         let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
         // calculate a new soft to ensure soft == hard and hit the failure logic branch
         setrlimit(Resource::NOFILE, hard, hard).unwrap();
-        assert!(!set_open_file_limit(hard.as_usize())); // returns false
+        assert!(!set_open_file_limit(hard)); // returns false
     }
 
     #[test]

@@ -43,7 +43,7 @@ pub(crate) type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
 pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Maximum number of file descriptors that can be opened during a scan
-pub const DEFAULT_OPEN_FILE_LIMIT: usize = 8192;
+pub const DEFAULT_OPEN_FILE_LIMIT: u64 = 8192;
 
 /// Default value used to determine near-duplicate web pages (equivalent to 95%)
 pub const SIMILARITY_THRESHOLD: u32 = 95;
