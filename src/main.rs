@@ -1,8 +1,9 @@
 use std::{
     env::args,
-    fs::File,
+    fs::{create_dir, remove_file, File},
     io::{stderr, BufRead, BufReader},
     ops::Index,
+    path::Path,
     process::Command,
     sync::{atomic::Ordering, Arc},
 };
@@ -27,10 +28,10 @@ use feroxbuster::{
     progress::{PROGRESS_BAR, PROGRESS_PRINTER},
     scan_manager::{self},
     scanner,
-    utils::fmt_err,
+    utils::{fmt_err, set_open_file_limit, slugify_filename},
+    DEFAULT_OPEN_FILE_LIMIT,
 };
 #[cfg(not(target_os = "windows"))]
-use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use lazy_static::lazy_static;
 use regex::Regex;
 
@@ -267,10 +268,49 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         // from removing --parallel)
         original.remove(parallel_index);
 
+        // to log unique files to a shared folder, we need to first check for the presence
+        // of -o|--output.
+        let out_dir = if !config.output.is_empty() {
+            // -o|--output was used, so we'll attempt to create a directory to store the files
+
+            let folder = slugify_filename(&handles.config.output, "logs");
+
+            // create the directory or fail silently, assuming the reason for failure is that
+            // the path exists already
+            create_dir(&folder).unwrap_or(());
+
+            folder
+        } else {
+            String::new()
+        };
+
         // unvalidated targets fresh from stdin, just spawn children and let them do all checks
         for target in targets {
             // add the current target to the provided command
             let mut cloned = original.clone();
+
+            if !out_dir.is_empty() {
+                // output directory value is not empty, need to join output directory with
+                // unique scan filename
+
+                // unwrap is ok, we already know -o was used
+                let out_idx = original
+                    .iter()
+                    .position(|s| *s == "--output" || *s == "-o")
+                    .unwrap();
+
+                let filename = slugify_filename(&target, "log");
+
+                let full_path = Path::new(&out_dir)
+                    .join(filename)
+                    .to_string_lossy()
+                    .to_string();
+
+                // a +1 to the index is fine here, as clap has already validated that
+                // -o|--output has a value associated with it
+                cloned[out_idx + 1] = full_path;
+            }
+
             cloned.push("-u".to_string());
             cloned.push(target);
 
@@ -294,7 +334,21 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             });
         }
 
+        // the output handler creates an empty file to which it will try to write, because
+        // this happens before we enter the --parallel branch, we need to remove that file
+        // if it's empty
+        let output = handles.config.output.to_owned();
+
         clean_up(handles, tasks).await?;
+
+        let file = Path::new(&output);
+        if file.exists() {
+            // expectation is that this is always true for the first ferox process
+            if file.metadata()?.len() == 0 {
+                // empty file, attempt to remove it
+                remove_file(file)?;
+            }
+        }
 
         log::trace!("exit: parallel branch && wrapped main");
         return Ok(());
