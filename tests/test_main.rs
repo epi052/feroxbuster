@@ -3,7 +3,7 @@ use assert_cmd::Command;
 use httpmock::Method::GET;
 use httpmock::{MockServer, Regex};
 use predicates::prelude::*;
-use std::fs::read_to_string;
+use std::fs::{read_dir, read_to_string};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -146,6 +146,76 @@ fn main_parallel_spawns_children() -> Result<(), Box<dyn std::error::Error>> {
     assert!(r1.is_match(&contents)); // all 3 were spawned
     assert!(r2.is_match(&contents));
     assert!(r3.is_match(&contents));
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
+    teardown_tmp_directory(output_dir);
+
+    Ok(())
+}
+
+#[test]
+/// send three targets over stdin with --output enabled, expect parallel to create a new directory
+/// and the log files therein
+fn main_parallel_creates_output_directory() -> Result<(), Box<dyn std::error::Error>> {
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+    let t3 = MockServer::start();
+
+    let words = [
+        String::from("LICENSE"),
+        String::from("stuff"),
+        String::from("things"),
+        String::from("mostuff"),
+        String::from("mothings"),
+    ];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (output_dir, outfile) = setup_tmp_directory(&[], "output-file")?;
+    let (tgt_tmp_dir, targets) =
+        setup_tmp_directory(&[t1.url("/"), t2.url("/"), t3.url("/")], "targets")?;
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--stdin")
+        .arg("--parallel")
+        .arg("2")
+        .arg("--output")
+        .arg(outfile.as_os_str())
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .pipe_stdin(targets)
+        .unwrap()
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("Could not connect to any target provided")
+                .and(predicate::str::contains("Target Url"))
+                .not(), // no target url found
+        );
+
+    // output_dir should return something similar to output-file-1627845244.logs with the
+    // line below. if it ever fails, can use the regex below to filter out the right directory
+    let sub_dir = read_dir(&output_dir)?.next().unwrap()?.file_name();
+
+    let mut num_logs = 0;
+    let file_regex = Regex::new("ferox-[a-zA-Z_:0-9]+-[0-9]+.log").unwrap();
+    let dir_regex = Regex::new("output-file-[0-9]+.logs").unwrap();
+
+    let sub_dir = output_dir.as_ref().join(&sub_dir);
+
+    // created directory like output-file-1627845741.logs/
+    assert!(dir_regex.is_match(&sub_dir.to_string_lossy().to_string()));
+
+    for entry in sub_dir.read_dir()? {
+        let entry = entry?;
+        // created each file like ferox-https_localhost-1627845741.log
+        println!("name: {:?}", entry.file_name().to_string_lossy());
+        assert!(file_regex.is_match(&entry.file_name().to_string_lossy()));
+        num_logs += 1;
+    }
+
+    // should be 3 log files total
+    assert_eq!(num_logs, 3);
 
     teardown_tmp_directory(word_tmp_dir);
     teardown_tmp_directory(tgt_tmp_dir);
