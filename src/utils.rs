@@ -390,17 +390,23 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
 /// current unix timestamp and suffix
 ///
 /// ex: ferox-http_telsa_com-1606947491.state
-pub fn slugify_filename(url: &str, suffix: &str) -> String {
-    log::trace!("enter: slugify({:?}, {:?})", url, suffix);
+pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
+    log::trace!("enter: slugify({:?}, {:?}, {:?})", url, prefix, suffix);
 
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_else(|_| Duration::from_secs(0))
         .as_secs();
 
+    let altered_prefix = if !prefix.is_empty() {
+        format!("{}-", prefix)
+    } else {
+        String::new()
+    };
+
     let slug = url.replace("://", "_").replace("/", "_").replace(".", "_");
 
-    let filename = format!("ferox-{}-{}.{}", slug, ts, suffix);
+    let filename = format!("{}{}-{}.{}", altered_prefix, slug, ts, suffix);
 
     log::trace!("exit: slugify -> {}", filename);
     filename

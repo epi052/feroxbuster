@@ -79,10 +79,10 @@ impl TermInputHandler {
 
         let filename = if !handles.config.target_url.is_empty() {
             // target url populated
-            slugify_filename(&handles.config.target_url, "state")
+            slugify_filename(&handles.config.target_url, "ferox", "state")
         } else {
             // stdin used
-            slugify_filename("stdin", "state")
+            slugify_filename("stdin", "ferox", "state")
         };
 
         let warning = format!(

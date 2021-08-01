@@ -273,7 +273,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         let out_dir = if !config.output.is_empty() {
             // -o|--output was used, so we'll attempt to create a directory to store the files
 
-            let folder = slugify_filename(&handles.config.output, "logs");
+            let folder = slugify_filename(&handles.config.output, "", "logs");
 
             // create the directory or fail silently, assuming the reason for failure is that
             // the path exists already
@@ -299,7 +299,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
                     .position(|s| *s == "--output" || *s == "-o")
                     .unwrap();
 
-                let filename = slugify_filename(&target, "log");
+                let filename = slugify_filename(&target, "ferox", "log");
 
                 let full_path = Path::new(&out_dir)
                     .join(filename)
