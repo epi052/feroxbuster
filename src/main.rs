@@ -272,14 +272,17 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         // of -o|--output.
         let out_dir = if !config.output.is_empty() {
             // -o|--output was used, so we'll attempt to create a directory to store the files
+            let base_name = Path::new(&handles.config.output).file_name().unwrap(); // todo remove unwrap
 
-            let folder = slugify_filename(&handles.config.output, "", "logs");
+            let new_folder = slugify_filename(&base_name.to_string_lossy(), "", "logs");
+
+            let final_path = Path::new(&handles.config.output).with_file_name(&new_folder); // todo too many path::new calls
 
             // create the directory or fail silently, assuming the reason for failure is that
             // the path exists already
-            create_dir(&folder).unwrap_or(());
+            create_dir(&final_path).unwrap_or(());
 
-            folder
+            final_path.to_string_lossy().to_string()
         } else {
             String::new()
         };
