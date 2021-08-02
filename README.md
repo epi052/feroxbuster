@@ -1011,7 +1011,7 @@ feroxbuster --stdin --parallel 10
  \_ feroxbuster --silent --extract-links --auto-bail -u https://target-ten
 ```
 
-As of `v2.3.2`, logging while using `--parallel` () uses the value of `-o`|`--output` as a seed to create a directory named `OUTPUT_VALUE-TIMESTAMP.logs/`. Within the directory, an individual log file is created for each target passed over stdin.
+As of `v2.3.2`, logging while using `--parallel` uses the value of `-o`|`--output` as a seed to create a directory named `OUTPUT_VALUE-TIMESTAMP.logs/`. Within the directory, an individual log file is created for each target passed over stdin.
 
 Example Command:
 ```
