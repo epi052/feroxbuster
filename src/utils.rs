@@ -8,6 +8,8 @@ use std::{
     fs,
     io::{self, BufWriter, Write},
     sync::Arc,
+    time::Duration,
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -382,6 +384,32 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     }
     log::trace!("exit: should_deny_url -> false");
     Ok(false)
+}
+
+/// given a url and filename-suffix, return a unique filename comprised of the slugified url,
+/// current unix timestamp and suffix
+///
+/// ex: ferox-http_telsa_com-1606947491.state
+pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
+    log::trace!("enter: slugify({:?}, {:?}, {:?})", url, prefix, suffix);
+
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0))
+        .as_secs();
+
+    let altered_prefix = if !prefix.is_empty() {
+        format!("{}-", prefix)
+    } else {
+        String::new()
+    };
+
+    let slug = url.replace("://", "_").replace("/", "_").replace(".", "_");
+
+    let filename = format!("{}{}-{}.{}", altered_prefix, slug, ts, suffix);
+
+    log::trace!("exit: slugify -> {}", filename);
+    filename
 }
 
 #[cfg(test)]

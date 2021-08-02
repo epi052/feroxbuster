@@ -4,6 +4,7 @@ use crate::{
     scan_manager::{FeroxState, PAUSE_SCAN},
     scanner::RESPONSES,
     statistics::StatError,
+    utils::slugify_filename,
     utils::{open_file, write_to},
     SLEEP_DURATION,
 };
@@ -17,7 +18,6 @@ use std::{
     },
     thread::sleep,
     time::Duration,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 /// Atomic boolean flag, used to determine whether or not the terminal input handler should exit
@@ -77,22 +77,14 @@ impl TermInputHandler {
     pub fn sigint_handler(handles: Arc<Handles>) -> Result<()> {
         log::trace!("enter: sigint_handler({:?})", handles);
 
-        let ts = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-
-        let slug = if !handles.config.target_url.is_empty() {
+        let filename = if !handles.config.target_url.is_empty() {
             // target url populated
-            handles
-                .config
-                .target_url
-                .replace("://", "_")
-                .replace("/", "_")
-                .replace(".", "_")
+            slugify_filename(&handles.config.target_url, "ferox", "state")
         } else {
             // stdin used
-            "stdin".to_string()
+            slugify_filename("stdin", "ferox", "state")
         };
 
-        let filename = format!("ferox-{}-{}.state", slug, ts);
         let warning = format!(
             "🚨 Caught {} 🚨 saving scan state to {} ...",
             style("ctrl+c").yellow(),

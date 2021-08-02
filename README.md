@@ -1011,6 +1011,21 @@ feroxbuster --stdin --parallel 10
  \_ feroxbuster --silent --extract-links --auto-bail -u https://target-ten
 ```
 
+As of `v2.3.2`, logging while using `--parallel` uses the value of `-o`|`--output` as a seed to create a directory named `OUTPUT_VALUE-TIMESTAMP.logs/`. Within the directory, an individual log file is created for each target passed over stdin.
+
+Example Command:
+```
+cat large-target-list | ./feroxbuster --stdin --parallel 10 --output super-cool-mega-scan
+```
+
+Resulting directory structure (illustrative):
+```
+super-cool-mega-scan-1627865696.logs/
+├── ferox-https_target_one_com-1627865696.log
+├── ...
+└── ferox-https_target_two_net-1627865696.log
+```
+
 ### Prevent Specific Domain/Directory Scans aka a Deny List (new in `v2.3.0`)
 
 > This action is taken BEFORE a request is sent to the target, which differs from the filter-* options that are applied to responses

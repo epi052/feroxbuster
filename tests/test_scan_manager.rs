@@ -93,9 +93,13 @@ fn resume_scan_works() {
 #[test]
 /// kick off scan with a time limit;  
 fn time_limit_enforced_when_specified() {
-    let srv = MockServer::start();
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+
     let (tmp_dir, file) =
         setup_tmp_directory(&["css".to_string(), "stuff".to_string()], "wordlist").unwrap();
+    let (tgt_tmp_dir, targets) =
+        setup_tmp_directory(&[t1.url("/"), t2.url("/")], "targets").unwrap();
 
     // ensure the command will run long enough by adding crap to the wordlist
     let more_words = read_to_string(Path::new("tests/extra-words")).unwrap();
@@ -109,12 +113,13 @@ fn time_limit_enforced_when_specified() {
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
-        .arg("--url")
-        .arg(srv.url("/"))
+        .arg("--stdin")
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--time-limit")
         .arg("5s")
+        .pipe_stdin(targets)
+        .unwrap()
         .assert()
         .failure();
 
@@ -127,4 +132,5 @@ fn time_limit_enforced_when_specified() {
     assert!(now.elapsed() > lower_bound && now.elapsed() < upper_bound);
 
     teardown_tmp_directory(tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
 }
