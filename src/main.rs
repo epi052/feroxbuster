@@ -28,10 +28,10 @@ use feroxbuster::{
     progress::{PROGRESS_BAR, PROGRESS_PRINTER},
     scan_manager::{self},
     scanner,
-    utils::{fmt_err, set_open_file_limit, slugify_filename},
-    DEFAULT_OPEN_FILE_LIMIT,
+    utils::{fmt_err, slugify_filename},
 };
 #[cfg(not(target_os = "windows"))]
+use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use lazy_static::lazy_static;
 use regex::Regex;
 
