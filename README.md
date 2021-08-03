@@ -304,7 +304,7 @@ Configuration begins with with the following built-in default values baked into 
 - verbosity: `0` (no logging enabled)
 - scan_limit: `0` (no limit imposed on concurrent scans)
 - rate_limit: `0` (no limit imposed on requests per second)
-- status_codes: `200 204 301 302 307 308 401 403 405`
+- status_codes: `200 204 301 302 307 308 401 403 405 500`
 - user_agent: `feroxbuster/VERSION`
 - recursion depth: `4`
 - auto-filter wildcards - `true`
@@ -556,7 +556,7 @@ OPTIONS:
             Limit total number of concurrent scans (default: 0, i.e. no limit)
 
     -s, --status-codes <STATUS_CODE>...
-            Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)
+            Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405 500)
 
     -t, --threads <THREADS>                       
             Number of concurrent threads (default: 50)
