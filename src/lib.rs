@@ -73,7 +73,8 @@ pub const HIGH_ERROR_RATIO: f64 = 0.90;
 /// * 401 Unauthorized
 /// * 403 Forbidden
 /// * 405 Method Not Allowed
-pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
+/// * 500 Internal Server Error
+pub const DEFAULT_STATUS_CODES: [StatusCode; 10] = [
     StatusCode::OK,
     StatusCode::NO_CONTENT,
     StatusCode::MOVED_PERMANENTLY,
@@ -83,6 +84,7 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 9] = [
     StatusCode::UNAUTHORIZED,
     StatusCode::FORBIDDEN,
     StatusCode::METHOD_NOT_ALLOWED,
+    StatusCode::INTERNAL_SERVER_ERROR,
 ];
 
 /// Default filename for config file settings
