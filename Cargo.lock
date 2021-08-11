@@ -882,9 +882,9 @@ checksum = "6456b8a6c8f33fee7d958fcd1b60d55b11940a79e63ae87013e6d22e26034440"
 
 [[package]]
 name = "httpmock"
-version = "0.5.8"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b217899bcbe8ad3bdee7a46727bd3754b908831462755567852fb20eac585d46"
+checksum = "22a046939a6ac319fd52708d3309e18489b33dcb9a305c5cdaf2a897fc5d69b8"
 dependencies = [
  "assert-json-diff",
  "async-object-pool",
@@ -893,6 +893,7 @@ dependencies = [
  "basic-cookies",
  "crossbeam-utils",
  "difference",
+ "form_urlencoded",
  "futures-util",
  "hyper",
  "isahc",
