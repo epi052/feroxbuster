@@ -68,6 +68,14 @@ impl FeroxFilter for WildcardFilter {
             return true;
         }
 
+        if self.size == u64::MAX && response.content_length() == 0 {
+            // static wildcard size found during testing
+            // but response length was zero; pointed out by @Tib3rius
+            log::debug!("static wildcard: filtered out {}", response.url());
+            log::trace!("exit: should_filter_response -> true");
+            return true;
+        }
+
         if self.dynamic != u64::MAX {
             // dynamic wildcard offset found during testing
 
