@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.3.2"
+version = "2.3.3"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -23,7 +23,7 @@ dirs = "3.0"
 
 [dependencies]
 futures = { version = "0.3"}
-tokio = { version = "1.9", features = ["full"] }
+tokio = { version = "1.10", features = ["full"] }
 tokio-util = {version = "0.6.6", features = ["codec"]}
 log = "0.4"
 env_logger = "0.9"
@@ -41,15 +41,15 @@ dirs = "3.0"
 regex = "1"
 crossterm = "0.20"
 rlimit = "0.6"
-ctrlc = "3.1.9"
+ctrlc = "3.2"
 fuzzyhash = "0.2.1"
 anyhow = "1.0"
 leaky-bucket = "0.10.0"
 
 [dev-dependencies]
 tempfile = "3.1"
-httpmock = "0.5.8"
-assert_cmd = "1.0"
+httpmock = "0.6.2"
+assert_cmd = "2.0"
 predicates = "2.0"
 
 [profile.release]
