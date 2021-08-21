@@ -620,12 +620,10 @@ impl Stats {
                 atomic_increment!(self.expected_per_scan, value);
             }
             StatField::TotalScans => {
-                let multiplier = self.num_extensions.max(1);
-
                 atomic_increment!(self.total_scans, value);
                 atomic_increment!(
                     self.total_expected,
-                    value * self.expected_per_scan.load(Ordering::Relaxed) * multiplier
+                    value * self.expected_per_scan.load(Ordering::Relaxed)
                 );
             }
             StatField::TotalExpected => {
