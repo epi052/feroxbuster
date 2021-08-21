@@ -128,6 +128,19 @@ fn wildcard_should_filter_when_static_wildcard_found() {
 }
 
 #[test]
+/// test should_filter on WilcardFilter where static logic matches but response length is 0
+fn wildcard_should_filter_when_static_wildcard_len_is_zero() {
+    let mut resp = FeroxResponse::default();
+    resp.set_wildcard(true);
+    resp.set_url("http://localhost");
+
+    // default WildcardFilter is used in the code that executes when response.content_length() == 0
+    let filter = WildcardFilter::new(false);
+
+    assert!(filter.should_filter_response(&resp));
+}
+
+#[test]
 /// test should_filter on WilcardFilter where dynamic logic matches
 fn wildcard_should_filter_when_dynamic_wildcard_found() {
     let mut resp = FeroxResponse::default();
