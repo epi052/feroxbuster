@@ -23,7 +23,7 @@ dirs = "3.0"
 
 [dependencies]
 futures = { version = "0.3"}
-tokio = { version = "1.10", features = ["full"] }
+tokio = { version = "1.11", features = ["full"] }
 tokio-util = {version = "0.6.6", features = ["codec"]}
 log = "0.4"
 env_logger = "0.9"
