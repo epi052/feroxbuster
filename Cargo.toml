@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 clap = "2.33"
 regex = "1"
 lazy_static = "1.4"
-dirs = "3.0"
+dirs = "4.0"
 
 [dependencies]
 futures = { version = "0.3"}
@@ -37,7 +37,7 @@ uuid = { version = "0.8", features = ["v4"] }
 indicatif = "0.15"
 console = "0.14"
 openssl = { version = "0.10", features = ["vendored"] }
-dirs = "3.0"
+dirs = "4.0"
 regex = "1"
 crossterm = "0.20"
 rlimit = "0.6"
