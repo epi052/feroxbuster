@@ -238,31 +238,20 @@ pacman -S feroxbuster
 
 > The following steps assume you have docker installed / setup
 
-First, clone the repository.
+Thanks to github user @EONRaider, we have an official docker image pushed to the docker hub with each new release.
 
-```
-git clone https://github.com/epi052/feroxbuster.git
-cd feroxbuster
-```
-
-Next, build the image.
-
-```
-sudo docker build -t feroxbuster .
-```
-
-After that, you should be able to use `docker run` to perform scans with `feroxbuster`.
+You can simply jump right into usage with  `sudo docker run epi052/feroxbuster ...`!
 
 #### Basic usage
 
 ```
-sudo docker run --init -it feroxbuster -u http://example.com -x js,html
+sudo docker run --init -it epi052/feroxbuster -u http://example.com -x js,html
 ```
 
 #### Piping from stdin and proxying all requests through socks5 proxy
 
 ```
-cat targets.txt | sudo docker run --net=host --init -i feroxbuster --stdin -x js,html --proxy socks5://127.0.0.1:9050
+cat targets.txt | sudo docker run --net=host --init -i epi052/feroxbuster --stdin -x js,html --proxy socks5://127.0.0.1:9050
 ```
 
 #### Mount a volume to pass in `ferox-config.toml`
@@ -272,23 +261,23 @@ live in multiple locations and still be valid, so it's up to you how you'd like 
 examples:
 
 ```
-sudo docker run --init -v $(pwd)/ferox-config.toml:/etc/feroxbuster/ferox-config.toml -it feroxbuster -u http://example.com
+sudo docker run --init -v $(pwd)/ferox-config.toml:/etc/feroxbuster/ferox-config.toml -it epi052/feroxbuster -u http://example.com
 ```
 
 ```
-sudo docker run --init -v ~/.config/feroxbuster:/root/.config/feroxbuster -it feroxbuster -u http://example.com
+sudo docker run --init -v ~/.config/feroxbuster:/root/.config/feroxbuster -it epi052/feroxbuster -u http://example.com
 ```
 
 Note: If you are on a SELinux enforced system, you will need to pass the `:Z` attribute also.
 
 ```
-docker run --init -v (pwd)/ferox-config.toml:/etc/feroxbuster/ferox-config.toml:Z -it feroxbuster -u http://example.com
+docker run --init -v (pwd)/ferox-config.toml:/etc/feroxbuster/ferox-config.toml:Z -it epi052/feroxbuster -u http://example.com
 ```
 
 #### Define an alias for simplicity
 
 ```
-alias feroxbuster="sudo docker run --init -v ~/.config/feroxbuster:/root/.config/feroxbuster -i feroxbuster"
+alias feroxbuster="sudo docker run --init -v ~/.config/feroxbuster:/root/.config/feroxbuster -i epi052/feroxbuster"
 ```
 
 ## ⚙️ Configuration
