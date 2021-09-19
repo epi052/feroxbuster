@@ -154,6 +154,10 @@ pub struct Configuration {
     #[serde(default = "user_agent")]
     pub user_agent: String,
 
+    /// Use random User-Agent
+    #[serde(default)]
+    pub random_agent: bool,
+
     /// Follow redirects
     #[serde(default)]
     pub redirects: bool,
@@ -295,6 +299,7 @@ impl Default for Configuration {
             redirects: false,
             no_recursion: false,
             extract_links: false,
+            random_agent: false,
             save_state: true,
             proxy: String::new(),
             config: String::new(),
@@ -344,6 +349,7 @@ impl Configuration {
     /// - **auto_bail**: `false`
     /// - **save_state**: `true`
     /// - **user_agent**: `feroxbuster/VERSION`
+    /// - **random_agent**: `false`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **url_denylist**: `None`
@@ -647,6 +653,10 @@ impl Configuration {
         update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
         update_config_if_present!(&mut config.timeout, args, "timeout", u64);
 
+        if args.is_present("random_agent") {
+            config.random_agent = true;
+        }
+
         if args.is_present("redirects") {
             config.redirects = true;
         }
@@ -824,6 +834,7 @@ impl Configuration {
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
+        update_if_not_default!(&mut conf.random_agent, new.random_agent, false);
         update_if_not_default!(&mut conf.threads, new.threads, threads());
         update_if_not_default!(&mut conf.depth, new.depth, depth());
         update_if_not_default!(&mut conf.wordlist, new.wordlist, wordlist());
