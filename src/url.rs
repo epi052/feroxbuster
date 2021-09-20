@@ -98,12 +98,17 @@ impl FeroxUrl {
         };
 
         // extensions and slashes are mutually exclusive cases
-        let word = if extension.is_some() {
+        let mut word = if extension.is_some() {
             format!("{}.{}", word, extension.unwrap())
         } else if self.handles.config.add_slash && !word.ends_with('/') {
             // -f used, and word doesn't already end with a /
             format!("{}/", word)
-        } else if word.starts_with("//") {
+        }  else {
+            String::from(word)
+        };
+
+        // We check seperatly if wordlist contains words that begin with 2 forward slashes
+        if word.starts_with("//") {
             // bug ID'd by @Sicks3c, when a wordlist contains words that begin with 2 forward slashes
             // i.e. //1_40_0/static/js, it gets joined onto the base url in a surprising way
             // ex: https://localhost/ + //1_40_0/static/js -> https://1_40_0/static/js
@@ -111,11 +116,8 @@ impl FeroxUrl {
             // and simply removes prefixed forward slashes if there are two of them. Additionally,
             // trim_start_matches will trim the pattern until it's gone, so even if there are more than
             // 2 /'s, they'll still be trimmed
-            word.trim_start_matches('/').to_string()
-        } else {
-            String::from(word)
+            word = word.trim_start_matches('/').to_string();
         };
-
         let base_url = Url::parse(&url)?;
         let joined = base_url.join(&word)?;
 
@@ -449,6 +451,20 @@ mod tests {
             formatted,
             reqwest::Url::parse("http://localhost/upload/img").unwrap()
         );
+    }
+
+    #[test]
+    /// word with two prepended slashes and extensions doesn't discard the entire domain
+    fn format_url_word_with_two_prepended_slashes_and_extensions(){
+        let handles = Arc::new(Handles::for_testing(None, None).0);
+        let url = FeroxUrl::from_string("http://localhost", handles);
+        for ext in ["rocks", "fun"] {
+            let to_check = format!("http://localhost/upload/ferox.{}", ext);
+            assert_eq!(
+                url.format("//upload/ferox", Some(ext)).unwrap(),
+                reqwest::Url::parse(&to_check[..]).unwrap()
+            );
+        }
     }
 
     #[test]
