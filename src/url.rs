@@ -101,10 +101,9 @@ impl FeroxUrl {
         };
 
         // extensions and slashes are now not mutually exclusive cases
-        let mut word = if extension.is_some() {
+        let mut word = if let Some(ext) = extension {
             // We handle the special case of forward slash
             // That allow us to treat it as an extension with a particular format
-            let ext = extension.unwrap();
             if ext == "/" {
                 format!("{}/", word)
             } else {
