@@ -41,8 +41,12 @@ impl FeroxUrl {
         log::trace!("enter: formatted_urls({})", word);
 
         let mut urls = vec![];
-
-        match self.format(word, None) {
+        let slash = if self.handles.config.add_slash {
+            Some("/")
+        } else {
+            None
+        };
+        match self.format(word, slash) {
             // default request, i.e. no extension
             Ok(url) => urls.push(url),
             Err(_) => self.handles.stats.send(AddError(UrlFormat))?,
@@ -55,7 +59,6 @@ impl FeroxUrl {
                 Err(_) => self.handles.stats.send(AddError(UrlFormat))?,
             }
         }
-
         log::trace!("exit: formatted_urls -> {:?}", urls);
         Ok(urls)
     }
@@ -97,13 +100,17 @@ impl FeroxUrl {
             self.target.to_string()
         };
 
-        // extensions and slashes are mutually exclusive cases
+        // extensions and slashes are now not mutually exclusive cases
         let mut word = if extension.is_some() {
-            format!("{}.{}", word, extension.unwrap())
-        } else if self.handles.config.add_slash && !word.ends_with('/') {
-            // -f used, and word doesn't already end with a /
-            format!("{}/", word)
-        }  else {
+            // We handle the special case of forward slash
+            // That allow us to treat it as an extension with a particular format
+            let ext = extension.unwrap();
+            if ext == "/" {
+                format!("{}/", word)
+            } else {
+                format!("{}.{}", word, ext)
+            }
+        } else {
             String::from(word)
         };
 
@@ -455,7 +462,7 @@ mod tests {
 
     #[test]
     /// word with two prepended slashes and extensions doesn't discard the entire domain
-    fn format_url_word_with_two_prepended_slashes_and_extensions(){
+    fn format_url_word_with_two_prepended_slashes_and_extensions() {
         let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
         for ext in ["rocks", "fun"] {
@@ -475,5 +482,21 @@ mod tests {
         let formatted = url.format("http://schmocalhost", None);
 
         assert!(formatted.is_err());
+    }
+    #[test]
+    /// word with extension AND slash are correctly handled
+    fn format_url_word_with_postslash_and_extensions() {
+        let config = Configuration {
+            add_slash: true,
+            extensions: vec!["rocks".to_string(), "fun".to_string()],
+            ..Default::default()
+        };
+        let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
+        let url = FeroxUrl::from_string("http://localhost", handles);
+        match url.formatted_urls("ferox") {
+            Ok(urls) => assert_eq!(urls.len(), 3), // 3 = One for the main word + slash and for the two extensions
+            Err(err) => panic!("{}", err.to_string()),
+        }
+
     }
 }
