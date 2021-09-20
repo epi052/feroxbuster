@@ -162,7 +162,7 @@ impl HeuristicTests {
         } else {
             None
         };
-        let nonexistent_url = target.format(&unique_str,  slash)?;
+        let nonexistent_url = target.format(&unique_str, slash)?;
 
         let response = logged_request(&nonexistent_url.to_owned(), self.handles.clone()).await?;
 

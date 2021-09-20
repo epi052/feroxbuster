@@ -497,6 +497,5 @@ mod tests {
             Ok(urls) => assert_eq!(urls.len(), 3), // 3 = One for the main word + slash and for the two extensions
             Err(err) => panic!("{}", err.to_string()),
         }
-
     }
 }
