@@ -252,6 +252,29 @@ mod tests {
     }
 
     #[test]
+    /// sending url + word with both an extension and add-slash should get back
+    /// two urls, one with '/' appended to the word, and the other with the extension
+    /// appended
+    fn formatted_urls_extensions_with_add_slash_returns_two_urls_with_extensions() {
+        let config = Configuration {
+            extensions: vec![String::from("js")],
+            add_slash: true,
+            ..Default::default()
+        };
+
+        let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
+        let url = FeroxUrl::from_string("http://localhost", handles);
+        let urls = url.formatted_urls("turbo").unwrap();
+        assert_eq!(
+            urls,
+            [
+                Url::parse("http://localhost/turbo/").unwrap(),
+                Url::parse("http://localhost/turbo.js").unwrap()
+            ]
+        )
+    }
+
+    #[test]
     /// sending url + word + 1 extension should get back two urls, one base and one with extension
     fn formatted_urls_one_extension_returns_two_urls() {
         let config = Configuration {
