@@ -78,8 +78,8 @@ _feroxbuster() {
 '--insecure[Disables TLS certificate validation]' \
 '-n[Do not scan recursively]' \
 '--no-recursion[Do not scan recursively]' \
-'(-x --extensions)-f[Append / to each request]' \
-'(-x --extensions)--add-slash[Append / to each request]' \
+'-f[Append / to each request]' \
+'--add-slash[Append / to each request]' \
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '-e[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)]' \
 '--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)]' \
