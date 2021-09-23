@@ -482,6 +482,9 @@ FLAGS:
     -V, --version          
             Prints version information
 
+    -A, --random-agent
+            Use a random User-Agent
+
     -v, --verbosity        
             Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably too much)
 
