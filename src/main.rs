@@ -17,6 +17,7 @@ use tokio::{
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
+    USER_AGENTS,
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
     event_handlers::{
@@ -174,6 +175,8 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         PROGRESS_PRINTER.println("");
         PROGRESS_BAR.join().unwrap();
     });
+
+    PROGRESS_PRINTER.println(USER_AGENTS[0]);
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
     let (stats_task, stats_handle) = StatsHandler::initialize(config.clone());

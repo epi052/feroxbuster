@@ -20,6 +20,7 @@ clap = "2.33"
 regex = "1"
 lazy_static = "1.4"
 dirs = "4.0"
+rand = "0.8"
 
 [dependencies]
 futures = { version = "0.3"}

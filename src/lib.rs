@@ -92,6 +92,9 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 10] = [
 /// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
 
+// includes user agents generated at build time
+include!(concat!(env!("OUT_DIR"), "/user-agents.rs"));
+
 #[cfg(test)]
 mod tests {
     use super::*;
