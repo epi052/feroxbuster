@@ -1,0 +1,3 @@
+[submodule "docs/feroxbuster-docs"]
+	path = docs/feroxbuster-docs
+	url = git@github.com:epi052/feroxbuster-docs.git
