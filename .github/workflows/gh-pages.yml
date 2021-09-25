@@ -36,6 +36,7 @@ jobs:
 
       - run: |
           cd docs/feroxbuster-docs
+          npm install
           npm ci
 
       - name: Build
