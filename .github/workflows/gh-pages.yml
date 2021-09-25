@@ -24,6 +24,7 @@ jobs:
       - name: Build
         run: |
           cd docs/feroxbuster-docs
+          npm install postcss-cli
           hugo --minify
 
       - name: Deploy
