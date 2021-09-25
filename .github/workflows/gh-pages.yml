@@ -22,7 +22,9 @@ jobs:
           extended: true
 
       - name: Build
-        run: hugo --minify
+        run: |
+          cd docs/feroxbuster-docs
+          hugo --minify
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
