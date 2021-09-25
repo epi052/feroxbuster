@@ -21,10 +21,24 @@ jobs:
           hugo-version: 'latest'
           extended: true
 
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Cache dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - run: npm ci
+
       - name: Build
         run: |
           cd docs/feroxbuster-docs
-          npm install postcss-cli
           hugo --minify
 
       - name: Deploy
