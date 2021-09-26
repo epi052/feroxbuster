@@ -17,7 +17,6 @@ use tokio::{
 use tokio_util::codec::{FramedRead, LinesCodec};
 
 use feroxbuster::{
-    USER_AGENTS,
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
     event_handlers::{
@@ -30,6 +29,7 @@ use feroxbuster::{
     scan_manager::{self},
     scanner,
     utils::{fmt_err, slugify_filename},
+    USER_AGENTS,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};

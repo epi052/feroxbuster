@@ -7,7 +7,6 @@ use clap::Shell;
 
 include!("src/parser.rs");
 
-
 /// this code is taken from
 /// https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=4734c208edf7da625588fa16b5e2ed93
 /// which was linked in the random user agent issue discussion
@@ -24,16 +23,19 @@ fn generate_randomua() -> String {
     let gecko_version = format!("{:.1}", rng.gen_range(40.0..60.0));
     let platform = if (rng.gen::<u8>() % 2) == 0 {
         let version = WINDOWS_VERSION.choose(&mut rng).unwrap();
-        format!("(Windows NT {}; rv:{}) Gecko/20100101 Firefox/{}",
-        version, gecko_version, gecko_version)
+        format!(
+            "(Windows NT {}; rv:{}) Gecko/20100101 Firefox/{}",
+            version, gecko_version, gecko_version
+        )
     } else {
         let version = format!("10.{}", rng.gen_range(0..19));
-        format!("(Macintosh; Intel Mac OS X {}; rv:{}) Gecko/20100101 Firefox/{}",
-        version, gecko_version, gecko_version)
+        format!(
+            "(Macintosh; Intel Mac OS X {}; rv:{}) Gecko/20100101 Firefox/{}",
+            version, gecko_version, gecko_version
+        )
     };
     format!("Mozilla/5.0 {}", platform)
 }
-
 
 fn main() {
     println!("cargo:rerun-if-env-changed=src/parser.rs");
@@ -112,7 +114,9 @@ fn main() {
         }
     }
 
-    let user_agents = (0..20).map(|_| generate_randomua()).collect::<Vec<String>>();
+    let user_agents = (0..20)
+        .map(|_| generate_randomua())
+        .collect::<Vec<String>>();
 
     let mut definition = String::from("pub static USER_AGENTS:[&'static str; ");
 
