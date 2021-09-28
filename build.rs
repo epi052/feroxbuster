@@ -7,40 +7,10 @@ use clap::Shell;
 
 include!("src/parser.rs");
 
-/// this code is taken from
-/// https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=4734c208edf7da625588fa16b5e2ed93
-/// which was linked in the random user agent issue discussion
-///
-/// ** I'm not advocating for the use of this code, just using it for demonstration purposes **
-use rand::prelude::*;
-use std::fmt::Write as fmt_Write;
-use std::fs::write;
-const WINDOWS_VERSION: [&str; 11] = [
-    "3.1", "3.5", "4.0", "5.0", "5.1", "5.2", "6.0", "6.1", "6.2", "6.3", "10.0",
-];
-fn generate_randomua() -> String {
-    let mut rng = thread_rng();
-    let gecko_version = format!("{:.1}", rng.gen_range(40.0..60.0));
-    let platform = if (rng.gen::<u8>() % 2) == 0 {
-        let version = WINDOWS_VERSION.choose(&mut rng).unwrap();
-        format!(
-            "(Windows NT {}; rv:{}) Gecko/20100101 Firefox/{}",
-            version, gecko_version, gecko_version
-        )
-    } else {
-        let version = format!("10.{}", rng.gen_range(0..19));
-        format!(
-            "(Macintosh; Intel Mac OS X {}; rv:{}) Gecko/20100101 Firefox/{}",
-            version, gecko_version, gecko_version
-        )
-    };
-    format!("Mozilla/5.0 {}", platform)
-}
-
 fn main() {
     println!("cargo:rerun-if-env-changed=src/parser.rs");
 
-    if env::var("DOCS_RS").is_ok() {
+    if std::env::var("DOCS_RS").is_ok() {
         return; // only build when we're not generating docs
     }
 
@@ -113,20 +83,4 @@ fn main() {
             eprintln!("Couldn't copy example config into config directory");
         }
     }
-
-    let user_agents = (0..20)
-        .map(|_| generate_randomua())
-        .collect::<Vec<String>>();
-
-    let mut definition = String::from("pub static USER_AGENTS:[&'static str; ");
-
-    definition.push_str(user_agents.len().to_string().as_str());
-    definition.push_str("] = [");
-    for user_agent in user_agents {
-        definition.push_str(&format!("\"{}\",", user_agent));
-    }
-    definition.push_str("];");
-
-    let out_file = format!("{}/user-agents.rs", env::var("OUT_DIR").unwrap());
-    write(out_file, definition);
 }
