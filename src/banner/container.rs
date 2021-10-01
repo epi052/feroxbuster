@@ -165,7 +165,11 @@ impl Banner {
         }
 
         for denied_url in &config.url_denylist {
-            url_denylist.push(BannerEntry::new("🚫", "Don't Scan", denied_url));
+            let title = match Url::parse(denied_url) {
+                Ok(_) => "Don't Scan",
+                _ => "Don't Scan (regex)",
+            };
+            url_denylist.push(BannerEntry::new("🚫", title, denied_url));
         }
 
         let mut codes = vec![];
