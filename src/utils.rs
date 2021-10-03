@@ -408,6 +408,8 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
 
     for denier in &handles.config.url_denylist {
+        // note to self: it may seem as though we can use regex only for --dont-scan, however, in
+        // doing so, we lose the ability to block a parent directory while scanning a child
         if let Ok(should_deny) = should_deny_absolute(&normed_url, denier, handles.clone()) {
             if should_deny {
                 return Ok(true);
@@ -547,7 +549,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -566,7 +568,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -585,7 +587,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -606,7 +608,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -627,7 +629,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -646,7 +648,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -665,7 +667,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -684,7 +686,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -703,7 +705,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);

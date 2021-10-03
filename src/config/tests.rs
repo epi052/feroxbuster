@@ -1,6 +1,7 @@
 use super::utils::*;
 use super::*;
 use crate::{traits::FeroxSerialize, DEFAULT_CONFIG_NAME};
+use reqwest::Url;
 use std::{collections::HashMap, fs::write};
 use tempfile::TempDir;
 
@@ -88,10 +89,11 @@ fn default_configuration() {
     assert!(!config.redirects);
     assert!(!config.extract_links);
     assert!(!config.insecure);
+    assert!(config.regex_denylist.is_empty());
     assert_eq!(config.queries, Vec::new());
     assert_eq!(config.filter_size, Vec::<u64>::new());
     assert_eq!(config.extensions, Vec::<String>::new());
-    assert_eq!(config.url_denylist, Vec::<String>::new());
+    assert_eq!(config.url_denylist, Vec::<Url>::new());
     assert_eq!(config.filter_regex, Vec::<String>::new());
     assert_eq!(config.filter_similar, Vec::<String>::new());
     assert_eq!(config.filter_word_count, Vec::<usize>::new());
@@ -295,7 +297,10 @@ fn config_reads_url_denylist() {
     let config = setup_config_test();
     assert_eq!(
         config.url_denylist,
-        vec!["http://dont-scan.me", "https://also-not.me"]
+        vec![
+            Url::parse("http://dont-scan.me").unwrap(),
+            Url::parse("https://also-not.me").unwrap(),
+        ]
     );
 }
 
