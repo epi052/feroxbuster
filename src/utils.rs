@@ -289,7 +289,7 @@ where
     Ok(())
 }
 
-/// todo
+/// determine if a url should be denied based on the given absolute url
 fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) -> Result<bool> {
     log::trace!(
         "enter: should_deny_absolute({}, {:?})",
@@ -377,18 +377,20 @@ fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) 
     Ok(false)
 }
 
-/// todo
-fn should_deny_regex(url_to_test: &Url, denier: &Regex) -> Result<bool> {
+/// determine if a url should be denied based on the given regular expression
+///
+/// the regex ONLY matches against the PATH of the url (not the scheme, host, port, etc)
+fn should_deny_regex(url_to_test: &Url, denier: &Regex) -> bool {
     log::trace!(
         "enter: should_deny_regex({}, {})",
         url_to_test.as_str(),
         denier,
     );
 
-    let result = denier.is_match(url_to_test.path());
+    let result = denier.is_match(url_to_test.as_str());
 
     log::trace!("exit: should_deny_regex -> {}", result);
-    Ok(result)
+    result
 }
 
 /// determines whether or not a given url should be denied based on the user-supplied --dont-scan
@@ -405,45 +407,21 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     // the given url and any url to which it's compared
     let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
 
-    for deny_url in &handles.config.url_denylist {
-        match Url::parse(deny_url.trim_end_matches('/')) {
-            // todo consider breaking this out into a function, it's reused in
-            // todo /home/epi/PycharmProjects/feroxbuster/src/extractor/container.rs:L157
-            Ok(abs_denier) => {
-                // url is an absolute url and can be parsed as such
-                match should_deny_absolute(&normed_url, &abs_denier, handles.clone()) {
-                    // should_deny_absolute returns bool, if it's true, we found should deny
-                    // this url and no further processing is needed; otherwise, need to continue
-                    // to the next item in the deny_list
-                    Ok(true) => return Ok(true),
-                    _ => continue,
-                }
+    for denier in &handles.config.url_denylist {
+        if let Ok(should_deny) = should_deny_absolute(&normed_url, denier, handles.clone()) {
+            if should_deny {
+                return Ok(true);
             }
-            Err(e) => {
-                // this is the expected error that happens when we try to parse a url fragment
-                //     ex: Url::parse("/login") -> Err("relative URL without a base")
-                if e.to_string().contains("relative URL without a base") {
-                    // url without a base from the --dont-scan flag; we're going to assume
-                    // that the input is a regular expression to be parsed. The possibility
-                    // exists that the user rolled their face across the keyboard and we're
-                    // dealing with the results, but we'll attempt to work with what we're given
-                    if let Ok(regex_denier) = Regex::new(deny_url) {
-                        // todo this match pattern is used here and in the absolute branch; can it be done better? probably...
-                        match should_deny_regex(&normed_url, &regex_denier) {
-                            Ok(true) => return Ok(true),
-                            _ => continue,
-                        }
-                    }
-                } else {
-                    // unexpected error has occurred
-                    log::warn!("Could not parse given url denier: {}", e);
-                    handles.stats.send(AddError(Other)).unwrap_or_default();
-                }
-            }
-        };
+        }
     }
 
-    // made it to the end of the deny list unscathed, return false, indicating we should not deny
+    for denier in &handles.config.regex_denylist {
+        if should_deny_regex(&normed_url, denier) {
+            return Ok(true);
+        }
+    }
+
+    // made it to the end of the deny lists unscathed, return false, indicating we should not deny
     // this particular url
     log::trace!("exit: should_deny_url -> false");
     Ok(false)

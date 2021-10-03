@@ -620,10 +620,12 @@ dependencies = [
  "rlimit",
  "serde",
  "serde_json",
+ "serde_regex",
  "tempfile",
  "tokio",
  "tokio-util",
  "toml",
+ "url",
  "uuid",
 ]
 
@@ -2151,6 +2153,7 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+ "serde",
 ]
 
 [[package]]

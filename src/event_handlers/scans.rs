@@ -189,7 +189,8 @@ impl ScanHandler {
     /// wrapper around scanning a url to stay DRY
     async fn ordered_scan_url(&mut self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
         log::trace!("enter: ordered_scan_url({:?}, {:?})", targets, order);
-        let should_test_deny = !self.handles.config.url_denylist.is_empty();
+        let should_test_deny = !self.handles.config.url_denylist.is_empty()
+            || !self.handles.config.regex_denylist.is_empty();
 
         for target in targets {
             if self.data.contains(&target) && matches!(order, ScanOrder::Latest) {

@@ -306,7 +306,8 @@ impl Requester {
         let urls =
             FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
 
-        let should_test_deny = !self.handles.config.url_denylist.is_empty();
+        let should_test_deny = !self.handles.config.url_denylist.is_empty()
+            || !self.handles.config.regex_denylist.is_empty();
 
         for url in urls {
             // auto_tune is true, or rate_limit was set (mutually exclusive to user)
