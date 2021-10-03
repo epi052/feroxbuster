@@ -712,4 +712,46 @@ mod tests {
 
         assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
+
+    #[test]
+    /// provide a denier where the tested url is matched against a regular expression in the path
+    /// of the url
+    fn should_deny_url_blocks_urls_based_on_regex_in_path() {
+        let scan_url = "https://testdomain.com/";
+        let deny_pattern = "/deni.*";
+        let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
+
+        let scans = Arc::new(FeroxScans::default());
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+
+        let mut config = Configuration::new().unwrap();
+        config.regex_denylist = vec![Regex::new(deny_pattern).unwrap()];
+        let config = Arc::new(config);
+
+        let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
+
+        assert!(should_deny_url(&tested_url, handles).unwrap());
+    }
+
+    #[test]
+    /// provide a denier where the tested url is matched against a regular expression in the scheme
+    /// of the url
+    fn should_deny_url_blocks_urls_based_on_regex_in_scheme() {
+        let scan_url = "https://testdomain.com/";
+        let deny_pattern = "http:";
+        let tested_http_url = Url::parse("http://testdomain.com/denied/").unwrap();
+        let tested_https_url = Url::parse("https://testdomain.com/denied/").unwrap();
+
+        let scans = Arc::new(FeroxScans::default());
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+
+        let mut config = Configuration::new().unwrap();
+        config.regex_denylist = vec![Regex::new(deny_pattern).unwrap()];
+        let config = Arc::new(config);
+
+        let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
+
+        assert!(!should_deny_url(&tested_https_url, handles.clone()).unwrap());
+        assert!(should_deny_url(&tested_http_url, handles).unwrap());
+    }
 }
