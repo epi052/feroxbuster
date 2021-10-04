@@ -1,6 +1,7 @@
 use super::utils::*;
 use super::*;
 use crate::{traits::FeroxSerialize, DEFAULT_CONFIG_NAME};
+use regex::Regex;
 use reqwest::Url;
 use std::{collections::HashMap, fs::write};
 use tempfile::TempDir;
@@ -31,6 +32,7 @@ fn setup_config_test() -> Configuration {
             insecure = true
             extensions = ["html", "php", "js"]
             url_denylist = ["http://dont-scan.me", "https://also-not.me"]
+            regex_denylist = ["/deny.*"]
             headers = {stuff = "things", mostuff = "mothings"}
             queries = [["name","value"], ["rick", "astley"]]
             no_recursion = true
@@ -289,6 +291,16 @@ fn config_reads_extract_links() {
 fn config_reads_extensions() {
     let config = setup_config_test();
     assert_eq!(config.extensions, vec!["html", "php", "js"]);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_regex_denylist() {
+    let config = setup_config_test();
+    assert_eq!(
+        config.regex_denylist[0].as_str(),
+        Regex::new("/deny.*").unwrap().as_str()
+    );
 }
 
 #[test]

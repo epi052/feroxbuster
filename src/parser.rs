@@ -226,7 +226,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "URL(s) to exclude from recursion/scans",
+                    "URL(s) or Regex Pattern(s) to exclude from recursion/scans",
                 ),
         )
         .arg(

@@ -46,7 +46,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--user-agent', 'user-agent', [CompletionResultType]::ParameterName, 'Sets the User-Agent (default: feroxbuster/VERSION)')
             [CompletionResult]::new('-x', 'x', [CompletionResultType]::ParameterName, 'File extension(s) to search for (ex: -x php -x pdf js)')
             [CompletionResult]::new('--extensions', 'extensions', [CompletionResultType]::ParameterName, 'File extension(s) to search for (ex: -x php -x pdf js)')
-            [CompletionResult]::new('--dont-scan', 'dont-scan', [CompletionResultType]::ParameterName, 'URL(s) to exclude from recursion/scans')
+            [CompletionResult]::new('--dont-scan', 'dont-scan', [CompletionResultType]::ParameterName, 'URL(s) or Regex Pattern(s) to exclude from recursion/scans')
             [CompletionResult]::new('-H', 'H', [CompletionResultType]::ParameterName, 'Specify HTTP headers (ex: -H Header:val ''stuff: things'')')
             [CompletionResult]::new('--headers', 'headers', [CompletionResultType]::ParameterName, 'Specify HTTP headers (ex: -H Header:val ''stuff: things'')')
             [CompletionResult]::new('-Q', 'Q', [CompletionResultType]::ParameterName, 'Specify URL query parameters (ex: -Q token=stuff -Q secret=key)')
