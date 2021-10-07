@@ -33,6 +33,16 @@
         "infra",
         "doc"
       ]
+    },
+    {
+      "login": "spikecodes",
+      "name": "Spike",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19519553?v=4",
+      "profile": "https://github.com/spikecodes",
+      "contributions": [
+        "infra",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
