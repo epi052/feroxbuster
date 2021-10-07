@@ -73,6 +73,15 @@
         "code",
         "doc"
       ]
+    },
+    {
+      "login": "tomtastic",
+      "name": "Tom Matthews",
+      "avatar_url": "https://avatars.githubusercontent.com/u/302127?v=4",
+      "profile": "https://github.com/tomtastic",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
