@@ -63,6 +63,16 @@
         "ideas",
         "doc"
       ]
+    },
+    {
+      "login": "n-thumann",
+      "name": "Nicolas Thumann",
+      "avatar_url": "https://avatars.githubusercontent.com/u/46975855?v=4",
+      "profile": "https://n-thumann.de/",
+      "contributions": [
+        "code",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
