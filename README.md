@@ -32,7 +32,7 @@
   </a>
 
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-7-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-8-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 </p>
 
@@ -185,6 +185,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/evanrichter"><img src="https://avatars.githubusercontent.com/u/330292?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Evan Richter</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=evanrichter" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/commits?author=evanrichter" title="Documentation">📖</a></td>
     <td align="center"><a href="https://github.com/mzpqnxow"><img src="https://avatars.githubusercontent.com/u/8016228?v=4?s=100" width="100px;" alt=""/><br /><sub><b>AG</b></sub></a><br /><a href="#ideas-mzpqnxow" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/epi052/feroxbuster/commits?author=mzpqnxow" title="Documentation">📖</a></td>
     <td align="center"><a href="https://n-thumann.de/"><img src="https://avatars.githubusercontent.com/u/46975855?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicolas Thumann</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=n-thumann" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/commits?author=n-thumann" title="Documentation">📖</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/tomtastic"><img src="https://avatars.githubusercontent.com/u/302127?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tom Matthews</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=tomtastic" title="Documentation">📖</a></td>
   </tr>
 </table>
 
