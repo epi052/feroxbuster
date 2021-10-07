@@ -91,6 +91,15 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "bpsizemore",
+      "name": "Brian Sizemore",
+      "avatar_url": "https://avatars.githubusercontent.com/u/11645898?v=4",
+      "profile": "http://bpsizemore.me",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
