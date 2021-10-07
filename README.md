@@ -32,7 +32,7 @@
   </a>
 
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-4-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 </p>
 
@@ -182,6 +182,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/jsav0"><img src="https://avatars.githubusercontent.com/u/20546041?v=4?s=100" width="100px;" alt=""/><br /><sub><b>J Savage</b></sub></a><br /><a href="#infra-jsav0" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=jsav0" title="Documentation">📖</a></td>
     <td align="center"><a href="http://www.tgotwig.dev"><img src="https://avatars.githubusercontent.com/u/30773779?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Thomas Gotwig</b></sub></a><br /><a href="#infra-TGotwig" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=TGotwig" title="Documentation">📖</a></td>
     <td align="center"><a href="https://github.com/spikecodes"><img src="https://avatars.githubusercontent.com/u/19519553?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Spike</b></sub></a><br /><a href="#infra-spikecodes" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=spikecodes" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/evanrichter"><img src="https://avatars.githubusercontent.com/u/330292?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Evan Richter</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=evanrichter" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/commits?author=evanrichter" title="Documentation">📖</a></td>
   </tr>
 </table>
 
