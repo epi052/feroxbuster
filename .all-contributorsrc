@@ -82,6 +82,15 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "bsysop",
+      "name": "bsysop",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9998303?v=4",
+      "profile": "https://github.com/bsysop",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
