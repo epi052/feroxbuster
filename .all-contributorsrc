@@ -43,6 +43,16 @@
         "infra",
         "doc"
       ]
+    },
+    {
+      "login": "evanrichter",
+      "name": "Evan Richter",
+      "avatar_url": "https://avatars.githubusercontent.com/u/330292?v=4",
+      "profile": "https://github.com/evanrichter",
+      "contributions": [
+        "code",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
