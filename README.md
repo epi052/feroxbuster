@@ -32,10 +32,8 @@
   </a>
 
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-  <a href="https://github.com/epi052/feroxbuster/graphs/contributors">
-    <img src="https://img.shields.io/badge/all_contributors-1-orange.svg" />
-  </a>
-  <!-- ALL-CONTRIBUTORS-BADGE:END -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 </p>
 
 ![demo](img/demo.gif)
@@ -181,6 +179,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tr>
     <td align="center"><a href="https://io.fi"><img src="https://avatars.githubusercontent.com/u/5235109?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Joona Hoikkala</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=joohoi" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/jsav0"><img src="https://avatars.githubusercontent.com/u/20546041?v=4?s=100" width="100px;" alt=""/><br /><sub><b>J Savage</b></sub></a><br /><a href="#infra-jsav0" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=jsav0" title="Documentation">📖</a></td>
   </tr>
 </table>
 
