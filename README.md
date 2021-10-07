@@ -1,4 +1,7 @@
 <h1 align="center">
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
   <br>
   <a href="https://github.com/epi052/feroxbuster"><img src="img/logo/default-cropped.png" alt="feroxbuster"></a>
   <br>
@@ -164,3 +167,23 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 For realsies, there used to be over 1300 lines in this README, but it's all been moved to the [new documentation site](https://epi052.github.io/feroxbuster-docs/docs/). Go check it out! 
 
 <h1><p align="center">✨🎉👉 <a href="https://epi052.github.io/feroxbuster-docs/docs/">DOCUMENTATION</a> 👈🎉✨</p></h1>
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://io.fi"><img src="https://avatars.githubusercontent.com/u/5235109?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Joona Hoikkala</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=joohoi" title="Documentation">📖</a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
