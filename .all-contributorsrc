@@ -110,6 +110,15 @@
         "infra",
         "doc"
       ]
+    },
+    {
+      "login": "craig",
+      "name": "Craig",
+      "avatar_url": "https://avatars.githubusercontent.com/u/99729?v=4",
+      "profile": "https://github.com/craig",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
