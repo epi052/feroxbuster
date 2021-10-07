@@ -13,6 +13,16 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "jsav0",
+      "name": "J Savage",
+      "avatar_url": "https://avatars.githubusercontent.com/u/20546041?v=4",
+      "profile": "https://github.com/jsav0",
+      "contributions": [
+        "infra",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
