@@ -23,6 +23,16 @@
         "infra",
         "doc"
       ]
+    },
+    {
+      "login": "TGotwig",
+      "name": "Thomas Gotwig",
+      "avatar_url": "https://avatars.githubusercontent.com/u/30773779?v=4",
+      "profile": "http://www.tgotwig.dev",
+      "contributions": [
+        "infra",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
