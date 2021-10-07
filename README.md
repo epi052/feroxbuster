@@ -32,7 +32,7 @@
   </a>
 
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-9-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 </p>
 
@@ -189,6 +189,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://github.com/tomtastic"><img src="https://avatars.githubusercontent.com/u/302127?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tom Matthews</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=tomtastic" title="Documentation">📖</a></td>
     <td align="center"><a href="https://github.com/bsysop"><img src="https://avatars.githubusercontent.com/u/9998303?v=4?s=100" width="100px;" alt=""/><br /><sub><b>bsysop</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=bsysop" title="Documentation">📖</a></td>
+    <td align="center"><a href="http://bpsizemore.me"><img src="https://avatars.githubusercontent.com/u/11645898?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Brian Sizemore</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=bpsizemore" title="Code">💻</a></td>
   </tr>
 </table>
 
