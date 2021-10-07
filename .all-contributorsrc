@@ -128,6 +128,15 @@
       "contributions": [
         "infra"
       ]
+    },
+    {
+      "login": "wtwver",
+      "name": "wtwver",
+      "avatar_url": "https://avatars.githubusercontent.com/u/53866088?v=4",
+      "profile": "https://github.com/wtwver",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
