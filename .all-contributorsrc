@@ -119,6 +119,15 @@
       "contributions": [
         "infra"
       ]
+    },
+    {
+      "login": "EONRaider",
+      "name": "EONRaider",
+      "avatar_url": "https://avatars.githubusercontent.com/u/15611424?v=4",
+      "profile": "https://www.reddit.com/u/EONRaider",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
