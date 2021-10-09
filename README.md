@@ -30,10 +30,15 @@
   <a href="https://codecov.io/gh/epi052/feroxbuster">
     <img src="https://codecov.io/gh/epi052/feroxbuster/branch/master/graph/badge.svg" />
   </a>
-
+  <!--
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
+    [![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
+  <!-- ALL-CONTRIBUTORS-BADGE:END -->
+  -->
+  <a href="https://github.com/epi052/feroxbuster/graphs/contributors">
+    <img src="https://img.shields.io/badge/all_contributors-14-orange.svg" />
+  </a>
+
 </p>
 
 ![demo](img/demo.gif)
