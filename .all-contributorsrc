@@ -155,6 +155,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "secure-77",
+      "name": "secure-77",
+      "avatar_url": "https://avatars.githubusercontent.com/u/31564517?v=4",
+      "profile": "http://secure77.de",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
