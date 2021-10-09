@@ -204,6 +204,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/0xdf"><img src="https://avatars.githubusercontent.com/u/1489045?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf" title="Bug reports">🐛</a></td>
     <td align="center"><a href="http://secure77.de"><img src="https://avatars.githubusercontent.com/u/31564517?v=4?s=100" width="100px;" alt=""/><br /><sub><b>secure-77</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asecure-77" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://github.com/sbrun"><img src="https://avatars.githubusercontent.com/u/7712154?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sophie Brun</b></sub></a><br /><a href="#infra-sbrun" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+    <td align="center"><a href="https://github.com/black-A"><img src="https://avatars.githubusercontent.com/u/30686803?v=4?s=100" width="100px;" alt=""/><br /><sub><b>black-A</b></sub></a><br /><a href="#ideas-black-A" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
 </table>
 
