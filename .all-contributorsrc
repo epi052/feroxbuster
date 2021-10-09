@@ -137,6 +137,15 @@
       "contributions": [
         "infra"
       ]
+    },
+    {
+      "login": "Tib3rius",
+      "name": "Tib3rius",
+      "avatar_url": "https://avatars.githubusercontent.com/u/48113936?v=4",
+      "profile": "https://tib3rius.com",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,

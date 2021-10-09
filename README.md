@@ -32,10 +32,8 @@
   </a>
 
   <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-  <a href="https://github.com/epi052/feroxbuster/graphs/contributors">
-    <img src="https://img.shields.io/badge/all_contributors-14-orange.svg" />
-  </a>
-  <!-- ALL-CONTRIBUTORS-BADGE:END -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 </p>
 
 ![demo](img/demo.gif)
@@ -196,6 +194,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/craig"><img src="https://avatars.githubusercontent.com/u/99729?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Craig</b></sub></a><br /><a href="#infra-craig" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     <td align="center"><a href="https://www.reddit.com/u/EONRaider"><img src="https://avatars.githubusercontent.com/u/15611424?v=4?s=100" width="100px;" alt=""/><br /><sub><b>EONRaider</b></sub></a><br /><a href="#infra-EONRaider" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     <td align="center"><a href="https://github.com/wtwver"><img src="https://avatars.githubusercontent.com/u/53866088?v=4?s=100" width="100px;" alt=""/><br /><sub><b>wtwver</b></sub></a><br /><a href="#infra-wtwver" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://tib3rius.com"><img src="https://avatars.githubusercontent.com/u/48113936?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tib3rius</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ATib3rius" title="Bug reports">🐛</a></td>
   </tr>
 </table>
 
