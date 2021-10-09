@@ -155,6 +155,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "hunter0x8",
+      "name": "Muhammad Ahsan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/46222314?v=4",
+      "profile": "https://github.com/hunter0x8",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
