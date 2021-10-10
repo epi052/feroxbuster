@@ -215,6 +215,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/HenryHoggard"><img src="https://avatars.githubusercontent.com/u/1208121?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Henry</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AHenryHoggard" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://github.com/SleepiPanda"><img src="https://avatars.githubusercontent.com/u/6428561?v=4?s=100" width="100px;" alt=""/><br /><sub><b>SleepiPanda</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ASleepiPanda" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://github.com/uBadRequest"><img src="https://avatars.githubusercontent.com/u/47282747?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Bad Requests</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AuBadRequest" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://home.dnaka91.rocks"><img src="https://avatars.githubusercontent.com/u/36804488?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Dominik Nakamura</b></sub></a><br /><a href="#infra-dnaka91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
   </tr>
 </table>
 
