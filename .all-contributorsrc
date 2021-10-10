@@ -238,10 +238,19 @@
       ]
     },
     {
-      "login": "HenryHoggard",
-      "name": "Henry",
+      "login": "SleepiPanda",
+      "name": "SleepiPanda",
       "avatar_url": "https://avatars.githubusercontent.com/u/6428561?v=4",
       "profile": "https://github.com/SleepiPanda",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "uBadRequest",
+      "name": "Bad Requests",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47282747?v=4",
+      "profile": "https://github.com/uBadRequest",
       "contributions": [
         "bug"
       ]
