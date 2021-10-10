@@ -211,6 +211,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://github.com/moscowchill"><img src="https://avatars.githubusercontent.com/u/72578879?v=4?s=100" width="100px;" alt=""/><br /><sub><b>mchill</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Amoscowchill" title="Bug reports">🐛</a></td>
     <td align="center"><a href="http://BitThr3at.github.io"><img src="https://avatars.githubusercontent.com/u/45028933?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Naman</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ABitThr3at" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/Sicks3c"><img src="https://avatars.githubusercontent.com/u/32225186?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ayoub Elaich</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asicks3c" title="Bug reports">🐛</a></td>
   </tr>
 </table>
 
