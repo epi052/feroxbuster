@@ -208,6 +208,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/dinosn"><img src="https://avatars.githubusercontent.com/u/3851678?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicolas Krassas</b></sub></a><br /><a href="#ideas-dinosn" title="Ideas, Planning, & Feedback">🤔</a></td>
     <td align="center"><a href="https://github.com/N0ur5"><img src="https://avatars.githubusercontent.com/u/24260009?v=4?s=100" width="100px;" alt=""/><br /><sub><b>N0ur5</b></sub></a><br /><a href="#ideas-N0ur5" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/moscowchill"><img src="https://avatars.githubusercontent.com/u/72578879?v=4?s=100" width="100px;" alt=""/><br /><sub><b>mchill</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Amoscowchill" title="Bug reports">🐛</a></td>
+  </tr>
 </table>
 
 <!-- markdownlint-restore -->
