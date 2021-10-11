@@ -75,6 +75,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--auto-tune', 'auto-tune', [CompletionResultType]::ParameterName, 'Automatically lower scan rate when an excessive amount of errors are encountered')
             [CompletionResult]::new('--auto-bail', 'auto-bail', [CompletionResultType]::ParameterName, 'Automatically stop scanning when an excessive amount of errors are encountered')
             [CompletionResult]::new('--json', 'json', [CompletionResultType]::ParameterName, 'Emit JSON logs to --output and --debug-log instead of normal text')
+            [CompletionResult]::new('--format', 'format', [CompletionResultType]::ParameterName, 'Emit CSV logs to --output')
             [CompletionResult]::new('-D', 'D', [CompletionResultType]::ParameterName, 'Don''t auto-filter wildcard responses')
             [CompletionResult]::new('--dont-filter', 'dont-filter', [CompletionResultType]::ParameterName, 'Don''t auto-filter wildcard responses')
             [CompletionResult]::new('-r', 'r', [CompletionResultType]::ParameterName, 'Follow redirects')

@@ -86,6 +86,9 @@ pub struct Banner {
     /// represents Configuration.json
     json: BannerEntry,
 
+    /// represents Configuration.format
+    format: BannerEntry,
+
     /// represents Configuration.output
     output: BannerEntry,
 
@@ -279,6 +282,7 @@ impl Banner {
         let extract_links =
             BannerEntry::new("🔎", "Extract Links", &config.extract_links.to_string());
         let json = BannerEntry::new("🧔", "JSON Output", &config.json.to_string());
+        let format = BannerEntry::new("📓", "Format File", &config.format.to_string());
         let output = BannerEntry::new("💾", "Output File", &config.output);
         let debug_log = BannerEntry::new("🪲", "Debugging Log", &config.debug_log);
         let extensions = BannerEntry::new(
@@ -318,6 +322,7 @@ impl Banner {
             extract_links,
             parallel,
             json,
+            format,
             queries,
             output,
             debug_log,
@@ -485,6 +490,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.json {
             writeln!(&mut writer, "{}", self.json)?;
+        }
+
+        if config.format {
+            writeln!(&mut writer, "{}", self.format)?;
         }
 
         for query in &self.queries {

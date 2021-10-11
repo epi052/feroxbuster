@@ -38,6 +38,7 @@ fn setup_config_test() -> Configuration {
             dont_filter = true
             extract_links = true
             json = true
+            format = true
             save_state = false
             depth = 1
             filter_size = [4120]
@@ -82,6 +83,7 @@ fn default_configuration() {
     assert_eq!(config.requester_policy, RequesterPolicy::Default);
     assert!(!config.no_recursion);
     assert!(!config.json);
+    assert!(!config.format);
     assert!(config.save_state);
     assert!(!config.stdin);
     assert!(!config.add_slash);
@@ -203,6 +205,13 @@ fn config_reads_quiet() {
 fn config_reads_json() {
     let config = setup_config_test();
     assert!(config.json);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_format() {
+    let config = setup_config_test();
+    assert!(config.format);
 }
 
 #[test]

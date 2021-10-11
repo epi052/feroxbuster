@@ -153,6 +153,13 @@ pub fn initialize() -> App<'static, 'static> {
                 .help("Emit JSON logs to --output and --debug-log instead of normal text")
         )
         .arg(
+            Arg::with_name("format")
+                .long("format")
+                .takes_value(false)
+                .requires("output_files")
+                .help("Emit CSV logs to --output")
+        )
+        .arg(
             Arg::with_name("dont_filter")
                 .short("D")
                 .long("dont-filter")

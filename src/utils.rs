@@ -259,6 +259,7 @@ pub fn write_to<T>(
     value: &T,
     file: &mut io::BufWriter<fs::File>,
     convert_to_json: bool,
+    convert_to_csv: bool,
 ) -> Result<()>
 where
     T: FeroxSerialize,
@@ -268,22 +269,70 @@ where
     // If we then call log::... while already processing some logging output, it results in
     // the second log entry being injected into the first.
 
-    let contents = if convert_to_json {
+    let contents = if convert_to_json && !convert_to_csv {
         value.as_json()?
+    } else if !convert_to_json && convert_to_csv {
+        value.as_csv()
     } else {
         value.as_str()
     };
 
-    let contents = strip_ansi_codes(&contents);
+    // This will not flush if it's a --format (csv) file due to writing the headers repeatedly,
+    // therefore if someone ctrl+c the csv file will not be written. Not sure if there is an
+    // easier way to ensure the headers write only once?
+    //
+    // There is a possibility it flushes when full and inadvertly writes the headers again.
+    if file.buffer().is_empty() && convert_to_csv {
+        write_response_csv_columns(file)?;
 
-    let written = file.write(contents.as_bytes())?;
+        let contents = strip_ansi_codes(&contents);
 
-    if written > 0 {
-        // this function is used within async functions/loops, so i'm flushing so that in
-        // the event of a ctrl+c or w/e results seen so far are saved instead of left lying
-        // around in the buffer
-        file.flush()?;
+        file.write_all(contents.as_bytes())?;
+    } else if !file.buffer().is_empty() && convert_to_csv {
+        let contents = strip_ansi_codes(&contents);
+        // This else if block determines if it's a csv file and headers have already been written
+
+        file.write_all(contents.as_bytes())?;
+    } else {
+        // This is the original block for all others that WILL flush
+        let contents = strip_ansi_codes(&contents);
+
+        let written = file.write(contents.as_bytes())?;
+
+        if written > 0 {
+            // this function is used within async functions/loops, so i'm flushing so that in
+            // the event of a ctrl+c or w/e results seen so far are saved instead of left lying
+            // around in the buffer
+            file.flush()?;
+        }
     }
+
+    Ok(())
+}
+
+// A simple function to write the column headers for a FeroxResponse as_csv
+pub fn write_response_csv_columns(file: &mut io::BufWriter<fs::File>) -> Result<()> {
+    let csv_file_columns = vec![
+        "url",
+        "wildcard",
+        "status",
+        "content-length",
+        "line-count",
+        "word-count",
+    ];
+
+    file.write_all(
+        format!(
+            "{}, {}, {}, {}, {}, {}\n",
+            csv_file_columns[0],
+            csv_file_columns[1],
+            csv_file_columns[2],
+            csv_file_columns[3],
+            csv_file_columns[4],
+            csv_file_columns[5],
+        )
+        .as_bytes(),
+    )?;
 
     Ok(())
 }

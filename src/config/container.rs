@@ -141,6 +141,10 @@ pub struct Configuration {
     #[serde(default)]
     pub json: bool,
 
+    /// Store log output as CSV
+    #[serde(default)]
+    pub format: bool,
+
     /// Output file to write results to (default: stdout)
     #[serde(default)]
     pub output: String,
@@ -286,6 +290,7 @@ impl Default for Configuration {
             resumed: false,
             stdin: false,
             json: false,
+            format: false,
             verbosity: 0,
             scan_limit: 0,
             parallel: 0,
@@ -358,6 +363,7 @@ impl Configuration {
     /// - **add_slash**: `false`
     /// - **stdin**: `false`
     /// - **json**: `false`
+    /// - **format**: `false`
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
@@ -633,6 +639,10 @@ impl Configuration {
             config.json = true;
         }
 
+        if args.is_present("format") {
+            config.format = true;
+        }
+
         if args.is_present("stdin") {
             config.stdin = true;
         } else if let Some(url) = args.value_of("url") {
@@ -821,6 +831,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.debug_log, new.debug_log, "");
         update_if_not_default!(&mut conf.resume_from, new.resume_from, "");
         update_if_not_default!(&mut conf.json, new.json, false);
+        update_if_not_default!(&mut conf.format, new.format, false);
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
@@ -879,5 +890,10 @@ impl FeroxSerialize for Configuration {
             .with_context(|| fmt_err("Could not convert Configuration to JSON"))?;
         json.push('\n');
         Ok(json)
+    }
+
+    /// Simply return debug format of FeroxState to satisfy as_csv
+    fn as_csv(&self) -> String {
+        format!("{:?}", self)
     }
 }

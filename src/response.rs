@@ -413,6 +413,18 @@ impl FeroxSerialize for FeroxResponse {
         json.push('\n');
         Ok(json)
     }
+
+    fn as_csv(&self) -> String {
+        format!(
+            "{}, {}, {}, {}, {}, {}\n",
+            self.url,
+            self.wildcard,
+            self.status,
+            self.content_length,
+            self.line_count,
+            self.word_count,
+        )
+    }
 }
 
 /// Serialize implementation for FeroxResponse

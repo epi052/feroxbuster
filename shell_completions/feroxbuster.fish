@@ -31,6 +31,7 @@ complete -c feroxbuster -n "__fish_use_subcommand" -s q -l quiet -d 'Hide progre
 complete -c feroxbuster -n "__fish_use_subcommand" -l auto-tune -d 'Automatically lower scan rate when an excessive amount of errors are encountered'
 complete -c feroxbuster -n "__fish_use_subcommand" -l auto-bail -d 'Automatically stop scanning when an excessive amount of errors are encountered'
 complete -c feroxbuster -n "__fish_use_subcommand" -l json -d 'Emit JSON logs to --output and --debug-log instead of normal text'
+complete -c feroxbuster -n "__fish_use_subcommand" -l format -d 'Emit CSV logs to --output'
 complete -c feroxbuster -n "__fish_use_subcommand" -s D -l dont-filter -d 'Don\'t auto-filter wildcard responses'
 complete -c feroxbuster -n "__fish_use_subcommand" -s r -l redirects -d 'Follow redirects'
 complete -c feroxbuster -n "__fish_use_subcommand" -s k -l insecure -d 'Disables TLS certificate validation'

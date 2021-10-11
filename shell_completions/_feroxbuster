@@ -70,6 +70,7 @@ _feroxbuster() {
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
+'--format[Emit CSV logs to --output]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '-r[Follow redirects]' \

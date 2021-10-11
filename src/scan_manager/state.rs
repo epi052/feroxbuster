@@ -50,4 +50,9 @@ impl FeroxSerialize for FeroxState {
         serde_json::to_string(&self)
             .with_context(|| fmt_err("Could not convert scan's running state to JSON"))
     }
+
+    /// Simply return debug format of FeroxState to satisfy as_csv
+    fn as_csv(&self) -> String {
+        format!("{:?}", self)
+    }
 }

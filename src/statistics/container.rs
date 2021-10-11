@@ -145,6 +145,11 @@ impl FeroxSerialize for Stats {
     fn as_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self)?)
     }
+
+    /// Return an empty string
+    fn as_csv(&self) -> String {
+        String::new()
+    }
 }
 
 /// Serialize implementation for Stats
@@ -509,7 +514,7 @@ impl Stats {
 
         self.update_runtime(seconds);
 
-        write_to(self, &mut file, self.json)?;
+        write_to(self, &mut file, self.json, false)?;
 
         Ok(())
     }

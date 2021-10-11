@@ -71,6 +71,25 @@ impl FeroxSerialize for FeroxMessage {
         json.push('\n');
         Ok(json)
     }
+
+    /// Create a CSV representation of the log message
+    fn as_csv(&self) -> String {
+        let ferox_message_columns = vec!["kind", "message", "level", "time-offset", "module"];
+
+        format!(
+            "{}, {}, {}, {}, {}\n\r",
+            ferox_message_columns[0],
+            ferox_message_columns[1],
+            ferox_message_columns[2],
+            ferox_message_columns[3],
+            ferox_message_columns[4],
+        );
+
+        format!(
+            "{}, {}, {}, {}, {}",
+            self.kind, self.message, self.level, self.time_offset, self.module,
+        )
+    }
 }
 
 #[cfg(test)]

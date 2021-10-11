@@ -88,7 +88,12 @@ impl FileOutHandler {
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::Report(response) => {
-                    skip_fail!(write_to(&*response, &mut file, self.config.json));
+                    skip_fail!(write_to(
+                        &*response,
+                        &mut file,
+                        self.config.json,
+                        self.config.format
+                    ));
                 }
                 Command::Exit => {
                     break;

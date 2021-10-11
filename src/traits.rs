@@ -40,4 +40,7 @@ pub trait FeroxSerialize: Serialize {
 
     /// Return an NDJSON representation of the object
     fn as_json(&self) -> Result<String>;
+
+    /// Return an CSV representation of the object
+    fn as_csv(&self) -> String;
 }
