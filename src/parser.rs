@@ -458,7 +458,7 @@ mod tests {
     use super::*;
 
     #[test]
-    /// initalize parser, expect a clap::App returned
+    /// initialize parser, expect a clap::App returned
     fn parser_initialize_gives_defaults() {
         let app = initialize();
         assert_eq!(app.get_name(), "feroxbuster");
