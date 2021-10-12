@@ -5,7 +5,9 @@ use reqwest::{Client, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource};
 use std::{
+    thread_local,
     fs,
+    cell::RefCell,
     io::{self, BufWriter, Write},
     sync::Arc,
     time::Duration,
@@ -21,9 +23,17 @@ use crate::{
     },
     progress::PROGRESS_PRINTER,
     send_command,
+    USER_AGENTS,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
     traits::FeroxSerialize,
 };
+use crate::config::Configuration;
+
+thread_local! {
+    /// simple counter for grabbing 'random' user agents
+    static USER_AGENT_CTR: RefCell<usize> = RefCell::new(0);
+}
+
 
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
 /// return a reference to the buffered file
@@ -94,7 +104,7 @@ pub async fn logged_request(url: &Url, handles: Arc<Handles>) -> Result<Response
     let level = handles.config.output_level;
     let tx_stats = handles.stats.tx.clone();
 
-    let response = make_request(client, url, level, tx_stats).await;
+    let response = make_request(client, url, level, &handles.config, tx_stats).await;
 
     let scans = handles.ferox_scans()?;
 
@@ -121,6 +131,7 @@ pub async fn make_request(
     client: &Client,
     url: &Url,
     output_level: OutputLevel,
+    config: &Configuration,
     tx_stats: UnboundedSender<Command>,
 ) -> Result<Response> {
     log::trace!(
@@ -130,7 +141,18 @@ pub async fn make_request(
         tx_stats
     );
 
-    match client.get(url.to_owned()).send().await {
+    let mut request = client.get(url.to_owned());
+
+    if config.random_agent {
+        let user_agent = USER_AGENT_CTR.with(|ua_ctr| {
+            let mut inner = ua_ctr.borrow_mut();
+            *inner += 1;
+            USER_AGENTS[*inner % USER_AGENTS.len()]
+        });
+        request = request.header("User-Agent", user_agent);
+    }
+
+    match request.send().await {
         Err(e) => {
             log::trace!("exit: make_request -> {}", e);
 

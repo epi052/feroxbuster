@@ -215,6 +215,7 @@ impl TermOutHandler {
                             self.config.replay_client.as_ref().unwrap(),
                             resp.url(),
                             self.config.output_level,
+                            &self.config,
                             tx_stats.clone(),
                         )
                         .await
