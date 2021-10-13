@@ -13,6 +13,7 @@ use std::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::config::Configuration;
 use crate::{
     config::OutputLevel,
     event_handlers::{
@@ -21,16 +22,13 @@ use crate::{
     },
     progress::PROGRESS_PRINTER,
     send_command,
-    USER_AGENTS,
     statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
     traits::FeroxSerialize,
+    USER_AGENTS,
 };
-use crate::config::Configuration;
 
 /// simple counter for grabbing 'random' user agents
 static mut USER_AGENT_CTR: usize = 0;
-
-
 
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
 /// return a reference to the buffered file
