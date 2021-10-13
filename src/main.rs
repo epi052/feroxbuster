@@ -29,7 +29,6 @@ use feroxbuster::{
     scan_manager::{self},
     scanner,
     utils::{fmt_err, slugify_filename},
-    USER_AGENTS,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
@@ -175,8 +174,6 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         PROGRESS_PRINTER.println("");
         PROGRESS_BAR.join().unwrap();
     });
-
-    PROGRESS_PRINTER.println(USER_AGENTS[0]);
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
     let (stats_task, stats_handle) = StatsHandler::initialize(config.clone());

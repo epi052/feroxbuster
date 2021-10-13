@@ -615,7 +615,6 @@ dependencies = [
  "log",
  "openssl",
  "predicates",
- "rand",
  "regex",
  "reqwest",
  "rlimit",
