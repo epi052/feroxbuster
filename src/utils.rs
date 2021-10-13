@@ -5,9 +5,7 @@ use reqwest::{Client, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource};
 use std::{
-    thread_local,
     fs,
-    cell::RefCell,
     io::{self, BufWriter, Write},
     sync::Arc,
     time::Duration,
@@ -29,10 +27,9 @@ use crate::{
 };
 use crate::config::Configuration;
 
-thread_local! {
-    /// simple counter for grabbing 'random' user agents
-    static USER_AGENT_CTR: RefCell<usize> = RefCell::new(0);
-}
+/// simple counter for grabbing 'random' user agents
+static mut USER_AGENT_CTR: usize = 0;
+
 
 
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
@@ -144,11 +141,13 @@ pub async fn make_request(
     let mut request = client.get(url.to_owned());
 
     if config.random_agent {
-        let user_agent = USER_AGENT_CTR.with(|ua_ctr| {
-            let mut inner = ua_ctr.borrow_mut();
-            *inner += 1;
-            USER_AGENTS[*inner % USER_AGENTS.len()]
-        });
+        let index = unsafe {
+            USER_AGENT_CTR += 1;
+            USER_AGENT_CTR % USER_AGENTS.len()
+        };
+
+        let user_agent = USER_AGENTS[index];
+
         request = request.header("User-Agent", user_agent);
     }
 
