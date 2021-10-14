@@ -430,7 +430,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""save_state":false"#,
         r#""time_limit":"""#,
         r#""filter_similar":[]"#,
-        r#""url_denylist":["#,
+        r#""url_denylist":[]"#,
         r#""responses""#,
         r#""type":"response""#,
         r#""url":"https://nerdcore.com/css""#,
