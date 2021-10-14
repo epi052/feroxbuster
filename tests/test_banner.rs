@@ -163,7 +163,7 @@ fn banner_prints_random_agent() {
                 .and(predicate::str::contains("Status Codes"))
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
-                .and(predicate::str::contains("(Random)"))
+                .and(predicate::str::contains("Random"))
                 .and(predicate::str::contains("─┴─")),
         );
 }

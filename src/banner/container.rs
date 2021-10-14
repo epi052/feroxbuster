@@ -279,7 +279,7 @@ impl Banner {
         let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
         let user_agent = BannerEntry::new("🦡", "User-Agent", &config.user_agent);
-        let random_agent = BannerEntry::new("🦡", "User-Agent", "(Random)");
+        let random_agent = BannerEntry::new("🦡", "User-Agent", "Random");
         let extract_links =
             BannerEntry::new("🔎", "Extract Links", &config.extract_links.to_string());
         let json = BannerEntry::new("🧔", "JSON Output", &config.json.to_string());
