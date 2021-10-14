@@ -91,6 +91,7 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 10] = [
 ///
 /// Expected location is in the same directory as the feroxbuster binary.
 pub const DEFAULT_CONFIG_NAME: &str = "ferox-config.toml";
+/// User agents to select from when random agent is being used
 pub const USER_AGENTS: [&str; 12] = [
     "Mozilla/5.0 (Linux; Android 8.0.0; SM-G960F Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.84 Mobile Safari/537.36",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 12_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1",
