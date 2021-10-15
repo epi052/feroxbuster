@@ -115,7 +115,7 @@ fn banner_prints_headers() {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
-/// expect to see all mandatory prints + multiple dont scan entries
+/// expect to see all mandatory prints + multiple dont scan url & regex entries
 fn banner_prints_denied_urls() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -123,8 +123,9 @@ fn banner_prints_denied_urls() {
         .arg("http://localhost")
         .arg("--dont-scan")
         .arg("http://dont-scan.me")
-        .arg("--dont-scan")
         .arg("https://also-not.me")
+        .arg("https:")
+        .arg("/deny.*")
         .assert()
         .success()
         .stderr(
@@ -136,9 +137,12 @@ fn banner_prints_denied_urls() {
                 .and(predicate::str::contains("Status Codes"))
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
-                .and(predicate::str::contains("Don't Scan"))
+                .and(predicate::str::contains("Don't Scan Url"))
+                .and(predicate::str::contains("Don't Scan Regex"))
                 .and(predicate::str::contains("http://dont-scan.me"))
                 .and(predicate::str::contains("https://also-not.me"))
+                .and(predicate::str::contains("https:"))
+                .and(predicate::str::contains("/deny.*"))
                 .and(predicate::str::contains("─┴─")),
         );
 }

@@ -210,3 +210,73 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
 
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// test that a regex that prevents the base url from being scanned results in an early exit
+fn deny_list_prevents_regex_that_denies_base_url() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--dont-scan")
+        .arg("/")
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    let err_msg = format!(
+        "Could not determine initial targets: The regex '/' matches {}/; the scan will never start",
+        srv.base_url()
+    );
+    cmd.assert()
+        .success()
+        .stderr(predicate::str::contains(err_msg));
+
+    assert_eq!(mock.hits(), 0);
+}
+
+#[test]
+/// test that a url that prevents the base url from being scanned results in an early exit
+fn deny_list_prevents_url_that_denies_base_url() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--dont-scan")
+        .arg(srv.base_url())
+        .unwrap();
+
+    teardown_tmp_directory(tmp_dir);
+
+    let err_msg = format!(
+        "Could not determine initial targets: The url '{}/' matches {}/; the scan will never start",
+        srv.base_url(),
+        srv.base_url()
+    );
+
+    cmd.assert()
+        .success()
+        .stderr(predicate::str::contains(err_msg));
+
+    assert_eq!(mock.hits(), 0);
+}

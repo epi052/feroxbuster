@@ -154,6 +154,28 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
         targets.push(handles.config.target_url.clone());
     }
 
+    // remove footgun that arises if a --dont-scan value matches on a base url
+    for target in &targets {
+        for denier in &handles.config.regex_denylist {
+            if denier.is_match(target) {
+                bail!(
+                    "The regex '{}' matches {}; the scan will never start",
+                    denier,
+                    target
+                );
+            }
+        }
+        for denier in &handles.config.url_denylist {
+            if denier.as_str().trim_end_matches('/') == target.trim_end_matches('/') {
+                bail!(
+                    "The url '{}' matches {}; the scan will never start",
+                    denier,
+                    target
+                );
+            }
+        }
+    }
+
     log::trace!("exit: get_targets -> {:?}", targets);
 
     Ok(targets)
@@ -231,7 +253,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         Err(e) => {
             // should only happen in the event that there was an error reading from stdin
             clean_up(handles, tasks).await?;
-            bail!("Could not get determine initial targets: {}", e);
+            bail!("Could not determine initial targets: {}", e);
         }
     };
 

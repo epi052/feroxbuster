@@ -32,6 +32,7 @@
 # insecure = true
 # extensions = ["php", "html"]
 # url_denylist = ["http://dont-scan.me", "https://also-not.me"]
+# regex_denylist = ["/deny.*"]
 # no_recursion = true
 # add_slash = true
 # stdin = true

@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
+use regex::Regex;
 use reqwest::{Client, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource};
@@ -307,6 +308,110 @@ where
     Ok(())
 }
 
+/// determine if a url should be denied based on the given absolute url
+fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) -> Result<bool> {
+    log::trace!(
+        "enter: should_deny_absolute({}, {:?})",
+        url_to_test.as_str(),
+        denier.as_str(),
+    );
+
+    // simplest case is an exact match, check for it first
+    if url_to_test == denier {
+        log::trace!("exit: should_deny_absolute -> true");
+        return Ok(true);
+    }
+
+    match (url_to_test.host(), denier.host()) {
+        // .host() will return an enum with ipv4|6 or domain and is comparable
+        // whereas .domain() returns None for ip addresses
+        (Some(normed_host), Some(denier_host)) => {
+            if normed_host != denier_host {
+                // domains don't even match
+                return Ok(false);
+            }
+        }
+        _ => {
+            // one or the other couldn't determine the host value, which probably means
+            // it's not suitable for further comparison
+            return Ok(false);
+        }
+    }
+
+    let tested_host = url_to_test.host().unwrap(); // match above will catch errors
+
+    // at this point, we have a matching set of ips or domain names. now we can process the
+    // url path. The goal is to determine whether the given url's path is a subpath of any
+    // url in the deny list, for example
+    //    GIVEN URL                        URL DENY LIST               USER-SPECIFIED URLS TO SCAN
+    //    http://some.domain/stuff/things, [http://some.domain/stuff], [http://some.domain] => true
+    //    http://some.domain/stuff/things, [http://some.domain/stuff/things], [http://some.domain] => true
+    //    http://some.domain/stuff/things, [http://some.domain/api], [http://some.domain] => false
+    // the examples above are all pretty obvious, the kicker comes when the blocking url's
+    // path is a parent to a scanned url
+    //    http://some.domain/stuff/things, [http://some.domain/], [http://some.domain/stuff] => false
+    //    http://some.domain/api, [http://some.domain/], [http://some.domain/stuff] => true
+    // we want to deny all children of the parent, unless that child is a child of a scan
+    // we specified through -u(s) or --stdin
+
+    let deny_path = denier.path();
+    let tested_path = url_to_test.path();
+
+    if tested_path.starts_with(deny_path) {
+        // at this point, we know that the given normalized path is a sub-path of the
+        // current deny-url, now we just need to check to see if this deny-url is a parent
+        // to a scanned url that is also a parent of the given url
+        for ferox_scan in handles.ferox_scans()?.get_active_scans() {
+            let scanner = Url::parse(ferox_scan.url().trim_end_matches('/'))
+                .with_context(|| format!("Could not parse {} as a url", ferox_scan))?;
+
+            if let Some(scan_host) = scanner.host() {
+                // same domain/ip check we perform on the denier above
+                if tested_host != scan_host {
+                    // domains don't even match, keep on keepin' on...
+                    continue;
+                }
+            } else {
+                // couldn't process .host from scanner
+                continue;
+            };
+
+            let scan_path = scanner.path();
+
+            if scan_path.starts_with(deny_path) && tested_path.starts_with(scan_path) {
+                // user-specified scan url is a sub-path of the deny-urls's path AND the
+                // url to check is a sub-path of the user-specified scan url
+                //
+                // the assumption is the user knew what they wanted and we're going to give
+                // the scanned url precedence, even though it's a sub-path
+                log::trace!("exit: should_deny_absolute -> false");
+                return Ok(false);
+            }
+        }
+        log::trace!("exit: should_deny_absolute -> true");
+        return Ok(true);
+    }
+
+    log::trace!("exit: should_deny_absolute -> false");
+    Ok(false)
+}
+
+/// determine if a url should be denied based on the given regular expression
+///
+/// the regex ONLY matches against the PATH of the url (not the scheme, host, port, etc)
+fn should_deny_regex(url_to_test: &Url, denier: &Regex) -> bool {
+    log::trace!(
+        "enter: should_deny_regex({}, {})",
+        url_to_test.as_str(),
+        denier,
+    );
+
+    let result = denier.is_match(url_to_test.as_str());
+
+    log::trace!("exit: should_deny_regex -> {}", result);
+    result
+}
+
 /// determines whether or not a given url should be denied based on the user-supplied --dont-scan
 /// flag
 pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
@@ -316,91 +421,29 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
         handles.config.url_denylist,
         handles.ferox_scans()?
     );
+
     // normalization for comparison is to remove the trailing / if one exists, this is done for
     // the given url and any url to which it's compared
     let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
 
-    for deny_url in &handles.config.url_denylist {
-        // parse the denying url for easier comparison
-        let denier = Url::parse(deny_url.trim_end_matches('/'))
-            .with_context(|| format!("Could not parse {} as a url", deny_url))?;
-
-        // simplest case is an exact match, check for it first
-        if normed_url == denier {
-            log::trace!("exit: should_deny_url -> true");
-            return Ok(true);
-        }
-
-        match (normed_url.host(), denier.host()) {
-            // .host() will return an enum with ipv4|6 or domain and is comparable
-            // whereas .domain() returns None for ip addresses
-            (Some(normed_host), Some(denier_host)) => {
-                if normed_host != denier_host {
-                    // domains don't even match, keep on keepin' on...
-                    continue;
-                }
-            }
-            _ => {
-                // one or the other couldn't determine the host value, which probably means
-                // it's not suitable for further comparison
-                continue;
+    for denier in &handles.config.url_denylist {
+        // note to self: it may seem as though we can use regex only for --dont-scan, however, in
+        // doing so, we lose the ability to block a parent directory while scanning a child
+        if let Ok(should_deny) = should_deny_absolute(&normed_url, denier, handles.clone()) {
+            if should_deny {
+                return Ok(true);
             }
         }
+    }
 
-        let normed_host = normed_url.host().unwrap(); // match above will catch errors
-
-        // at this point, we have a matching set of ips or domain names. now we can process the
-        // url path. The goal is to determine whether the given url's path is a subpath of any
-        // url in the deny list, for example
-        //    GIVEN URL                        URL DENY LIST               USER-SPECIFIED URLS TO SCAN
-        //    http://some.domain/stuff/things, [http://some.domain/stuff], [http://some.domain] => true
-        //    http://some.domain/stuff/things, [http://some.domain/stuff/things], [http://some.domain] => true
-        //    http://some.domain/stuff/things, [http://some.domain/api], [http://some.domain] => false
-        // the examples above are all pretty obvious, the kicker comes when the blocking url's
-        // path is a parent to a scanned url
-        //    http://some.domain/stuff/things, [http://some.domain/], [http://some.domain/stuff] => false
-        //    http://some.domain/api, [http://some.domain/], [http://some.domain/stuff] => true
-        // we want to deny all children of the parent, unless that child is a child of a scan
-        // we specified through -u(s) or --stdin
-
-        let deny_path = denier.path();
-        let norm_path = normed_url.path();
-
-        if norm_path.starts_with(deny_path) {
-            // at this point, we know that the given normalized path is a sub-path of the
-            // current deny-url, now we just need to check to see if this deny-url is a parent
-            // to a scanned url that is also a parent of the given url
-            for ferox_scan in handles.ferox_scans()?.get_active_scans() {
-                let scanner = Url::parse(ferox_scan.url().trim_end_matches('/'))
-                    .with_context(|| format!("Could not parse {} as a url", ferox_scan))?;
-
-                if let Some(scan_host) = scanner.host() {
-                    // same domain/ip check we perform on the denier above
-                    if normed_host != scan_host {
-                        // domains don't even match, keep on keepin' on...
-                        continue;
-                    }
-                } else {
-                    // couldn't process .host from scanner
-                    continue;
-                };
-
-                let scan_path = scanner.path();
-
-                if scan_path.starts_with(deny_path) && norm_path.starts_with(scan_path) {
-                    // user-specified scan url is a sub-path of the deny-urls's path AND the
-                    // url to check is a sub-path of the user-specified scan url
-                    //
-                    // the assumption is the user knew what they wanted and we're going to give
-                    // the scanned url precedence, even though it's a sub-path
-                    log::trace!("exit: should_deny_url -> false");
-                    return Ok(false);
-                }
-            }
-            log::trace!("exit: should_deny_url -> true");
+    for denier in &handles.config.regex_denylist {
+        if should_deny_regex(&normed_url, denier) {
             return Ok(true);
         }
     }
+
+    // made it to the end of the deny lists unscathed, return false, indicating we should not deny
+    // this particular url
     log::trace!("exit: should_deny_url -> false");
     Ok(false)
 }
@@ -525,7 +568,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -544,7 +587,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -563,7 +606,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -584,7 +627,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -605,7 +648,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -624,7 +667,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -643,7 +686,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -662,7 +705,7 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
@@ -681,11 +724,53 @@ mod tests {
         scans.add_directory_scan(scan_url, ScanOrder::Initial);
 
         let mut config = Configuration::new().unwrap();
-        config.url_denylist = vec![String::from(deny_url)];
+        config.url_denylist = vec![Url::parse(deny_url).unwrap()];
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
 
         assert!(!should_deny_url(&tested_url, handles).unwrap());
+    }
+
+    #[test]
+    /// provide a denier where the tested url is matched against a regular expression in the path
+    /// of the url
+    fn should_deny_url_blocks_urls_based_on_regex_in_path() {
+        let scan_url = "https://testdomain.com/";
+        let deny_pattern = "/deni.*";
+        let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
+
+        let scans = Arc::new(FeroxScans::default());
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+
+        let mut config = Configuration::new().unwrap();
+        config.regex_denylist = vec![Regex::new(deny_pattern).unwrap()];
+        let config = Arc::new(config);
+
+        let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
+
+        assert!(should_deny_url(&tested_url, handles).unwrap());
+    }
+
+    #[test]
+    /// provide a denier where the tested url is matched against a regular expression in the scheme
+    /// of the url
+    fn should_deny_url_blocks_urls_based_on_regex_in_scheme() {
+        let scan_url = "https://testdomain.com/";
+        let deny_pattern = "http:";
+        let tested_http_url = Url::parse("http://testdomain.com/denied/").unwrap();
+        let tested_https_url = Url::parse("https://testdomain.com/denied/").unwrap();
+
+        let scans = Arc::new(FeroxScans::default());
+        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+
+        let mut config = Configuration::new().unwrap();
+        config.regex_denylist = vec![Regex::new(deny_pattern).unwrap()];
+        let config = Arc::new(config);
+
+        let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
+
+        assert!(!should_deny_url(&tested_https_url, handles.clone()).unwrap());
+        assert!(should_deny_url(&tested_http_url, handles).unwrap());
     }
 }
