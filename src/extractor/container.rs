@@ -402,6 +402,7 @@ impl<'a> Extractor<'a> {
             &client,
             &url,
             self.handles.config.output_level,
+            &self.handles.config,
             self.handles.stats.tx.clone(),
         )
         .await?;

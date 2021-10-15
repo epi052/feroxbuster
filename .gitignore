@@ -23,7 +23,7 @@ lcov_cobertura.py
 .dockerignore
 
 # state file created during tests
-ferox-http*
+ferox-*.state
 
 # python stuff cuz reasons
 Pipfile*

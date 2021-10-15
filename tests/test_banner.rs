@@ -145,6 +145,31 @@ fn banner_prints_denied_urls() {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + multiple headers
+fn banner_prints_random_agent() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--random-agent")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Random"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple size filters
 fn banner_prints_filter_sizes() {
     Command::cargo_bin("feroxbuster")

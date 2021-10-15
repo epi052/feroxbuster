@@ -50,6 +50,9 @@ pub struct Banner {
     /// represents Configuration.user_agent
     user_agent: BannerEntry,
 
+    /// represents Configuration.random_agent
+    random_agent: BannerEntry,
+
     /// represents Configuration.config
     config: BannerEntry,
 
@@ -276,6 +279,7 @@ impl Banner {
         let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
         let user_agent = BannerEntry::new("🦡", "User-Agent", &config.user_agent);
+        let random_agent = BannerEntry::new("🦡", "User-Agent", "Random");
         let extract_links =
             BannerEntry::new("🔎", "Extract Links", &config.extract_links.to_string());
         let json = BannerEntry::new("🧔", "JSON Output", &config.json.to_string());
@@ -304,6 +308,7 @@ impl Banner {
             filter_status,
             timeout,
             user_agent,
+            random_agent,
             auto_bail,
             auto_tune,
             proxy,
@@ -437,7 +442,12 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
 
         writeln!(&mut writer, "{}", self.timeout)?;
-        writeln!(&mut writer, "{}", self.user_agent)?;
+
+        if config.random_agent {
+            writeln!(&mut writer, "{}", self.random_agent)?;
+        } else {
+            writeln!(&mut writer, "{}", self.user_agent)?;
+        }
 
         // followed by the maybe printed or variably displayed values
         if !config.config.is_empty() {

@@ -72,6 +72,8 @@ _feroxbuster() {
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
+'-A[Use a random User-Agent]' \
+'--random-agent[Use a random User-Agent]' \
 '-r[Follow redirects]' \
 '--redirects[Follow redirects]' \
 '-k[Disables TLS certificate validation]' \

@@ -211,16 +211,23 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/some-path");
         then.status(200).body(
-            "\"http://defintely.not.a.thing.probably.com/homepage/assets/img/icons/handshake.svg\"",
+            "\"http://definitely.not.a.thing.probably.com/homepage/assets/img/icons/handshake.svg\"",
         );
     });
 
     let client = Client::new();
     let url = Url::parse(&srv.url("/some-path")).unwrap();
+    let config = Configuration::new().unwrap();
 
-    let response = make_request(&client, &url, OutputLevel::Default, tx_stats.clone())
-        .await
-        .unwrap();
+    let response = make_request(
+        &client,
+        &url,
+        OutputLevel::Default,
+        &config,
+        tx_stats.clone(),
+    )
+    .await
+    .unwrap();
     let (handles, _rx) = Handles::for_testing(None, None);
 
     let handles = Arc::new(handles);
