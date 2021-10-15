@@ -193,6 +193,15 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("random_agent")
+                .short("A")
+                .long("random-agent")
+                .takes_value(false)
+                .help(
+                    "Use a random User-Agent"
+                ),
+        )
+        .arg(
             Arg::with_name("redirects")
                 .short("r")
                 .long("redirects")

@@ -81,6 +81,7 @@ fn default_configuration() {
     assert!(!config.auto_bail);
     assert_eq!(config.requester_policy, RequesterPolicy::Default);
     assert!(!config.no_recursion);
+    assert!(!config.random_agent);
     assert!(!config.json);
     assert!(config.save_state);
     assert!(!config.stdin);
@@ -381,6 +382,12 @@ fn config_reads_queries() {
         ("rick".to_string(), "astley".to_string()),
     ];
     assert_eq!(config.queries, queries);
+}
+
+#[test]
+fn config_default_not_random_agent() {
+    let config = setup_config_test();
+    assert!(!config.random_agent);
 }
 
 #[test]
