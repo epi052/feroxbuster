@@ -30,6 +30,14 @@
   <a href="https://codecov.io/gh/epi052/feroxbuster">
     <img src="https://codecov.io/gh/epi052/feroxbuster/branch/master/graph/badge.svg" />
   </a>
+  <!--
+  <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section 
+    [![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
+  <!-- ALL-CONTRIBUTORS-BADGE:END -->
+  <a href="https://github.com/epi052/feroxbuster/graphs/contributors">
+    <img src="https://img.shields.io/badge/all_contributors-14-orange.svg" />
+  </a>
+
 </p>
 
 ![demo](img/demo.gif)
@@ -164,3 +172,59 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 For realsies, there used to be over 1300 lines in this README, but it's all been moved to the [new documentation site](https://epi052.github.io/feroxbuster-docs/docs/). Go check it out! 
 
 <h1><p align="center">✨🎉👉 <a href="https://epi052.github.io/feroxbuster-docs/docs/">DOCUMENTATION</a> 👈🎉✨</p></h1>
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://io.fi"><img src="https://avatars.githubusercontent.com/u/5235109?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Joona Hoikkala</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=joohoi" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/jsav0"><img src="https://avatars.githubusercontent.com/u/20546041?v=4?s=100" width="100px;" alt=""/><br /><sub><b>J Savage</b></sub></a><br /><a href="#infra-jsav0" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=jsav0" title="Documentation">📖</a></td>
+    <td align="center"><a href="http://www.tgotwig.dev"><img src="https://avatars.githubusercontent.com/u/30773779?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Thomas Gotwig</b></sub></a><br /><a href="#infra-TGotwig" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=TGotwig" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/spikecodes"><img src="https://avatars.githubusercontent.com/u/19519553?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Spike</b></sub></a><br /><a href="#infra-spikecodes" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=spikecodes" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/evanrichter"><img src="https://avatars.githubusercontent.com/u/330292?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Evan Richter</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=evanrichter" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/commits?author=evanrichter" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/mzpqnxow"><img src="https://avatars.githubusercontent.com/u/8016228?v=4?s=100" width="100px;" alt=""/><br /><sub><b>AG</b></sub></a><br /><a href="#ideas-mzpqnxow" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/epi052/feroxbuster/commits?author=mzpqnxow" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://n-thumann.de/"><img src="https://avatars.githubusercontent.com/u/46975855?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicolas Thumann</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=n-thumann" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/commits?author=n-thumann" title="Documentation">📖</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/tomtastic"><img src="https://avatars.githubusercontent.com/u/302127?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tom Matthews</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=tomtastic" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/bsysop"><img src="https://avatars.githubusercontent.com/u/9998303?v=4?s=100" width="100px;" alt=""/><br /><sub><b>bsysop</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=bsysop" title="Documentation">📖</a></td>
+    <td align="center"><a href="http://bpsizemore.me"><img src="https://avatars.githubusercontent.com/u/11645898?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Brian Sizemore</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=bpsizemore" title="Code">💻</a></td>
+    <td align="center"><a href="https://pwn.by/noraj"><img src="https://avatars.githubusercontent.com/u/16578570?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Alexandre ZANNI</b></sub></a><br /><a href="#infra-noraj" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=noraj" title="Documentation">📖</a></td>
+    <td align="center"><a href="https://github.com/craig"><img src="https://avatars.githubusercontent.com/u/99729?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Craig</b></sub></a><br /><a href="#infra-craig" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+    <td align="center"><a href="https://www.reddit.com/u/EONRaider"><img src="https://avatars.githubusercontent.com/u/15611424?v=4?s=100" width="100px;" alt=""/><br /><sub><b>EONRaider</b></sub></a><br /><a href="#infra-EONRaider" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+    <td align="center"><a href="https://github.com/wtwver"><img src="https://avatars.githubusercontent.com/u/53866088?v=4?s=100" width="100px;" alt=""/><br /><sub><b>wtwver</b></sub></a><br /><a href="#infra-wtwver" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://tib3rius.com"><img src="https://avatars.githubusercontent.com/u/48113936?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tib3rius</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ATib3rius" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/0xdf"><img src="https://avatars.githubusercontent.com/u/1489045?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="http://secure77.de"><img src="https://avatars.githubusercontent.com/u/31564517?v=4?s=100" width="100px;" alt=""/><br /><sub><b>secure-77</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asecure-77" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/sbrun"><img src="https://avatars.githubusercontent.com/u/7712154?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sophie Brun</b></sub></a><br /><a href="#infra-sbrun" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+    <td align="center"><a href="https://github.com/black-A"><img src="https://avatars.githubusercontent.com/u/30686803?v=4?s=100" width="100px;" alt=""/><br /><sub><b>black-A</b></sub></a><br /><a href="#ideas-black-A" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://github.com/dinosn"><img src="https://avatars.githubusercontent.com/u/3851678?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicolas Krassas</b></sub></a><br /><a href="#ideas-dinosn" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://github.com/N0ur5"><img src="https://avatars.githubusercontent.com/u/24260009?v=4?s=100" width="100px;" alt=""/><br /><sub><b>N0ur5</b></sub></a><br /><a href="#ideas-N0ur5" title="Ideas, Planning, & Feedback">🤔</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/moscowchill"><img src="https://avatars.githubusercontent.com/u/72578879?v=4?s=100" width="100px;" alt=""/><br /><sub><b>mchill</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Amoscowchill" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="http://BitThr3at.github.io"><img src="https://avatars.githubusercontent.com/u/45028933?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Naman</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ABitThr3at" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/Sicks3c"><img src="https://avatars.githubusercontent.com/u/32225186?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ayoub Elaich</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asicks3c" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/HenryHoggard"><img src="https://avatars.githubusercontent.com/u/1208121?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Henry</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AHenryHoggard" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/SleepiPanda"><img src="https://avatars.githubusercontent.com/u/6428561?v=4?s=100" width="100px;" alt=""/><br /><sub><b>SleepiPanda</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ASleepiPanda" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/uBadRequest"><img src="https://avatars.githubusercontent.com/u/47282747?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Bad Requests</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AuBadRequest" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://home.dnaka91.rocks"><img src="https://avatars.githubusercontent.com/u/36804488?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Dominik Nakamura</b></sub></a><br /><a href="#infra-dnaka91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/hunter0x8"><img src="https://avatars.githubusercontent.com/u/46222314?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Muhammad Ahsan</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Ahunter0x8" title="Bug reports">🐛</a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!

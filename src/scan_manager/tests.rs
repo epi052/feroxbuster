@@ -378,12 +378,79 @@ fn feroxstates_feroxserialize_implementation() {
     assert!(expected_strs.eval(&ferox_state.as_str()));
 
     let json_state = ferox_state.as_json().unwrap();
-    let expected = format!(
-        r#"{{"scans":[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}],"config":{{"type":"configuration","wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt","config":"","proxy":"","replay_proxy":"","target_url":"","status_codes":[200,204,301,302,307,308,401,403,405,500],"replay_codes":[200,204,301,302,307,308,401,403,405,500],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"silent":false,"quiet":false,"auto_bail":false,"auto_tune":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/{}","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":4,"scan_limit":0,"parallel":0,"rate_limit":0,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false,"resumed":false,"resume_from":"","save_state":false,"time_limit":"","filter_similar":[],"url_denylist":[],"regex_denylist":[]}},"responses":[{{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}]"#,
-        saved_id, VERSION
-    );
-    println!("{}\n{}", expected, json_state);
-    assert!(predicates::str::contains(expected).eval(&json_state));
+    for expected in [
+        r#""scans""#,
+        &format!(r#""id":"{}""#, saved_id),
+        r#""url":"https://spiritanimal.com""#,
+        r#""scan_type":"Directory""#,
+        r#""status":"NotStarted""#,
+        r#""num_requests":0"#,
+        r#""config""#,
+        r#""type":"configuration""#,
+        r#""wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt""#,
+        r#""config""#,
+        r#""proxy":"""#,
+        r#""replay_proxy":"""#,
+        r#""target_url":"""#,
+        r#""status_codes":[200,204,301,302,307,308,401,403,405,500]"#,
+        r#""replay_codes":[200,204,301,302,307,308,401,403,405,500]"#,
+        r#""filter_status":[]"#,
+        r#""threads":50"#,
+        r#""timeout":7"#,
+        r#""verbosity":0"#,
+        r#""silent":false"#,
+        r#""quiet":false"#,
+        r#""auto_bail":false"#,
+        r#""auto_tune":false"#,
+        r#""json":false"#,
+        r#""output":"""#,
+        r#""debug_log":"""#,
+        &format!(r#""user_agent":"feroxbuster/{}""#, VERSION),
+        r#""random_agent":false"#,
+        r#""redirects":false"#,
+        r#""insecure":false"#,
+        r#""extensions":[]"#,
+        r#""headers""#,
+        r#""queries":[]"#,
+        r#""no_recursion":false"#,
+        r#""extract_links":false"#,
+        r#""add_slash":false"#,
+        r#""stdin":false"#,
+        r#""depth":4"#,
+        r#""scan_limit":0"#,
+        r#""parallel":0"#,
+        r#""rate_limit":0"#,
+        r#""filter_size":[]"#,
+        r#""filter_line_count":[]"#,
+        r#""filter_word_count":[]"#,
+        r#""filter_regex":[]"#,
+        r#""dont_filter":false"#,
+        r#""resumed":false"#,
+        r#""resume_from":"""#,
+        r#""save_state":false"#,
+        r#""time_limit":"""#,
+        r#""filter_similar":[]"#,
+        r#""url_denylist":[]"#,
+        r#""responses""#,
+        r#""type":"response""#,
+        r#""url":"https://nerdcore.com/css""#,
+        r#""path":"/css""#,
+        r#""wildcard":true"#,
+        r#""status":301"#,
+        r#""content_length":173"#,
+        r#""line_count":10"#,
+        r#""word_count":16"#,
+        r#""headers""#,
+        r#""server":"nginx/1.16.1"#,
+    ]
+    .iter()
+    {
+        assert!(
+            predicates::str::contains(*expected).eval(&json_state),
+            "{}",
+            expected
+        )
+    }
 }
 
 #[should_panic]

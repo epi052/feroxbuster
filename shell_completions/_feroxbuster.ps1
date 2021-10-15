@@ -77,6 +77,8 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--json', 'json', [CompletionResultType]::ParameterName, 'Emit JSON logs to --output and --debug-log instead of normal text')
             [CompletionResult]::new('-D', 'D', [CompletionResultType]::ParameterName, 'Don''t auto-filter wildcard responses')
             [CompletionResult]::new('--dont-filter', 'dont-filter', [CompletionResultType]::ParameterName, 'Don''t auto-filter wildcard responses')
+            [CompletionResult]::new('-A', 'A', [CompletionResultType]::ParameterName, 'Use a random User-Agent')
+            [CompletionResult]::new('--random-agent', 'random-agent', [CompletionResultType]::ParameterName, 'Use a random User-Agent')
             [CompletionResult]::new('-r', 'r', [CompletionResultType]::ParameterName, 'Follow redirects')
             [CompletionResult]::new('--redirects', 'redirects', [CompletionResultType]::ParameterName, 'Follow redirects')
             [CompletionResult]::new('-k', 'k', [CompletionResultType]::ParameterName, 'Disables TLS certificate validation')
