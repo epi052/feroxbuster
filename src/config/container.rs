@@ -10,7 +10,8 @@ use crate::{
 };
 use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
-use reqwest::{Client, StatusCode};
+use regex::Regex;
+use reqwest::{Client, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -158,6 +159,10 @@ pub struct Configuration {
     #[serde(default = "user_agent")]
     pub user_agent: String,
 
+    /// Use random User-Agent
+    #[serde(default)]
+    pub random_agent: bool,
+
     /// Follow redirects
     #[serde(default)]
     pub redirects: bool,
@@ -255,7 +260,10 @@ pub struct Configuration {
 
     /// URLs that should never be scanned/recursed into
     #[serde(default)]
-    pub url_denylist: Vec<String>,
+    pub url_denylist: Vec<Url>,
+
+    #[serde(with = "serde_regex", default)]
+    pub regex_denylist: Vec<Regex>,
 }
 
 impl Default for Configuration {
@@ -300,6 +308,7 @@ impl Default for Configuration {
             redirects: false,
             no_recursion: false,
             extract_links: false,
+            random_agent: false,
             save_state: true,
             proxy: String::new(),
             config: String::new(),
@@ -314,6 +323,7 @@ impl Default for Configuration {
             filter_size: Vec::new(),
             filter_regex: Vec::new(),
             url_denylist: Vec::new(),
+            regex_denylist: Vec::new(),
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
             filter_status: Vec::new(),
@@ -349,9 +359,11 @@ impl Configuration {
     /// - **auto_bail**: `false`
     /// - **save_state**: `true`
     /// - **user_agent**: `feroxbuster/VERSION`
+    /// - **random_agent**: `false`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **url_denylist**: `None`
+    /// - **regex_denylist**: `None`
     /// - **filter_size**: `None`
     /// - **filter_similar**: `None`
     /// - **filter_regex**: `None`
@@ -550,8 +562,54 @@ impl Configuration {
             config.extensions = arg.map(|val| val.to_string()).collect();
         }
 
+        if args.is_present("stdin") {
+            config.stdin = true;
+        } else if let Some(url) = args.value_of("url") {
+            config.target_url = String::from(url);
+        }
+
         if let Some(arg) = args.values_of("url_denylist") {
-            config.url_denylist = arg.map(|val| val.to_string()).collect();
+            // compile all regular expressions and absolute urls used for --dont-scan
+            //
+            // when --dont-scan is used, the should_deny_url function is called at least once per
+            // url to be scanned. With the addition of regex support, I want to move parsing
+            // out of should_deny_url and into here, so it's performed once instead of thousands
+            // of times
+            for denier in arg.into_iter() {
+                // could be an absolute url or a regex, need to determine which and populate the
+                // appropriate vector
+                match Url::parse(denier.trim_end_matches('/')) {
+                    Ok(absolute) => {
+                        // denier is an absolute url and can be parsed as such
+                        config.url_denylist.push(absolute);
+                    }
+                    Err(err) => {
+                        // there are some expected errors that happen when we try to parse a url
+                        //     ex: Url::parse("/login") -> Err("relative URL without a base")
+                        //     ex: Url::parse("http:") -> Err("empty host")
+                        //
+                        // these are known errors and are used to determine a valid value to
+                        // --dont-scan, when it's not an absolute url
+                        //
+                        // when expected errors are encountered, we're going to assume
+                        // that the input is a regular expression to be parsed. The possibility
+                        // exists that the user rolled their face across the keyboard and we're
+                        // dealing with the results, in which case we'll report it as an error and
+                        // give up
+                        if err.to_string().contains("relative URL without a base")
+                            || err.to_string().contains("empty host")
+                        {
+                            let regex = Regex::new(denier)
+                                .unwrap_or_else(|e| report_and_exit(&e.to_string()));
+
+                            config.regex_denylist.push(regex);
+                        } else {
+                            // unexpected error has occurred; bail
+                            report_and_exit(&err.to_string());
+                        }
+                    }
+                }
+            }
         }
 
         if let Some(arg) = args.values_of("filter_regex") {
@@ -639,6 +697,7 @@ impl Configuration {
             config.json = true;
         }
 
+<<<<<<< HEAD
         if args.is_present("format") {
             config.format = true;
         }
@@ -649,6 +708,8 @@ impl Configuration {
             config.target_url = String::from(url);
         }
 
+=======
+>>>>>>> main
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
@@ -656,6 +717,10 @@ impl Configuration {
         update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
         update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
         update_config_if_present!(&mut config.timeout, args, "timeout", u64);
+
+        if args.is_present("random_agent") {
+            config.random_agent = true;
+        }
 
         if args.is_present("redirects") {
             config.redirects = true;
@@ -787,11 +852,15 @@ impl Configuration {
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
-        update_if_not_default!(
-            &mut conf.url_denylist,
-            new.url_denylist,
-            Vec::<String>::new()
-        );
+        update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
+        if !new.regex_denylist.is_empty() {
+            // cant use the update_if_not_default macro due to the following error
+            //
+            //    binary operation `!=` cannot be applied to type `Vec<regex::Regex>`
+            //
+            // if we get a non-empty list of regex in the new config, override the old
+            conf.regex_denylist = new.regex_denylist;
+        }
         update_if_not_default!(&mut conf.headers, new.headers, HashMap::new());
         update_if_not_default!(&mut conf.queries, new.queries, Vec::new());
         update_if_not_default!(&mut conf.no_recursion, new.no_recursion, false);
@@ -835,6 +904,7 @@ impl Configuration {
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
+        update_if_not_default!(&mut conf.random_agent, new.random_agent, false);
         update_if_not_default!(&mut conf.threads, new.threads, threads());
         update_if_not_default!(&mut conf.depth, new.depth, depth());
         update_if_not_default!(&mut conf.wordlist, new.wordlist, wordlist());

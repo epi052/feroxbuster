@@ -28,10 +28,12 @@
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # debug_log = "/var/log/find-the-derp.log"
 # user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+# random_agent = false
 # redirects = true
 # insecure = true
 # extensions = ["php", "html"]
 # url_denylist = ["http://dont-scan.me", "https://also-not.me"]
+# regex_denylist = ["/deny.*"]
 # no_recursion = true
 # add_slash = true
 # stdin = true

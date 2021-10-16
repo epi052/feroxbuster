@@ -310,14 +310,16 @@ impl<'a> Extractor<'a> {
             bail!("previously seen url");
         }
 
-        if !self.handles.config.url_denylist.is_empty()
+        if (!self.handles.config.url_denylist.is_empty()
+            || !self.handles.config.regex_denylist.is_empty())
             && should_deny_url(&new_url, self.handles.clone())?
         {
             // can't allow a denied url to be requested
             bail!(
-                "prevented request to {} due to {:?}",
+                "prevented request to {} due to {:?} || {:?}",
                 url,
-                self.handles.config.url_denylist
+                self.handles.config.url_denylist,
+                self.handles.config.regex_denylist,
             );
         }
 
@@ -402,6 +404,7 @@ impl<'a> Extractor<'a> {
             &client,
             &url,
             self.handles.config.output_level,
+            &self.handles.config,
             self.handles.stats.tx.clone(),
         )
         .await?;

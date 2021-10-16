@@ -200,6 +200,15 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("random_agent")
+                .short("A")
+                .long("random-agent")
+                .takes_value(false)
+                .help(
+                    "Use a random User-Agent"
+                ),
+        )
+        .arg(
             Arg::with_name("redirects")
                 .short("r")
                 .long("redirects")
@@ -233,7 +242,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "URL(s) to exclude from recursion/scans",
+                    "URL(s) or Regex Pattern(s) to exclude from recursion/scans",
                 ),
         )
         .arg(
@@ -272,7 +281,6 @@ pub fn initialize() -> App<'static, 'static> {
                 .short("f")
                 .long("add-slash")
                 .takes_value(false)
-                .conflicts_with("extensions")
                 .help("Append / to each request")
         )
         .arg(
@@ -465,7 +473,7 @@ mod tests {
     use super::*;
 
     #[test]
-    /// initalize parser, expect a clap::App returned
+    /// initialize parser, expect a clap::App returned
     fn parser_initialize_gives_defaults() {
         let app = initialize();
         assert_eq!(app.get_name(), "feroxbuster");

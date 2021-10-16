@@ -156,7 +156,15 @@ impl HeuristicTests {
         log::trace!("enter: make_wildcard_request({}, {})", target, length);
 
         let unique_str = self.unique_string(length);
-        let nonexistent_url = target.format(&unique_str, None)?;
+
+        // To take care of slash when needed
+        let slash = if self.handles.config.add_slash {
+            Some("/")
+        } else {
+            None
+        };
+
+        let nonexistent_url = target.format(&unique_str, slash)?;
 
         let response = logged_request(&nonexistent_url.to_owned(), self.handles.clone()).await?;
 

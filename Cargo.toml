@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.3.4"
+version = "2.4.0"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -28,6 +28,8 @@ tokio-util = {version = "0.6", features = ["codec"]}
 log = "0.4"
 env_logger = "0.9"
 reqwest = { version = "0.11", features = ["socks"] }
+url = { version = "2.2", features = ["serde"]}  # uses feature unification to add 'serde' to reqwest::Url
+serde_regex = "1.1"
 clap = "2.33"
 lazy_static = "1.4"
 toml = "0.5"
@@ -35,7 +37,7 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 uuid = { version = "0.8", features = ["v4"] }
 indicatif = "0.15"
-console = "0.14"
+console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "4.0"
 regex = "1"
