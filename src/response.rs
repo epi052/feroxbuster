@@ -416,13 +416,18 @@ impl FeroxSerialize for FeroxResponse {
 
     fn as_csv(&self) -> String {
         format!(
-            "{}, {}, {}, {}, {}, {}\n",
+            "{}, {}, {}, {}, {}, {}, {:?}, {:?}, {:?}, {:?}, {:?}\n",
             self.url,
-            self.wildcard,
             self.status,
+            self.wildcard,
             self.content_length,
             self.line_count,
             self.word_count,
+            self.headers.get("x-content-type-options"),
+            self.headers.get("x-xss-protection"),
+            self.headers.get("server"),
+            self.headers.get("connection"),
+            self.headers.get("access-control-allow-origin"),
         )
     }
 }

@@ -314,22 +314,32 @@ where
 pub fn write_response_csv_columns(file: &mut io::BufWriter<fs::File>) -> Result<()> {
     let csv_file_columns = vec![
         "url",
-        "wildcard",
         "status",
+        "wildcard",
         "content-length",
         "line-count",
         "word-count",
+        "headers-x-content-type-options",
+        "x-xss-protection",
+        "headers-server",
+        "headers-connection",
+        "headers-access-control-allow-origin",
     ];
 
     file.write_all(
         format!(
-            "{}, {}, {}, {}, {}, {}\n",
+            "{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}\n",
             csv_file_columns[0],
             csv_file_columns[1],
             csv_file_columns[2],
             csv_file_columns[3],
             csv_file_columns[4],
             csv_file_columns[5],
+            csv_file_columns[6],
+            csv_file_columns[7],
+            csv_file_columns[8],
+            csv_file_columns[9],
+            csv_file_columns[10],
         )
         .as_bytes(),
     )?;
