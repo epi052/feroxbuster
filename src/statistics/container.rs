@@ -514,7 +514,7 @@ impl Stats {
 
         self.update_runtime(seconds);
 
-        write_to(self, &mut file, self.json, false)?;
+        write_to(self, &mut file, self.json)?;
 
         Ok(())
     }

@@ -48,7 +48,7 @@ pub fn initialize(config: Arc<Configuration>) -> Result<()> {
         let mut writer = BufWriter::new(f);
 
         // write out the configuration to the debug file if it exists
-        write_to(&*config, &mut writer, config.json, config.format)?;
+        write_to(&*config, &mut writer, config.json)?;
 
         Some(Arc::new(RwLock::new(writer)))
     } else {
@@ -69,7 +69,7 @@ pub fn initialize(config: Arc<Configuration>) -> Result<()> {
 
             if let Some(buffered_file) = file.clone() {
                 if let Ok(mut unlocked) = buffered_file.write() {
-                    let _ = write_to(&log_entry, &mut unlocked, config.json, config.format);
+                    let _ = write_to(&log_entry, &mut unlocked, config.json);
                 }
             }
 

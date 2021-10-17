@@ -514,7 +514,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
             writeln!(&mut writer, "{}", self.json)?;
         }
 
-        if config.format {
+        if !config.format.is_empty() {
             writeln!(&mut writer, "{}", self.format)?;
         }
 

@@ -103,7 +103,7 @@ impl TermInputHandler {
         let state_file = open_file(&filename);
 
         let mut buffered_file = state_file?;
-        write_to(&state, &mut buffered_file, true, false)?;
+        write_to(&state, &mut buffered_file, true)?;
 
         log::trace!("exit: sigint_handler (end of program)");
         std::process::exit(1);

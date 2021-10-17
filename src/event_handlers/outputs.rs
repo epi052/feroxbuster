@@ -6,6 +6,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     config::Configuration,
+    output_format::outputs::write_to_csv,
     progress::PROGRESS_PRINTER,
     scanner::RESPONSES,
     send_command, skip_fail,
@@ -87,14 +88,14 @@ impl FileOutHandler {
 
         while let Some(command) = self.receiver.recv().await {
             match command {
-                Command::Report(response) => {
-                    skip_fail!(write_to(
-                        &*response,
-                        &mut file,
-                        self.config.json,
-                        self.config.format
-                    ));
-                }
+                Command::Report(response) => match self.config.output_format {
+                    crate::output_format::OutputFormat::Csv => {
+                        skip_fail!(write_to_csv(&*response, &mut file))
+                    }
+                    _ => {
+                        skip_fail!(write_to(&*response, &mut file, self.config.json,));
+                    }
+                },
                 Command::Exit => {
                     break;
                 }

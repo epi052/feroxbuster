@@ -4,9 +4,10 @@ use super::utils::{
 };
 use crate::config::determine_output_level;
 use crate::config::utils::determine_requester_policy;
+use crate::output_format::outputs::format_arg_check;
 use crate::{
-    client, parser, scan_manager::resume_scan, traits::FeroxSerialize, utils::fmt_err,
-    DEFAULT_CONFIG_NAME,
+    client, output_format::OutputFormat, parser, scan_manager::resume_scan, traits::FeroxSerialize,
+    utils::fmt_err, DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
@@ -126,6 +127,10 @@ pub struct Configuration {
     #[serde(skip)]
     pub output_level: OutputLevel,
 
+    /// more easily differentiate between the three states of output formats
+    #[serde(skip)]
+    pub output_format: OutputFormat,
+
     /// automatically bail at certain error thresholds
     #[serde(default)]
     pub auto_bail: bool,
@@ -142,9 +147,9 @@ pub struct Configuration {
     #[serde(default)]
     pub json: bool,
 
-    /// Store log output as CSV
+    /// Format log output (default: str)
     #[serde(default)]
-    pub format: bool,
+    pub format: String,
 
     /// Output file to write results to (default: stdout)
     #[serde(default)]
@@ -278,6 +283,7 @@ impl Default for Configuration {
         let replay_codes = status_codes.clone();
         let kind = serialized_type();
         let output_level = OutputLevel::Default;
+        let output_format = OutputFormat::default();
         let requester_policy = RequesterPolicy::Default;
 
         Configuration {
@@ -295,10 +301,11 @@ impl Default for Configuration {
             silent: false,
             quiet: false,
             output_level,
+            output_format,
             resumed: false,
             stdin: false,
             json: false,
-            format: false,
+            format: String::new(),
             verbosity: 0,
             scan_limit: 0,
             parallel: 0,
@@ -375,7 +382,7 @@ impl Configuration {
     /// - **add_slash**: `false`
     /// - **stdin**: `false`
     /// - **json**: `false`
-    /// - **format**: `false`
+    /// - **format**: `None` (Default to string representation)
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
@@ -520,6 +527,7 @@ impl Configuration {
         update_config_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
+        update_config_if_present!(&mut config.format, args, "format", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
         update_config_if_present!(&mut config.time_limit, args, "time_limit", String);
         update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
@@ -616,6 +624,20 @@ impl Configuration {
             config.filter_regex = arg.map(|val| val.to_string()).collect();
         }
 
+        if let Some(arg) = args.values_of("format") {
+            let argument = arg.map(|val| val.to_string()).collect();
+            if format_arg_check(&argument) {
+                config.format = argument
+            } else {
+                config.format = "Unsupported Format Type".to_string();
+            }
+            match config.format.as_str() {
+                "csv" => config.output_format = OutputFormat::Csv,
+                "json" => config.output_format = OutputFormat::Json,
+                _ => config.output_format = OutputFormat::Default,
+            }
+        }
+
         if let Some(arg) = args.values_of("filter_similar") {
             config.filter_similar = arg.map(|val| val.to_string()).collect();
         }
@@ -695,12 +717,13 @@ impl Configuration {
 
         if args.is_present("json") {
             config.json = true;
+            config.output_format = OutputFormat::Json;
         }
 
-<<<<<<< HEAD
-        if args.is_present("format") {
-            config.format = true;
-        }
+        // if args.is_present("csv") {
+        //     config.format = "csv".to_string();
+        //     config.output_format = OutputFormat::Csv;
+        // }
 
         if args.is_present("stdin") {
             config.stdin = true;
@@ -708,8 +731,6 @@ impl Configuration {
             config.target_url = String::from(url);
         }
 
-=======
->>>>>>> main
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
@@ -844,10 +865,16 @@ impl Configuration {
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
         update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
+        update_if_not_default!(
+            &mut conf.output_format,
+            new.output_format,
+            OutputFormat::Default
+        );
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
         conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);
         update_if_not_default!(&mut conf.output, new.output, "");
+        update_if_not_default!(&mut conf.format, new.format, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
@@ -900,7 +927,6 @@ impl Configuration {
         update_if_not_default!(&mut conf.debug_log, new.debug_log, "");
         update_if_not_default!(&mut conf.resume_from, new.resume_from, "");
         update_if_not_default!(&mut conf.json, new.json, false);
-        update_if_not_default!(&mut conf.format, new.format, false);
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());

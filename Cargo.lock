@@ -602,11 +602,7 @@ dependencies = [
 
 [[package]]
 name = "feroxbuster"
-<<<<<<< HEAD
-version = "2.3.4"
-=======
 version = "2.4.0"
->>>>>>> main
 dependencies = [
  "anyhow",
  "assert_cmd",

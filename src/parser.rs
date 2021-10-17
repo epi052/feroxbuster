@@ -154,10 +154,11 @@ pub fn initialize() -> App<'static, 'static> {
         )
         .arg(
             Arg::with_name("format")
+                .short("Of")
                 .long("format")
-                .takes_value(false)
+                .takes_value(true)
                 .requires("output_files")
-                .help("Emit CSV logs to --output")
+                .help("Formats response logs to --output (--format <csv, json, string>")
         )
         .arg(
             Arg::with_name("dont_filter")
