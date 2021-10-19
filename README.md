@@ -35,7 +35,7 @@
     [![All Contributors](https://img.shields.io/badge/all_contributors-15-orange.svg?style=flat-square)](#contributors-)
   <!-- ALL-CONTRIBUTORS-BADGE:END -->
   <a href="https://github.com/epi052/feroxbuster/graphs/contributors">
-    <img src="https://img.shields.io/badge/all_contributors-14-orange.svg" />
+    <img src="https://img.shields.io/badge/all_contributors-31-orange.svg" />
   </a>
 
 </p>
