@@ -41,7 +41,7 @@ console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "4.0"
 regex = "1"
-crossterm = "0.20"
+crossterm = "0.22"
 rlimit = "0.6"
 ctrlc = "3.2"
 fuzzyhash = "0.2.1"
