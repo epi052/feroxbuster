@@ -282,6 +282,16 @@
         "bug",
         "code"
       ]
+    },
+    {
+      "login": "dsaxton",
+      "name": "Daniel Saxton",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2658661?v=4",
+      "profile": "https://github.com/dsaxton",
+      "contributions": [
+        "ideas",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
