@@ -272,6 +272,16 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "cortantief",
+      "name": "cortantief",
+      "avatar_url": "https://avatars.githubusercontent.com/u/34527333?v=4",
+      "profile": "https://github.com/cortantief",
+      "contributions": [
+        "bug",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
