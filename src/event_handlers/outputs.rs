@@ -2,12 +2,10 @@ use super::Command::AddToUsizeField;
 use super::*;
 
 use anyhow::{Context, Result};
-use clap::value_t;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    config::{Configuration, OutputFormat},
-    parser,
+    config::Configuration,
     progress::PROGRESS_PRINTER,
     scanner::RESPONSES,
     send_command, skip_fail,
