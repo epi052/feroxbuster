@@ -14,7 +14,7 @@ use std::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::config::Configuration;
+use crate::config::{Configuration, OutputFormat};
 use crate::{
     config::OutputLevel,
     event_handlers::{
@@ -273,12 +273,21 @@ pub fn set_open_file_limit(limit: u64) -> bool {
     false
 }
 
+/// A simple function to write headers for a FeroxResponse as_csv
+pub fn write_response_csv_headers(file: &mut io::BufWriter<fs::File>) -> Result<()> {
+    file.write_all(
+        String::from("url,status,wildcard,content-length,line-count,word-count\n").as_bytes(),
+    )?;
+    Ok(())
+}
+
 /// Given a string and a reference to a locked buffered file, write the contents and flush
 /// the buffer to disk.
 pub fn write_to<T>(
     value: &T,
     file: &mut io::BufWriter<fs::File>,
     convert_to_json: bool,
+    file_format_type: OutputFormat,
 ) -> Result<()>
 where
     T: FeroxSerialize,
@@ -288,21 +297,42 @@ where
     // If we then call log::... while already processing some logging output, it results in
     // the second log entry being injected into the first.
 
-    let contents = if convert_to_json {
+    let contents = if convert_to_json || file_format_type == OutputFormat::Json {
         value.as_json()?
+    } else if file_format_type == OutputFormat::Csv {
+        value.as_csv()
     } else {
         value.as_str()
     };
 
-    let contents = strip_ansi_codes(&contents);
+    match file_format_type {
+        OutputFormat::Csv => {
+            // This will not flush if it's a --format (csv) file due to writing the headers repeatedly,
+            // therefore if someone ctrl+c the csv file will not be written. Not sure if there is an
+            // easier way to ensure the headers write only once?
+            //
+            // There is a possibility it flushes when full and inadvertly writes the headers again.
+            if file.buffer().is_empty() {
+                write_response_csv_headers(file)?;
+            }
 
-    let written = file.write(contents.as_bytes())?;
+            let contents = strip_ansi_codes(&contents);
+            // This  determines if it's a csv file and headers have already been written
 
-    if written > 0 {
-        // this function is used within async functions/loops, so i'm flushing so that in
-        // the event of a ctrl+c or w/e results seen so far are saved instead of left lying
-        // around in the buffer
-        file.flush()?;
+            file.write_all(contents.as_bytes())?;
+        }
+        _ => {
+            let contents = strip_ansi_codes(&contents);
+
+            let written = file.write(contents.as_bytes())?;
+
+            if written > 0 {
+                // this function is used within async functions/loops, so i'm flushing so that in
+                // the event of a ctrl+c or w/e results seen so far are saved instead of left lying
+                // around in the buffer
+                file.flush()?;
+            }
+        }
     }
 
     Ok(())

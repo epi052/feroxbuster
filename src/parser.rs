@@ -4,6 +4,10 @@ use regex::Regex;
 use std::env;
 use std::process;
 
+// use crate::config::output_format::OutputFormat;
+
+include!("config/output_format.rs");
+
 lazy_static! {
     /// Regex used to validate values passed to --time-limit
     ///
@@ -150,15 +154,17 @@ pub fn initialize() -> App<'static, 'static> {
                 .long("json")
                 .takes_value(false)
                 .requires("output_files")
-                .help("Emit JSON logs to --output and --debug-log instead of normal text")
+                .help("Emit JSON logs to --output and --debug-log instead of normal text. Consider using (--format json) instead")
         )
         .arg(
             Arg::with_name("format")
-                .short("Of")
+                .short("F")
                 .long("format")
                 .takes_value(true)
                 .requires("output_files")
-                .help("Formats response logs to --output (--format <csv, json, string>")
+                .possible_values(&OutputFormat::variants())
+                .case_insensitive(true)
+                .help("Output file's format (csv, json, text)")
         )
         .arg(
             Arg::with_name("dont_filter")

@@ -20,7 +20,7 @@ _feroxbuster() {
 
     case "${cmd}" in
         feroxbuster)
-            opts=" -v -q -D -A -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -O -o -a -x -H -Q -S -X -W -N -C -L  --verbosity --silent --quiet --auto-tune --auto-bail --json --dont-filter --random-agent --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --format --output --resume-from --debug-log --user-agent --extensions --dont-scan --headers --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --scan-limit --parallel --rate-limit --time-limit  "
+            opts=" -v -q -D -A -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -F -o -a -x -H -Q -S -X -W -N -C -L  --verbosity --silent --quiet --auto-tune --auto-bail --json --dont-filter --random-agent --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --format --output --resume-from --debug-log --user-agent --extensions --dont-scan --headers --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --scan-limit --parallel --rate-limit --time-limit  "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -100,11 +100,11 @@ _feroxbuster() {
                     return 0
                     ;;
                 --format)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    COMPREPLY=($(compgen -W "Csv Json Text" -- "${cur}"))
                     return 0
                     ;;
-                    -O)
-                    COMPREPLY=($(compgen -f "${cur}"))
+                    -F)
+                    COMPREPLY=($(compgen -W "Csv Json Text" -- "${cur}"))
                     return 0
                     ;;
                 --output)

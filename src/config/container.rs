@@ -4,10 +4,10 @@ use super::utils::{
 };
 use crate::config::determine_output_level;
 use crate::config::utils::determine_requester_policy;
-use crate::output_format::outputs::format_arg_check;
+use crate::config::OutputFormat;
 use crate::{
-    client, output_format::OutputFormat, parser, scan_manager::resume_scan, traits::FeroxSerialize,
-    utils::fmt_err, DEFAULT_CONFIG_NAME,
+    client, parser, scan_manager::resume_scan, traits::FeroxSerialize, utils::fmt_err,
+    DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
@@ -127,10 +127,6 @@ pub struct Configuration {
     #[serde(skip)]
     pub output_level: OutputLevel,
 
-    /// more easily differentiate between the three states of output formats
-    #[serde(skip)]
-    pub output_format: OutputFormat,
-
     /// automatically bail at certain error thresholds
     #[serde(default)]
     pub auto_bail: bool,
@@ -148,8 +144,8 @@ pub struct Configuration {
     pub json: bool,
 
     /// Format log output (default: str)
-    #[serde(default)]
-    pub format: String,
+    #[serde(skip)]
+    pub format: OutputFormat,
 
     /// Output file to write results to (default: stdout)
     #[serde(default)]
@@ -283,7 +279,6 @@ impl Default for Configuration {
         let replay_codes = status_codes.clone();
         let kind = serialized_type();
         let output_level = OutputLevel::Default;
-        let output_format = OutputFormat::default();
         let requester_policy = RequesterPolicy::Default;
 
         Configuration {
@@ -301,11 +296,10 @@ impl Default for Configuration {
             silent: false,
             quiet: false,
             output_level,
-            output_format,
             resumed: false,
             stdin: false,
             json: false,
-            format: String::new(),
+            format: OutputFormat::Text,
             verbosity: 0,
             scan_limit: 0,
             parallel: 0,
@@ -527,7 +521,6 @@ impl Configuration {
         update_config_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
-        update_config_if_present!(&mut config.format, args, "format", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
         update_config_if_present!(&mut config.time_limit, args, "time_limit", String);
         update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
@@ -624,19 +617,22 @@ impl Configuration {
             config.filter_regex = arg.map(|val| val.to_string()).collect();
         }
 
-        if let Some(arg) = args.values_of("format") {
-            let argument = arg.map(|val| val.to_string()).collect();
-            if format_arg_check(&argument) {
-                config.format = argument
-            } else {
-                config.format = "Unsupported Format Type".to_string();
-            }
-            match config.format.as_str() {
-                "csv" => config.output_format = OutputFormat::Csv,
-                "json" => config.output_format = OutputFormat::Json,
-                _ => config.output_format = OutputFormat::Default,
-            }
-        }
+        config.format = value_t!(args, "format", OutputFormat).unwrap_or_else(|e| e.exit());
+
+
+        // if let Some(arg) = args.values_of("format") {
+        //     let argument = arg.map(|val| val.to_string()).collect();
+        //     if format_arg_check(&argument) {
+        //         config.format = argument
+        //     } else {
+        //         config.format = "Unsupported Format Type".to_string();
+        //     }
+        //     match config.format.as_str() {
+        //         "csv" => config.output_format = OutputFormat::Csv,
+        //         "json" => config.output_format = OutputFormat::Json,
+        //         _ => config.output_format = OutputFormat::Default,
+        //     }
+        // }
 
         if let Some(arg) = args.values_of("filter_similar") {
             config.filter_similar = arg.map(|val| val.to_string()).collect();
@@ -717,7 +713,7 @@ impl Configuration {
 
         if args.is_present("json") {
             config.json = true;
-            config.output_format = OutputFormat::Json;
+            config.format = OutputFormat::Json;
         }
 
         // if args.is_present("csv") {
@@ -865,16 +861,12 @@ impl Configuration {
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
         update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
-        update_if_not_default!(
-            &mut conf.output_format,
-            new.output_format,
-            OutputFormat::Default
-        );
+
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
         conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);
         update_if_not_default!(&mut conf.output, new.output, "");
-        update_if_not_default!(&mut conf.format, new.format, "");
+        update_if_not_default!(&mut conf.format, new.format, OutputFormat::Text);
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
@@ -986,10 +978,5 @@ impl FeroxSerialize for Configuration {
             .with_context(|| fmt_err("Could not convert Configuration to JSON"))?;
         json.push('\n');
         Ok(json)
-    }
-
-    /// Simply return debug format of FeroxState to satisfy as_csv
-    fn as_csv(&self) -> String {
-        format!("{:?}", self)
     }
 }

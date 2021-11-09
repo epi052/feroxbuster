@@ -33,8 +33,8 @@ _feroxbuster() {
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
 '*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
 '*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
-'-O+[Formats response logs to --output (--format <csv, json, string>]' \
-'--format=[Formats response logs to --output (--format <csv, json, string>]' \
+'-F+[Output file'\''s format (csv, json, text)]: :(Csv Json Text)' \
+'--format=[Output file'\''s format (csv, json, text)]: :(Csv Json Text)' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]' \
 '--output=[Output file to write results to (use w/ --json for JSON entries)]' \
 '(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]' \
@@ -71,7 +71,7 @@ _feroxbuster() {
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
-'--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
+'--json[Emit JSON logs to --output and --debug-log instead of normal text. Consider using (--format json) instead]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '-A[Use a random User-Agent]' \

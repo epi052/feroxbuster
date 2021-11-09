@@ -19,6 +19,8 @@ use crate::{
     utils::{fmt_err, open_file, write_to},
 };
 
+use crate::config::OutputFormat;
+
 use super::{error::StatError, field::StatField};
 
 /// Data collection of statistics related to a scan
@@ -144,11 +146,6 @@ impl FeroxSerialize for Stats {
     /// Simple call to produce a JSON string using the given Stats object
     fn as_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self)?)
-    }
-
-    /// Return an empty string
-    fn as_csv(&self) -> String {
-        String::new()
     }
 }
 
@@ -514,7 +511,7 @@ impl Stats {
 
         self.update_runtime(seconds);
 
-        write_to(self, &mut file, self.json)?;
+        write_to(self, &mut file, self.json, OutputFormat::Csv)?;
 
         Ok(())
     }

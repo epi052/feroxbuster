@@ -1,6 +1,6 @@
 use super::utils::*;
 use super::*;
-use crate::{output_format::OutputFormat, traits::FeroxSerialize, DEFAULT_CONFIG_NAME};
+use crate::{traits::FeroxSerialize, DEFAULT_CONFIG_NAME};
 use regex::Regex;
 use reqwest::Url;
 use std::{collections::HashMap, fs::write};
@@ -68,7 +68,6 @@ fn default_configuration() {
     assert_eq!(config.resume_from, String::new());
     assert_eq!(config.debug_log, String::new());
     assert_eq!(config.config, String::new());
-    assert_eq!(config.format, String::new());
     assert_eq!(config.replay_proxy, String::new());
     assert_eq!(config.status_codes, status_codes());
     assert_eq!(config.replay_codes, config.status_codes);
@@ -81,7 +80,7 @@ fn default_configuration() {
     assert!(!config.silent);
     assert!(!config.quiet);
     assert_eq!(config.output_level, OutputLevel::Default);
-    assert_eq!(config.output_format, OutputFormat::Default);
+    assert_eq!(config.format, OutputFormat::Text);
     assert!(!config.dont_filter);
     assert!(!config.auto_tune);
     assert!(!config.auto_bail);
@@ -211,13 +210,6 @@ fn config_reads_quiet() {
 fn config_reads_json() {
     let config = setup_config_test();
     assert!(config.json);
-}
-
-#[test]
-/// parse the test config and see that the value parsed is correct
-fn config_reads_format() {
-    let config = setup_config_test();
-    assert_eq!(config.format, "format_value");
 }
 
 #[test]

@@ -1,6 +1,7 @@
 use super::*;
 use crate::{
     progress::PROGRESS_PRINTER,
+    config::OutputFormat,
     scan_manager::{FeroxState, PAUSE_SCAN},
     scanner::RESPONSES,
     statistics::StatError,
@@ -103,7 +104,7 @@ impl TermInputHandler {
         let state_file = open_file(&filename);
 
         let mut buffered_file = state_file?;
-        write_to(&state, &mut buffered_file, true)?;
+        write_to(&state, &mut buffered_file, true, OutputFormat::Text)?;
 
         log::trace!("exit: sigint_handler (end of program)");
         std::process::exit(1);
