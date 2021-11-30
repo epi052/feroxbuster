@@ -16,7 +16,7 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [build-dependencies]
-clap = "2.33"
+clap = "2.34"
 regex = "1"
 lazy_static = "1.4"
 dirs = "4.0"
@@ -30,7 +30,7 @@ env_logger = "0.9"
 reqwest = { version = "0.11", features = ["socks"] }
 url = { version = "2.2", features = ["serde"]}  # uses feature unification to add 'serde' to reqwest::Url
 serde_regex = "1.1"
-clap = "2.33"
+clap = "2.34"
 lazy_static = "1.4"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive", "rc"] }
