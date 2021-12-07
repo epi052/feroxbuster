@@ -30,6 +30,9 @@ pub struct FeroxResponse {
     /// The final `Url` of this `FeroxResponse`
     url: Url,
 
+    /// The original url from which the final `Url` was derived
+    original_url: String,
+
     /// The `StatusCode` of this `FeroxResponse`
     status: StatusCode,
 
@@ -61,6 +64,7 @@ impl Default for FeroxResponse {
     fn default() -> Self {
         Self {
             url: Url::parse("http://localhost").unwrap(),
+            original_url: "".to_string(),
             status: Default::default(),
             text: "".to_string(),
             content_length: 0,
@@ -186,7 +190,12 @@ impl FeroxResponse {
     }
 
     /// Create a new `FeroxResponse` from the given `Response`
-    pub async fn from(response: Response, read_body: bool, output_level: OutputLevel) -> Self {
+    pub async fn from(
+        response: Response,
+        original_url: &str,
+        read_body: bool,
+        output_level: OutputLevel,
+    ) -> Self {
         let url = response.url().clone();
         let status = response.status();
         let headers = response.headers().clone();
@@ -213,6 +222,7 @@ impl FeroxResponse {
 
         FeroxResponse {
             url,
+            original_url: original_url.to_string(),
             status,
             content_length,
             text,
@@ -423,7 +433,7 @@ impl Serialize for FeroxResponse {
         S: Serializer,
     {
         let mut headers = HashMap::new();
-        let mut state = serializer.serialize_struct("FeroxResponse", 7)?;
+        let mut state = serializer.serialize_struct("FeroxResponse", 8)?;
 
         // need to convert the HeaderMap to a HashMap in order to pass it to the serializer
         for (key, value) in &self.headers {
@@ -434,6 +444,7 @@ impl Serialize for FeroxResponse {
 
         state.serialize_field("type", "response")?;
         state.serialize_field("url", self.url.as_str())?;
+        state.serialize_field("original_url", self.original_url.as_str())?;
         state.serialize_field("path", self.url.path())?;
         state.serialize_field("wildcard", &self.wildcard)?;
         state.serialize_field("status", &self.status.as_u16())?;
@@ -455,6 +466,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
     {
         let mut response = Self {
             url: Url::parse("http://localhost").unwrap(),
+            original_url: String::new(),
             status: StatusCode::OK,
             text: String::new(),
             content_length: 0,
@@ -474,6 +486,11 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                         if let Ok(parsed) = Url::parse(url) {
                             response.url = parsed;
                         }
+                    }
+                }
+                "original_url" => {
+                    if let Some(og_url) = value.as_str() {
+                        response.original_url = String::from(og_url);
                     }
                 }
                 "status" => {
@@ -540,6 +557,7 @@ mod tests {
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
+            original_url: String::new(),
             status: Default::default(),
             text: "".to_string(),
             content_length: 0,
@@ -561,6 +579,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
+            original_url: String::new(),
             status: Default::default(),
             text: "".to_string(),
             content_length: 0,
@@ -582,6 +601,7 @@ mod tests {
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
+            original_url: String::new(),
             status: Default::default(),
             text: "".to_string(),
             content_length: 0,
@@ -603,6 +623,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
+            original_url: String::new(),
             status: Default::default(),
             text: "".to_string(),
             content_length: 0,
@@ -624,6 +645,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two/three").unwrap();
         let response = FeroxResponse {
             url,
+            original_url: String::new(),
             status: Default::default(),
             text: "".to_string(),
             content_length: 0,

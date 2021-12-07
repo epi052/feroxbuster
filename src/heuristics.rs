@@ -175,8 +175,13 @@ impl HeuristicTests {
             .contains(&response.status().as_u16())
         {
             // found a wildcard response
-            let mut ferox_response =
-                FeroxResponse::from(response, true, self.handles.config.output_level).await;
+            let mut ferox_response = FeroxResponse::from(
+                response,
+                &target.target,
+                true,
+                self.handles.config.output_level,
+            )
+            .await;
             ferox_response.set_wildcard(true);
 
             if self

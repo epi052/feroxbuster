@@ -353,8 +353,13 @@ impl Requester {
             }
 
             // response came back without error, convert it to FeroxResponse
-            let ferox_response =
-                FeroxResponse::from(response, true, self.handles.config.output_level).await;
+            let ferox_response = FeroxResponse::from(
+                response,
+                &self.target_url,
+                true,
+                self.handles.config.output_level,
+            )
+            .await;
 
             // do recursion if appropriate
             if !self.handles.config.no_recursion {
