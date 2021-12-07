@@ -126,9 +126,6 @@ pub struct Stats {
     /// tracker for total runtime
     total_runtime: Mutex<Vec<f64>>,
 
-    /// tracker for the number of extensions the user specified
-    num_extensions: usize,
-
     /// tracker for whether to use json during serialization or not
     json: bool,
 }
@@ -203,7 +200,7 @@ impl<'a> Deserialize<'a> for Stats {
     where
         D: Deserializer<'a>,
     {
-        let stats = Self::new(0, false);
+        let stats = Self::new(false);
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
 
@@ -446,9 +443,8 @@ impl<'a> Deserialize<'a> for Stats {
 impl Stats {
     /// Small wrapper for default to set `kind` to "statistics" and `total_runtime` to have at least
     /// one value
-    pub fn new(num_extensions: usize, is_json: bool) -> Self {
+    pub fn new(is_json: bool) -> Self {
         Self {
-            num_extensions,
             json: is_json,
             kind: String::from("statistics"),
             total_runtime: Mutex::new(vec![0.0]),
@@ -790,7 +786,7 @@ mod tests {
     ///     - errors
     fn stats_increments_timeouts() {
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
 
         stats.add_error(StatError::Timeout);
         stats.add_error(StatError::Timeout);
@@ -808,7 +804,7 @@ mod tests {
     ///     - responses_filtered
     fn stats_increments_wildcards() {
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
 
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
         assert_eq!(stats.wildcards_filtered.load(Ordering::Relaxed), 0);
@@ -824,7 +820,7 @@ mod tests {
     /// when Stats::update_usize_field receives StatField::ResponsesFiltered, it should increment
     fn stats_increments_responses_filtered() {
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
 
         assert_eq!(stats.responses_filtered.load(Ordering::Relaxed), 0);
 
@@ -840,7 +836,7 @@ mod tests {
     fn stats_merge_from_alters_correct_fields() {
         let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
 
         let tfile = NamedTempFile::new().unwrap();
         write(&tfile, contents).unwrap();
@@ -891,7 +887,7 @@ mod tests {
     /// ensure update runtime overwrites the default 0th entry
     fn update_runtime_works() {
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
 
         assert!((stats.total_runtime.lock().unwrap()[0] - 0.0).abs() < f64::EPSILON);
         stats.update_runtime(20.2);
@@ -902,7 +898,7 @@ mod tests {
     /// ensure status_403s returns the correct value
     fn status_403s_returns_correct_value() {
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
         stats.status_403s.store(12, Ordering::Relaxed);
         assert_eq!(stats.status_403s(), 12);
     }
@@ -911,7 +907,7 @@ mod tests {
     /// ensure status_403s returns the correct value
     fn status_429s_returns_correct_value() {
         let config = Configuration::new().unwrap();
-        let stats = Stats::new(config.extensions.len(), config.json);
+        let stats = Stats::new(config.json);
         stats.status_429s.store(141, Ordering::Relaxed);
         assert_eq!(stats.status_429s(), 141);
     }

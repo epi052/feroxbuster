@@ -354,7 +354,7 @@ fn feroxstates_feroxserialize_implementation() {
     ferox_scans.insert(ferox_scan);
 
     let config = Configuration::new().unwrap();
-    let stats = Arc::new(Stats::new(config.extensions.len(), config.json));
+    let stats = Arc::new(Stats::new(config.json));
 
     let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();

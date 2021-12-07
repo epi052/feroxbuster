@@ -459,7 +459,7 @@ impl Configuration {
 
     /// Parse all possible versions of the ferox-config.toml file, adhering to the order of
     /// precedence outlined above
-    fn parse_config_files(mut config: &mut Self) -> Result<()> {
+    fn parse_config_files(config: &mut Self) -> Result<()> {
         // Next, we parse the ferox-config.toml file, if present and set the values
         // therein to overwrite our default values. Deserialized defaults are specified
         // in the Configuration struct so that we don't change anything that isn't
@@ -475,7 +475,7 @@ impl Configuration {
         let config_file = PathBuf::new()
             .join("/etc/feroxbuster")
             .join(DEFAULT_CONFIG_NAME);
-        Self::parse_and_merge_config(config_file, &mut config)?;
+        Self::parse_and_merge_config(config_file, config)?;
 
         // merge a config found at ~/.config/feroxbuster/ferox-config.toml
         // config_dir() resolves to one of the following
@@ -484,7 +484,7 @@ impl Configuration {
         //   - windows: {FOLDERID_RoamingAppData}
         let config_dir = dirs::config_dir().ok_or_else(|| anyhow!("Couldn't load config"))?;
         let config_file = config_dir.join("feroxbuster").join(DEFAULT_CONFIG_NAME);
-        Self::parse_and_merge_config(config_file, &mut config)?;
+        Self::parse_and_merge_config(config_file, config)?;
 
         // merge a config found in same the directory as feroxbuster executable
         let exe_path = current_exe()?;
@@ -492,12 +492,12 @@ impl Configuration {
             .parent()
             .ok_or_else(|| anyhow!("Couldn't load config"))?;
         let config_file = bin_dir.join(DEFAULT_CONFIG_NAME);
-        Self::parse_and_merge_config(config_file, &mut config)?;
+        Self::parse_and_merge_config(config_file, config)?;
 
         // merge a config found in the user's current working directory
         let cwd = current_dir()?;
         let config_file = cwd.join(DEFAULT_CONFIG_NAME);
-        Self::parse_and_merge_config(config_file, &mut config)?;
+        Self::parse_and_merge_config(config_file, config)?;
 
         Ok(())
     }
@@ -804,7 +804,7 @@ impl Configuration {
             config.config = conf_str;
 
             // update the settings
-            Self::merge_config(&mut config, settings);
+            Self::merge_config(config, settings);
         }
         Ok(())
     }

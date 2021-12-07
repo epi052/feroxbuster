@@ -5,17 +5,8 @@ use indicatif::ProgressDrawTarget;
 /// Interactive scan cancellation menu
 #[derive(Debug)]
 pub(super) struct Menu {
-    /// character to use as visual separator of lines
-    separator: String,
-
-    /// name of menu
-    name: String,
-
     /// header: name surrounded by separators
     header: String,
-
-    /// instructions
-    instructions: String,
 
     /// footer: instructions surrounded by separators
     footer: String,
@@ -62,10 +53,7 @@ impl Menu {
         let footer = format!("{}\n{}\n{}\n{}", border, instructions, padded_force, border);
 
         Self {
-            separator,
-            name,
             header,
-            instructions,
             footer,
             term: Term::stderr(),
         }

@@ -155,7 +155,7 @@ impl StatsHandler {
     pub fn initialize(config: Arc<Configuration>) -> (Joiner, StatsHandle) {
         log::trace!("enter: initialize");
 
-        let data = Arc::new(Stats::new(config.extensions.len(), config.json));
+        let data = Arc::new(Stats::new(config.json));
         let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
 
         let mut handler = StatsHandler::new(data.clone(), rx);

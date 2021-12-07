@@ -76,7 +76,7 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
 
         // if successful, create a filter based on the response's body
         let fr =
-            FeroxResponse::from(resp, &similarity_filter, true, handles.config.output_level).await;
+            FeroxResponse::from(resp, similarity_filter, true, handles.config.output_level).await;
 
         // hash the response body and store the resulting hash in the filter object
         let hash = FuzzyHash::new(&fr.text()).to_string();

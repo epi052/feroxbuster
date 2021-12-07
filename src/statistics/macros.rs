@@ -18,10 +18,10 @@ macro_rules! atomic_increment {
 #[macro_export]
 macro_rules! atomic_load {
     ($metric:expr) => {
-        $metric.load(Ordering::Relaxed);
+        $metric.load(Ordering::Relaxed)
     };
     ($metric:expr, $ordering:expr) => {
-        $metric.load($ordering);
+        $metric.load($ordering)
     };
 }
 
