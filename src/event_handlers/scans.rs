@@ -146,6 +146,15 @@ impl ScanHandler {
                 Command::ScanInitialUrls(targets) => {
                     self.ordered_scan_url(targets, ScanOrder::Initial).await?;
                 }
+                Command::ScanNewUrl(target) => {
+                    // added as part of interactive menu ability (2.4.1) to add a new scan.
+                    // we don't have a way of knowing if they're adding a new url entirely (i.e.
+                    // new base url), or simply adding a new sub-directory found some other way.
+                    // Since we can't know, we'll start a scan as though we received the scan
+                    // from -u | --stdin
+                    self.ordered_scan_url(vec![target], ScanOrder::Initial)
+                        .await?;
+                }
                 Command::UpdateWordlist(wordlist) => {
                     self.wordlist(wordlist);
                 }
