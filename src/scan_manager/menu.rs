@@ -194,7 +194,8 @@ impl Menu {
                 }
                 'a' => {
                     // add command
-                    // similar to cancel, we need to remove the a[dd] substring
+                    // similar to cancel, we need to remove the a[dd] substring, the rest should be
+                    // a url
                     let re = Regex::new(r"^[aA][dD]*").unwrap();
                     let line = re.replace(line, "").to_string().trim().to_string();
 
@@ -205,11 +206,6 @@ impl Menu {
                     None
                 }
             }
-
-            // self.term.read_line();
-            // let force = line.contains("-f");
-            // let line = line.replace("-f", "");
-            // Some((self.split_to_nums(&line), force))
         } else {
             None
         }
