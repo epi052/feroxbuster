@@ -9,6 +9,7 @@ mod state;
 mod tests;
 
 pub(self) use menu::Menu;
+pub use menu::{MenuCmd, MenuCmdResult};
 pub use order::ScanOrder;
 pub use response_container::FeroxResponses;
 pub use scan::{FeroxScan, ScanStatus, ScanType};

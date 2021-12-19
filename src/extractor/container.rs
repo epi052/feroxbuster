@@ -198,11 +198,11 @@ impl<'a> Extractor<'a> {
     ///     - homepage/assets/img/
     ///     - homepage/assets/
     ///     - homepage/
-    fn add_all_sub_paths(&self, url_path: &str, mut links: &mut HashSet<String>) -> Result<()> {
+    fn add_all_sub_paths(&self, url_path: &str, links: &mut HashSet<String>) -> Result<()> {
         log::trace!("enter: add_all_sub_paths({}, {:?})", url_path, links);
 
         for sub_path in self.get_sub_paths_from_path(url_path) {
-            self.add_link_to_set_of_links(&sub_path, &mut links)?;
+            self.add_link_to_set_of_links(&sub_path, links)?;
         }
 
         log::trace!("exit: add_all_sub_paths");
@@ -327,7 +327,7 @@ impl<'a> Extractor<'a> {
         let new_response = logged_request(&new_url, self.handles.clone()).await?;
 
         let new_ferox_response =
-            FeroxResponse::from(new_response, true, self.handles.config.output_level).await;
+            FeroxResponse::from(new_response, url, true, self.handles.config.output_level).await;
 
         log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
@@ -410,7 +410,7 @@ impl<'a> Extractor<'a> {
         .await?;
 
         let ferox_response =
-            FeroxResponse::from(response, true, self.handles.config.output_level).await;
+            FeroxResponse::from(response, &self.url, true, self.handles.config.output_level).await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
         Ok(ferox_response)

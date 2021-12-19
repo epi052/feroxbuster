@@ -7,7 +7,7 @@ use std::{convert::TryInto, fmt, sync::Arc};
 #[derive(Debug)]
 pub struct FeroxUrl {
     /// string representation of the target url
-    target: String,
+    pub target: String,
 
     /// Handles object for grabbing config values
     handles: Arc<Handles>,

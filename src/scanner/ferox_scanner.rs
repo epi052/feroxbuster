@@ -12,12 +12,13 @@ use crate::{
     },
     extractor::{ExtractionTarget::RobotsTxt, ExtractorBuilder},
     heuristics,
-    scan_manager::{FeroxResponses, ScanOrder, ScanStatus, PAUSE_SCAN},
+    scan_manager::{FeroxResponses, MenuCmdResult, ScanOrder, ScanStatus, PAUSE_SCAN},
     statistics::{
         StatError::Other,
         StatField::{DirScanTimes, TotalExpected},
     },
     utils::fmt_err,
+    Command,
 };
 
 use super::requester::Requester;
@@ -137,14 +138,30 @@ impl FeroxScanner {
                             // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
                             // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
                             // to false
-                            let num_cancelled = scanned_urls_clone.pause(true).await;
-                            if num_cancelled > 0 {
-                                handles_clone
-                                    .stats
-                                    .send(SubtractFromUsizeField(TotalExpected, num_cancelled))
-                                    .unwrap_or_else(|e| {
-                                        log::warn!("Could not update overall scan bar: {}", e)
-                                    });
+                            match scanned_urls_clone.pause(true).await {
+                                Some(MenuCmdResult::Url(url)) => {
+                                    // user wants to add a new url to be scanned, need to send
+                                    // it over to the event handler for processing
+                                    handles_clone
+                                        .send_scan_command(Command::ScanNewUrl(url))
+                                        .unwrap_or_else(|e| {
+                                            log::warn!("Could not add scan to scan queue: {}", e)
+                                        })
+                                }
+                                Some(MenuCmdResult::NumCancelled(num_canx)) => {
+                                    if num_canx > 0 {
+                                        handles_clone
+                                            .stats
+                                            .send(SubtractFromUsizeField(TotalExpected, num_canx))
+                                            .unwrap_or_else(|e| {
+                                                log::warn!(
+                                                    "Could not update overall scan bar: {}",
+                                                    e
+                                                )
+                                            });
+                                    }
+                                }
+                                _ => {}
                             }
                         }
                         requester_clone

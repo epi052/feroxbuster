@@ -1,27 +1,39 @@
 use crate::progress::PROGRESS_BAR;
 use console::{measure_text_width, pad_str, style, Alignment, Term};
 use indicatif::ProgressDrawTarget;
+use regex::Regex;
+
+/// Data container for a command entered by the user interactively
+#[derive(Debug)]
+pub enum MenuCmd {
+    /// user wants to add a url to be scanned
+    Add(String),
+
+    /// user wants to cancel one or more active scans
+    Cancel(Vec<usize>, bool),
+}
+
+/// Data container for a command result to be used internally by the ferox_scanner
+#[derive(Debug)]
+pub enum MenuCmdResult {
+    /// Url to be added to the scan queue
+    Url(String),
+
+    /// Number of scans that were actually cancelled, can be 0
+    NumCancelled(usize),
+}
 
 /// Interactive scan cancellation menu
 #[derive(Debug)]
 pub(super) struct Menu {
-    /// character to use as visual separator of lines
-    separator: String,
-
-    /// name of menu
-    name: String,
-
     /// header: name surrounded by separators
     header: String,
-
-    /// instructions
-    instructions: String,
 
     /// footer: instructions surrounded by separators
     footer: String,
 
     /// target for output
-    term: Term,
+    pub(super) term: Term,
 }
 
 /// Implementation of Menu
@@ -30,42 +42,43 @@ impl Menu {
     pub(super) fn new() -> Self {
         let separator = "─".to_string();
 
-        let instructions = format!(
-            "Enter a {} list of indexes/ranges to {} ({}: 1-4,8,9-13)",
-            style("comma-separated").yellow(),
-            style("cancel").red(),
-            style("ex").cyan(),
-        );
-
         let name = format!(
             "{} {} {}",
             "💀",
-            style("Scan Cancel Menu").bright().yellow(),
+            style("Scan Management Menu").bright().yellow(),
             "💀"
         );
 
-        let force_msg = format!(
-            "Add {} to {} confirmation ({}: 3-5 -f)",
-            style("-f").yellow(),
-            style("skip").yellow(),
-            style("ex").cyan(),
+        let add_cmd = format!(
+            "  {}[{}] NEW_URL (ex: {} http://localhost)\n",
+            style("a").green(),
+            style("dd").green(),
+            style("add").green()
         );
 
-        let longest = measure_text_width(&instructions).max(measure_text_width(&name));
+        let canx_cmd = format!(
+            "  {}[{}] [-f] SCAN_ID[-SCAN_ID[,...]] (ex: {} 1-4,8,9-13 or {} -f 3)",
+            style("c").red(),
+            style("ancel").red(),
+            style("cancel").red(),
+            style("c").red(),
+        );
+
+        let mut commands = String::from("Commands:\n");
+        commands.push_str(&add_cmd);
+        commands.push_str(&canx_cmd);
+
+        let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name));
 
         let border = separator.repeat(longest);
 
         let padded_name = pad_str(&name, longest, Alignment::Center, None);
-        let padded_force = pad_str(&force_msg, longest, Alignment::Center, None);
 
         let header = format!("{}\n{}\n{}", border, padded_name, border);
-        let footer = format!("{}\n{}\n{}\n{}", border, instructions, padded_force, border);
+        let footer = format!("{}\n{}\n{}", border, commands, border);
 
         Self {
-            separator,
-            name,
             header,
-            instructions,
             footer,
             term: Term::stderr(),
         }
@@ -161,14 +174,36 @@ impl Menu {
         nums
     }
 
-    /// get comma-separated list of scan indexes from the user
-    pub(super) fn get_scans_from_user(&self) -> Option<(Vec<usize>, bool)> {
-        if let Ok(line) = self.term.read_line() {
-            let force = line.contains("-f");
-            let line = line.replace("-f", "");
-            Some((self.split_to_nums(&line), force))
-        } else {
-            None
+    /// get input from the user and translate it to a `MenuCmd`
+    pub(super) fn get_command_input_from_user(&self, line: &str) -> Option<MenuCmd> {
+        let line = line.trim(); // normalize input if there are leading spaces
+
+        match line.chars().next().unwrap_or('_').to_ascii_lowercase() {
+            'c' => {
+                // cancel command; start by determining if -f was used
+                let force = line.contains("-f");
+
+                // then remove c[ancel] from the command so it can be passed to the number
+                // splitter
+                let re = Regex::new(r"^[cC][ancelANCEL]*").unwrap();
+                let line = line.replace("-f", "");
+                let line = re.replace(&line, "").to_string();
+
+                Some(MenuCmd::Cancel(self.split_to_nums(&line), force))
+            }
+            'a' => {
+                // add command
+                // similar to cancel, we need to remove the a[dd] substring, the rest should be
+                // a url
+                let re = Regex::new(r"^[aA][dD]*").unwrap();
+                let line = re.replace(line, "").to_string().trim().to_string();
+
+                Some(MenuCmd::Add(line))
+            }
+            _ => {
+                // invalid input
+                None
+            }
         }
     }
 

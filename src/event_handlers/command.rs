@@ -48,6 +48,9 @@ pub enum Command {
     /// Send a group of urls to be scanned (only used for the urls passed in explicitly by the user)
     ScanInitialUrls(Vec<String>),
 
+    /// Send a single url to be scanned (presumably added from the interactive menu)
+    ScanNewUrl(String),
+
     /// Determine whether or not recursion is appropriate, given a FeroxResponse, if so start a scan
     TryRecursion(Box<FeroxResponse>),
 

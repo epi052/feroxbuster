@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.4.0"
+version = "2.4.1"
 authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
 license = "MIT"
 edition = "2018"
@@ -23,14 +23,14 @@ dirs = "4.0"
 
 [dependencies]
 futures = { version = "0.3"}
-tokio = { version = "1.11", features = ["full"] }
+tokio = { version = "1.15", features = ["full"] }
 tokio-util = {version = "0.6", features = ["codec"]}
 log = "0.4"
 env_logger = "0.9"
 reqwest = { version = "0.11", features = ["socks"] }
 url = { version = "2.2", features = ["serde"]}  # uses feature unification to add 'serde' to reqwest::Url
 serde_regex = "1.1"
-clap = "2.33"
+clap = "2.34"
 lazy_static = "1.4"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive", "rc"] }
@@ -50,9 +50,9 @@ leaky-bucket = "0.10.0"
 
 [dev-dependencies]
 tempfile = "3.1"
-httpmock = "0.6.2"
+httpmock = "0.6"
 assert_cmd = "2.0"
-predicates = "2.0"
+predicates = "2.1"
 
 [profile.release]
 lto = true

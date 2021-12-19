@@ -303,7 +303,7 @@ fn ferox_scans_serialize() {
 #[test]
 /// given a FeroxResponses, test that it serializes into the proper JSON entry
 fn ferox_responses_serialize() {
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     let responses = FeroxResponses::default();
@@ -321,7 +321,7 @@ fn ferox_responses_serialize() {
 /// given a FeroxResponse, test that it serializes into the proper JSON entry
 fn ferox_response_serialize_and_deserialize() {
     // deserialize
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     assert_eq!(response.url().as_str(), "https://nerdcore.com/css");
@@ -354,7 +354,7 @@ fn feroxstates_feroxserialize_implementation() {
     ferox_scans.insert(ferox_scan);
 
     let config = Configuration::new().unwrap();
-    let stats = Arc::new(Stats::new(config.extensions.len(), config.json));
+    let stats = Arc::new(Stats::new(config.json));
 
     let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
@@ -572,11 +572,70 @@ async fn ferox_scan_abort() {
 /// and their correctness can be verified easily manually; just calling for now
 fn menu_print_header_and_footer() {
     let menu = Menu::new();
+    let menu_cmd_1 = MenuCmd::Add(String::from("http://localhost"));
+    let menu_cmd_2 = MenuCmd::Cancel(vec![0], false);
+    let menu_cmd_res_1 = MenuCmdResult::Url(String::from("http://localhost"));
+    let menu_cmd_res_2 = MenuCmdResult::NumCancelled(2);
+    println!(
+        "{:?}{:?}{:?}{:?}",
+        menu_cmd_1, menu_cmd_2, menu_cmd_res_1, menu_cmd_res_2
+    );
     menu.clear_screen();
     menu.print_header();
     menu.print_footer();
     menu.hide_progress_bars();
     menu.show_progress_bars();
+}
+
+#[test]
+/// ensure command parsing from user input results int he correct MenuCmd returned
+fn menu_get_command_input_from_user_returns_cancel() {
+    let menu = Menu::new();
+
+    for (idx, cmd) in ["cancel", "Cancel", "c", "C"].iter().enumerate() {
+        let force = idx % 2 == 0;
+
+        let full_cmd = if force {
+            format!("{} -f {}\n", cmd, idx)
+        } else {
+            format!("{} {}\n", cmd, idx)
+        };
+
+        let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+
+        assert!(matches!(result, MenuCmd::Cancel(_, _)));
+
+        if let MenuCmd::Cancel(canx_list, ret_force) = result {
+            if idx == 0 {
+                assert!(canx_list.is_empty());
+            } else {
+                assert_eq!(canx_list, vec![idx]);
+            }
+            assert_eq!(force, ret_force);
+        }
+    }
+}
+
+#[test]
+/// ensure command parsing from user input results int he correct MenuCmd returned
+fn menu_get_command_input_from_user_returns_add() {
+    let menu = Menu::new();
+
+    for cmd in ["add", "Addd", "a", "A", "None"] {
+        let test_url = "http://happyfuntimes.commmm";
+        let full_cmd = format!("{} {}\n", cmd, test_url);
+
+        if cmd != "None" {
+            let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+            assert!(matches!(result, MenuCmd::Add(_)));
+
+            if let MenuCmd::Add(url) = result {
+                assert_eq!(url, test_url);
+            }
+        } else {
+            assert!(menu.get_command_input_from_user(&full_cmd).is_none());
+        };
+    }
 }
 
 #[test]
