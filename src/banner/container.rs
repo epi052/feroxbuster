@@ -380,7 +380,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         let instructions = format!(
             " 🏁  Press [{}] to use the {}™",
             style("ENTER").yellow(),
-            style("Scan Cancel Menu").bright().yellow(),
+            style("Scan Management Menu").bright().yellow(),
         );
 
         format!("{}\n{}\n{}", bottom, instructions, addl_section)

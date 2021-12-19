@@ -33,7 +33,7 @@ pub struct TermInputHandler {
 ///
 /// kicks off the following handlers related to terminal input:
 ///     ctrl+c handler that saves scan state to disk
-///     enter handler that listens for enter during scans to drop into interactive scan cancel menu
+///     enter handler that listens for enter during scans to drop into interactive scan management menu
 impl TermInputHandler {
     /// Create new event handler
     pub fn new(handles: Arc<Handles>) -> Self {
