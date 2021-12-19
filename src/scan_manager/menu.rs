@@ -33,7 +33,7 @@ pub(super) struct Menu {
     footer: String,
 
     /// target for output
-    term: Term,
+    pub(super) term: Term,
 }
 
 /// Implementation of Menu
@@ -175,39 +175,35 @@ impl Menu {
     }
 
     /// get input from the user and translate it to a `MenuCmd`
-    pub(super) fn get_command_input_from_user(&self) -> Option<MenuCmd> {
-        if let Ok(line) = self.term.read_line() {
-            let line = line.trim(); // normalize input if there are leading spaces
+    pub(super) fn get_command_input_from_user(&self, line: &str) -> Option<MenuCmd> {
+        let line = line.trim(); // normalize input if there are leading spaces
 
-            match line.chars().next().unwrap_or('_').to_ascii_lowercase() {
-                'c' => {
-                    // cancel command; start by determining if -f was used
-                    let force = line.contains("-f");
+        match line.chars().next().unwrap_or('_').to_ascii_lowercase() {
+            'c' => {
+                // cancel command; start by determining if -f was used
+                let force = line.contains("-f");
 
-                    // then remove c[ancel] from the command so it can be passed to the number
-                    // splitter
-                    let re = Regex::new(r"^[cC][ancelANCEL]*").unwrap();
-                    let line = line.replace("-f", "");
-                    let line = re.replace(&line, "").to_string();
+                // then remove c[ancel] from the command so it can be passed to the number
+                // splitter
+                let re = Regex::new(r"^[cC][ancelANCEL]*").unwrap();
+                let line = line.replace("-f", "");
+                let line = re.replace(&line, "").to_string();
 
-                    Some(MenuCmd::Cancel(self.split_to_nums(&line), force))
-                }
-                'a' => {
-                    // add command
-                    // similar to cancel, we need to remove the a[dd] substring, the rest should be
-                    // a url
-                    let re = Regex::new(r"^[aA][dD]*").unwrap();
-                    let line = re.replace(line, "").to_string().trim().to_string();
-
-                    Some(MenuCmd::Add(line))
-                }
-                _ => {
-                    // invalid input
-                    None
-                }
+                Some(MenuCmd::Cancel(self.split_to_nums(&line), force))
             }
-        } else {
-            None
+            'a' => {
+                // add command
+                // similar to cancel, we need to remove the a[dd] substring, the rest should be
+                // a url
+                let re = Regex::new(r"^[aA][dD]*").unwrap();
+                let line = re.replace(line, "").to_string().trim().to_string();
+
+                Some(MenuCmd::Add(line))
+            }
+            _ => {
+                // invalid input
+                None
+            }
         }
     }
 

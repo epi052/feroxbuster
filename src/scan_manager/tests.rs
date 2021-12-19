@@ -572,11 +572,62 @@ async fn ferox_scan_abort() {
 /// and their correctness can be verified easily manually; just calling for now
 fn menu_print_header_and_footer() {
     let menu = Menu::new();
+    let menu_cmd_res_1 = MenuCmdResult::Url(String::from("http://localhost"));
+    let menu_cmd_res_2 = MenuCmdResult::NumCancelled(2);
+    println!("{:?}{:?}", menu_cmd_res_1, menu_cmd_res_2);
     menu.clear_screen();
     menu.print_header();
     menu.print_footer();
     menu.hide_progress_bars();
     menu.show_progress_bars();
+}
+
+#[test]
+/// ensure command parsing from user input results int he correct MenuCmd returned
+fn menu_get_command_input_from_user_returns_cancel() {
+    let menu = Menu::new();
+
+    for (idx, cmd) in ["cancel", "Cancel", "c", "C"].iter().enumerate() {
+        let force = idx % 2 == 0;
+
+        let full_cmd = if force {
+            format!("{} -f {}\n", cmd, idx)
+        } else {
+            format!("{} {}\n", cmd, idx)
+        };
+
+        let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+
+        assert!(matches!(result, MenuCmd::Cancel(_, _)));
+
+        if let MenuCmd::Cancel(canx_list, ret_force) = result {
+            if idx == 0 {
+                assert!(canx_list.is_empty());
+            } else {
+                assert_eq!(canx_list, vec![idx]);
+            }
+            assert_eq!(force, ret_force);
+        }
+    }
+}
+
+#[test]
+/// ensure command parsing from user input results int he correct MenuCmd returned
+fn menu_get_command_input_from_user_returns_add() {
+    let menu = Menu::new();
+
+    for cmd in &["add", "Addd", "a", "A"] {
+        let test_url = "http://happyfuntimes.commmm";
+        let full_cmd = format!("{} {}\n", cmd, test_url);
+
+        let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+
+        assert!(matches!(result, MenuCmd::Add(_)));
+
+        if let MenuCmd::Add(url) = result {
+            assert_eq!(url, test_url);
+        }
+    }
 }
 
 #[test]

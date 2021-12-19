@@ -308,7 +308,11 @@ impl FeroxScans {
         self.display_scans().await;
         self.menu.print_footer();
 
-        let menu_cmd = self.menu.get_command_input_from_user();
+        let menu_cmd = if let Ok(line) = self.menu.term.read_line() {
+            self.menu.get_command_input_from_user(&line)
+        } else {
+            None
+        };
 
         let result = match menu_cmd {
             Some(MenuCmd::Cancel(indices, should_force)) => {
