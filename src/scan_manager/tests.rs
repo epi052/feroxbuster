@@ -621,17 +621,20 @@ fn menu_get_command_input_from_user_returns_cancel() {
 fn menu_get_command_input_from_user_returns_add() {
     let menu = Menu::new();
 
-    for cmd in &["add", "Addd", "a", "A"] {
+    for cmd in ["add", "Addd", "a", "A", "None"] {
         let test_url = "http://happyfuntimes.commmm";
         let full_cmd = format!("{} {}\n", cmd, test_url);
 
-        let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+        if cmd != "None" {
+            let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+            assert!(matches!(result, MenuCmd::Add(_)));
 
-        assert!(matches!(result, MenuCmd::Add(_)));
-
-        if let MenuCmd::Add(url) = result {
-            assert_eq!(url, test_url);
-        }
+            if let MenuCmd::Add(url) = result {
+                assert_eq!(url, test_url);
+            }
+        } else {
+            assert!(menu.get_command_input_from_user(&full_cmd).is_none());
+        };
     }
 }
 
