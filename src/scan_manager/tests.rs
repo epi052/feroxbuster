@@ -572,9 +572,14 @@ async fn ferox_scan_abort() {
 /// and their correctness can be verified easily manually; just calling for now
 fn menu_print_header_and_footer() {
     let menu = Menu::new();
+    let menu_cmd_1 = MenuCmd::Add(String::from("http://localhost"));
+    let menu_cmd_2 = MenuCmd::Cancel(vec![0], false);
     let menu_cmd_res_1 = MenuCmdResult::Url(String::from("http://localhost"));
     let menu_cmd_res_2 = MenuCmdResult::NumCancelled(2);
-    println!("{:?}{:?}", menu_cmd_res_1, menu_cmd_res_2);
+    println!(
+        "{:?}{:?}{:?}{:?}",
+        menu_cmd_1, menu_cmd_2, menu_cmd_res_1, menu_cmd_res_2
+    );
     menu.clear_screen();
     menu.print_header();
     menu.print_footer();
