@@ -3,7 +3,7 @@ use crate::{
     config::Configuration,
     event_handlers::Handles,
     utils::{logged_request, status_colorizer},
-    VERSION,
+    VERSION, DEFAULT_METHOD
 };
 use anyhow::{bail, Result};
 use console::{style, Emoji};
@@ -97,6 +97,9 @@ pub struct Banner {
 
     /// represents Configuration.extensions
     extensions: BannerEntry,
+
+    /// represents Configuration.methods
+    methods: BannerEntry,
 
     /// represents Configuration.insecure
     insecure: BannerEntry,
@@ -302,6 +305,11 @@ impl Banner {
             "Extensions",
             &format!("[{}]", config.extensions.join(", ")),
         );
+        let methods = BannerEntry::new(
+            "🏁",
+            "HTTP methods",
+            &format!("[{}]", config.methods.join(", ")),
+        );
         let insecure = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
         let redirects = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
         let dont_filter =
@@ -339,6 +347,7 @@ impl Banner {
             output,
             debug_log,
             extensions,
+            methods,
             insecure,
             dont_filter,
             redirects,
@@ -395,7 +404,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let api_url = Url::parse(url)?;
 
-        let result = logged_request(&api_url, handles.clone()).await?;
+        let result = logged_request(&api_url, DEFAULT_METHOD, handles.clone()).await?;
         let body = result.text().await?;
 
         let json_response: Value = serde_json::from_str(&body)?;
@@ -523,6 +532,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.extensions.is_empty() {
             writeln!(&mut writer, "{}", self.extensions)?;
+        }
+
+        if !config.methods.is_empty() {
+            writeln!(&mut writer, "{}", self.methods)?;
         }
 
         if config.insecure {

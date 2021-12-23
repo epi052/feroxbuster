@@ -303,7 +303,7 @@ fn ferox_scans_serialize() {
 #[test]
 /// given a FeroxResponses, test that it serializes into the proper JSON entry
 fn ferox_responses_serialize() {
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     let responses = FeroxResponses::default();
@@ -321,7 +321,7 @@ fn ferox_responses_serialize() {
 /// given a FeroxResponse, test that it serializes into the proper JSON entry
 fn ferox_response_serialize_and_deserialize() {
     // deserialize
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     assert_eq!(response.url().as_str(), "https://nerdcore.com/css");

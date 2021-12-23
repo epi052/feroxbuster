@@ -41,6 +41,8 @@ _feroxbuster() {
 '--user-agent=[Sets the User-Agent (default: feroxbuster/VERSION)]' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]' \
+'*-m+[HTTP request method(s) to search for (default: \[GET\])]' \
+'*--methods=[HTTP request method(s) to search for (default: \[GET\])]' \
 '*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]' \
 '*-H+[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
 '*--headers=[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \

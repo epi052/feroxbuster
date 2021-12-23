@@ -87,6 +87,9 @@ pub const DEFAULT_STATUS_CODES: [StatusCode; 10] = [
     StatusCode::INTERNAL_SERVER_ERROR,
 ];
 
+/// Default method for requests
+pub(crate) const DEFAULT_METHOD: &str = "GET";
+
 /// Default filename for config file settings
 ///
 /// Expected location is in the same directory as the feroxbuster binary.

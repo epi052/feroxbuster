@@ -228,6 +228,18 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("methods")
+                .short("m")
+                .long("methods")
+                .value_name("HTTP_METHODS")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "HTTP request method(s) to search for (default: [GET])",
+                ),
+        )
+        .arg(
             Arg::with_name("url_denylist")
                 .long("dont-scan")
                 .value_name("URL")

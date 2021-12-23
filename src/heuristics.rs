@@ -13,6 +13,7 @@ use crate::{
     skip_fail,
     url::FeroxUrl,
     utils::{ferox_print, fmt_err, logged_request, status_colorizer},
+    DEFAULT_METHOD
 };
 
 /// length of a standard UUID, used when determining wildcard responses
@@ -166,7 +167,7 @@ impl HeuristicTests {
 
         let nonexistent_url = target.format(&unique_str, slash)?;
 
-        let response = logged_request(&nonexistent_url.to_owned(), self.handles.clone()).await?;
+        let response = logged_request(&nonexistent_url.to_owned(),DEFAULT_METHOD, self.handles.clone()).await?;
 
         if self
             .handles
@@ -178,6 +179,7 @@ impl HeuristicTests {
             let mut ferox_response = FeroxResponse::from(
                 response,
                 &target.target,
+                DEFAULT_METHOD, 
                 true,
                 self.handles.config.output_level,
             )
@@ -223,7 +225,7 @@ impl HeuristicTests {
             let url = FeroxUrl::from_string(target_url, self.handles.clone());
             let request = skip_fail!(url.format("", None));
 
-            let result = logged_request(&request, self.handles.clone()).await;
+            let result = logged_request(&request, DEFAULT_METHOD, self.handles.clone()).await;
 
             match result {
                 Ok(_) => {

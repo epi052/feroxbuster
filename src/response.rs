@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, Result};
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
-    Response, StatusCode, Url,
+    Method, Response, StatusCode, Url,
 };
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -35,6 +35,9 @@ pub struct FeroxResponse {
 
     /// The `StatusCode` of this `FeroxResponse`
     status: StatusCode,
+
+    /// The HTTP Request `Method` of this `FeroxResponse`
+    method: Method,
 
     /// The full response text
     text: String,
@@ -66,6 +69,7 @@ impl Default for FeroxResponse {
             url: Url::parse("http://localhost").unwrap(),
             original_url: "".to_string(),
             status: Default::default(),
+            method: Method::default(),
             text: "".to_string(),
             content_length: 0,
             line_count: 0,
@@ -83,8 +87,9 @@ impl fmt::Display for FeroxResponse {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "FeroxResponse {{ url: {}, status: {}, content-length: {} }}",
+            "FeroxResponse {{ url: {}, method: {}, status: {}, content-length: {} }}",
             self.url(),
+            self.method(),
             self.status(),
             self.content_length()
         )
@@ -96,6 +101,11 @@ impl FeroxResponse {
     /// Get the `StatusCode` of this `FeroxResponse`
     pub fn status(&self) -> &StatusCode {
         &self.status
+    }
+
+    /// Get the `Method` of this `FeroxResponse`
+    pub fn method(&self) -> &Method {
+        &self.method
     }
 
     /// Get the `wildcard` of this `FeroxResponse`
@@ -193,6 +203,7 @@ impl FeroxResponse {
     pub async fn from(
         response: Response,
         original_url: &str,
+        method: &str,
         read_body: bool,
         output_level: OutputLevel,
     ) -> Self {
@@ -224,6 +235,7 @@ impl FeroxResponse {
             url,
             original_url: original_url.to_string(),
             status,
+            method: Method::from_bytes(method.as_bytes()).unwrap_or(Method::GET),
             content_length,
             text,
             headers,
@@ -336,6 +348,7 @@ impl FeroxSerialize for FeroxResponse {
         let words = self.word_count().to_string();
         let chars = self.content_length().to_string();
         let status = self.status().as_str();
+        let method = self.method().as_str();
         let wild_status = status_colorizer("WLD");
 
         if self.wildcard && matches!(self.output_level, OutputLevel::Default | OutputLevel::Quiet) {
@@ -344,8 +357,9 @@ impl FeroxSerialize for FeroxResponse {
 
             // create the base message
             let mut message = format!(
-                "{} {:>8}l {:>8}w {:>8}c Got {} for {} (url length: {})\n",
+                "{} {:>8} {:>8}l {:>8}w {:>8}c Got {} for {} (url length: {})\n",
                 wild_status,
+                method,
                 lines,
                 words,
                 chars,
@@ -379,6 +393,7 @@ impl FeroxSerialize for FeroxResponse {
             // not a wildcard, just create a normal entry
             utils::create_report_string(
                 self.status.as_str(),
+                method,
                 &lines,
                 &words,
                 &chars,
@@ -448,6 +463,7 @@ impl Serialize for FeroxResponse {
         state.serialize_field("path", self.url.path())?;
         state.serialize_field("wildcard", &self.wildcard)?;
         state.serialize_field("status", &self.status.as_u16())?;
+        state.serialize_field("method", &self.method.as_str())?;
         state.serialize_field("content_length", &self.content_length)?;
         state.serialize_field("line_count", &self.line_count)?;
         state.serialize_field("word_count", &self.word_count)?;
@@ -468,6 +484,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             url: Url::parse("http://localhost").unwrap(),
             original_url: String::new(),
             status: StatusCode::OK,
+            method: Method::GET,
             text: String::new(),
             content_length: 0,
             headers: HeaderMap::new(),
@@ -500,6 +517,11 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                                 response.status = status;
                             }
                         }
+                    }
+                }
+                "method" => {
+                    if let Some(method) = value.as_str() {
+                        response.method = Method::from_bytes(method.as_bytes()).unwrap_or_default();
                     }
                 }
                 "content_length" => {
@@ -559,6 +581,7 @@ mod tests {
             url,
             original_url: String::new(),
             status: Default::default(),
+            method: Default::default(),
             text: "".to_string(),
             content_length: 0,
             line_count: 0,
@@ -581,6 +604,7 @@ mod tests {
             url,
             original_url: String::new(),
             status: Default::default(),
+            method: Default::default(),
             text: "".to_string(),
             content_length: 0,
             line_count: 0,
@@ -603,6 +627,7 @@ mod tests {
             url,
             original_url: String::new(),
             status: Default::default(),
+            method: Default::default(),
             text: "".to_string(),
             content_length: 0,
             line_count: 0,
@@ -625,6 +650,7 @@ mod tests {
             url,
             original_url: String::new(),
             status: Default::default(),
+            method: Default::default(),
             text: "".to_string(),
             content_length: 0,
             line_count: 0,
@@ -647,6 +673,7 @@ mod tests {
             url,
             original_url: String::new(),
             status: Default::default(),
+            method: Default::default(),
             text: "".to_string(),
             content_length: 0,
             line_count: 0,

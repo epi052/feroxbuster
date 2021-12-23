@@ -2,7 +2,7 @@ use anyhow::{bail, Context, Result};
 use console::{strip_ansi_codes, style, user_attended};
 use indicatif::ProgressBar;
 use regex::Regex;
-use reqwest::{Client, Response, StatusCode, Url};
+use reqwest::{Client, Method, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource};
 use std::{
@@ -95,15 +95,14 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 
 /// wrapper for make_request used to pass error/response codes to FeroxScans for per-scan stats
 /// tracking of information related to auto-tune/bail
-pub async fn logged_request(url: &Url, handles: Arc<Handles>) -> Result<Response> {
+pub async fn logged_request(url: &Url, method: &str, handles: Arc<Handles>) -> Result<Response> {
     let client = &handles.config.client;
     let level = handles.config.output_level;
     let tx_stats = handles.stats.tx.clone();
 
-    let response = make_request(client, url, level, &handles.config, tx_stats).await;
+    let response = make_request(client, url, method, level, &handles.config, tx_stats).await;
 
     let scans = handles.ferox_scans()?;
-
     match response {
         Ok(resp) => {
             match resp.status() {
@@ -126,6 +125,7 @@ pub async fn logged_request(url: &Url, handles: Arc<Handles>) -> Result<Response
 pub async fn make_request(
     client: &Client,
     url: &Url,
+    method: &str,
     output_level: OutputLevel,
     config: &Configuration,
     tx_stats: UnboundedSender<Command>,
@@ -137,7 +137,7 @@ pub async fn make_request(
         tx_stats
     );
 
-    let mut request = client.get(url.to_owned());
+    let mut request = client.request(Method::from_bytes(method.as_bytes())?, url.to_owned());
 
     if config.random_agent {
         let index = unsafe {
@@ -165,6 +165,7 @@ pub async fn make_request(
                         send_command!(tx_stats, AddStatus(msg_status));
                         create_report_string(
                             msg_status.as_str(),
+                            method,
                             "-1",
                             "-1",
                             "-1",
@@ -172,7 +173,15 @@ pub async fn make_request(
                             output_level,
                         )
                     } else {
-                        create_report_string("UNK", "-1", "-1", "-1", &fancy_message, output_level)
+                        create_report_string(
+                            "UNK",
+                            method,
+                            "-1",
+                            "-1",
+                            "-1",
+                            &fancy_message,
+                            output_level,
+                        )
                     };
 
                     send_command!(tx_stats, AddError(Redirection));
@@ -204,6 +213,7 @@ pub async fn make_request(
 /// 200      127l      283w     4134c http://localhost/faq
 pub fn create_report_string(
     status: &str,
+    method: &str,
     line_count: &str,
     word_count: &str,
     content_length: &str,
@@ -217,8 +227,8 @@ pub fn create_report_string(
         // normal printing with status and sizes
         let color_status = status_colorizer(status);
         format!(
-            "{} {:>8}l {:>8}w {:>8}c {}\n",
-            color_status, line_count, word_count, content_length, url
+            "{} {:>8} {:>8}l {:>8}w {:>8}c {}\n",
+            color_status, method, line_count, word_count, content_length, url
         )
     }
 }

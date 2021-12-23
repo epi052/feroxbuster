@@ -31,6 +31,7 @@ fn setup_config_test() -> Configuration {
             redirects = true
             insecure = true
             extensions = ["html", "php", "js"]
+            methods = ["GET", "PUT", "DELETE"]
             url_denylist = ["http://dont-scan.me", "https://also-not.me"]
             regex_denylist = ["/deny.*"]
             headers = {stuff = "things", mostuff = "mothings"}
@@ -96,6 +97,7 @@ fn default_configuration() {
     assert_eq!(config.queries, Vec::new());
     assert_eq!(config.filter_size, Vec::<u64>::new());
     assert_eq!(config.extensions, Vec::<String>::new());
+    assert_eq!(config.methods, Vec::<String>::new());
     assert_eq!(config.url_denylist, Vec::<Url>::new());
     assert_eq!(config.filter_regex, Vec::<String>::new());
     assert_eq!(config.filter_similar, Vec::<String>::new());
@@ -292,6 +294,13 @@ fn config_reads_extract_links() {
 fn config_reads_extensions() {
     let config = setup_config_test();
     assert_eq!(config.extensions, vec!["html", "php", "js"]);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_methods() {
+    let config = setup_config_test();
+    assert_eq!(config.methods, vec!["GET", "PUT", "DELETE"]);
 }
 
 #[test]
