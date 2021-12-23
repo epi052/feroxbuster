@@ -484,12 +484,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e25ea47919b1560c4e3b7fe0aaab9becf5b84a10325ddf7db0f0ba5e1026499"
 
 [[package]]
-name = "difference"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524cbf6897b527295dff137cec09ecf3a05f4fddffd7dfcd1585403449e74198"
-
-[[package]]
 name = "difflib"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -885,9 +879,9 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 
 [[package]]
 name = "httpmock"
-version = "0.6.4"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67fc2a6377230dc7cc007c74c34665f92589b4a73ed503f1c91ede8de6df35f0"
+checksum = "a24a520a3193799852cc4baf0d8356d7578a8847dfc5603d087529f099661e42"
 dependencies = [
  "assert-json-diff",
  "async-object-pool",
@@ -895,7 +889,6 @@ dependencies = [
  "base64",
  "basic-cookies",
  "crossbeam-utils",
- "difference",
  "form_urlencoded",
  "futures-util",
  "hyper",
@@ -908,6 +901,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_regex",
+ "similar",
  "tokio",
 ]
 
@@ -1799,6 +1793,12 @@ checksum = "e51e73328dc4ac0c7ccbda3a494dfa03df1de2f46018127f60c693f2648455b0"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "similar"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e24979f63a11545f5f2c60141afe249d4f19f84581ea2138065e400941d83d3"
 
 [[package]]
 name = "siphasher"
