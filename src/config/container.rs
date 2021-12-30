@@ -1,5 +1,5 @@
 use super::utils::{
-    depth, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
+    depth, methods, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
     user_agent, wordlist, OutputLevel, RequesterPolicy,
 };
 use crate::config::determine_output_level;
@@ -280,6 +280,7 @@ impl Default for Configuration {
         let kind = serialized_type();
         let output_level = OutputLevel::Default;
         let requester_policy = RequesterPolicy::Default;
+        let methods = methods();
 
         Configuration {
             kind,
@@ -320,7 +321,7 @@ impl Default for Configuration {
             replay_proxy: String::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
-            methods: Vec::new(),
+            methods: methods,
             filter_size: Vec::new(),
             filter_regex: Vec::new(),
             url_denylist: Vec::new(),

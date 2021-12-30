@@ -3,7 +3,7 @@ use crate::{
     config::Configuration,
     event_handlers::Handles,
     utils::{logged_request, status_colorizer},
-    VERSION, DEFAULT_METHOD
+    DEFAULT_METHOD, VERSION,
 };
 use anyhow::{bail, Result};
 use console::{style, Emoji};

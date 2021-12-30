@@ -1,5 +1,5 @@
 use super::*;
-use crate::url::FeroxUrl;
+use crate::{url::FeroxUrl, DEFAULT_METHOD};
 
 /// Data holder for two pieces of data needed when auto-filtering out wildcard responses
 ///
@@ -17,6 +17,9 @@ pub struct WildcardFilter {
 
     /// size of the response that should be included with filters passed via runtime configuration
     pub size: u64,
+
+    /// method used in request that should be included with filters passed via runtime configuration
+    pub method: String,
 
     /// whether or not the user passed -D on the command line
     pub(super) dont_filter: bool,
@@ -40,6 +43,7 @@ impl Default for WildcardFilter {
         Self {
             dont_filter: false,
             size: u64::MAX,
+            method: DEFAULT_METHOD.to_owned(),
             dynamic: u64::MAX,
         }
     }
@@ -60,7 +64,10 @@ impl FeroxFilter for WildcardFilter {
             return false;
         }
 
-        if self.size != u64::MAX && self.size == response.content_length() {
+        if self.size != u64::MAX
+            && self.size == response.content_length()
+            && self.method == response.method().as_str()
+        {
             // static wildcard size found during testing
             // size isn't default, size equals response length, and auto-filter is on
             log::debug!("static wildcard: filtered out {}", response.url());
@@ -68,7 +75,10 @@ impl FeroxFilter for WildcardFilter {
             return true;
         }
 
-        if self.size == u64::MAX && response.content_length() == 0 {
+        if self.size == u64::MAX
+            && response.content_length() == 0
+            && self.method == response.method().as_str()
+        {
             // static wildcard size found during testing
             // but response length was zero; pointed out by @Tib3rius
             log::debug!("static wildcard: filtered out {}", response.url());

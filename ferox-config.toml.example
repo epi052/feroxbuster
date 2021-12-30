@@ -31,6 +31,7 @@
 # redirects = true
 # insecure = true
 # extensions = ["php", "html"]
+# methods = ["GET", "POST"]
 # url_denylist = ["http://dont-scan.me", "https://also-not.me"]
 # regex_denylist = ["/deny.*"]
 # no_recursion = true

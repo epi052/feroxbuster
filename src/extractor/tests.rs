@@ -3,7 +3,8 @@ use super::*;
 use crate::config::{Configuration, OutputLevel};
 use crate::scan_manager::ScanOrder;
 use crate::{
-    event_handlers::Handles, scan_manager::FeroxScans, utils::make_request, Command, FeroxChannel, DEFAULT_METHOD
+    event_handlers::Handles, scan_manager::FeroxScans, utils::make_request, Command, FeroxChannel,
+    DEFAULT_METHOD,
 };
 use anyhow::Result;
 use httpmock::{Method::GET, MockServer};

@@ -1,6 +1,6 @@
 use crate::{
     utils::{module_colorizer, status_colorizer},
-    DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
+    DEFAULT_METHOD, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
 };
 #[cfg(not(test))]
 use std::process::exit;
@@ -50,6 +50,11 @@ pub(super) fn status_codes() -> Vec<u16> {
         .iter()
         .map(|code| code.as_u16())
         .collect()
+}
+
+/// default HTTP Method
+pub(super) fn methods() -> Vec<String> {
+    vec![DEFAULT_METHOD.to_owned()]
 }
 
 /// default wordlist

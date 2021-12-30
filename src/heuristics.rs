@@ -13,7 +13,7 @@ use crate::{
     skip_fail,
     url::FeroxUrl,
     utils::{ferox_print, fmt_err, logged_request, status_colorizer},
-    DEFAULT_METHOD
+    DEFAULT_METHOD,
 };
 
 /// length of a standard UUID, used when determining wildcard responses
@@ -92,52 +92,60 @@ impl HeuristicTests {
 
         let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
 
-        let ferox_response = self.make_wildcard_request(&ferox_url, 1).await?;
+        for method in self.handles.config.methods.iter() {
+            let ferox_response = self
+                .make_wildcard_request(&ferox_url, method.as_str(), 1)
+                .await?;
 
-        // found a wildcard response
-        let mut wildcard = WildcardFilter::new(self.handles.config.dont_filter);
+            // found a wildcard response
+            let mut wildcard = WildcardFilter::new(self.handles.config.dont_filter);
 
-        let wc_length = ferox_response.content_length();
+            let wc_length = ferox_response.content_length();
 
-        if wc_length == 0 {
-            log::trace!("exit: wildcard_test -> 1");
+            if wc_length == 0 {
+                log::trace!("exit: wildcard_test -> 1");
+                self.send_filter(wildcard)?;
+                return Ok(1);
+            }
+
+            // content length of wildcard is non-zero, perform additional tests:
+            //   make a second request, with a known-sized (64) longer request
+            let resp_two = self
+                .make_wildcard_request(&ferox_url, method.as_str(), 3)
+                .await?;
+
+            let wc2_length = resp_two.content_length();
+
+            wildcard.method = resp_two.method().as_str().to_owned();
+
+            if wc2_length == wc_length + (UUID_LENGTH * 2) {
+                // second length is what we'd expect to see if the requested url is
+                // reflected in the response along with some static content; aka custom 404
+                let url_len = ferox_url.path_length()?;
+
+                wildcard.dynamic = wc_length - url_len;
+
+                if matches!(
+                    self.handles.config.output_level,
+                    OutputLevel::Default | OutputLevel::Quiet
+                ) {
+                    let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wildcard.dynamic);
+                    ferox_print(&msg, &PROGRESS_PRINTER);
+                }
+            } else if wc_length == wc2_length {
+                wildcard.size = wc_length;
+
+                if matches!(
+                    self.handles.config.output_level,
+                    OutputLevel::Default | OutputLevel::Quiet
+                ) {
+                    let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wildcard.size);
+                    ferox_print(&msg, &PROGRESS_PRINTER);
+                }
+            }
+
             self.send_filter(wildcard)?;
-            return Ok(1);
         }
-
-        // content length of wildcard is non-zero, perform additional tests:
-        //   make a second request, with a known-sized (64) longer request
-        let resp_two = self.make_wildcard_request(&ferox_url, 3).await?;
-
-        let wc2_length = resp_two.content_length();
-
-        if wc2_length == wc_length + (UUID_LENGTH * 2) {
-            // second length is what we'd expect to see if the requested url is
-            // reflected in the response along with some static content; aka custom 404
-            let url_len = ferox_url.path_length()?;
-
-            wildcard.dynamic = wc_length - url_len;
-
-            if matches!(
-                self.handles.config.output_level,
-                OutputLevel::Default | OutputLevel::Quiet
-            ) {
-                let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wildcard.dynamic);
-                ferox_print(&msg, &PROGRESS_PRINTER);
-            }
-        } else if wc_length == wc2_length {
-            wildcard.size = wc_length;
-
-            if matches!(
-                self.handles.config.output_level,
-                OutputLevel::Default | OutputLevel::Quiet
-            ) {
-                let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wildcard.size);
-                ferox_print(&msg, &PROGRESS_PRINTER);
-            }
-        }
-
-        self.send_filter(wildcard)?;
 
         log::trace!("exit: wildcard_test");
         Ok(2)
@@ -152,6 +160,7 @@ impl HeuristicTests {
     async fn make_wildcard_request(
         &self,
         target: &FeroxUrl,
+        method: &str,
         length: usize,
     ) -> Result<FeroxResponse> {
         log::trace!("enter: make_wildcard_request({}, {})", target, length);
@@ -167,7 +176,8 @@ impl HeuristicTests {
 
         let nonexistent_url = target.format(&unique_str, slash)?;
 
-        let response = logged_request(&nonexistent_url.to_owned(),DEFAULT_METHOD, self.handles.clone()).await?;
+        let response =
+            logged_request(&nonexistent_url.to_owned(), method, self.handles.clone()).await?;
 
         if self
             .handles
@@ -179,7 +189,7 @@ impl HeuristicTests {
             let mut ferox_response = FeroxResponse::from(
                 response,
                 &target.target,
-                DEFAULT_METHOD, 
+                method,
                 true,
                 self.handles.config.output_level,
             )

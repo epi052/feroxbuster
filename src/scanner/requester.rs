@@ -23,7 +23,7 @@ use crate::{
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
     utils::logged_request,
-    DEFAULT_METHOD, HIGH_ERROR_RATIO,
+    HIGH_ERROR_RATIO,
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
@@ -88,10 +88,7 @@ impl Requester {
             handles: scanner.handles.clone(),
             target_url: scanner.target_url.to_owned(),
             tuning_lock: Mutex::new(0),
-            methods: match scanner.handles.config.methods.len() {
-                0 => vec![DEFAULT_METHOD.to_owned()],
-                _ => scanner.handles.config.methods.clone(),
-            },
+            methods: scanner.handles.config.methods.clone(),
         })
     }
 
