@@ -173,8 +173,12 @@ pub struct Configuration {
 
     /// HTTP requests methods(s) to search for
     /// To make this serialisible will store as String
-    #[serde(default)]
+    #[serde(default = "methods")]
     pub methods: Vec<String>,
+
+    /// HTTP Body data to send during request
+    #[serde(default)]
+    pub data: Vec<u8>,
 
     /// HTTP headers to be used in each request
     #[serde(default)]
@@ -322,6 +326,7 @@ impl Default for Configuration {
             queries: Vec::new(),
             extensions: Vec::new(),
             methods: methods,
+            data: Vec::new(),
             filter_size: Vec::new(),
             filter_regex: Vec::new(),
             url_denylist: Vec::new(),
@@ -365,6 +370,7 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **methods**: [`DEFAULT_METHOD`]
+    /// - **data**: `None`
     /// - **url_denylist**: `None`
     /// - **regex_denylist**: `None`
     /// - **filter_size**: `None`
@@ -574,6 +580,10 @@ impl Configuration {
                         .to_string()
                 })
                 .collect();
+        }
+
+        if let Some(url) = args.value_of("data") {
+            config.data = url.as_bytes().to_vec();
         }
 
         if args.is_present("stdin") {
@@ -854,6 +864,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
         update_if_not_default!(&mut conf.methods, new.methods, Vec::<String>::new());
+        update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
         update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
         if !new.regex_denylist.is_empty() {
             // cant use the update_if_not_default macro due to the following error

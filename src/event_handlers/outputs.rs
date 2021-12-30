@@ -12,7 +12,7 @@ use crate::{
     statistics::StatField::ResourcesDiscovered,
     traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
-    CommandReceiver, CommandSender, Joiner, DEFAULT_METHOD,
+    CommandReceiver, CommandSender, Joiner
 };
 use std::sync::Arc;
 
@@ -214,7 +214,8 @@ impl TermOutHandler {
                         make_request(
                             self.config.replay_client.as_ref().unwrap(),
                             resp.url(),
-                            DEFAULT_METHOD,
+                            &resp.method().as_str(),
+                            None,
                             self.config.output_level,
                             &self.config,
                             tx_stats.clone(),

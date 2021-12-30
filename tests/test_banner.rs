@@ -1060,3 +1060,34 @@ fn banner_prints_methods() {
                 .and(predicate::str::contains("─┴─")),
         );
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + data body
+fn banner_prints_data() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-m")
+        .arg("PUT")
+        .arg("--methods")
+        .arg("POST")
+        .arg("--data")
+        .arg("some_data")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("HTTP Body data"))
+                .and(predicate::str::contains("some_data"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}

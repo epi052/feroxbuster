@@ -240,6 +240,15 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("data")
+                .long("data")
+                .value_name("DATA")
+                .takes_value(true)
+                .help(
+                    "HTTP Body data (default: empty)",
+                ),
+        )
+        .arg(
             Arg::with_name("url_denylist")
                 .long("dont-scan")
                 .value_name("URL")

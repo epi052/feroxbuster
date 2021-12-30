@@ -325,7 +325,8 @@ impl<'a> Extractor<'a> {
         }
 
         // make the request and store the response
-        let new_response = logged_request(&new_url, DEFAULT_METHOD, self.handles.clone()).await?;
+        let new_response =
+            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone()).await?;
 
         let new_ferox_response = FeroxResponse::from(
             new_response,
@@ -411,6 +412,7 @@ impl<'a> Extractor<'a> {
             &client,
             &url,
             DEFAULT_METHOD,
+            None,
             self.handles.config.output_level,
             &self.handles.config,
             self.handles.stats.tx.clone(),

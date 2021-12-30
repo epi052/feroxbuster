@@ -95,12 +95,17 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
 
 /// wrapper for make_request used to pass error/response codes to FeroxScans for per-scan stats
 /// tracking of information related to auto-tune/bail
-pub async fn logged_request(url: &Url, method: &str, handles: Arc<Handles>) -> Result<Response> {
+pub async fn logged_request(
+    url: &Url,
+    method: &str,
+    data: Option<&[u8]>,
+    handles: Arc<Handles>,
+) -> Result<Response> {
     let client = &handles.config.client;
     let level = handles.config.output_level;
     let tx_stats = handles.stats.tx.clone();
 
-    let response = make_request(client, url, method, level, &handles.config, tx_stats).await;
+    let response = make_request(client, url, method, data, level, &handles.config, tx_stats).await;
 
     let scans = handles.ferox_scans()?;
     match response {
@@ -126,6 +131,7 @@ pub async fn make_request(
     client: &Client,
     url: &Url,
     method: &str,
+    data: Option<&[u8]>,
     output_level: OutputLevel,
     config: &Configuration,
     tx_stats: UnboundedSender<Command>,
@@ -138,6 +144,10 @@ pub async fn make_request(
     );
 
     let mut request = client.request(Method::from_bytes(method.as_bytes())?, url.to_owned());
+    if let Some(body_data) = data {
+        //TODO: Find the way how to improve this block
+        request = request.body(body_data.to_vec());
+    }
 
     if config.random_agent {
         let index = unsafe {

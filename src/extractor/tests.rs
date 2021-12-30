@@ -224,6 +224,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         &client,
         &url,
         DEFAULT_METHOD,
+        None,
         OutputLevel::Default,
         &config,
         tx_stats.clone(),

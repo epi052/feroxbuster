@@ -101,6 +101,9 @@ pub struct Banner {
     /// represents Configuration.methods
     methods: BannerEntry,
 
+    /// represents Configuration.data
+    data: BannerEntry,
+
     /// represents Configuration.insecure
     insecure: BannerEntry,
 
@@ -310,6 +313,11 @@ impl Banner {
             "HTTP methods",
             &format!("[{}]", config.methods.join(", ")),
         );
+        let data = BannerEntry::new(
+            "💣",
+            "HTTP Body data",
+            &String::from_utf8_lossy(&config.data),
+        );
         let insecure = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
         let redirects = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
         let dont_filter =
@@ -348,6 +356,7 @@ impl Banner {
             debug_log,
             extensions,
             methods,
+            data,
             insecure,
             dont_filter,
             redirects,
@@ -404,7 +413,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let api_url = Url::parse(url)?;
 
-        let result = logged_request(&api_url, DEFAULT_METHOD, handles.clone()).await?;
+        let result = logged_request(&api_url, DEFAULT_METHOD, None, handles.clone()).await?;
         let body = result.text().await?;
 
         let json_response: Value = serde_json::from_str(&body)?;
@@ -536,6 +545,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.methods.is_empty() {
             writeln!(&mut writer, "{}", self.methods)?;
+        }
+
+        if !config.data.is_empty() {
+            writeln!(&mut writer, "{}", self.data)?;
         }
 
         if config.insecure {

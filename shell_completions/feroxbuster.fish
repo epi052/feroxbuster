@@ -13,6 +13,7 @@ complete -c feroxbuster -n "__fish_use_subcommand" -l debug-log -d 'Output file 
 complete -c feroxbuster -n "__fish_use_subcommand" -s a -l user-agent -d 'Sets the User-Agent (default: feroxbuster/VERSION)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s x -l extensions -d 'File extension(s) to search for (ex: -x php -x pdf js)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s m -l methods -d 'HTTP request method(s) to search for (default: [GET])'
+complete -c feroxbuster -n "__fish_use_subcommand" -l data -d 'HTTP Body data (default: empty)'
 complete -c feroxbuster -n "__fish_use_subcommand" -l dont-scan -d 'URL(s) or Regex Pattern(s) to exclude from recursion/scans'
 complete -c feroxbuster -n "__fish_use_subcommand" -s H -l headers -d 'Specify HTTP headers (ex: -H Header:val \'stuff: things\')'
 complete -c feroxbuster -n "__fish_use_subcommand" -s Q -l query -d 'Specify URL query parameters (ex: -Q token=stuff -Q secret=key)'

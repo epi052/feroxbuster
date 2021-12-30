@@ -90,11 +90,16 @@ impl HeuristicTests {
             return Ok(0);
         }
 
+        let data = match self.handles.config.data.is_empty() {
+            true => None,
+            false => Some(&self.handles.config.data[..]),
+        };
+
         let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
 
         for method in self.handles.config.methods.iter() {
             let ferox_response = self
-                .make_wildcard_request(&ferox_url, method.as_str(), 1)
+                .make_wildcard_request(&ferox_url, method.as_str(), data, 1)
                 .await?;
 
             // found a wildcard response
@@ -111,7 +116,7 @@ impl HeuristicTests {
             // content length of wildcard is non-zero, perform additional tests:
             //   make a second request, with a known-sized (64) longer request
             let resp_two = self
-                .make_wildcard_request(&ferox_url, method.as_str(), 3)
+                .make_wildcard_request(&ferox_url, method.as_str(), data, 3)
                 .await?;
 
             let wc2_length = resp_two.content_length();
@@ -161,6 +166,7 @@ impl HeuristicTests {
         &self,
         target: &FeroxUrl,
         method: &str,
+        data: Option<&[u8]>,
         length: usize,
     ) -> Result<FeroxResponse> {
         log::trace!("enter: make_wildcard_request({}, {})", target, length);
@@ -176,8 +182,13 @@ impl HeuristicTests {
 
         let nonexistent_url = target.format(&unique_str, slash)?;
 
-        let response =
-            logged_request(&nonexistent_url.to_owned(), method, self.handles.clone()).await?;
+        let response = logged_request(
+            &nonexistent_url.to_owned(),
+            method,
+            data,
+            self.handles.clone(),
+        )
+        .await?;
 
         if self
             .handles
@@ -235,7 +246,7 @@ impl HeuristicTests {
             let url = FeroxUrl::from_string(target_url, self.handles.clone());
             let request = skip_fail!(url.format("", None));
 
-            let result = logged_request(&request, DEFAULT_METHOD, self.handles.clone()).await;
+            let result = logged_request(&request, DEFAULT_METHOD, None, self.handles.clone()).await;
 
             match result {
                 Ok(_) => {

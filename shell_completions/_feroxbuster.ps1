@@ -48,6 +48,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--extensions', 'extensions', [CompletionResultType]::ParameterName, 'File extension(s) to search for (ex: -x php -x pdf js)')
             [CompletionResult]::new('-m', 'm', [CompletionResultType]::ParameterName, 'HTTP request method(s) to search for (default: [GET])')
             [CompletionResult]::new('--methods', 'methods', [CompletionResultType]::ParameterName, 'HTTP request method(s) to search for (default: [GET])')
+            [CompletionResult]::new('--data', 'data', [CompletionResultType]::ParameterName, 'HTTP Body data (default: empty)')
             [CompletionResult]::new('--dont-scan', 'dont-scan', [CompletionResultType]::ParameterName, 'URL(s) or Regex Pattern(s) to exclude from recursion/scans')
             [CompletionResult]::new('-H', 'H', [CompletionResultType]::ParameterName, 'Specify HTTP headers (ex: -H Header:val ''stuff: things'')')
             [CompletionResult]::new('--headers', 'headers', [CompletionResultType]::ParameterName, 'Specify HTTP headers (ex: -H Header:val ''stuff: things'')')
