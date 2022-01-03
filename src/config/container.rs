@@ -725,6 +725,26 @@ impl Configuration {
             }
         }
 
+        // slightly modified version of the above header parsing block
+        if let Some(cookies) = args.values_of("cookies") {
+            for cookie in cookies {
+                match cookie.split('=').collect::<Vec<&str>>()[..] {
+                    // on splitting, there should be only two elements,
+                    // a key and a value
+                    // thus, using slice pattern matching
+                    [key, value] => {
+                        config.headers.insert(
+                            // we know the header name is always "cookie"
+                            "Cookie".to_string(),
+                            format!("{}={}", key.trim(), value.trim())
+                            // trim the spaces, join with an equals sign
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         if let Some(queries) = args.values_of("queries") {
             for val in queries {
                 // same basic logic used as reading in the headers HashMap above
