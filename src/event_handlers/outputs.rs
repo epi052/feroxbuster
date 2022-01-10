@@ -12,7 +12,7 @@ use crate::{
     statistics::StatField::ResourcesDiscovered,
     traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
-    CommandReceiver, CommandSender, Joiner
+    CommandReceiver, CommandSender, Joiner,
 };
 use std::sync::Arc;
 

@@ -245,7 +245,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .value_name("DATA")
                 .takes_value(true)
                 .help(
-                    "HTTP Body data (default: empty)",
+                    "HTTP Body data (default: empty), it can read data from file if input starts from @ (ex: @post.txt)",
                 ),
         )
         .arg(

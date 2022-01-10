@@ -583,7 +583,12 @@ impl Configuration {
         }
 
         if let Some(url) = args.value_of("data") {
-            config.data = url.as_bytes().to_vec();
+            if url.starts_with("@") {
+                config.data =
+                    std::fs::read(&url[1..]).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+            } else {
+                config.data = url.as_bytes().to_vec();
+            }
         }
 
         if args.is_present("stdin") {

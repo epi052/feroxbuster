@@ -23,7 +23,7 @@ use crate::{
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
     utils::logged_request,
-    HIGH_ERROR_RATIO
+    HIGH_ERROR_RATIO,
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
@@ -454,7 +454,7 @@ mod tests {
         filters,
         scan_manager::{ScanOrder, ScanType},
         statistics::StatError,
-        DEFAULT_METHOD
+        DEFAULT_METHOD,
     };
 
     use super::*;
@@ -601,7 +601,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -630,7 +631,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -656,7 +658,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -697,7 +700,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: ferox_scan.clone(),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -753,7 +757,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: req_clone,
             target_url: "http://one/one/stuff.php".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -788,7 +793,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://one/one/stuff.php".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -811,7 +817,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };
@@ -835,7 +842,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         });
@@ -866,7 +874,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
@@ -905,7 +914,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(scan),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(Some(limiter)),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
@@ -942,7 +952,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(scan),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
@@ -971,7 +982,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
@@ -1015,7 +1027,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(Some(limiter)),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
         };
@@ -1059,7 +1072,8 @@ mod tests {
             tuning_lock: Mutex::new(0),
             ferox_scan: scan.clone(),
             target_url: "http://localhost".to_string(),
-            methods: vec![DEFAULT_METHOD.to_owned()],data: vec![],
+            methods: vec![DEFAULT_METHOD.to_owned()],
+            data: vec![],
             rate_limiter: RwLock::new(Some(limiter)),
             policy_data: PolicyData::new(RequesterPolicy::AutoTune, 4),
         };

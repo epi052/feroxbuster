@@ -305,7 +305,6 @@ fn config_reads_methods() {
     assert_eq!(config.methods, vec!["GET", "PUT", "DELETE"]);
 }
 
-
 #[test]
 /// parse the test config and see that the value parsed is correct
 fn config_reads_data() {

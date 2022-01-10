@@ -313,10 +313,15 @@ impl Banner {
             "HTTP methods",
             &format!("[{}]", config.methods.join(", ")),
         );
+
+        let data = String::from_utf8(config.data.clone()).unwrap_or("Unprintable data".to_owned());
         let data = BannerEntry::new(
             "💣",
             "HTTP Body data",
-            &String::from_utf8_lossy(&config.data),
+            match data.len() > 30 {
+                true => &data.as_str()[1..30],
+                false => &data,
+            },
         );
         let insecure = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
         let redirects = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
