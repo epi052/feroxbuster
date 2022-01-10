@@ -725,23 +725,19 @@ impl Configuration {
             }
         }
 
-        // slightly modified version of the above header parsing block
         if let Some(cookies) = args.values_of("cookies") {
-            let mut parsed_cookies: Vec<String> = Vec::new();
-            for cookie in cookies {
-                if let [key, value] = cookie.split('=').collect::<Vec<&str>>()[..] {
-                    // on splitting, there should be only two elements,
-                    // a key and a value
-                    // thus, using slice pattern matching
-                    parsed_cookies.push(format!("{}={}", key.trim(), value.trim()));
-                    // trim the spaces, join with an equals sign
-                }
-            }
-            
             config.headers.insert(
-                    // we know the header name is always "cookie"
-                    "Cookie".to_string(),
-                    parsed_cookies.join("; ")
+                // we know the header name is always "cookie"
+                "Cookie".to_string(),
+                // on splitting, there should be only two elements,
+                // a key and a value
+                cookies.map(|cookie| cookie.split('=').collect::<Vec<&str>>()[..].to_owned())
+                .filter(|parts| parts.len() == 2)
+                .map(|parts| format!("{}={}", parts[0].trim(), parts[1].trim()))
+                // trim the spaces, join with an equals sign
+                .collect::<Vec<String>>()
+                .join("; ")
+                // join all the cookies with semicolons for the final header
             );
         }
 
