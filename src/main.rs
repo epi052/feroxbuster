@@ -51,16 +51,12 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
     let mut words = Vec::new();
 
     for line in reader.lines() {
-        let result = match line {
-            Ok(read_line) => read_line,
-            Err(_) => continue,
-        };
-
-        if result.starts_with('#') || result.is_empty() {
-            continue;
-        }
-
-        words.push(result);
+        line.map(|result| {
+            if !result.starts_with('#') && !result.is_empty() {
+                words.push(result);
+            }
+        })
+        .ok();
     }
 
     log::trace!(

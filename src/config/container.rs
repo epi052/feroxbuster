@@ -725,6 +725,22 @@ impl Configuration {
             }
         }
 
+        if let Some(cookies) = args.values_of("cookies") {
+            config.headers.insert(
+                // we know the header name is always "cookie"
+                "Cookie".to_string(),
+                // on splitting, there should be only two elements,
+                // a key and a value
+                cookies
+                    .map(|cookie| cookie.split('=').collect::<Vec<&str>>()[..].to_owned())
+                    .filter(|parts| parts.len() == 2)
+                    .map(|parts| format!("{}={}", parts[0].trim(), parts[1].trim()))
+                    // trim the spaces, join with an equals sign
+                    .collect::<Vec<String>>()
+                    .join("; "), // join all the cookies with semicolons for the final header
+            );
+        }
+
         if let Some(queries) = args.values_of("queries") {
             for val in queries {
                 // same basic logic used as reading in the headers HashMap above

@@ -251,6 +251,18 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("cookies")
+                .short("b")
+                .long("cookies")
+                .value_name("COOKIE")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "Specify HTTP cookies (ex: -b stuff=things)",
+                ),
+        )
+        .arg(
             Arg::with_name("queries")
                 .short("Q")
                 .long("query")

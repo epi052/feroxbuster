@@ -14,6 +14,7 @@ complete -c feroxbuster -n "__fish_use_subcommand" -s a -l user-agent -d 'Sets t
 complete -c feroxbuster -n "__fish_use_subcommand" -s x -l extensions -d 'File extension(s) to search for (ex: -x php -x pdf js)'
 complete -c feroxbuster -n "__fish_use_subcommand" -l dont-scan -d 'URL(s) or Regex Pattern(s) to exclude from recursion/scans'
 complete -c feroxbuster -n "__fish_use_subcommand" -s H -l headers -d 'Specify HTTP headers (ex: -H Header:val \'stuff: things\')'
+complete -c feroxbuster -n "__fish_use_subcommand" -s b -l cookies -d 'Specify HTTP cookies (ex: -b stuff=things)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s Q -l query -d 'Specify URL query parameters (ex: -Q token=stuff -Q secret=key)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s S -l filter-size -d 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s X -l filter-regex -d 'Filter out messages via regular expression matching on the response\'s body (ex: -X \'^ignore me$\')'
