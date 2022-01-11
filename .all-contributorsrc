@@ -310,6 +310,24 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "7047payloads",
+      "name": "7047payloads",
+      "avatar_url": "https://avatars.githubusercontent.com/u/95562424?v=4",
+      "profile": "https://github.com/7047payloads",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "unkn0wnsyst3m",
+      "name": "unkn0wnsyst3m",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21272239?v=4",
+      "profile": "https://github.com/unkn0wnsyst3m",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
