@@ -44,8 +44,8 @@ _feroxbuster() {
 '*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]' \
 '*-H+[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
 '*--headers=[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
-'*-b+[Specify HTTP cookies (ex: -b Cookie=val '\''stuff=things'\'')]' \
-'*--cookies=[Specify HTTP cookies (ex: -b Cookie=val '\''stuff=things'\'')]' \
+'*-b+[Specify HTTP cookies (ex: -b stuff=things)]' \
+'*--cookies=[Specify HTTP cookies (ex: -b stuff=things)]' \
 '*-Q+[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
 '*--query=[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
 '*-S+[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]' \
