@@ -879,9 +879,9 @@ checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
 
 [[package]]
 name = "httpmock"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a24a520a3193799852cc4baf0d8356d7578a8847dfc5603d087529f099661e42"
+checksum = "c159c4fc205e6c1a9b325cb7ec135d13b5f47188ce175dabb76ec847f331d9bd"
 dependencies = [
  "assert-json-diff",
  "async-object-pool",
@@ -896,13 +896,13 @@ dependencies = [
  "lazy_static",
  "levenshtein",
  "log",
- "qstring",
  "regex",
  "serde",
  "serde_json",
  "serde_regex",
  "similar",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -1498,15 +1498,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7342d5883fbccae1cc37a2353b09c87c9b0f3afd73f5fb9bba687a1f733b029"
 dependencies = [
  "unicode-xid",
-]
-
-[[package]]
-name = "qstring"
-version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d464fae65fff2680baf48019211ce37aaec0c78e9264c84a3e484717f965104e"
-dependencies = [
- "percent-encoding",
 ]
 
 [[package]]
