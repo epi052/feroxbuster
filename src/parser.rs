@@ -259,7 +259,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "Specify HTTP cookies (ex: -b Cookie=val 'stuff=things')",
+                    "Specify HTTP cookies (ex: -b stuff=things)",
                 ),
         )
         .arg(

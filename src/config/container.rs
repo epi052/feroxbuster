@@ -731,13 +731,13 @@ impl Configuration {
                 "Cookie".to_string(),
                 // on splitting, there should be only two elements,
                 // a key and a value
-                cookies.map(|cookie| cookie.split('=').collect::<Vec<&str>>()[..].to_owned())
-                .filter(|parts| parts.len() == 2)
-                .map(|parts| format!("{}={}", parts[0].trim(), parts[1].trim()))
-                // trim the spaces, join with an equals sign
-                .collect::<Vec<String>>()
-                .join("; ")
-                // join all the cookies with semicolons for the final header
+                cookies
+                    .map(|cookie| cookie.split('=').collect::<Vec<&str>>()[..].to_owned())
+                    .filter(|parts| parts.len() == 2)
+                    .map(|parts| format!("{}={}", parts[0].trim(), parts[1].trim()))
+                    // trim the spaces, join with an equals sign
+                    .collect::<Vec<String>>()
+                    .join("; "), // join all the cookies with semicolons for the final header
             );
         }
 
