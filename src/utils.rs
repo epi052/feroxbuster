@@ -145,7 +145,6 @@ pub async fn make_request(
 
     let mut request = client.request(Method::from_bytes(method.as_bytes())?, url.to_owned());
     if let Some(body_data) = data {
-        //TODO: Find the way how to improve this block
         request = request.body(body_data.to_vec());
     }
 

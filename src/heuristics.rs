@@ -21,10 +21,11 @@ const UUID_LENGTH: u64 = 32;
 
 /// wrapper around ugly string formatting
 macro_rules! format_template {
-    ($template:expr, $length:expr) => {
+    ($template:expr, $method:expr, $length:expr) => {
         format!(
             $template,
             status_colorizer("WLD"),
+            $method,
             "-",
             "-",
             "-",
@@ -92,7 +93,7 @@ impl HeuristicTests {
 
         let data = match self.handles.config.data.is_empty() {
             true => None,
-            false => Some(&self.handles.config.data[..]),
+            false => Some(self.handles.config.data.as_slice()),
         };
 
         let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
@@ -134,7 +135,7 @@ impl HeuristicTests {
                     self.handles.config.output_level,
                     OutputLevel::Default | OutputLevel::Quiet
                 ) {
-                    let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wildcard.dynamic);
+                    let msg = format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", method, wildcard.dynamic);
                     ferox_print(&msg, &PROGRESS_PRINTER);
                 }
             } else if wc_length == wc2_length {
@@ -144,7 +145,7 @@ impl HeuristicTests {
                     self.handles.config.output_level,
                     OutputLevel::Default | OutputLevel::Quiet
                 ) {
-                    let msg = format_template!("{} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wildcard.size);
+                    let msg = format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", method, wildcard.size);
                     ferox_print(&msg, &PROGRESS_PRINTER);
                 }
             }

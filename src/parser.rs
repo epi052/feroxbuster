@@ -236,7 +236,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .multiple(true)
                 .use_delimiter(true)
                 .help(
-                    "HTTP request method(s) to search for (default: [GET])",
+                    "HTTP request method(s) (default: GET)",
                 ),
         )
         .arg(
@@ -245,7 +245,7 @@ pub fn initialize() -> App<'static, 'static> {
                 .value_name("DATA")
                 .takes_value(true)
                 .help(
-                    "HTTP Body data (default: empty), it can read data from file if input starts from @ (ex: @post.txt)",
+                    "HTTP Body data; can read data from a file if input starts with an @ (ex: @post.bin)",
                 ),
         )
         .arg(

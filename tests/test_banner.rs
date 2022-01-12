@@ -1086,7 +1086,7 @@ fn banner_prints_data() {
                 .and(predicate::str::contains("Status Codes"))
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
-                .and(predicate::str::contains("HTTP Body data"))
+                .and(predicate::str::contains("HTTP Body"))
                 .and(predicate::str::contains("some_data"))
                 .and(predicate::str::contains("─┴─")),
         );

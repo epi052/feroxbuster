@@ -314,15 +314,14 @@ impl Banner {
             &format!("[{}]", config.methods.join(", ")),
         );
 
-        let data = String::from_utf8(config.data.clone()).unwrap_or("Unprintable data".to_owned());
-        let data = BannerEntry::new(
-            "💣",
-            "HTTP Body data",
-            match data.len() > 30 {
-                true => &data.as_str()[1..30],
-                false => &data,
-            },
-        );
+        let offset = std::cmp::min(config.data.len(), 30);
+        let data = String::from_utf8(config.data[..offset].to_vec()).unwrap_or_else(|_err| {
+            format!(
+                "{:x?} ...",
+                &config.data[..std::cmp::min(config.data.len(), 13)]
+            )
+        });
+        let data = BannerEntry::new("💣", "HTTP Body", &data);
         let insecure = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
         let redirects = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
         let dont_filter =

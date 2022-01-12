@@ -172,7 +172,6 @@ pub struct Configuration {
     pub extensions: Vec<String>,
 
     /// HTTP requests methods(s) to search for
-    /// To make this serialisible will store as String
     #[serde(default = "methods")]
     pub methods: Vec<String>,
 
@@ -582,12 +581,12 @@ impl Configuration {
                 .collect();
         }
 
-        if let Some(url) = args.value_of("data") {
-            if url.starts_with("@") {
+        if let Some(arg) = args.value_of("data") {
+            if arg.starts_with("@") {
                 config.data =
-                    std::fs::read(&url[1..]).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                    std::fs::read(&arg[1..]).unwrap_or_else(|e| report_and_exit(&e.to_string()));
             } else {
-                config.data = url.as_bytes().to_vec();
+                config.data = arg.as_bytes().to_vec();
             }
         }
 
