@@ -320,7 +320,8 @@ impl Banner {
                 "{:x?} ...",
                 &config.data[..std::cmp::min(config.data.len(), 13)]
             )
-        });
+        }).replace("\n", " ")
+        .replace("\r", "");
         let data = BannerEntry::new("💣", "HTTP Body", &data);
         let insecure = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
         let redirects = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
