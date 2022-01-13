@@ -583,7 +583,7 @@ impl Configuration {
         if let Some(arg) = args.value_of("data") {
             if let Some(stripped) = arg.strip_prefix('@') {
                 config.data =
-                    std::fs::read(&arg[1..]).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                    std::fs::read(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
             } else {
                 config.data = arg.as_bytes().to_vec();
             }
