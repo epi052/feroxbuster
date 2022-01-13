@@ -123,7 +123,8 @@ impl FeroxScanner {
         }
 
         let requester = Arc::new(Requester::from(self, ferox_scan.clone())?);
-        let increment_len = (self.handles.config.extensions.len() + 1) as u64;
+        let increment_len =
+            ((self.handles.config.extensions.len() + 1) * self.handles.config.methods.len()) as u64;
 
         // producer tasks (mp of mpsc); responsible for making requests
         let producers = stream::iter(looping_words.deref().to_owned())
