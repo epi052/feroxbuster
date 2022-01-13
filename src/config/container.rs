@@ -581,7 +581,7 @@ impl Configuration {
         }
 
         if let Some(arg) = args.value_of("data") {
-            if arg.starts_with("@") {
+            if let Some(stripped) = arg.strip_prefix('@') {
                 config.data =
                     std::fs::read(&arg[1..]).unwrap_or_else(|e| report_and_exit(&e.to_string()));
             } else {
