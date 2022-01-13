@@ -1,5 +1,5 @@
 use super::utils::{
-    depth, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
+    depth, methods, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
     user_agent, wordlist, OutputLevel, RequesterPolicy,
 };
 use crate::config::determine_output_level;
@@ -11,7 +11,7 @@ use crate::{
 use anyhow::{anyhow, Context, Result};
 use clap::{value_t, ArgMatches};
 use regex::Regex;
-use reqwest::{Client, StatusCode, Url};
+use reqwest::{Client, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -171,6 +171,14 @@ pub struct Configuration {
     #[serde(default)]
     pub extensions: Vec<String>,
 
+    /// HTTP requests methods(s) to search for
+    #[serde(default = "methods")]
+    pub methods: Vec<String>,
+
+    /// HTTP Body data to send during request
+    #[serde(default)]
+    pub data: Vec<u8>,
+
     /// HTTP headers to be used in each request
     #[serde(default)]
     pub headers: HashMap<String, String>,
@@ -315,6 +323,8 @@ impl Default for Configuration {
             replay_proxy: String::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
+            methods: methods(),
+            data: Vec::new(),
             filter_size: Vec::new(),
             filter_regex: Vec::new(),
             url_denylist: Vec::new(),
@@ -357,6 +367,8 @@ impl Configuration {
     /// - **random_agent**: `false`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
+    /// - **methods**: [`DEFAULT_METHOD`]
+    /// - **data**: `None`
     /// - **url_denylist**: `None`
     /// - **regex_denylist**: `None`
     /// - **filter_size**: `None`
@@ -554,6 +566,27 @@ impl Configuration {
 
         if let Some(arg) = args.values_of("extensions") {
             config.extensions = arg.map(|val| val.to_string()).collect();
+        }
+
+        if let Some(arg) = args.values_of("methods") {
+            config.methods = arg
+                .map(|val| {
+                    // Check methods if they are correct
+                    Method::from_bytes(val.as_bytes())
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+                        .as_str()
+                        .to_string()
+                })
+                .collect();
+        }
+
+        if let Some(arg) = args.value_of("data") {
+            if let Some(stripped) = arg.strip_prefix('@') {
+                config.data =
+                    std::fs::read(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+            } else {
+                config.data = arg.as_bytes().to_vec();
+            }
         }
 
         if args.is_present("stdin") {
@@ -849,6 +882,8 @@ impl Configuration {
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
+        update_if_not_default!(&mut conf.methods, new.methods, Vec::<String>::new());
+        update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
         update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
         if !new.regex_denylist.is_empty() {
             // cant use the update_if_not_default macro due to the following error

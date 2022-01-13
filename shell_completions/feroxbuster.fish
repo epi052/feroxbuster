@@ -12,6 +12,8 @@ complete -c feroxbuster -n "__fish_use_subcommand" -l resume-from -d 'State file
 complete -c feroxbuster -n "__fish_use_subcommand" -l debug-log -d 'Output file to write log entries (use w/ --json for JSON entries)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s a -l user-agent -d 'Sets the User-Agent (default: feroxbuster/VERSION)'
 complete -c feroxbuster -n "__fish_use_subcommand" -s x -l extensions -d 'File extension(s) to search for (ex: -x php -x pdf js)'
+complete -c feroxbuster -n "__fish_use_subcommand" -s m -l methods -d 'HTTP request method(s) (default: GET)'
+complete -c feroxbuster -n "__fish_use_subcommand" -l data -d 'HTTP Body data; can read data from a file if input starts with an @ (ex: @post.bin)'
 complete -c feroxbuster -n "__fish_use_subcommand" -l dont-scan -d 'URL(s) or Regex Pattern(s) to exclude from recursion/scans'
 complete -c feroxbuster -n "__fish_use_subcommand" -s H -l headers -d 'Specify HTTP headers (ex: -H Header:val \'stuff: things\')'
 complete -c feroxbuster -n "__fish_use_subcommand" -s b -l cookies -d 'Specify HTTP cookies (ex: -b stuff=things)'

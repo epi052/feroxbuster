@@ -14,6 +14,7 @@ use crate::{
     },
     url::FeroxUrl,
     utils::{logged_request, make_request},
+    DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
@@ -324,10 +325,17 @@ impl<'a> Extractor<'a> {
         }
 
         // make the request and store the response
-        let new_response = logged_request(&new_url, self.handles.clone()).await?;
+        let new_response =
+            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone()).await?;
 
-        let new_ferox_response =
-            FeroxResponse::from(new_response, url, true, self.handles.config.output_level).await;
+        let new_ferox_response = FeroxResponse::from(
+            new_response,
+            url,
+            DEFAULT_METHOD,
+            true,
+            self.handles.config.output_level,
+        )
+        .await;
 
         log::trace!("exit: request_link -> {:?}", new_ferox_response);
 
@@ -403,14 +411,22 @@ impl<'a> Extractor<'a> {
         let response = make_request(
             &client,
             &url,
+            DEFAULT_METHOD,
+            None,
             self.handles.config.output_level,
             &self.handles.config,
             self.handles.stats.tx.clone(),
         )
         .await?;
 
-        let ferox_response =
-            FeroxResponse::from(response, &self.url, true, self.handles.config.output_level).await;
+        let ferox_response = FeroxResponse::from(
+            response,
+            &self.url,
+            DEFAULT_METHOD,
+            true,
+            self.handles.config.output_level,
+        )
+        .await;
 
         log::trace!("exit: get_robots_file -> {}", ferox_response);
         Ok(ferox_response)

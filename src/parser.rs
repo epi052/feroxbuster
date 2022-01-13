@@ -228,6 +228,27 @@ pub fn initialize() -> App<'static, 'static> {
                 ),
         )
         .arg(
+            Arg::with_name("methods")
+                .short("m")
+                .long("methods")
+                .value_name("HTTP_METHODS")
+                .takes_value(true)
+                .multiple(true)
+                .use_delimiter(true)
+                .help(
+                    "HTTP request method(s) (default: GET)",
+                ),
+        )
+        .arg(
+            Arg::with_name("data")
+                .long("data")
+                .value_name("DATA")
+                .takes_value(true)
+                .help(
+                    "HTTP Body data; can read data from a file if input starts with an @ (ex: @post.bin)",
+                ),
+        )
+        .arg(
             Arg::with_name("url_denylist")
                 .long("dont-scan")
                 .value_name("URL")

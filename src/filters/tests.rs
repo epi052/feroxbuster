@@ -122,6 +122,7 @@ fn wildcard_should_filter_when_static_wildcard_found() {
         size: 83,
         dynamic: 0,
         dont_filter: false,
+        method: "GET".to_owned(),
     };
 
     assert!(filter.should_filter_response(&resp));
@@ -152,6 +153,7 @@ fn wildcard_should_filter_when_dynamic_wildcard_found() {
         size: 0,
         dynamic: 59, // content-length - 5 (len('stuff'))
         dont_filter: false,
+        method: "GET".to_owned(),
     };
 
     println!("resp: {:?}: filter: {:?}", resp, filter);

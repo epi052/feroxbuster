@@ -20,7 +20,7 @@ _feroxbuster() {
 
     case "${cmd}" in
         feroxbuster)
-            opts=" -v -q -D -A -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -o -a -x -H -b -Q -S -X -W -N -C -L  --verbosity --silent --quiet --auto-tune --auto-bail --json --dont-filter --random-agent --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --output --resume-from --debug-log --user-agent --extensions --dont-scan --headers --cookies --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --scan-limit --parallel --rate-limit --time-limit  "
+            opts=" -v -q -D -A -r -k -n -f -e -h -V -w -u -t -d -T -p -P -R -s -o -a -x -m -H -b -Q -S -X -W -N -C -L  --verbosity --silent --quiet --auto-tune --auto-bail --json --dont-filter --random-agent --redirects --insecure --no-recursion --add-slash --stdin --extract-links --help --version --wordlist --url --threads --depth --timeout --proxy --replay-proxy --replay-codes --status-codes --output --resume-from --debug-log --user-agent --extensions --methods --data --dont-scan --headers --cookies --query --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --scan-limit --parallel --rate-limit --time-limit  "
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -128,6 +128,18 @@ _feroxbuster() {
                     return 0
                     ;;
                     -x)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --methods)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                    -m)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --data)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;

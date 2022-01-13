@@ -11,12 +11,9 @@ pub async fn initialize(num_words: usize, handles: Arc<Handles>) -> Result<()> {
     log::trace!("enter: initialize({}, {:?})", num_words, handles);
 
     // number of requests only needs to be calculated once, and then can be reused
-    let num_reqs_expected: u64 = if handles.config.extensions.is_empty() {
-        num_words.try_into()?
-    } else {
-        let total = num_words * (handles.config.extensions.len() + 1);
-        total.try_into()?
-    };
+    let num_reqs_expected: u64 =
+        (num_words * (handles.config.extensions.len() + 1) * (handles.config.methods.len()))
+            .try_into()?;
 
     {
         // no real reason to keep the arc around beyond this call

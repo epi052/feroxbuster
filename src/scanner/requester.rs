@@ -310,109 +310,121 @@ impl Requester {
             || !self.handles.config.regex_denylist.is_empty();
 
         for url in urls {
-            // auto_tune is true, or rate_limit was set (mutually exclusive to user)
-            // and a rate_limiter has been created
-            // short-circuiting the lock access behind the first boolean check
-            let should_tune = self.handles.config.auto_tune || self.handles.config.rate_limit > 0;
-            let should_limit = should_tune && self.rate_limiter.read().await.is_some();
+            for method in self.handles.config.methods.iter() {
+                // auto_tune is true, or rate_limit was set (mutually exclusive to user)
+                // and a rate_limiter has been created
+                // short-circuiting the lock access behind the first boolean check
+                let should_tune =
+                    self.handles.config.auto_tune || self.handles.config.rate_limit > 0;
+                let should_limit = should_tune && self.rate_limiter.read().await.is_some();
 
-            if should_limit {
-                // found a rate limiter, limit that junk!
-                if let Err(e) = self.limit().await {
-                    log::warn!("Could not rate limit scan: {}", e);
-                    self.handles.stats.send(AddError(Other)).unwrap_or_default();
-                }
-            }
-
-            if should_test_deny && should_deny_url(&url, self.handles.clone())? {
-                // can't allow a denied url to be requested
-                continue;
-            }
-
-            let response = logged_request(&url, self.handles.clone()).await?;
-
-            if (should_tune || self.handles.config.auto_bail)
-                && !atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst)
-            {
-                // only check for policy enforcement when the trigger isn't on cooldown and tuning
-                // or bailing is in place (should_tune used here because when auto-tune is on, we'll
-                // reach this without a rate_limiter in place)
-                match self.policy_data.policy {
-                    RequesterPolicy::AutoTune => {
-                        if let Some(trigger) = self.should_enforce_policy() {
-                            self.tune(trigger).await?;
-                        }
+                if should_limit {
+                    // found a rate limiter, limit that junk!
+                    if let Err(e) = self.limit().await {
+                        log::warn!("Could not rate limit scan: {}", e);
+                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
                     }
-                    RequesterPolicy::AutoBail => {
-                        if let Some(trigger) = self.should_enforce_policy() {
-                            self.bail(trigger).await?;
-                        }
-                    }
-                    RequesterPolicy::Default => {}
                 }
-            }
 
-            // response came back without error, convert it to FeroxResponse
-            let ferox_response = FeroxResponse::from(
-                response,
-                &self.target_url,
-                true,
-                self.handles.config.output_level,
-            )
-            .await;
+                if should_test_deny && should_deny_url(&url, self.handles.clone())? {
+                    // can't allow a denied url to be requested
+                    continue;
+                }
 
-            // do recursion if appropriate
-            if !self.handles.config.no_recursion {
-                self.handles
-                    .send_scan_command(Command::TryRecursion(Box::new(ferox_response.clone())))?;
-                let (tx, rx) = oneshot::channel::<bool>();
-                self.handles.send_scan_command(Command::Sync(tx))?;
-                rx.await?;
-            }
+                let response = logged_request(
+                    &url,
+                    method.as_str(),
+                    Some(self.handles.config.data.as_slice()),
+                    self.handles.clone(),
+                )
+                .await?;
 
-            // purposefully doing recursion before filtering. the thought process is that
-            // even though this particular url is filtered, subsequent urls may not
-            if self
-                .handles
-                .filters
-                .data
-                .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
-            {
-                continue;
-            }
-
-            if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
-                let extractor = ExtractorBuilder::default()
-                    .target(ResponseBody)
-                    .response(&ferox_response)
-                    .handles(self.handles.clone())
-                    .build()?;
-
-                let new_links: HashSet<_>;
-                let extracted = extractor.extract().await?;
-
+                if (should_tune || self.handles.config.auto_bail)
+                    && !atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst)
                 {
-                    // gain and quickly drop the read lock on seen_links, using it while unlocked
-                    // to determine if there are any new links to process
-                    let read_links = self.seen_links.read().await;
-                    new_links = extracted.difference(&read_links).cloned().collect();
-                }
-
-                if !new_links.is_empty() {
-                    // using is_empty instead of direct iteration to acquire the write lock behind
-                    // some kind of less expensive gate (and not in a loop, obv)
-                    let mut write_links = self.seen_links.write().await;
-                    for new_link in &new_links {
-                        write_links.insert(new_link.to_owned());
+                    // only check for policy enforcement when the trigger isn't on cooldown and tuning
+                    // or bailing is in place (should_tune used here because when auto-tune is on, we'll
+                    // reach this without a rate_limiter in place)
+                    match self.policy_data.policy {
+                        RequesterPolicy::AutoTune => {
+                            if let Some(trigger) = self.should_enforce_policy() {
+                                self.tune(trigger).await?;
+                            }
+                        }
+                        RequesterPolicy::AutoBail => {
+                            if let Some(trigger) = self.should_enforce_policy() {
+                                self.bail(trigger).await?;
+                            }
+                        }
+                        RequesterPolicy::Default => {}
                     }
                 }
 
-                extractor.request_links(new_links).await?;
-            }
+                // response came back without error, convert it to FeroxResponse
+                let ferox_response = FeroxResponse::from(
+                    response,
+                    &self.target_url,
+                    method,
+                    true,
+                    self.handles.config.output_level,
+                )
+                .await;
 
-            // everything else should be reported
-            if let Err(e) = ferox_response.send_report(self.handles.output.tx.clone()) {
-                log::warn!("Could not send FeroxResponse to output handler: {}", e);
+                // do recursion if appropriate
+                if !self.handles.config.no_recursion {
+                    self.handles
+                        .send_scan_command(Command::TryRecursion(Box::new(
+                            ferox_response.clone(),
+                        )))?;
+                    let (tx, rx) = oneshot::channel::<bool>();
+                    self.handles.send_scan_command(Command::Sync(tx))?;
+                    rx.await?;
+                }
+
+                // purposefully doing recursion before filtering. the thought process is that
+                // even though this particular url is filtered, subsequent urls may not
+                if self
+                    .handles
+                    .filters
+                    .data
+                    .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
+                {
+                    continue;
+                }
+
+                if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
+                    let extractor = ExtractorBuilder::default()
+                        .target(ResponseBody)
+                        .response(&ferox_response)
+                        .handles(self.handles.clone())
+                        .build()?;
+
+                    let new_links: HashSet<_>;
+                    let extracted = extractor.extract().await?;
+
+                    {
+                        // gain and quickly drop the read lock on seen_links, using it while unlocked
+                        // to determine if there are any new links to process
+                        let read_links = self.seen_links.read().await;
+                        new_links = extracted.difference(&read_links).cloned().collect();
+                    }
+
+                    if !new_links.is_empty() {
+                        // using is_empty instead of direct iteration to acquire the write lock behind
+                        // some kind of less expensive gate (and not in a loop, obv)
+                        let mut write_links = self.seen_links.write().await;
+                        for new_link in &new_links {
+                            write_links.insert(new_link.to_owned());
+                        }
+                    }
+
+                    extractor.request_links(new_links).await?;
+                }
+
+                // everything else should be reported
+                if let Err(e) = ferox_response.send_report(self.handles.output.tx.clone()) {
+                    log::warn!("Could not send FeroxResponse to output handler: {}", e);
+                }
             }
         }
 
