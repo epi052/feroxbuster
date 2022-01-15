@@ -94,7 +94,7 @@ impl<'a> Extractor<'a> {
             {
                 continue;
             }
-            
+
             // request and report assumed file
             let file_flag = resp.is_file(); // only checks for file extension
             if file_flag || !resp.url().as_str().ends_with('/') {
