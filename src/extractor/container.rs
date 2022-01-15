@@ -45,7 +45,7 @@ pub struct Extractor<'a> {
     /// Response from which to extract links
     pub(super) response: Option<&'a FeroxResponse>,
 
-    /// Response from which to extract links
+    /// URL of where to extract links
     pub(super) url: String,
 
     /// Handles object to house the underlying mpsc transmitters
@@ -159,9 +159,6 @@ impl<'a> Extractor<'a> {
         let body = response.text();
 
         // Parse links (located in 2 places in file)
-        if body.contains("Directory listing") {
-            log::debug!("Directory listing detected");
-        }
         let document = Document::from(body);
         let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
             .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
@@ -172,7 +169,7 @@ impl<'a> Extractor<'a> {
             .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
         for link in html_links {
-            log::debug!("Parsed link \"{}\" of {}", link, response.url());
+            log::debug!("Parsed link \"{}\" from {}", link, response.url());
             let mut new_url = Url::parse(&self.url)?;
             new_url.set_path(link);
             if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
@@ -439,7 +436,7 @@ impl<'a> Extractor<'a> {
             .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
         for link in html_links {
-            log::debug!("Parsed link \"{}\" of {}", link, response.url());
+            log::debug!("Parsed link \"{}\" from {}", link, response.url());
             let mut new_url = Url::parse(&self.url)?;
             new_url.set_path(link);
             if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {

@@ -31,7 +31,7 @@ pub struct ExtractorBuilder<'a> {
     /// Response from which to extract links
     response: Option<&'a FeroxResponse>,
 
-    /// Response from which to extract links
+    /// URL of where to extract links
     url: String,
 
     /// Handles object to house the underlying mpsc transmitters
