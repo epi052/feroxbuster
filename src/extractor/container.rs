@@ -153,11 +153,10 @@ impl<'a> Extractor<'a> {
 
         let body = self.response.unwrap().text();
 
-        // Check for directory listing
+        // Parse links (located in 2 places in file)
         if body.contains("Directory listing") {
-            log::debug!(" >> directory listing detected");
+            log::debug!("Directory listing detected");
         }
-        // Parse links [Note: Update both functions]
         let document = Document::from(body);
         let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
             .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
@@ -168,9 +167,9 @@ impl<'a> Extractor<'a> {
             .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
         for link in html_links {
-            log::info!(" >> found link \"{}\"", link);
             let mut new_url = Url::parse(&self.url)?;
             new_url.set_path(link);
+            log::debug!("Parsed link \"{}\" at {}", link, new_url);
             if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
                 log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
             }
@@ -421,11 +420,10 @@ impl<'a> Extractor<'a> {
         let response = self.make_extract_request(url.path()).await?;
         let body = response.text();
 
-        // Check for directory listing
+        // Parse links (located in 2 places in file)
         if body.contains("Directory listing") {
-            log::debug!(" >> directory listing detected");
+            log::debug!("Directory listing detected");
         }
-        // Parse links [Note: Update both functions]
         let document = Document::from(body);
         let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
             .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
@@ -436,9 +434,9 @@ impl<'a> Extractor<'a> {
             .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
         for link in html_links {
-            log::info!(" >> found link \"{}\"", link);
             let mut new_url = Url::parse(&self.url)?;
             new_url.set_path(link);
+            log::debug!("Parsed link \"{}\" at {}", link, new_url);
             if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
                 log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
             }

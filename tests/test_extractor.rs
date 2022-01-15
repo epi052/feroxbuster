@@ -371,6 +371,213 @@ fn extractor_finds_robots_txt_links_and_displays_files_non_recursive() {
 }
 
 #[test]
+/// serve a directory listing with a file and and a folder link contained within it. ferox should
+/// find both links and request each one.
+fn extractor_finds_directory_listing_links_and_displays_files() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["invalid".to_string()], "wordlist").unwrap();
+
+    let mock_root = srv.mock(|when, then| {
+        when.method(GET).path("/");
+        then.status(200).body(
+            r#"
+            <html>
+            <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <title>Directory listing for /</title>
+            </head>
+            <body>
+            <h1>Directory listing for /</h1>
+            <hr>
+            <ul>
+            <li><a href="disallowed-subdir/">disallowed-subdir/</a></li>
+            <li><a href="LICENSE">LICENSE</a></li>
+            <li><a href="misc/">misc/</a></li>
+            </ul>
+            <hr>
+            </body>
+            </html>
+            "#,
+        );
+    });
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("im a little teapot"); // 18
+    });
+
+    let mock_disallowed = srv.mock(|when, then| {
+        when.method(GET).path("/disallowed-subdir");
+        then.status(404);
+    });
+
+    let mock_dir = srv.mock(|when, then| {
+        when.method(GET).path("/misc");
+        then.status(200).body(
+            r#"
+            <html>
+            <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <title>Directory listing for /misc</title>
+            </head>
+            <body>
+            <h1>Directory listing for /misc</h1>
+            <hr>
+            <ul>
+            <li><a href="LICENSE">LICENSE</a></li>
+            <li><a href="stupidfile.php">stupidfile.php</a></li>
+            </ul>
+            <hr>
+            </body>
+            </html>
+            "#,
+        );
+    });
+
+    let mock_scanned_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/LICENSE");
+        then.status(200).body("i too, am a container for tea"); // 29
+    });
+
+    let mock_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/stupidfile.php");
+        then.status(200).body("im a little teapot too"); // 22
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--extract-links")
+        .arg("-vvvv")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE") // 2 directories contain LICENSE
+            .count(2)
+            .and(predicate::str::contains("18c"))
+            .and(predicate::str::contains("/misc/stupidfile.php"))
+            .and(predicate::str::contains("22c"))
+            .and(predicate::str::contains("/misc/LICENSE"))
+            .and(predicate::str::contains("29c"))
+            .and(predicate::str::contains("200").count(3)),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_dir.hits(), 1);
+    assert_eq!(mock_root.hits(), 1);
+    assert_eq!(mock_file.hits(), 1);
+    assert_eq!(mock_disallowed.hits(), 1);
+    assert_eq!(mock_scanned_file.hits(), 1);
+    teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
+/// serve a directory listing with a file and and a folder link contained within it. ferox should
+/// find both links and request each one. This is the non-recursive version of the test above
+fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["invalid".to_string()], "wordlist").unwrap();
+
+    let mock_root = srv.mock(|when, then| {
+        when.method(GET).path("/");
+        then.status(200).body(
+            r#"
+            <html>
+            <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <title>Directory listing for /</title>
+            </head>
+            <body>
+            <h1>Directory listing for /</h1>
+            <hr>
+            <ul>
+            <li><a href="disallowed-subdir/">disallowed-subdir/</a></li>
+            <li><a href="LICENSE">LICENSE</a></li>
+            <li><a href="misc/">misc/</a></li>
+            </ul>
+            <hr>
+            </body>
+            </html>
+            "#,
+        );
+    });
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("im a little teapot"); // 18
+    });
+
+    let mock_disallowed = srv.mock(|when, then| {
+        when.method(GET).path("/disallowed-subdir");
+        then.status(404);
+    });
+
+    let mock_dir = srv.mock(|when, then| {
+        when.method(GET).path("/misc");
+        then.status(200).body(
+            r#"
+            <html>
+            <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <title>Directory listing for /misc</title>
+            </head>
+            <body>
+            <h1>Directory listing for /misc</h1>
+            <hr>
+            <ul>
+            <li><a href="LICENSE">LICENSE</a></li>
+            <li><a href="stupidfile.php">stupidfile.php</a></li>
+            </ul>
+            <hr>
+            </body>
+            </html>
+            "#,
+        );
+    });
+
+    let mock_scanned_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/LICENSE");
+        then.status(200).body("i too, am a container for tea"); // 29
+    });
+
+    let mock_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/stupidfile.php");
+        then.status(200).body("im a little teapot too"); // 22
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--extract-links")
+        .arg("--no-recursion")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("18c"))
+            .and(predicate::str::contains("/misc/stupidfile.php")).not()
+            .and(predicate::str::contains("22c")).not()
+            .and(predicate::str::contains("/misc/LICENSE").not())
+            .and(predicate::str::contains("29c").not())
+            .and(predicate::str::contains("200").count(2)),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_dir.hits(), 1);
+    assert_eq!(mock_root.hits(), 1);
+    assert_eq!(mock_file.hits(), 1);
+    assert_eq!(mock_disallowed.hits(), 1);
+    assert_eq!(mock_scanned_file.hits(), 1);
+    teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
 /// send a request to a page that contains a link that contains a directory that returns a 403
 /// --extract-links should find the link and make recurse into the 403 directory, finding LICENSE
 fn extractor_recurses_into_403_directories() -> Result<(), Box<dyn std::error::Error>> {
