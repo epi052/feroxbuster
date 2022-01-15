@@ -280,7 +280,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
         handles,
     };
 
-    let resp = extractor.request_robots_txt().await?;
+    let resp = extractor.make_extract_request("/robots.txt").await?;
 
     assert!(matches!(resp.status(), &StatusCode::OK));
     println!("{}", resp);
@@ -313,7 +313,7 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
         .handles(handles)
         .build()?;
 
-    let resp = extractor.request_robots_txt().await?;
+    let resp = extractor.make_extract_request("/robots.txt").await?;
 
     assert!(matches!(resp.status(), &StatusCode::OK));
     assert_eq!(resp.content_length(), 19);

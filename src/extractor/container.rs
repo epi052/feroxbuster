@@ -63,7 +63,7 @@ impl<'a> Extractor<'a> {
         match self.target {
             ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
             ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
-            ExtractionTarget::ParseHTML => Ok(self.parse_html().await?),
+            ExtractionTarget::ParseHtml => Ok(self.parse_html().await?),
         }
     }
 
@@ -152,6 +152,29 @@ impl<'a> Extractor<'a> {
         let mut links = HashSet::<String>::new();
 
         let body = self.response.unwrap().text();
+
+        // Check for directory listing
+        if body.contains("Directory listing") {
+            log::debug!(" >> directory listing detected");
+        }
+        // Parse links [Note: Update both functions]
+        let document = Document::from(body);
+        let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
+            .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("form")).filter_map(|n| n.attr("action")))
+            .chain(document.find(Name("script")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("iframe")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("div")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
+        for link in html_links {
+            log::info!(" >> found link \"{}\"", link);
+            let mut new_url = Url::parse(&self.url)?;
+            new_url.set_path(link);
+            if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
+                log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
+            }
+        }
 
         for capture in self.links_regex.captures_iter(body) {
             // remove single & double quotes from both ends of the capture
@@ -276,7 +299,7 @@ impl<'a> Extractor<'a> {
                     bail!("Could not parse {}: {}", self.url, e);
                 }
             },
-            ExtractionTarget::ParseHTML => match Url::parse(&self.url) {
+            ExtractionTarget::ParseHtml => match Url::parse(&self.url) {
                 Ok(u) => u,
                 Err(e) => {
                     bail!("Could not parse {}: {}", self.url, e);
@@ -365,9 +388,11 @@ impl<'a> Extractor<'a> {
 
         let mut links: HashSet<String> = HashSet::new();
 
+        // request
         let response = self.make_extract_request("/robots.txt").await?;
+        let body = response.text();
 
-        for capture in self.robots_regex.captures_iter(response.text()) {
+        for capture in self.robots_regex.captures_iter(body) {
             if let Some(new_path) = capture.name("url_path") {
                 let mut new_url = Url::parse(&self.url)?;
                 new_url.set_path(new_path.as_str());
@@ -391,16 +416,17 @@ impl<'a> Extractor<'a> {
 
         let mut links: HashSet<String> = HashSet::new();
 
-        let response = self.make_extract_request("/").await?;
+        // Request
+        let url = Url::parse(&self.url)?;
+        let response = self.make_extract_request(url.path()).await?;
         let body = response.text();
 
         // Check for directory listing
         if body.contains("Directory listing") {
             log::debug!(" >> directory listing detected");
         }
+        // Parse links [Note: Update both functions]
         let document = Document::from(body);
-
-        // Parse links
         let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
             .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("form")).filter_map(|n| n.attr("action")))

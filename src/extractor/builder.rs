@@ -23,7 +23,7 @@ pub enum ExtractionTarget {
     RobotsTxt,
 
     // Parse HTML and extract links
-    ParseHTML,
+    ParseHtml,
 }
 
 /// responsible for building an `Extractor`

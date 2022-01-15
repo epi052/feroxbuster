@@ -17,7 +17,7 @@ use crate::{
         Command::{self, AddError, SubtractFromUsizeField},
         Handles,
     },
-    extractor::{ExtractionTarget::ResponseBody, ExtractorBuilder},
+    extractor::{ExtractionTarget, ExtractorBuilder},
     response::FeroxResponse,
     scan_manager::{FeroxScan, ScanStatus},
     statistics::{StatError::Other, StatField::TotalExpected},
@@ -394,7 +394,7 @@ impl Requester {
 
                 if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
                     let extractor = ExtractorBuilder::default()
-                        .target(ResponseBody)
+                        .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)
                         .handles(self.handles.clone())
                         .build()?;
