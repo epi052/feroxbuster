@@ -288,7 +288,7 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
     );
 
     assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_dir.hits(), 1);
+    assert_eq!(mock_dir.hits(), 2);
     assert_eq!(mock_two.hits(), 1);
     assert_eq!(mock_file.hits(), 1);
     assert_eq!(mock_disallowed.hits(), 1);
@@ -416,7 +416,7 @@ fn extractor_recurses_into_403_directories() -> Result<(), Box<dyn std::error::E
 
     assert_eq!(mock.hits(), 1);
     assert_eq!(mock_two.hits(), 1);
-    assert_eq!(forbidden_dir.hits(), 1);
+    assert_eq!(forbidden_dir.hits(), 2);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
