@@ -371,7 +371,7 @@ fn extractor_finds_robots_txt_links_and_displays_files_non_recursive() {
 }
 
 #[test]
-/// serve a directory listing with a file and and a folder link contained within it. ferox should
+/// serve a directory listing with a file and and a folder contained within it. ferox should
 /// find both links and request each one.
 fn extractor_finds_directory_listing_links_and_displays_files() {
     let srv = MockServer::start();
@@ -401,18 +401,22 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
         );
     });
 
-    let mock = srv.mock(|when, then| {
+    let mock_root_file = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200).body("im a little teapot"); // 18
     });
 
-    let mock_disallowed = srv.mock(|when, then| {
+    let mock_dir_disallowed = srv.mock(|when, then| {
         when.method(GET).path("/disallowed-subdir");
         then.status(404);
     });
 
-    let mock_dir = srv.mock(|when, then| {
+    let mock_dir_redir = srv.mock(|when, then| {
         when.method(GET).path("/misc");
+        then.status(301).header("Location", &srv.url("/misc/"));
+    });
+    let mock_dir = srv.mock(|when, then| {
+        when.method(GET).path("/misc/");
         then.status(200).body(
             r#"
             <html>
@@ -434,12 +438,12 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
         );
     });
 
-    let mock_scanned_file = srv.mock(|when, then| {
+    let mock_dir_file = srv.mock(|when, then| {
         when.method(GET).path("/misc/LICENSE");
         then.status(200).body("i too, am a container for tea"); // 29
     });
 
-    let mock_file = srv.mock(|when, then| {
+    let mock_dir_file_ext = srv.mock(|when, then| {
         when.method(GET).path("/misc/stupidfile.php");
         then.status(200).body("im a little teapot too"); // 22
     });
@@ -451,7 +455,7 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--extract-links")
-        .arg("-vvvv")
+        .arg("--redirects")
         .unwrap();
 
     cmd.assert().success().stdout(
@@ -462,20 +466,21 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
             .and(predicate::str::contains("22c"))
             .and(predicate::str::contains("/misc/LICENSE"))
             .and(predicate::str::contains("29c"))
-            .and(predicate::str::contains("200").count(3)),
+            .and(predicate::str::contains("200").count(3))
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_dir.hits(), 1);
-    assert_eq!(mock_root.hits(), 1);
-    assert_eq!(mock_file.hits(), 1);
-    assert_eq!(mock_disallowed.hits(), 1);
-    assert_eq!(mock_scanned_file.hits(), 1);
+    assert_eq!(mock_root.hits(), 2);
+    assert_eq!(mock_root_file.hits(), 1);
+    assert_eq!(mock_dir_disallowed.hits(), 1);
+    assert_eq!(mock_dir_redir.hits(), 1);
+    assert_eq!(mock_dir.hits(), 2);
+    assert_eq!(mock_dir_file.hits(), 1);
+    assert_eq!(mock_dir_file_ext.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
 #[test]
-/// serve a directory listing with a file and and a folder link contained within it. ferox should
+/// serve a directory listing with a file and and a folder contained within it. ferox should
 /// find both links and request each one. This is the non-recursive version of the test above
 fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
     let srv = MockServer::start();
@@ -505,18 +510,22 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
         );
     });
 
-    let mock = srv.mock(|when, then| {
+    let mock_root_file = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200).body("im a little teapot"); // 18
     });
 
-    let mock_disallowed = srv.mock(|when, then| {
+    let mock_dir_disallowed = srv.mock(|when, then| {
         when.method(GET).path("/disallowed-subdir");
         then.status(404);
     });
 
-    let mock_dir = srv.mock(|when, then| {
+    let mock_dir_redir = srv.mock(|when, then| {
         when.method(GET).path("/misc");
+        then.status(301).header("Location", &srv.url("/misc/"));
+    });
+    let mock_dir = srv.mock(|when, then| {
+        when.method(GET).path("/misc/");
         then.status(200).body(
             r#"
             <html>
@@ -538,12 +547,12 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
         );
     });
 
-    let mock_scanned_file = srv.mock(|when, then| {
+    let mock_dir_file = srv.mock(|when, then| {
         when.method(GET).path("/misc/LICENSE");
         then.status(200).body("i too, am a container for tea"); // 29
     });
 
-    let mock_file = srv.mock(|when, then| {
+    let mock_dir_file_ext = srv.mock(|when, then| {
         when.method(GET).path("/misc/stupidfile.php");
         then.status(200).body("im a little teapot too"); // 22
     });
@@ -555,6 +564,7 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--extract-links")
+        .arg("--redirects")
         .arg("--no-recursion")
         .unwrap();
 
@@ -565,15 +575,16 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
             .and(predicate::str::contains("22c")).not()
             .and(predicate::str::contains("/misc/LICENSE").not())
             .and(predicate::str::contains("29c").not())
-            .and(predicate::str::contains("200").count(2)),
+            .and(predicate::str::contains("200").count(1)),
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_root.hits(), 2);
+    assert_eq!(mock_root_file.hits(), 1);
+    assert_eq!(mock_dir_disallowed.hits(), 1);
+    assert_eq!(mock_dir_redir.hits(), 1);
     assert_eq!(mock_dir.hits(), 1);
-    assert_eq!(mock_root.hits(), 1);
-    assert_eq!(mock_file.hits(), 1);
-    assert_eq!(mock_disallowed.hits(), 1);
-    assert_eq!(mock_scanned_file.hits(), 1);
+    assert_eq!(mock_dir_file.hits(), 0);
+    assert_eq!(mock_dir_file_ext.hits(), 0);
     teardown_tmp_directory(tmp_dir);
 }
 
