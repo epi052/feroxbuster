@@ -147,11 +147,13 @@ impl<'a> Extractor<'a> {
     ///         - homepage/assets/
     ///         - homepage/
     pub(super) async fn extract_from_body(&self) -> Result<HashSet<String>> {
-        log::trace!("enter: get_links");
+        log::trace!("enter: extract_from_body");
 
         let mut links = HashSet::<String>::new();
 
-        let body = self.response.unwrap().text();
+        // Response
+        let response = self.response.unwrap();
+        let body = response.text();
 
         // Parse links (located in 2 places in file)
         if body.contains("Directory listing") {
@@ -167,9 +169,9 @@ impl<'a> Extractor<'a> {
             .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
         for link in html_links {
+            log::debug!("Parsed link \"{}\" of {}", link, response.url());
             let mut new_url = Url::parse(&self.url)?;
             new_url.set_path(link);
-            log::debug!("Parsed link \"{}\" at {}", link, new_url);
             if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
                 log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
             }
@@ -213,7 +215,7 @@ impl<'a> Extractor<'a> {
 
         self.update_stats(links.len())?;
 
-        log::trace!("exit: get_links -> {:?}", links);
+        log::trace!("exit: extract_from_body -> {:?}", links);
 
         Ok(links)
     }
@@ -415,7 +417,7 @@ impl<'a> Extractor<'a> {
 
         let mut links: HashSet<String> = HashSet::new();
 
-        // Request
+        // Response
         let url = Url::parse(&self.url)?;
         let response = self.make_extract_request(url.path()).await?;
         let body = response.text();
@@ -434,9 +436,9 @@ impl<'a> Extractor<'a> {
             .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
         for link in html_links {
+            log::debug!("Parsed link \"{}\" of {}", link, response.url());
             let mut new_url = Url::parse(&self.url)?;
             new_url.set_path(link);
-            log::debug!("Parsed link \"{}\" at {}", link, new_url);
             if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
                 log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
             }
@@ -477,7 +479,7 @@ impl<'a> Extractor<'a> {
         )?;
 
         let mut url = Url::parse(&self.url)?;
-        url.set_path(location); // overwrite existing path with /robots.txt
+        url.set_path(location); // overwrite existing path
 
         // purposefully not using logged_request here due to using the special client
         let response = make_request(
