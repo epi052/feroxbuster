@@ -10,7 +10,7 @@ use crate::{
         Command::{AddError, AddToF64Field, SubtractFromUsizeField},
         Handles,
     },
-    extractor::{ExtractionTarget::RobotsTxt, ExtractorBuilder},
+    extractor::{ExtractionTarget, ExtractorBuilder},
     heuristics,
     scan_manager::{FeroxResponses, MenuCmdResult, ScanOrder, ScanStatus, PAUSE_SCAN},
     statistics::{
@@ -43,7 +43,7 @@ pub struct FeroxScanner {
     /// wordlist that's already been read from disk
     wordlist: Arc<Vec<String>>,
 
-    /// limiter that restricts the number of active FeroxScanners  
+    /// limiter that restricts the number of active FeroxScanners
     scan_limiter: Arc<Semaphore>,
 }
 
@@ -75,17 +75,26 @@ impl FeroxScanner {
 
         let scan_timer = Instant::now();
 
-        if matches!(self.order, ScanOrder::Initial) && self.handles.config.extract_links {
-            // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
-            // to try_recursion
+        if matches!(self.order, ScanOrder::Initial) { // all fresh dirs will be passed to try_recursion
+            // parse html for links (i.e. web scraping)
             let extractor = ExtractorBuilder::default()
                 .url(&self.target_url)
                 .handles(self.handles.clone())
-                .target(RobotsTxt)
+                .target(ExtractionTarget::ParseHTML)
                 .build()?;
-
             let links = extractor.extract().await?;
             extractor.request_links(links).await?;
+
+            if self.handles.config.extract_links {
+                // test robots.txt
+                let extractor = ExtractorBuilder::default()
+                    .url(&self.target_url)
+                    .handles(self.handles.clone())
+                    .target(ExtractionTarget::RobotsTxt)
+                    .build()?;
+                let links = extractor.extract().await?;
+                extractor.request_links(links).await?;
+            }
         }
 
         let scanned_urls = self.handles.ferox_scans()?;

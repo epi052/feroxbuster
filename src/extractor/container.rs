@@ -18,6 +18,8 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
+use select::document::Document;
+use select::predicate::Name;
 use std::collections::HashSet;
 use tokio::sync::oneshot;
 
@@ -61,6 +63,7 @@ impl<'a> Extractor<'a> {
         match self.target {
             ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
             ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
+            ExtractionTarget::ParseHTML => Ok(self.parse_html().await?),
         }
     }
 
@@ -273,6 +276,12 @@ impl<'a> Extractor<'a> {
                     bail!("Could not parse {}: {}", self.url, e);
                 }
             },
+            ExtractionTarget::ParseHTML => match Url::parse(&self.url) {
+                Ok(u) => u,
+                Err(e) => {
+                    bail!("Could not parse {}: {}", self.url, e);
+                }
+            },
         };
 
         let new_url = old_url
@@ -290,6 +299,7 @@ impl<'a> Extractor<'a> {
     /// currently used in two places:
     ///   - links from response bodies
     ///   - links from robots.txt responses
+    ///   - links from directory listings
     ///
     /// general steps taken:
     ///   - create a new Url object based on cli options/args
@@ -355,7 +365,7 @@ impl<'a> Extractor<'a> {
 
         let mut links: HashSet<String> = HashSet::new();
 
-        let response = self.request_robots_txt().await?;
+        let response = self.make_extract_request("/robots.txt").await?;
 
         for capture in self.robots_regex.captures_iter(response.text()) {
             if let Some(new_path) = capture.name("url_path") {
@@ -373,15 +383,53 @@ impl<'a> Extractor<'a> {
         Ok(links)
     }
 
-    /// helper function that simply requests /robots.txt on the given url's base url
+    /// Entry point to parse html for links (i.e. webscraping directory listings)
+    /// this function requests:
+    ///     http://localhost/<location>
+    pub(super) async fn parse_html(&self) -> Result<HashSet<String>> {
+        log::trace!("enter: parse_html");
+
+        let mut links: HashSet<String> = HashSet::new();
+
+        let response = self.make_extract_request("/").await?;
+        let body = response.text();
+
+        // Check for directory listing
+        if body.contains("Directory listing") {
+            log::debug!(" >> directory listing detected");
+        }
+        let document = Document::from(body);
+
+        // Parse links
+        let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
+            .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("form")).filter_map(|n| n.attr("action")))
+            .chain(document.find(Name("script")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("iframe")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("div")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("frame")).filter_map(|n| n.attr("src")))
+            .chain(document.find(Name("embed")).filter_map(|n| n.attr("src")));
+        for link in html_links {
+            log::info!(" >> found link \"{}\"", link);
+            let mut new_url = Url::parse(&self.url)?;
+            new_url.set_path(link);
+            if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
+                log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
+            }
+        }
+
+        self.update_stats(links.len())?;
+
+        log::trace!("exit: parse_html -> {:?}", links);
+        Ok(links)
+    }
+
+    /// helper function that simply requests at <location> on the given url's base url
     ///
     /// example:
-    ///     http://localhost/api/users -> http://localhost/robots.txt
-    ///     
-    /// The length of the given path has no effect on what's requested; it's always
-    /// base url + /robots.txt
-    pub(super) async fn request_robots_txt(&self) -> Result<FeroxResponse> {
-        log::trace!("enter: get_robots_file");
+    ///     http://localhost/api/users -> http://localhost/<location>
+    pub(super) async fn make_extract_request(&self, location: &str) -> Result<FeroxResponse> {
+        log::trace!("enter: make_extract_request");
 
         // more often than not, domain/robots.txt will redirect to www.domain/robots.txt or something
         // similar; to account for that, create a client that will follow redirects, regardless of
@@ -405,7 +453,7 @@ impl<'a> Extractor<'a> {
         )?;
 
         let mut url = Url::parse(&self.url)?;
-        url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
+        url.set_path(location); // overwrite existing path with /robots.txt
 
         // purposefully not using logged_request here due to using the special client
         let response = make_request(
@@ -428,7 +476,7 @@ impl<'a> Extractor<'a> {
         )
         .await;
 
-        log::trace!("exit: get_robots_file -> {}", ferox_response);
+        log::trace!("exit: make_extract_request -> {}", ferox_response);
         Ok(ferox_response)
     }
 
