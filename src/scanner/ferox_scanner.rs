@@ -88,12 +88,12 @@ impl FeroxScanner {
             if matches!(self.order, ScanOrder::Initial) {
                 // check for robots.txt (cannot be in subdirs)
                 let extractor = ExtractorBuilder::default()
-                .target(ExtractionTarget::RobotsTxt)
-                .url(&self.target_url)
-                .handles(self.handles.clone())
-                .build()?;
-            let links = extractor.extract().await?;
-            extractor.request_links(links).await?;
+                    .target(ExtractionTarget::RobotsTxt)
+                    .url(&self.target_url)
+                    .handles(self.handles.clone())
+                    .build()?;
+                let links = extractor.extract().await?;
+                extractor.request_links(links).await?;
             }
         }
 

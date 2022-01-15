@@ -20,6 +20,9 @@ lazy_static! {
     /// Extractor for testing response bodies
     static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
+    /// Extractor for testing paring html
+    static ref PARSEHTML_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ParseHtml, Arc::new(FeroxScans::default()));
+
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
 }
@@ -42,6 +45,9 @@ fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> E
         ExtractionTarget::RobotsTxt => builder
             .url("http://localhost")
             .target(ExtractionTarget::RobotsTxt),
+        ExtractionTarget::ParseHtml => builder
+            .url("http://localhost")
+            .target(ExtractionTarget::ParseHtml),
     };
 
     let config = Arc::new(Configuration::new().unwrap());
