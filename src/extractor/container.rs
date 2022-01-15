@@ -94,18 +94,21 @@ impl<'a> Extractor<'a> {
             {
                 continue;
             }
-
-            if resp.is_file() {
-                // very likely a file, simply request and report
-                log::debug!("Extracted file: {}", resp);
+            
+            // request and report assumed file
+            let file_flag = resp.is_file(); // only checks for file extension
+            if file_flag || !resp.url().as_str().ends_with('/') {
+                log::debug!("Extracted File: {}", resp);
 
                 scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
 
-                if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
+                if let Err(e) = resp.clone().send_report(self.handles.output.tx.clone()) {
                     log::warn!("Could not send FeroxResponse to output handler: {}", e);
                 }
 
-                continue;
+                if file_flag {
+                    continue;
+                }
             }
 
             if matches!(recursive, RecursionStatus::Recursive) {
