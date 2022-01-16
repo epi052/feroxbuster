@@ -96,8 +96,7 @@ impl<'a> Extractor<'a> {
             }
 
             // request and report assumed file
-            let file_flag = resp.is_file(); // only checks for file extension
-            if file_flag || !resp.url().as_str().ends_with('/') {
+            if resp.is_file() || !resp.is_directory() {
                 log::debug!("Extracted File: {}", resp);
 
                 scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
@@ -106,9 +105,7 @@ impl<'a> Extractor<'a> {
                     log::warn!("Could not send FeroxResponse to output handler: {}", e);
                 }
 
-                if file_flag {
-                    continue;
-                }
+                continue;
             }
 
             if matches!(recursive, RecursionStatus::Recursive) {
