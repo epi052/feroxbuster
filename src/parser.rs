@@ -42,11 +42,9 @@ pub fn initialize() -> App<'static> {
                 .required_unless_present_any(&["stdin", "resume_from"])
                 .help_heading("Target selection")
                 .value_name("URL")
-                .multiple_values(true)
-                .multiple_occurrences(true)
                 .use_delimiter(true)
                 .value_hint(ValueHint::Url)
-                .help("The target URL(s) (required, unless --stdin used)"),
+                .help("The target URL (required, unless [--stdin || --resume-from] used)"),
         )
         .arg(
             Arg::new("stdin")

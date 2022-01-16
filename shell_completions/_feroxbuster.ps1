@@ -20,8 +20,8 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
 
     $completions = @(switch ($command) {
         'feroxbuster' {
-            [CompletionResult]::new('-u', 'u', [CompletionResultType]::ParameterName, 'The target URL(s) (required, unless --stdin used)')
-            [CompletionResult]::new('--url', 'url', [CompletionResultType]::ParameterName, 'The target URL(s) (required, unless --stdin used)')
+            [CompletionResult]::new('-u', 'u', [CompletionResultType]::ParameterName, 'The target URL (required, unless [--stdin || --resume-from] used)')
+            [CompletionResult]::new('--url', 'url', [CompletionResultType]::ParameterName, 'The target URL (required, unless [--stdin || --resume-from] used)')
             [CompletionResult]::new('--resume-from', 'resume-from', [CompletionResultType]::ParameterName, 'State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)')
             [CompletionResult]::new('-p', 'p', [CompletionResultType]::ParameterName, 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)')
             [CompletionResult]::new('--proxy', 'proxy', [CompletionResultType]::ParameterName, 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)')

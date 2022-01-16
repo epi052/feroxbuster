@@ -15,8 +15,8 @@ _feroxbuster() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'*-u+[The target URL(s) (required, unless --stdin used)]:URL:_urls' \
-'*--url=[The target URL(s) (required, unless --stdin used)]:URL:_urls' \
+'-u+[The target URL (required, unless \[--stdin || --resume-from\] used)]:URL:_urls' \
+'--url=[The target URL (required, unless \[--stdin || --resume-from\] used)]:URL:_urls' \
 '(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]:STATE_FILE:_files' \
 '-p+[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]:PROXY:_urls' \
 '--proxy=[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]:PROXY:_urls' \

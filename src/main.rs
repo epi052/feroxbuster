@@ -244,7 +244,6 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     }
 
     // get targets from command line or stdin
-    // todo handle multiple -u
     let targets = match get_targets(handles.clone()).await {
         Ok(t) => t,
         Err(e) => {

@@ -18,8 +18,8 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
     }
     var completions = [
         &'feroxbuster'= {
-            cand -u 'The target URL(s) (required, unless --stdin used)'
-            cand --url 'The target URL(s) (required, unless --stdin used)'
+            cand -u 'The target URL (required, unless [--stdin || --resume-from] used)'
+            cand --url 'The target URL (required, unless [--stdin || --resume-from] used)'
             cand --resume-from 'State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)'
             cand -p 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)'
             cand --proxy 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)'
