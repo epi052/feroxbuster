@@ -398,9 +398,8 @@ impl Requester {
                         .response(&ferox_response)
                         .handles(self.handles.clone())
                         .build()?;
-
                     let new_links: HashSet<_>;
-                    let extracted = extractor.extract().await?;
+                    let extracted = (extractor.extract().await?).0;
 
                     {
                         // gain and quickly drop the read lock on seen_links, using it while unlocked

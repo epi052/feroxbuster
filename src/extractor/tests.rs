@@ -258,7 +258,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         handles: handles.clone(),
     };
 
-    let links = extractor.extract_from_body().await?;
+    let links = (extractor.extract_from_body().await?).0;
 
     assert!(links.is_empty());
     assert_eq!(mock.hits(), 1);

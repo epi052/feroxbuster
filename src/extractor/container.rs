@@ -58,7 +58,7 @@ pub struct Extractor<'a> {
 /// Extractor implementation
 impl<'a> Extractor<'a> {
     /// perform extraction from the given target and return any links found
-    pub async fn extract(&self) -> Result<HashSet<String>> {
+    pub async fn extract(&self) -> Result<(HashSet<String>, bool)> {
         log::trace!("enter: extract (this fn has associated trace exit msg)");
         match self.target {
             ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
@@ -149,7 +149,7 @@ impl<'a> Extractor<'a> {
     ///         - homepage/assets/img/
     ///         - homepage/assets/
     ///         - homepage/
-    pub(super) async fn extract_from_body(&self) -> Result<HashSet<String>> {
+    pub(super) async fn extract_from_body(&self) -> Result<(HashSet<String>, bool)> {
         log::trace!("enter: extract_from_body");
 
         let mut links = HashSet::<String>::new();
@@ -157,9 +157,9 @@ impl<'a> Extractor<'a> {
         // Response
         let response = self.response.unwrap();
         let body = response.text();
-
-        // Parse links (located in 2 places in file)
         let document = Document::from(body);
+
+        // Parse links
         let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
             .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("form")).filter_map(|n| n.attr("action")))
@@ -217,15 +217,15 @@ impl<'a> Extractor<'a> {
 
         log::trace!("exit: extract_from_body -> {:?}", links);
 
-        Ok(links)
+        Ok((links, false))
     }
 
     /// take a url fragment like homepage/assets/img/icons/handshake.svg and
     /// incrementally add
-    ///     - homepage/assets/img/icons/
-    ///     - homepage/assets/img/
-    ///     - homepage/assets/
-    ///     - homepage/
+    ///   - homepage/assets/img/icons/
+    ///   - homepage/assets/img/
+    ///   - homepage/assets/
+    ///   - homepage/
     fn add_all_sub_paths(&self, url_path: &str, links: &mut HashSet<String>) -> Result<()> {
         log::trace!("enter: add_all_sub_paths({}, {:?})", url_path, links);
 
@@ -320,12 +320,6 @@ impl<'a> Extractor<'a> {
     }
 
     /// Wrapper around link extraction logic
-    /// currently used in two places:
-    ///   - links from response bodies
-    ///   - links from robots.txt responses
-    ///   - links from directory listings
-    ///
-    /// general steps taken:
     ///   - create a new Url object based on cli options/args
     ///   - check if the new Url has already been seen/scanned -> None
     ///   - make a request to the new Url ? -> Some(response) : None
@@ -384,7 +378,7 @@ impl<'a> Extractor<'a> {
     ///     http://localhost/stuff/things
     /// this function requests:
     ///     http://localhost/robots.txt
-    pub(super) async fn extract_from_robots(&self) -> Result<HashSet<String>> {
+    pub(super) async fn extract_from_robots(&self) -> Result<(HashSet<String>, bool)> {
         log::trace!("enter: extract_robots_txt");
 
         let mut links: HashSet<String> = HashSet::new();
@@ -406,13 +400,13 @@ impl<'a> Extractor<'a> {
         self.update_stats(links.len())?;
 
         log::trace!("exit: extract_robots_txt -> {:?}", links);
-        Ok(links)
+        Ok((links, false))
     }
 
     /// Entry point to parse html for links (i.e. webscraping directory listings)
     /// this function requests:
     ///     http://localhost/<location>
-    pub(super) async fn parse_html(&self) -> Result<HashSet<String>> {
+    pub(super) async fn parse_html(&self) -> Result<(HashSet<String>, bool)> {
         log::trace!("enter: parse_html");
 
         let mut links: HashSet<String> = HashSet::new();
@@ -421,12 +415,20 @@ impl<'a> Extractor<'a> {
         let url = Url::parse(&self.url)?;
         let response = self.make_extract_request(url.path()).await?;
         let body = response.text();
-
-        // Parse links (located in 2 places in file)
-        if body.contains("Directory listing for /") || body.contains("Index of /") {
-            log::debug!("Directory listing detected");
-        }
         let document = Document::from(body);
+
+        // Directory listing heuristic detection to not continue scanning
+        let mut dirlist_flag = false;
+        for t in document.find(Name("title")) {
+            let title = t.text().to_lowercase();
+            if title.contains("directory listing for /") || title.contains("index of /") {
+                log::debug!("Directory listing heuristic detection from \"{}\"", title);
+                dirlist_flag = true;
+                break;
+            }
+        }
+
+        // Parse links
         let html_links = (document.find(Name("a")).filter_map(|n| n.attr("href")))
             .chain(document.find(Name("img")).filter_map(|n| n.attr("src")))
             .chain(document.find(Name("form")).filter_map(|n| n.attr("action")))
@@ -447,7 +449,7 @@ impl<'a> Extractor<'a> {
         self.update_stats(links.len())?;
 
         log::trace!("exit: parse_html -> {:?}", links);
-        Ok(links)
+        Ok((links, dirlist_flag))
     }
 
     /// helper function that simply requests at <location> on the given url's base url
