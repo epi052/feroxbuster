@@ -454,12 +454,12 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
     assert!(contents.contains("WLD"));
     assert!(contents.contains("301"));
     assert!(contents.contains("/some-redirect"));
-    assert!(contents.contains("redirects to => "));
+    assert!(contents.contains(" => "));
     assert!(contents.contains(&srv.url("/")));
     assert!(contents.contains("(url length: 32)"));
 
     cmd.assert().success().stdout(
-        predicate::str::contains("redirects to => ")
+        predicate::str::contains(" => ")
             .and(predicate::str::contains("/some-redirect"))
             .and(predicate::str::contains("301"))
             .and(predicate::str::contains(srv.url("/")))
