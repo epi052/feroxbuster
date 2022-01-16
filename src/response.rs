@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use console::style;
 use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
     Method, Response, StatusCode, Url,
@@ -351,6 +352,30 @@ impl FeroxSerialize for FeroxResponse {
         let method = self.method().as_str();
         let wild_status = status_colorizer("WLD");
 
+        let mut url_with_redirect = match (
+            self.status().is_redirection(),
+            self.headers().get("Location").is_some(),
+        ) {
+            (true, true) => {
+                // redirect with Location header, show where it goes if possible
+                let loc = self
+                    .headers()
+                    .get("Location")
+                    .unwrap() // known Some() already
+                    .to_str()
+                    .unwrap_or("Unknown");
+
+                // prettify the redirect target
+                let loc = style(loc).yellow();
+
+                format!("{} => {loc}", self.url())
+            }
+            _ => {
+                // no redirect, just use the normal url
+                self.url().to_string()
+            }
+        };
+
         if self.wildcard && matches!(self.output_level, OutputLevel::Default | OutputLevel::Quiet) {
             // --silent was not used and response is a wildcard, special messages abound when
             // this is the case...
@@ -369,25 +394,16 @@ impl FeroxSerialize for FeroxResponse {
             );
 
             if self.status().is_redirection() {
-                // when it's a redirect, show where it goes, if possible
-                if let Some(next_loc) = self.headers().get("Location") {
-                    let next_loc_str = next_loc.to_str().unwrap_or("Unknown");
+                // initial wildcard messages are wordy enough, put the redirect by itself
+                url_with_redirect = format!(
+                    "{} {:>9} {:>9} {:>9} {}\n",
+                    wild_status, "-", "-", "-", url_with_redirect
+                );
 
-                    let redirect_msg = format!(
-                        "{} {:>9} {:>9} {:>9} {} redirects to => {}\n",
-                        wild_status,
-                        "-",
-                        "-",
-                        "-",
-                        self.url(),
-                        next_loc_str
-                    );
-
-                    message.push_str(&redirect_msg);
-                }
+                // base message + redirection message (either empty string or redir msg)
+                message.push_str(&url_with_redirect);
             }
 
-            // base message + redirection message (if appropriate)
             message
         } else {
             // not a wildcard, just create a normal entry
@@ -397,7 +413,7 @@ impl FeroxSerialize for FeroxResponse {
                 &lines,
                 &words,
                 &chars,
-                self.url().as_str(),
+                &url_with_redirect,
                 self.output_level,
             )
         }
