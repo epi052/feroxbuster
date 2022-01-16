@@ -57,7 +57,6 @@ pub(super) struct Requester {
     /// need a usize to determine the number of consecutive non-error calls that a requester has
     /// seen; this will satisfy the non-mut self constraint (due to us being behind an Arc, and
     /// the need for a counter)
-    #[allow(clippy::mutex_atomic)]
     tuning_lock: Mutex<usize>,
 }
 
