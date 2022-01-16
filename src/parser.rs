@@ -112,7 +112,6 @@ pub fn initialize() -> App<'static> {
     /////////////////////////////////////////////////////////////////////
     // group - request settings
     /////////////////////////////////////////////////////////////////////
-
     let app = app
         .arg(
             Arg::new("user_agent")
@@ -169,7 +168,6 @@ pub fn initialize() -> App<'static> {
                     "Request's Body; can read data from a file if input starts with an @ (ex: @post.bin)",
                 ),
         )
-
         .arg(
             Arg::new("headers")
                 .short('H')
@@ -220,6 +218,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(false)
                 .help("Append / to each request's URL")
         );
+
     /////////////////////////////////////////////////////////////////////
     // group - request filters
     /////////////////////////////////////////////////////////////////////
@@ -234,11 +233,12 @@ pub fn initialize() -> App<'static> {
             .help_heading("Request filters")
             .help("URL(s) or Regex Pattern(s) to exclude from recursion/scans"),
     );
+
     /////////////////////////////////////////////////////////////////////
     // group - response filters
     /////////////////////////////////////////////////////////////////////
     let app = app
-    .arg(
+        .arg(
             Arg::new("filter_size")
                 .short('S')
                 .long("filter-size")
@@ -336,6 +336,7 @@ pub fn initialize() -> App<'static> {
                     "Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)",
                 ),
         );
+
     /////////////////////////////////////////////////////////////////////
     // group - client settings
     /////////////////////////////////////////////////////////////////////
@@ -365,6 +366,7 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Client settings")
                 .help("Disables TLS certificate validation in the client"),
         );
+
     /////////////////////////////////////////////////////////////////////
     // group - scan settings
     /////////////////////////////////////////////////////////////////////
@@ -400,7 +402,7 @@ pub fn initialize() -> App<'static> {
                 .long("extract-links")
                 .takes_value(false)
                 .help_heading("Scan settings")
-                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)")
+                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings")
         )
         .arg(
             Arg::new("scan_limit")
@@ -469,6 +471,7 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Scan settings")
                 .help("Don't auto-filter wildcard responses")
         );
+
     /////////////////////////////////////////////////////////////////////
     // group - output settings
     /////////////////////////////////////////////////////////////////////
@@ -525,6 +528,7 @@ pub fn initialize() -> App<'static> {
                 .help("Output file to write log entries (use w/ --json for JSON entries)")
                 .takes_value(true),
         );
+
     /////////////////////////////////////////////////////////////////////
     // group - miscellaneous
     /////////////////////////////////////////////////////////////////////
@@ -536,6 +540,9 @@ pub fn initialize() -> App<'static> {
         )
         .after_long_help(EPILOGUE);
 
+    /////////////////////////////////////////////////////////////////////
+    // end parser
+    /////////////////////////////////////////////////////////////////////
     for arg in env::args() {
         // secure-77 noticed that when an incorrect flag/option is used, the short help message is printed
         // which is fine, but if you add -h|--help, it still errors out on the bad flag/option,

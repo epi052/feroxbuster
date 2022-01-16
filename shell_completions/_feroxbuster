@@ -82,8 +82,8 @@ _feroxbuster() {
 '--insecure[Disables TLS certificate validation in the client]' \
 '-n[Do not scan recursively]' \
 '--no-recursion[Do not scan recursively]' \
-'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)]' \
-'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)]' \
+'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
+'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
