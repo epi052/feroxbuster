@@ -363,7 +363,7 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--replay-proxy")
-        .arg(format!("http://{}", proxy.address().to_string()))
+        .arg(format!("http://{}", proxy.address()))
         .arg("--replay-codes")
         .arg("200")
         .unwrap();

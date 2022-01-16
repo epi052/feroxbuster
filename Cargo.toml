@@ -1,9 +1,9 @@
 [package]
 name = "feroxbuster"
 version = "2.5.0"
-authors = ["Ben 'epi' Risher <epibar052@gmail.com>"]
+authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
-edition = "2018"
+edition = "2021"
 homepage = "https://github.com/epi052/feroxbuster"
 repository = "https://github.com/epi052/feroxbuster"
 description = "A fast, simple, recursive content discovery tool."
@@ -16,7 +16,8 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [build-dependencies]
-clap = "2.33"
+clap = {version = "3.0", features = ["cargo"]}
+clap_complete = "3.0"
 regex = "1"
 lazy_static = "1.4"
 dirs = "4.0"
@@ -31,7 +32,7 @@ env_logger = "0.9"
 reqwest = { version = "0.11", features = ["socks"] }
 url = { version = "2.2", features = ["serde"]}  # uses feature unification to add 'serde' to reqwest::Url
 serde_regex = "1.1"
-clap = "2.34"
+clap = {version = "3.0", features = ["wrap_help", "cargo"]}
 lazy_static = "1.4"
 toml = "0.5"
 serde = { version = "1.0", features = ["derive", "rc"] }

@@ -33,8 +33,8 @@ fn parser_incorrect_param_with_tack_tack_help() {
 ///
 /// For more information try --help
 ///
-/// the new behavior we expect to see is to print the long form help message, of which
-/// Ludicrous speed... go! is near the bottom of that output, so we can test for that
+/// the new behavior we expect to see is to print the short form help message, of which
+/// "[CAUTION] 4 -v's is probably too much" is near the bottom of that output, so we can test for that
 fn parser_incorrect_param_with_tack_h() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
@@ -42,5 +42,7 @@ fn parser_incorrect_param_with_tack_h() {
         .arg("-h")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Ludicrous speed... go!"));
+        .stdout(predicate::str::contains(
+            "[CAUTION] 4 -v's is probably too much",
+        ));
 }

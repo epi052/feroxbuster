@@ -1,9 +1,7 @@
 use std::fs::{copy, create_dir_all, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
-extern crate clap;
-extern crate dirs;
 
-use clap::Shell;
+use clap_complete::{generate_to, shells};
 
 include!("src/parser.rs");
 
@@ -18,11 +16,20 @@ fn main() {
 
     let mut app = initialize();
 
-    let shells: [Shell; 4] = [Shell::Bash, Shell::Fish, Shell::Zsh, Shell::PowerShell];
+    let path = generate_to(shells::Bash, &mut app, "feroxbuster", outdir).unwrap();
+    println!("cargo:warning=completion file is generated: {path:?}");
 
-    for shell in &shells {
-        app.gen_completions("feroxbuster", *shell, outdir);
-    }
+    let path = generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
+    println!("cargo:warning=completion file is generated: {path:?}");
+
+    let path = generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
+    println!("cargo:warning=completion file is generated: {path:?}");
+
+    let path = generate_to(shells::PowerShell, &mut app, "feroxbuster", outdir).unwrap();
+    println!("cargo:warning=completion file is generated: {path:?}");
+
+    let path = generate_to(shells::Elvish, &mut app, "feroxbuster", outdir).unwrap();
+    println!("cargo:warning=completion file is generated: {path:?}");
 
     // 0xdf pointed out an oddity when tab-completing options that expect file paths, the fix we
     // landed on was to add -o plusdirs to the bash completion script. The following code aims to
