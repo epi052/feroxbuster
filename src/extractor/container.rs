@@ -152,138 +152,20 @@ impl<'a> Extractor<'a> {
 
         // Response
         let response = self.response.unwrap();
+        let resp_url = response.url().as_str();
         let body = response.text();
-
-        // HTML Parsing
         let html = Html::parse_document(body);
-        let a_selector = Selector::parse("a").unwrap();
-        let img_selector = Selector::parse("img").unwrap();
-        let form_selector = Selector::parse("form").unwrap();
-        let script_selector = Selector::parse("script").unwrap();
-        let iframe_selector = Selector::parse("iframe").unwrap();
-        let div_selector = Selector::parse("div").unwrap();
-        let frame_selector = Selector::parse("frame").unwrap();
-        let embed_selector = Selector::parse("embed").unwrap();
 
-        // <a href=
-        let a_href = html
-            .select(&a_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "href"));
-        for l in a_href {
-            if let Some(link) = l.value().attr("href") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <img src=
-        let img_src = html
-            .select(&img_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in img_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <form action=
-        let form_action = html
-            .select(&form_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "action"));
-        for l in form_action {
-            if let Some(link) = l.value().attr("action") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <script src=
-        let script_src = html
-            .select(&script_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in script_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <iframe src=
-        let iframe_src = html
-            .select(&iframe_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in iframe_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <div src=
-        let div_src = html
-            .select(&div_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in div_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <frame src=
-        let frame_src = html
-            .select(&frame_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in frame_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <embed src=
-        let embed_src = html
-            .select(&embed_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in embed_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
+        // Get Links
+        self.get_links_by_attr(resp_url, &mut links, &html, "a", "href");
+        self.get_links_by_attr(resp_url, &mut links, &html, "img", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "form", "action");
+        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "div", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "frame", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "embed", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
 
         for capture in self.links_regex.captures_iter(body) {
             // remove single & double quotes from both ends of the capture
@@ -522,163 +404,69 @@ impl<'a> Extractor<'a> {
         // Response
         let url = Url::parse(&self.url)?;
         let response = self.make_extract_request(url.path()).await?;
+        let resp_url = response.url().as_str();
         let body = response.text();
-
-        // HTML Parsing
         let html = Html::parse_document(body);
-        let title_selector = Selector::parse("title").unwrap();
-        let a_selector = Selector::parse("a").unwrap();
-        let img_selector = Selector::parse("img").unwrap();
-        let form_selector = Selector::parse("form").unwrap();
-        let script_selector = Selector::parse("script").unwrap();
-        let iframe_selector = Selector::parse("iframe").unwrap();
-        let div_selector = Selector::parse("div").unwrap();
-        let frame_selector = Selector::parse("frame").unwrap();
-        let embed_selector = Selector::parse("embed").unwrap();
 
         // Directory listing heuristic detection to not continue scanning
-        let mut dirlist_flag = false;
+        let title_selector = Selector::parse("title").unwrap();
         for t in html.select(&title_selector) {
             let title = t.inner_html().to_lowercase();
             if title.contains("directory listing for /") || title.contains("index of /") {
                 log::debug!("Directory listing heuristic detection from \"{}\"", title);
-                dirlist_flag = true;
-                break;
+
+                self.get_links_by_attr(resp_url, &mut links, &html, "a", "href");
+                self.update_stats(links.len())?;
+
+                log::trace!("exit: parse_html -> {:?}", links);
+                return Ok((links, true));
             }
         }
 
-        // <a href=
-        let a_href = html
-            .select(&a_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "href"));
-        for l in a_href {
-            if let Some(link) = l.value().attr("href") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // Direcory listing, only do <a href=
-        if dirlist_flag {
-            self.update_stats(links.len())?;
-
-            log::trace!("exit: parse_html -> {:?}", links);
-            return Ok((links, dirlist_flag));
-        }
-
-        // <img src=
-        let img_src = html
-            .select(&img_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in img_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <form action=
-        let form_action = html
-            .select(&form_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "action"));
-        for l in form_action {
-            if let Some(link) = l.value().attr("action") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <script src=
-        let script_src = html
-            .select(&script_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in script_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <iframe src=
-        let iframe_src = html
-            .select(&iframe_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in iframe_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <div src=
-        let div_src = html
-            .select(&div_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in div_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <frame src=
-        let frame_src = html
-            .select(&frame_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in frame_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
-
-        // <embed src=
-        let embed_src = html
-            .select(&embed_selector)
-            .filter(|a| a.value().attrs().any(|attr| attr.0 == "src"));
-        for l in embed_src {
-            if let Some(link) = l.value().attr("src") {
-                log::debug!("Parsed link \"{}\" from {}", link, response.url());
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
-                }
-            }
-        }
+        // Get Links
+        self.get_links_by_attr(resp_url, &mut links, &html, "a", "href");
+        self.get_links_by_attr(resp_url, &mut links, &html, "img", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "form", "action");
+        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "div", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "frame", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "embed", "src");
+        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
 
         self.update_stats(links.len())?;
 
         log::trace!("exit: parse_html -> {:?}", links);
-        Ok((links, dirlist_flag))
+        Ok((links, false))
+    }
+
+    /// simple helper to get html links by tag/attribute and add it to the `links` HashSet
+    fn get_links_by_attr(
+        &self,
+        resp_url: &str,
+        links: &mut HashSet<String>,
+        html: &Html,
+        html_tag: &str,
+        html_attr: &str,
+    ) {
+        log::trace!("enter: get_links_by_attr");
+
+        let selector = Selector::parse(html_tag).unwrap();
+        let tags = html
+            .select(&selector)
+            .filter(|a| a.value().attrs().any(|attr| attr.0 == html_attr));
+        for t in tags {
+            if let Some(link) = t.value().attr(html_attr) {
+                log::debug!("Parsed link \"{}\" from {}", link, resp_url);
+                let mut new_url = Url::parse(&self.url).unwrap();
+                new_url.set_path(link);
+                if self.add_all_sub_paths(new_url.path(), links).is_err() {
+                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
+                }
+            }
+        }
+
+        log::trace!("exit: get_links_by_attr");
     }
 
     /// helper function that simply requests at <location> on the given url's base url
