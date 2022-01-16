@@ -9,7 +9,7 @@ use crate::{
     DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
-use clap::{value_t, ArgMatches};
+use clap::ArgMatches;
 use regex::Regex;
 use reqwest::{Client, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
@@ -22,17 +22,15 @@ use std::{
 
 /// macro helper to abstract away repetitive configuration updates
 macro_rules! update_config_if_present {
-    ($c:expr, $m:ident, $v:expr, $t:ty) => {
-        match value_t!($m, $v, $t) {
-            Ok(value) => *$c = value, // Update value
-            Err(clap::Error {
-                kind: clap::ErrorKind::ArgumentNotFound,
-                message: _,
-                info: _,
-            }) => {
-                // Do nothing if argument not found
+    ($conf_val:expr, $matches:ident, $arg_name:expr) => {
+        match $matches.value_of_t($arg_name) {
+            Ok(value) => *$conf_val = value, // Update value
+            Err(err) => {
+                if !matches!(err.kind, clap::ErrorKind::ArgumentNotFound) {
+                    // Do nothing if argument not found
+                    err.exit() // Exit with error on any other parse error
+                }
             }
-            Err(e) => e.exit(), // Exit with error on parse error
         }
     };
 }
@@ -519,16 +517,16 @@ impl Configuration {
     fn parse_cli_args(args: &ArgMatches) -> Self {
         let mut config = Configuration::default();
 
-        update_config_if_present!(&mut config.threads, args, "threads", usize);
-        update_config_if_present!(&mut config.depth, args, "depth", usize);
-        update_config_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
-        update_config_if_present!(&mut config.parallel, args, "parallel", usize);
-        update_config_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
-        update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
-        update_config_if_present!(&mut config.output, args, "output", String);
-        update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
-        update_config_if_present!(&mut config.time_limit, args, "time_limit", String);
-        update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
+        update_config_if_present!(&mut config.threads, args, "threads");
+        update_config_if_present!(&mut config.depth, args, "depth");
+        update_config_if_present!(&mut config.scan_limit, args, "scan_limit");
+        update_config_if_present!(&mut config.parallel, args, "parallel");
+        update_config_if_present!(&mut config.rate_limit, args, "rate_limit");
+        update_config_if_present!(&mut config.wordlist, args, "wordlist");
+        update_config_if_present!(&mut config.output, args, "output");
+        update_config_if_present!(&mut config.debug_log, args, "debug_log");
+        update_config_if_present!(&mut config.time_limit, args, "time_limit");
+        update_config_if_present!(&mut config.resume_from, args, "resume_from");
 
         if let Some(arg) = args.values_of("status_codes") {
             config.status_codes = arg
@@ -602,7 +600,7 @@ impl Configuration {
             // url to be scanned. With the addition of regex support, I want to move parsing
             // out of should_deny_url and into here, so it's performed once instead of thousands
             // of times
-            for denier in arg.into_iter() {
+            for denier in arg {
                 // could be an absolute url or a regex, need to determine which and populate the
                 // appropriate vector
                 match Url::parse(denier.trim_end_matches('/')) {
@@ -727,10 +725,10 @@ impl Configuration {
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
-        update_config_if_present!(&mut config.proxy, args, "proxy", String);
-        update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
-        update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
-        update_config_if_present!(&mut config.timeout, args, "timeout", u64);
+        update_config_if_present!(&mut config.proxy, args, "proxy");
+        update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy");
+        update_config_if_present!(&mut config.user_agent, args, "user_agent");
+        update_config_if_present!(&mut config.timeout, args, "timeout");
 
         if args.is_present("random_agent") {
             config.random_agent = true;

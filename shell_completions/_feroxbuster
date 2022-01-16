@@ -15,94 +15,91 @@ _feroxbuster() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" \
-'-w+[Path to the wordlist]' \
-'--wordlist=[Path to the wordlist]' \
-'*-u+[The target URL(s) (required, unless --stdin used)]' \
-'*--url=[The target URL(s) (required, unless --stdin used)]' \
-'-t+[Number of concurrent threads (default: 50)]' \
-'--threads=[Number of concurrent threads (default: 50)]' \
-'-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]' \
-'--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]' \
-'-T+[Number of seconds before a request times out (default: 7)]' \
-'--timeout=[Number of seconds before a request times out (default: 7)]' \
-'-p+[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]' \
-'--proxy=[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]' \
-'-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
-'--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]' \
-'*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
-'*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]' \
-'*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
-'*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]' \
-'-o+[Output file to write results to (use w/ --json for JSON entries)]' \
-'--output=[Output file to write results to (use w/ --json for JSON entries)]' \
-'(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]' \
-'--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]' \
-'-a+[Sets the User-Agent (default: feroxbuster/VERSION)]' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/VERSION)]' \
-'*-x+[File extension(s) to search for (ex: -x php -x pdf js)]' \
-'*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]' \
-'*-m+[HTTP request method(s) (default: GET)]' \
-'*--methods=[HTTP request method(s) (default: GET)]' \
-'--data=[HTTP Body data; can read data from a file if input starts with an @ (ex: @post.bin)]' \
-'*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]' \
-'*-H+[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
-'*--headers=[Specify HTTP headers (ex: -H Header:val '\''stuff: things'\'')]' \
-'*-b+[Specify HTTP cookies (ex: -b stuff=things)]' \
-'*--cookies=[Specify HTTP cookies (ex: -b stuff=things)]' \
-'*-Q+[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
-'*--query=[Specify URL query parameters (ex: -Q token=stuff -Q secret=key)]' \
-'*-S+[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]' \
-'*--filter-size=[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]' \
-'*-X+[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]' \
-'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]' \
-'*-W+[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]' \
-'*--filter-words=[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]' \
-'*-N+[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]' \
-'*--filter-lines=[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]' \
-'*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
-'*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]' \
-'*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]' \
-'-L+[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
-'--scan-limit=[Limit total number of concurrent scans (default: 0, i.e. no limit)]' \
-'--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]' \
-'(--auto-tune)--rate-limit=[Limit number of requests per second (per directory) (default: 0, i.e. no limit)]' \
-'--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]' \
+'-u+[The target URL (required, unless \[--stdin || --resume-from\] used)]:URL:_urls' \
+'--url=[The target URL (required, unless \[--stdin || --resume-from\] used)]:URL:_urls' \
+'(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]:STATE_FILE:_files' \
+'-p+[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]:PROXY:_urls' \
+'--proxy=[Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)]:PROXY:_urls' \
+'-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
+'--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
+'*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
+'*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.5.0)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.5.0)]:USER_AGENT: ' \
+'*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
+'*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
+'*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
+'*--methods=[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
+'--data=[Request'\''s Body; can read data from a file if input starts with an @ (ex: @post.bin)]:DATA: ' \
+'*-H+[Specify HTTP headers to be used in each request (ex: -H Header:val -H '\''stuff: things'\'')]:HEADER: ' \
+'*--headers=[Specify HTTP headers to be used in each request (ex: -H Header:val -H '\''stuff: things'\'')]:HEADER: ' \
+'*-b+[Specify HTTP cookies to be used in each request (ex: -b stuff=things)]:COOKIE: ' \
+'*--cookies=[Specify HTTP cookies to be used in each request (ex: -b stuff=things)]:COOKIE: ' \
+'*-Q+[Request'\''s URL query parameters (ex: -Q token=stuff -Q secret=key)]:QUERY: ' \
+'*--query=[Request'\''s URL query parameters (ex: -Q token=stuff -Q secret=key)]:QUERY: ' \
+'*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]:URL: ' \
+'*-S+[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]:SIZE: ' \
+'*--filter-size=[Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)]:SIZE: ' \
+'*-X+[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]:REGEX: ' \
+'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body (ex: -X '\''^ignore me$'\'')]:REGEX: ' \
+'*-W+[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]:WORDS: ' \
+'*--filter-words=[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]:WORDS: ' \
+'*-N+[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]:LINES: ' \
+'*--filter-lines=[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]:LINES: ' \
+'*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
+'*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
+'*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]:UNWANTED_PAGE:_urls' \
+'*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
+'*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
+'-T+[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
+'--timeout=[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
+'-t+[Number of concurrent threads (default: 50)]:THREADS: ' \
+'--threads=[Number of concurrent threads (default: 50)]:THREADS: ' \
+'-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]:RECURSION_DEPTH: ' \
+'--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]:RECURSION_DEPTH: ' \
+'-L+[Limit total number of concurrent scans (default: 0, i.e. no limit)]:SCAN_LIMIT: ' \
+'--scan-limit=[Limit total number of concurrent scans (default: 0, i.e. no limit)]:SCAN_LIMIT: ' \
+'--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]:PARALLEL_SCANS: ' \
+'(--auto-tune)--rate-limit=[Limit number of requests per second (per directory) (default: 0, i.e. no limit)]:RATE_LIMIT: ' \
+'--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]:TIME_SPEC: ' \
+'-w+[Path to the wordlist]:FILE:_files' \
+'--wordlist=[Path to the wordlist]:FILE:_files' \
+'-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
+'--output=[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
+'--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]:FILE:_files' \
+'-h[Print help information]' \
+'--help[Print help information]' \
+'-V[Print version information]' \
+'--version[Print version information]' \
+'(-u --url)--stdin[Read url(s) from STDIN]' \
+'-A[Use a random User-Agent]' \
+'--random-agent[Use a random User-Agent]' \
+'-f[Append / to each request'\''s URL]' \
+'--add-slash[Append / to each request'\''s URL]' \
+'-r[Allow client to follow redirects]' \
+'--redirects[Allow client to follow redirects]' \
+'-k[Disables TLS certificate validation in the client]' \
+'--insecure[Disables TLS certificate validation in the client]' \
+'-n[Do not scan recursively]' \
+'--no-recursion[Do not scan recursively]' \
+'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
+'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
+'(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
+'--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
+'-D[Don'\''t auto-filter wildcard responses]' \
+'--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(--silent)*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
-'(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
-'--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
-'-D[Don'\''t auto-filter wildcard responses]' \
-'--dont-filter[Don'\''t auto-filter wildcard responses]' \
-'-A[Use a random User-Agent]' \
-'--random-agent[Use a random User-Agent]' \
-'-r[Follow redirects]' \
-'--redirects[Follow redirects]' \
-'-k[Disables TLS certificate validation]' \
-'--insecure[Disables TLS certificate validation]' \
-'-n[Do not scan recursively]' \
-'--no-recursion[Do not scan recursively]' \
-'-f[Append / to each request]' \
-'--add-slash[Append / to each request]' \
-'(-u --url)--stdin[Read url(s) from STDIN]' \
-'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)]' \
-'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: false)]' \
-'-h[Prints help information]' \
-'--help[Prints help information]' \
-'-V[Prints version information]' \
-'--version[Prints version information]' \
 && ret=0
-    
 }
 
 (( $+functions[_feroxbuster_commands] )) ||
 _feroxbuster_commands() {
-    local commands; commands=(
-        
-    )
+    local commands; commands=()
     _describe -t commands 'feroxbuster commands' commands "$@"
 }
 

@@ -315,14 +315,15 @@ impl Banner {
         );
 
         let offset = std::cmp::min(config.data.len(), 30);
-        let data = String::from_utf8(config.data[..offset].to_vec()).unwrap_or_else(|_err| {
-            format!(
-                "{:x?} ...",
-                &config.data[..std::cmp::min(config.data.len(), 13)]
-            )
-        })
-        .replace("\n", " ")
-        .replace("\r", "");
+        let data = String::from_utf8(config.data[..offset].to_vec())
+            .unwrap_or_else(|_err| {
+                format!(
+                    "{:x?} ...",
+                    &config.data[..std::cmp::min(config.data.len(), 13)]
+                )
+            })
+            .replace("\n", " ")
+            .replace("\r", "");
         let data = BannerEntry::new("💣", "HTTP Body", &data);
         let insecure = BannerEntry::new("🔓", "Insecure", &config.insecure.to_string());
         let redirects = BannerEntry::new("📍", "Follow Redirects", &config.redirects.to_string());
