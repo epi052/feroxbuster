@@ -423,7 +423,7 @@ impl<'a> Extractor<'a> {
         let body = response.text();
 
         // Parse links (located in 2 places in file)
-        if body.contains("Directory listing") {
+        if body.contains("Directory listing for /") || body.contains("Index of /") {
             log::debug!("Directory listing detected");
         }
         let document = Document::from(body);
