@@ -413,14 +413,13 @@ impl<'a> Extractor<'a> {
         // Index of /: apache
         // Directory Listing for /: tomcat,
         // Directory Listing -- /: ASP.NET
-        // <host> - /: iis, azure
+        // <host> - /: iis, azure, skipping due to loose heuristic
         let title_selector = Selector::parse("title").unwrap();
         for t in html.select(&title_selector) {
             let title = t.inner_html().to_lowercase();
             if title.contains("directory listing for /")
                 || title.contains("index of /")
                 || title.contains("directory listing -- /")
-                || title.contains(&format!("{} - /", url.host_str().unwrap().to_lowercase()))
             {
                 log::debug!("Directory listing heuristic detection from \"{}\"", title);
                 let msg = format!(
