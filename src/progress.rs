@@ -35,10 +35,11 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
 
     style = match bar_type {
         BarType::Hidden => style.template(""),
-        BarType::Default => style
-            .template("[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {per_sec:7} {prefix}"),
+        BarType::Default => style.template(
+            "[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {per_sec:7} {prefix} {msg}",
+        ),
         BarType::Message => style.template(&format!(
-            "[{{bar:.cyan/blue}}] - {{elapsed:<4}} {{pos:>7}}/{{len:7}} {:7} {{prefix}}",
+            "[{{bar:.cyan/blue}}] - {{elapsed:<4}} {{pos:>7}}/{{len:7}} {:7} {{prefix}} {{msg}}",
             "-"
         )),
         BarType::Total => {

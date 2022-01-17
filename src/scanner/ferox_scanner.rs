@@ -1,6 +1,7 @@
 use std::{ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
 
 use anyhow::{bail, Result};
+use console::style;
 use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
@@ -10,7 +11,7 @@ use crate::{
         Command::{AddError, AddToF64Field, SubtractFromUsizeField},
         Handles,
     },
-    extractor::{ExtractionTarget::RobotsTxt, ExtractorBuilder},
+    extractor::{ExtractionTarget, ExtractorBuilder},
     heuristics,
     scan_manager::{FeroxResponses, MenuCmdResult, ScanOrder, ScanStatus, PAUSE_SCAN},
     statistics::{
@@ -43,7 +44,7 @@ pub struct FeroxScanner {
     /// wordlist that's already been read from disk
     wordlist: Arc<Vec<String>>,
 
-    /// limiter that restricts the number of active FeroxScanners  
+    /// limiter that restricts the number of active FeroxScanners
     scan_limiter: Arc<Semaphore>,
 }
 
@@ -74,22 +75,33 @@ impl FeroxScanner {
         log::info!("Starting scan against: {}", self.target_url);
 
         let scan_timer = Instant::now();
+        let mut dirlist_flag = false;
 
-        if matches!(self.order, ScanOrder::Initial) && self.handles.config.extract_links {
-            // only grab robots.txt on the initial scan_url calls. all fresh dirs will be passed
-            // to try_recursion
+        if self.handles.config.extract_links {
+            // parse html for links (i.e. web scraping)
             let extractor = ExtractorBuilder::default()
+                .target(ExtractionTarget::ParseHtml)
                 .url(&self.target_url)
                 .handles(self.handles.clone())
-                .target(RobotsTxt)
                 .build()?;
-
-            let links = extractor.extract().await?;
+            let extract_out = extractor.extract().await?;
+            let links = extract_out.0;
+            dirlist_flag = extract_out.1;
             extractor.request_links(links).await?;
+
+            if matches!(self.order, ScanOrder::Initial) {
+                // check for robots.txt (cannot be in subdirs)
+                let extractor = ExtractorBuilder::default()
+                    .target(ExtractionTarget::RobotsTxt)
+                    .url(&self.target_url)
+                    .handles(self.handles.clone())
+                    .build()?;
+                let links = (extractor.extract().await?).0;
+                extractor.request_links(links).await?;
+            }
         }
 
         let scanned_urls = self.handles.ferox_scans()?;
-
         let ferox_scan = match scanned_urls.get_scan_by_url(&self.target_url) {
             Some(scan) => {
                 scan.set_status(ScanStatus::Running)?;
@@ -105,6 +117,28 @@ impl FeroxScanner {
         };
 
         let progress_bar = ferox_scan.progress_bar();
+
+        // Directory listing heuristic detection to not continue scanning
+        if dirlist_flag {
+            log::trace!("exit: scan_url -> Directory listing heuristic");
+
+            self.handles.stats.send(AddToF64Field(
+                DirScanTimes,
+                scan_timer.elapsed().as_secs_f64(),
+            ))?;
+
+            self.handles.stats.send(SubtractFromUsizeField(
+                TotalExpected,
+                progress_bar.length() as usize,
+            ))?;
+
+            progress_bar.reset_eta();
+            progress_bar.finish_with_message(&format!("=> {}", style("Directory listing").green()));
+
+            ferox_scan.finish()?;
+
+            return Ok(());
+        }
 
         // When acquire is called and the semaphore has remaining permits, the function immediately
         // returns a permit. However, if no remaining permits are available, acquire (asynchronously)

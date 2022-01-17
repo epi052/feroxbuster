@@ -166,7 +166,7 @@ primarily related to continuous integration and release deployment.
 
 feroxbuster uses the [`clippy`](https://rust-lang.github.io/rust-clippy/) code linter.
 
-The command that will ultimately be used in the CI pipeline for linting is `cargo clippy --all-targets --all-features -- -D warnings -A clippy::unnecessary_unwrap`.  
+The command that will ultimately be used in the CI pipeline for linting is `cargo clippy --all-targets --all-features -- -D warnings -A clippy::mutex-atomic`.
 
 Before submitting a Pull Request, the above command should be run. Please do not ignore any linting errors in code you write or modify, as they are meant to **help** by ensuring a clean and simple code base.
 

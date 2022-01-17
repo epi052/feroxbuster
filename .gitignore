@@ -9,6 +9,9 @@ target/
 # jetbrains metadata folder
 .idea/
 
+# vscode metadata folder
+.vscode/
+
 # personal feroxbuster config for testing
 ferox-config.toml
 
