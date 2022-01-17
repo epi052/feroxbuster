@@ -1,6 +1,7 @@
 use std::{ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
 
 use anyhow::{bail, Result};
+use console::style;
 use futures::{stream, StreamExt};
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;

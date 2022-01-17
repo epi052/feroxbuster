@@ -7,20 +7,18 @@ use crate::{
         Command::{AddError, AddToUsizeField},
         Handles,
     },
-    progress::PROGRESS_PRINTER,
     scan_manager::ScanOrder,
     statistics::{
         StatError::Other,
         StatField::{LinksExtracted, TotalExpected},
     },
     url::FeroxUrl,
-    utils::{ferox_print, logged_request, make_request, status_colorizer},
+    utils::{logged_request, make_request},
     DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
 use scraper::{Html, Selector};
-use console::style;
 use std::collections::HashSet;
 use tokio::sync::oneshot;
 
@@ -100,7 +98,7 @@ impl<'a> Extractor<'a> {
             if resp.is_file() || !resp.is_directory() {
                 log::debug!("Extracted File: {}", resp);
 
-                scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
+                scanned_urls.add_file_scan(resp.url().as_str(), ScanOrder::Latest);
 
                 if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
                     log::warn!("Could not send FeroxResponse to output handler: {}", e);
@@ -286,12 +284,14 @@ impl<'a> Extractor<'a> {
 
         let old_url = match self.target {
             ExtractionTarget::ResponseBody => self.response.unwrap().url().clone(),
-            ExtractionTarget::ParseHtml | ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
-                Ok(u) => u,
-                Err(e) => {
-                    bail!("Could not parse {}: {}", self.url, e);
+            ExtractionTarget::ParseHtml | ExtractionTarget::RobotsTxt => {
+                match Url::parse(&self.url) {
+                    Ok(u) => u,
+                    Err(e) => {
+                        bail!("Could not parse {}: {}", self.url, e);
+                    }
                 }
-            },
+            }
         };
 
         let new_url = old_url
