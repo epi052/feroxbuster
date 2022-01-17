@@ -101,7 +101,7 @@ impl<'a> Extractor<'a> {
 
                 scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
 
-                if let Err(e) = resp.clone().send_report(self.handles.output.tx.clone()) {
+                if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
                     log::warn!("Could not send FeroxResponse to output handler: {}", e);
                 }
 
@@ -150,6 +150,7 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: extract_from_body");
 
         let mut links = HashSet::<String>::new();
+        let dirlist_flag = false;
 
         // Response
         let response = self.response.unwrap();
@@ -206,9 +207,8 @@ impl<'a> Extractor<'a> {
 
         self.update_stats(links.len())?;
 
-        log::trace!("exit: extract_from_body -> {:?}", links);
-
-        Ok((links, false))
+        log::trace!("exit: extract_from_body -> {:?} {}", links, dirlist_flag);
+        Ok((links, dirlist_flag))
     }
 
     /// take a url fragment like homepage/assets/img/icons/handshake.svg and
@@ -285,13 +285,7 @@ impl<'a> Extractor<'a> {
 
         let old_url = match self.target {
             ExtractionTarget::ResponseBody => self.response.unwrap().url().clone(),
-            ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
-                Ok(u) => u,
-                Err(e) => {
-                    bail!("Could not parse {}: {}", self.url, e);
-                }
-            },
-            ExtractionTarget::ParseHtml => match Url::parse(&self.url) {
+            ExtractionTarget::ParseHtml | ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
                 Ok(u) => u,
                 Err(e) => {
                     bail!("Could not parse {}: {}", self.url, e);
@@ -373,6 +367,7 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: extract_robots_txt");
 
         let mut links: HashSet<String> = HashSet::new();
+        let dirlist_flag = false;
 
         // request
         let response = self.make_extract_request("/robots.txt").await?;
@@ -390,8 +385,8 @@ impl<'a> Extractor<'a> {
 
         self.update_stats(links.len())?;
 
-        log::trace!("exit: extract_robots_txt -> {:?}", links);
-        Ok((links, false))
+        log::trace!("exit: extract_robots_txt -> {:?} {}", links, dirlist_flag);
+        Ok((links, dirlist_flag))
     }
 
     /// Entry point to parse html for links (i.e. webscraping, directory listings)
@@ -401,6 +396,7 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: parse_html");
 
         let mut links: HashSet<String> = HashSet::new();
+        let mut dirlist_flag = false;
 
         // Response
         let url = Url::parse(&self.url)?;
@@ -422,6 +418,7 @@ impl<'a> Extractor<'a> {
                 || title.contains("directory listing -- /")
             {
                 log::debug!("Directory listing heuristic detection from \"{}\"", title);
+                dirlist_flag = true;
                 let msg = format!(
                     "{} {:>8} {:>8}l {:>8}w {:>8}c {} => Directory listing\n",
                     status_colorizer(response.status().as_str()),
@@ -436,8 +433,8 @@ impl<'a> Extractor<'a> {
                 self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
                 self.update_stats(links.len())?;
 
-                log::trace!("exit: parse_html -> {:?}", links);
-                return Ok((links, true));
+                log::trace!("exit: parse_html -> {:?} {}", links, dirlist_flag);
+                return Ok((links, dirlist_flag));
             }
         }
 
@@ -454,8 +451,8 @@ impl<'a> Extractor<'a> {
 
         self.update_stats(links.len())?;
 
-        log::trace!("exit: parse_html -> {:?}", links);
-        Ok((links, false))
+        log::trace!("exit: parse_html -> {:?} {}", links, dirlist_flag);
+        Ok((links, dirlist_flag))
     }
 
     /// simple helper to get html links by tag/attribute and add it to the `links` HashSet
