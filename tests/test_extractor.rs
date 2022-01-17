@@ -466,7 +466,7 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
             .and(predicate::str::contains("22c"))
             .and(predicate::str::contains("/misc/LICENSE"))
             .and(predicate::str::contains("29c"))
-            .and(predicate::str::contains("200").count(5)),
+            .and(predicate::str::contains("200").count(3)),
     );
 
     assert_eq!(mock_root.hits(), 2);
@@ -577,7 +577,7 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
             .not()
             .and(predicate::str::contains("/misc/LICENSE").not())
             .and(predicate::str::contains("29c").not())
-            .and(predicate::str::contains("200").count(2)),
+            .and(predicate::str::contains("200").count(1)),
     );
 
     assert_eq!(mock_root.hits(), 2);
