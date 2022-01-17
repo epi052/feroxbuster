@@ -226,6 +226,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/7047payloads"><img src="https://avatars.githubusercontent.com/u/95562424?v=4?s=100" width="100px;" alt=""/><br /><sub><b>7047payloads</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=7047payloads" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/unkn0wnsyst3m"><img src="https://avatars.githubusercontent.com/u/21272239?v=4?s=100" width="100px;" alt=""/><br /><sub><b>unkn0wnsyst3m</b></sub></a><br /><a href="#ideas-unkn0wnsyst3m" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
+  <tr>
+    <td align="center"><a href="https://ironwort.me/"><img src="https://avatars.githubusercontent.com/u/15280042?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0x08</b></sub></a><br /><a href="#ideas-its0x08" title="Ideas, Planning, & Feedback">🤔</a></td>
+  </tr>
 </table>
 
 <!-- markdownlint-restore -->
