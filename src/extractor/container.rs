@@ -18,6 +18,7 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
+use scraper::{Html, Selector};
 use std::collections::HashSet;
 use tokio::sync::oneshot;
 
@@ -43,7 +44,7 @@ pub struct Extractor<'a> {
     /// Response from which to extract links
     pub(super) response: Option<&'a FeroxResponse>,
 
-    /// Response from which to extract links
+    /// URL of where to extract links
     pub(super) url: String,
 
     /// Handles object to house the underlying mpsc transmitters
@@ -56,11 +57,12 @@ pub struct Extractor<'a> {
 /// Extractor implementation
 impl<'a> Extractor<'a> {
     /// perform extraction from the given target and return any links found
-    pub async fn extract(&self) -> Result<HashSet<String>> {
+    pub async fn extract(&self) -> Result<(HashSet<String>, bool)> {
         log::trace!("enter: extract (this fn has associated trace exit msg)");
         match self.target {
             ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
             ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
+            ExtractionTarget::ParseHtml => Ok(self.parse_html().await?),
         }
     }
 
@@ -92,11 +94,11 @@ impl<'a> Extractor<'a> {
                 continue;
             }
 
-            if resp.is_file() {
-                // very likely a file, simply request and report
-                log::debug!("Extracted file: {}", resp);
+            // request and report assumed file
+            if resp.is_file() || !resp.is_directory() {
+                log::debug!("Extracted File: {}", resp);
 
-                scanned_urls.add_file_scan(&resp.url().to_string(), ScanOrder::Latest);
+                scanned_urls.add_file_scan(resp.url().as_str(), ScanOrder::Latest);
 
                 if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
                     log::warn!("Could not send FeroxResponse to output handler: {}", e);
@@ -143,12 +145,28 @@ impl<'a> Extractor<'a> {
     ///         - homepage/assets/img/
     ///         - homepage/assets/
     ///         - homepage/
-    pub(super) async fn extract_from_body(&self) -> Result<HashSet<String>> {
-        log::trace!("enter: get_links");
+    pub(super) async fn extract_from_body(&self) -> Result<(HashSet<String>, bool)> {
+        log::trace!("enter: extract_from_body");
 
         let mut links = HashSet::<String>::new();
+        let dirlist_flag = false;
 
-        let body = self.response.unwrap().text();
+        // Response
+        let response = self.response.unwrap();
+        let resp_url = response.url();
+        let body = response.text();
+        let html = Html::parse_document(body);
+
+        // Extract Links
+        self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "img", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "form", "action");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "div", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "frame", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "embed", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
 
         for capture in self.links_regex.captures_iter(body) {
             // remove single & double quotes from both ends of the capture
@@ -188,17 +206,16 @@ impl<'a> Extractor<'a> {
 
         self.update_stats(links.len())?;
 
-        log::trace!("exit: get_links -> {:?}", links);
-
-        Ok(links)
+        log::trace!("exit: extract_from_body -> {:?} {}", links, dirlist_flag);
+        Ok((links, dirlist_flag))
     }
 
     /// take a url fragment like homepage/assets/img/icons/handshake.svg and
     /// incrementally add
-    ///     - homepage/assets/img/icons/
-    ///     - homepage/assets/img/
-    ///     - homepage/assets/
-    ///     - homepage/
+    ///   - homepage/assets/img/icons/
+    ///   - homepage/assets/img/
+    ///   - homepage/assets/
+    ///   - homepage/
     fn add_all_sub_paths(&self, url_path: &str, links: &mut HashSet<String>) -> Result<()> {
         log::trace!("enter: add_all_sub_paths({}, {:?})", url_path, links);
 
@@ -267,12 +284,14 @@ impl<'a> Extractor<'a> {
 
         let old_url = match self.target {
             ExtractionTarget::ResponseBody => self.response.unwrap().url().clone(),
-            ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
-                Ok(u) => u,
-                Err(e) => {
-                    bail!("Could not parse {}: {}", self.url, e);
+            ExtractionTarget::ParseHtml | ExtractionTarget::RobotsTxt => {
+                match Url::parse(&self.url) {
+                    Ok(u) => u,
+                    Err(e) => {
+                        bail!("Could not parse {}: {}", self.url, e);
+                    }
                 }
-            },
+            }
         };
 
         let new_url = old_url
@@ -287,11 +306,6 @@ impl<'a> Extractor<'a> {
     }
 
     /// Wrapper around link extraction logic
-    /// currently used in two places:
-    ///   - links from response bodies
-    ///   - links from robots.txt responses
-    ///
-    /// general steps taken:
     ///   - create a new Url object based on cli options/args
     ///   - check if the new Url has already been seen/scanned -> None
     ///   - make a request to the new Url ? -> Some(response) : None
@@ -350,14 +364,17 @@ impl<'a> Extractor<'a> {
     ///     http://localhost/stuff/things
     /// this function requests:
     ///     http://localhost/robots.txt
-    pub(super) async fn extract_from_robots(&self) -> Result<HashSet<String>> {
+    pub(super) async fn extract_from_robots(&self) -> Result<(HashSet<String>, bool)> {
         log::trace!("enter: extract_robots_txt");
 
         let mut links: HashSet<String> = HashSet::new();
+        let dirlist_flag = false;
 
-        let response = self.request_robots_txt().await?;
+        // request
+        let response = self.make_extract_request("/robots.txt").await?;
+        let body = response.text();
 
-        for capture in self.robots_regex.captures_iter(response.text()) {
+        for capture in self.robots_regex.captures_iter(body) {
             if let Some(new_path) = capture.name("url_path") {
                 let mut new_url = Url::parse(&self.url)?;
                 new_url.set_path(new_path.as_str());
@@ -369,19 +386,126 @@ impl<'a> Extractor<'a> {
 
         self.update_stats(links.len())?;
 
-        log::trace!("exit: extract_robots_txt -> {:?}", links);
-        Ok(links)
+        log::trace!("exit: extract_robots_txt -> {:?} {}", links, dirlist_flag);
+        Ok((links, dirlist_flag))
     }
 
-    /// helper function that simply requests /robots.txt on the given url's base url
+    /// Entry point to parse html for links (i.e. webscraping, directory listings)
+    /// this function requests:
+    ///     http://localhost/<location>
+    pub(super) async fn parse_html(&self) -> Result<(HashSet<String>, bool)> {
+        log::trace!("enter: parse_html");
+
+        let mut links: HashSet<String> = HashSet::new();
+        let mut dirlist_flag = false;
+
+        // Response
+        let url = Url::parse(&self.url)?;
+        let response = self.make_extract_request(url.path()).await?;
+        let resp_url = response.url();
+        let body = response.text();
+        let html = Html::parse_document(body);
+
+        // Directory listing heuristic detection to not continue scanning
+        // Index of /: apache
+        // Directory Listing for /: tomcat,
+        // Directory Listing -- /: ASP.NET
+        // <host> - /: iis, azure, skipping due to loose heuristic
+        let title_selector = Selector::parse("title").unwrap();
+        for t in html.select(&title_selector) {
+            let title = t.inner_html().to_lowercase();
+            if title.contains("directory listing for /")
+                || title.contains("index of /")
+                || title.contains("directory listing -- /")
+            {
+                log::debug!("Directory listing heuristic detection from \"{}\"", title);
+                dirlist_flag = true;
+
+                self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
+                self.update_stats(links.len())?;
+
+                log::trace!("exit: parse_html -> {:?} {}", links, dirlist_flag);
+                return Ok((links, dirlist_flag));
+            }
+        }
+
+        // Extract Links
+        self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "img", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "form", "action");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "div", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "frame", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "embed", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
+
+        self.update_stats(links.len())?;
+
+        log::trace!("exit: parse_html -> {:?} {}", links, dirlist_flag);
+        Ok((links, dirlist_flag))
+    }
+
+    /// simple helper to get html links by tag/attribute and add it to the `links` HashSet
+    fn extract_links_by_attr(
+        &self,
+        resp_url: &Url,
+        links: &mut HashSet<String>,
+        html: &Html,
+        html_tag: &str,
+        html_attr: &str,
+    ) {
+        log::trace!("enter: extract_links_by_attr");
+
+        let selector = Selector::parse(html_tag).unwrap();
+        let tags = html
+            .select(&selector)
+            .filter(|a| a.value().attrs().any(|attr| attr.0 == html_attr));
+        for t in tags {
+            if let Some(link) = t.value().attr(html_attr) {
+                log::debug!("Parsed link \"{}\" from {}", link, resp_url.as_str());
+
+                match Url::parse(link) {
+                    Ok(absolute) => {
+                        if absolute.domain() != resp_url.domain()
+                            || absolute.host() != resp_url.host()
+                        {
+                            // domains/ips are not the same, don't scan things that aren't part of the original
+                            // target url
+                            continue;
+                        }
+
+                        if self.add_all_sub_paths(absolute.path(), links).is_err() {
+                            log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
+                        }
+                    }
+                    Err(e) => {
+                        // this is the expected error that happens when we try to parse a url fragment
+                        //     ex: Url::parse("/login") -> Err("relative URL without a base")
+                        // while this is technically an error, these are good results for us
+                        if e.to_string().contains("relative URL without a base") {
+                            if self.add_all_sub_paths(link, links).is_err() {
+                                log::warn!("could not add sub-paths from {} to {:?}", link, links);
+                            }
+                        } else {
+                            // unexpected error has occurred
+                            log::warn!("Could not parse given url: {}", e);
+                            self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                        }
+                    }
+                }
+            }
+        }
+
+        log::trace!("exit: extract_links_by_attr");
+    }
+
+    /// helper function that simply requests at <location> on the given url's base url
     ///
     /// example:
-    ///     http://localhost/api/users -> http://localhost/robots.txt
-    ///     
-    /// The length of the given path has no effect on what's requested; it's always
-    /// base url + /robots.txt
-    pub(super) async fn request_robots_txt(&self) -> Result<FeroxResponse> {
-        log::trace!("enter: get_robots_file");
+    ///     http://localhost/api/users -> http://localhost/<location>
+    pub(super) async fn make_extract_request(&self, location: &str) -> Result<FeroxResponse> {
+        log::trace!("enter: make_extract_request");
 
         // more often than not, domain/robots.txt will redirect to www.domain/robots.txt or something
         // similar; to account for that, create a client that will follow redirects, regardless of
@@ -405,7 +529,7 @@ impl<'a> Extractor<'a> {
         )?;
 
         let mut url = Url::parse(&self.url)?;
-        url.set_path("/robots.txt"); // overwrite existing path with /robots.txt
+        url.set_path(location); // overwrite existing path
 
         // purposefully not using logged_request here due to using the special client
         let response = make_request(
@@ -428,7 +552,7 @@ impl<'a> Extractor<'a> {
         )
         .await;
 
-        log::trace!("exit: get_robots_file -> {}", ferox_response);
+        log::trace!("exit: make_extract_request -> {}", ferox_response);
         Ok(ferox_response)
     }
 
