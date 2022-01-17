@@ -16,7 +16,11 @@ Long form explanations of most of the items below can be found in the [CONTRIBUT
 
 ## Documentation
 - [ ] New code is documented using [doc comments](https://doc.rust-lang.org/stable/rust-by-example/meta/doc.html)
-- [ ] Documentation about your PR is included in the README, as needed
+- [ ] Documentation about your PR is included in the `docs`, as needed. The docs live in a [separate repository](https://epi052.github.io/feroxbuster-docs/docs/). Update the appropriate pages at the links below.
+  - [ ] update [example config file section](https://epi052.github.io/feroxbuster-docs/docs/configuration/ferox-config-toml/)
+  - [ ] update [help output section](https://epi052.github.io/feroxbuster-docs/docs/configuration/command-line/)
+  - [ ] add an [example](https://epi052.github.io/feroxbuster-docs/docs/examples/)
+  - [ ] update [comparison table](https://epi052.github.io/feroxbuster-docs/docs/compare/)
 
 ## Additional Tests
 - [ ] New code is unit tested

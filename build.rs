@@ -16,20 +16,11 @@ fn main() {
 
     let mut app = initialize();
 
-    let path = generate_to(shells::Bash, &mut app, "feroxbuster", outdir).unwrap();
-    println!("cargo:warning=completion file is generated: {path:?}");
-
-    let path = generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
-    println!("cargo:warning=completion file is generated: {path:?}");
-
-    let path = generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
-    println!("cargo:warning=completion file is generated: {path:?}");
-
-    let path = generate_to(shells::PowerShell, &mut app, "feroxbuster", outdir).unwrap();
-    println!("cargo:warning=completion file is generated: {path:?}");
-
-    let path = generate_to(shells::Elvish, &mut app, "feroxbuster", outdir).unwrap();
-    println!("cargo:warning=completion file is generated: {path:?}");
+    generate_to(shells::Bash, &mut app, "feroxbuster", outdir).unwrap();
+    generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
+    generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
+    generate_to(shells::PowerShell, &mut app, "feroxbuster", outdir).unwrap();
+    generate_to(shells::Elvish, &mut app, "feroxbuster", outdir).unwrap();
 
     // 0xdf pointed out an oddity when tab-completing options that expect file paths, the fix we
     // landed on was to add -o plusdirs to the bash completion script. The following code aims to

@@ -74,7 +74,7 @@ impl FeroxScanner {
         log::trace!("enter: scan_url");
         log::info!("Starting scan against: {}", self.target_url);
 
-        let scan_timer = Instant::now();
+        let mut scan_timer = Instant::now();
         let mut dirlist_flag = false;
 
         if self.handles.config.extract_links {
@@ -133,7 +133,10 @@ impl FeroxScanner {
             ))?;
 
             progress_bar.reset_eta();
-            progress_bar.finish_with_message(&format!("=> {}", style("Directory listing").green()));
+            progress_bar.finish_with_message(&format!(
+                "=> {}",
+                style("Directory listing").blue().bright()
+            ));
 
             ferox_scan.finish()?;
 
@@ -145,6 +148,10 @@ impl FeroxScanner {
         // waits until an outstanding permit is dropped, at which point, the freed permit is assigned
         // to the caller.
         let _permit = self.scan_limiter.acquire().await;
+        if self.handles.config.scan_limit > 0 {
+            scan_timer = Instant::now();
+            progress_bar.reset();
+        }
 
         // Arc clones to be passed around to the various scans
         let looping_words = self.wordlist.clone();

@@ -168,30 +168,27 @@ pub async fn make_request(
             } else if e.is_redirect() {
                 if let Some(last_redirect) = e.url() {
                     // get where we were headed (last_redirect) and where we came from (url)
-                    let fancy_message = format!("{} !=> {}", url, last_redirect);
+                    let fancy_message = format!(
+                        "{} !=> {} ({})",
+                        url,
+                        last_redirect,
+                        style("too many redirects").red(),
+                    );
 
-                    let report = if let Some(msg_status) = e.status() {
-                        send_command!(tx_stats, AddStatus(msg_status));
-                        create_report_string(
-                            msg_status.as_str(),
-                            method,
-                            "-1",
-                            "-1",
-                            "-1",
-                            &fancy_message,
-                            output_level,
-                        )
-                    } else {
-                        create_report_string(
-                            "UNK",
-                            method,
-                            "-1",
-                            "-1",
-                            "-1",
-                            &fancy_message,
-                            output_level,
-                        )
+                    let msg_status = match e.status() {
+                        Some(status) => status.to_string(),
+                        None => "ERR".to_string(),
                     };
+
+                    let report = create_report_string(
+                        &msg_status,
+                        method,
+                        "-1",
+                        "-1",
+                        "-1",
+                        &fancy_message,
+                        output_level,
+                    );
 
                     send_command!(tx_stats, AddError(Redirection));
 
