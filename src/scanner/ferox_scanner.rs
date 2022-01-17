@@ -126,6 +126,13 @@ impl FeroxScanner {
                 scan_timer.elapsed().as_secs_f64(),
             ))?;
 
+            self.handles.stats.send(SubtractFromUsizeField(
+                TotalExpected,
+                progress_bar.length() as usize,
+            ))?;
+
+            progress_bar.finish_with_message(&format!("=> {}", style("Directory listing").green()));
+
             ferox_scan.finish()?;
 
             return Ok(());
