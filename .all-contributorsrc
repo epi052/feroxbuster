@@ -337,6 +337,16 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "MD-Levitan",
+      "name": "kusok",
+      "avatar_url": "https://avatars.githubusercontent.com/u/12116508?v=4",
+      "profile": "https://github.com/MD-Levitan",
+      "contributions": [
+        "ideas",
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
