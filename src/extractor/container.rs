@@ -20,6 +20,7 @@ use crate::{
 use anyhow::{bail, Context, Result};
 use reqwest::{StatusCode, Url};
 use scraper::{Html, Selector};
+use console::style;
 use std::collections::HashSet;
 use tokio::sync::oneshot;
 
