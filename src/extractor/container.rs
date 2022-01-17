@@ -7,13 +7,14 @@ use crate::{
         Command::{AddError, AddToUsizeField},
         Handles,
     },
+    progress::PROGRESS_PRINTER,
     scan_manager::ScanOrder,
     statistics::{
         StatError::Other,
         StatField::{LinksExtracted, TotalExpected},
     },
     url::FeroxUrl,
-    utils::{logged_request, make_request},
+    utils::{ferox_print, logged_request, make_request, status_colorizer},
     DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
@@ -152,20 +153,20 @@ impl<'a> Extractor<'a> {
 
         // Response
         let response = self.response.unwrap();
-        let resp_url = response.url().as_str();
+        let resp_url = response.url();
         let body = response.text();
         let html = Html::parse_document(body);
 
-        // Get Links
-        self.get_links_by_attr(resp_url, &mut links, &html, "a", "href");
-        self.get_links_by_attr(resp_url, &mut links, &html, "img", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "form", "action");
-        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "div", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "frame", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "embed", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        // Extract Links
+        self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "img", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "form", "action");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "div", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "frame", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "embed", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
 
         for capture in self.links_regex.captures_iter(body) {
             // remove single & double quotes from both ends of the capture
@@ -393,7 +394,7 @@ impl<'a> Extractor<'a> {
         Ok((links, false))
     }
 
-    /// Entry point to parse html for links (i.e. webscraping directory listings)
+    /// Entry point to parse html for links (i.e. webscraping, directory listings)
     /// this function requests:
     ///     http://localhost/<location>
     pub(super) async fn parse_html(&self) -> Result<(HashSet<String>, bool)> {
@@ -404,18 +405,36 @@ impl<'a> Extractor<'a> {
         // Response
         let url = Url::parse(&self.url)?;
         let response = self.make_extract_request(url.path()).await?;
-        let resp_url = response.url().as_str();
+        let resp_url = response.url();
         let body = response.text();
         let html = Html::parse_document(body);
 
         // Directory listing heuristic detection to not continue scanning
+        // Index of /: apache
+        // Directory Listing for /: tomcat,
+        // Directory Listing -- /: ASP.NET
+        // <host> - /: iis, azure
         let title_selector = Selector::parse("title").unwrap();
         for t in html.select(&title_selector) {
             let title = t.inner_html().to_lowercase();
-            if title.contains("directory listing for /") || title.contains("index of /") {
+            if title.contains("directory listing for /")
+                || title.contains("index of /")
+                || title.contains("directory listing -- /")
+                || title.contains(&format!("{} - /", url.host_str().unwrap().to_lowercase()))
+            {
                 log::debug!("Directory listing heuristic detection from \"{}\"", title);
+                let msg = format!(
+                    "{} {:>8} {:>8}l {:>8}w {:>8}c {} => Directory listing\n",
+                    status_colorizer(response.status().as_str()),
+                    response.method().as_str(),
+                    response.line_count().to_string(),
+                    response.word_count().to_string(),
+                    response.content_length().to_string(),
+                    response.url(),
+                );
+                ferox_print(&msg, &PROGRESS_PRINTER);
 
-                self.get_links_by_attr(resp_url, &mut links, &html, "a", "href");
+                self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
                 self.update_stats(links.len())?;
 
                 log::trace!("exit: parse_html -> {:?}", links);
@@ -423,16 +442,16 @@ impl<'a> Extractor<'a> {
             }
         }
 
-        // Get Links
-        self.get_links_by_attr(resp_url, &mut links, &html, "a", "href");
-        self.get_links_by_attr(resp_url, &mut links, &html, "img", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "form", "action");
-        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "div", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "frame", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "embed", "src");
-        self.get_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        // Extract Links
+        self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "img", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "form", "action");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "div", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "frame", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "embed", "src");
+        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
 
         self.update_stats(links.len())?;
 
@@ -441,15 +460,15 @@ impl<'a> Extractor<'a> {
     }
 
     /// simple helper to get html links by tag/attribute and add it to the `links` HashSet
-    fn get_links_by_attr(
+    fn extract_links_by_attr(
         &self,
-        resp_url: &str,
+        resp_url: &Url,
         links: &mut HashSet<String>,
         html: &Html,
         html_tag: &str,
         html_attr: &str,
     ) {
-        log::trace!("enter: get_links_by_attr");
+        log::trace!("enter: extract_links_by_attr");
 
         let selector = Selector::parse(html_tag).unwrap();
         let tags = html
@@ -457,16 +476,41 @@ impl<'a> Extractor<'a> {
             .filter(|a| a.value().attrs().any(|attr| attr.0 == html_attr));
         for t in tags {
             if let Some(link) = t.value().attr(html_attr) {
-                log::debug!("Parsed link \"{}\" from {}", link, resp_url);
-                let mut new_url = Url::parse(&self.url).unwrap();
-                new_url.set_path(link);
-                if self.add_all_sub_paths(new_url.path(), links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
+                log::debug!("Parsed link \"{}\" from {}", link, resp_url.as_str());
+
+                match Url::parse(link) {
+                    Ok(absolute) => {
+                        if absolute.domain() != resp_url.domain()
+                            || absolute.host() != resp_url.host()
+                        {
+                            // domains/ips are not the same, don't scan things that aren't part of the original
+                            // target url
+                            continue;
+                        }
+
+                        if self.add_all_sub_paths(absolute.path(), links).is_err() {
+                            log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
+                        }
+                    }
+                    Err(e) => {
+                        // this is the expected error that happens when we try to parse a url fragment
+                        //     ex: Url::parse("/login") -> Err("relative URL without a base")
+                        // while this is technically an error, these are good results for us
+                        if e.to_string().contains("relative URL without a base") {
+                            if self.add_all_sub_paths(link, links).is_err() {
+                                log::warn!("could not add sub-paths from {} to {:?}", link, links);
+                            }
+                        } else {
+                            // unexpected error has occurred
+                            log::warn!("Could not parse given url: {}", e);
+                            self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                        }
+                    }
                 }
             }
         }
 
-        log::trace!("exit: get_links_by_attr");
+        log::trace!("exit: extract_links_by_attr");
     }
 
     /// helper function that simply requests at <location> on the given url's base url
