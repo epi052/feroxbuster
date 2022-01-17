@@ -132,6 +132,7 @@ impl FeroxScanner {
                 progress_bar.length() as usize,
             ))?;
 
+            progress_bar.reset_eta();
             progress_bar.finish_with_message(&format!("=> {}", style("Directory listing").green()));
 
             ferox_scan.finish()?;
