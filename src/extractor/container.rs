@@ -419,16 +419,6 @@ impl<'a> Extractor<'a> {
             {
                 log::debug!("Directory listing heuristic detection from \"{}\"", title);
                 dirlist_flag = true;
-                let msg = format!(
-                    "{} {:>8} {:>8}l {:>8}w {:>8}c {} => Directory listing\n",
-                    status_colorizer(response.status().as_str()),
-                    response.method().as_str(),
-                    response.line_count().to_string(),
-                    response.word_count().to_string(),
-                    response.content_length().to_string(),
-                    response.url(),
-                );
-                ferox_print(&msg, &PROGRESS_PRINTER);
 
                 self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
                 self.update_stats(links.len())?;
