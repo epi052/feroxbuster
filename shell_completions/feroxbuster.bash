@@ -19,7 +19,7 @@ _feroxbuster() {
 
     case "${cmd}" in
         feroxbuster)
-            opts="-h -V -u -p -P -R -a -A -x -m -H -b -Q -f -S -X -W -N -C -s -T -r -k -t -n -d -e -L -w -D -v -q -o --help --version --url --stdin --resume-from --proxy --replay-proxy --replay-codes --user-agent --random-agent --extensions --methods --data --headers --cookies --query --add-slash --dont-scan --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --status-codes --timeout --redirects --insecure --threads --no-recursion --depth --extract-links --scan-limit --parallel --rate-limit --time-limit --wordlist --auto-tune --auto-bail --dont-filter --verbosity --silent --quiet --json --output --debug-log"
+            opts="-h -V -u -p -P -R -a -A -x -m -H -b -Q -f -S -X -W -N -C -s -T -r -k -t -n -d -e -L -w -D -v -q -o --help --version --url --stdin --resume-from --proxy --replay-proxy --replay-codes --user-agent --random-agent --extensions --methods --data --headers --cookies --query --add-slash --dont-scan --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --status-codes --timeout --redirects --insecure --threads --no-recursion --depth --extract-links --scan-limit --parallel --rate-limit --time-limit --wordlist --auto-tune --auto-bail --dont-filter --verbosity --silent --quiet --json --output --debug-log --no-state"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
