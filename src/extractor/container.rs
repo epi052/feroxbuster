@@ -240,8 +240,18 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: get_sub_paths_from_path({})", path);
         let mut paths = vec![];
 
+        // trim whitespace, remove slashes, and queries/anchors (i.e. ?C=D;O=A)
+        let mut path_str = path.to_owned();
+        path_str = path_str.trim().to_string();
+        path_str.retain(|c| !c.is_whitespace());
+        if path_str.starts_with("//") {
+            path_str = path_str.trim_start_matches('/').to_string();
+        };
+        let re = Regex::new(r"([#?].*)?").unwrap();
+        path_str = re.replace_all(&path_str, "").to_string().trim().to_string();
+
         // filter out any empty strings caused by .split
-        let mut parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        let mut parts: Vec<&str> = path_str.split('/').filter(|s| !s.is_empty()).collect();
 
         let length = parts.len();
 
@@ -297,7 +307,7 @@ impl<'a> Extractor<'a> {
         let new_url = old_url
             .join(link)
             .with_context(|| format!("Could not join {} with {}", old_url, link))?;
-
+        log::debug!("Added link \"{}\"", new_url);
         links.insert(new_url.to_string());
 
         log::trace!("exit: add_link_to_set_of_links");
@@ -463,7 +473,7 @@ impl<'a> Extractor<'a> {
             .filter(|a| a.value().attrs().any(|attr| attr.0 == html_attr));
         for t in tags {
             if let Some(link) = t.value().attr(html_attr) {
-                log::debug!("Parsed link \"{}\" from {}", link, resp_url.as_str());
+                log::debug!("Extracted link \"{}\" from {}", link, resp_url.as_str());
 
                 match Url::parse(link) {
                     Ok(absolute) => {

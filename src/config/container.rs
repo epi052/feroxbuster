@@ -246,8 +246,6 @@ pub struct Configuration {
     pub resume_from: String,
 
     /// Whether or not a scan's current state should be saved when user presses Ctrl+C
-    ///
-    /// Not configurable from CLI; can only be set from a config file
     #[serde(default = "save_state")]
     pub save_state: bool,
 
@@ -694,6 +692,10 @@ impl Configuration {
         if args.is_present("auto_bail") {
             config.auto_bail = true;
             config.requester_policy = RequesterPolicy::AutoBail;
+        }
+
+        if args.is_present("no_state") {
+            config.save_state = false;
         }
 
         if args.is_present("dont_filter") {
