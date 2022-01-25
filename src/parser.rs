@@ -533,7 +533,7 @@ pub fn initialize() -> App<'static> {
                 .long("no-state")
                 .takes_value(false)
                 .help_heading("Output settings")
-                .help("Disable state output file (*.state) for continuing scans")
+                .help("Disable state output file (*.state)")
         );
 
     /////////////////////////////////////////////////////////////////////
