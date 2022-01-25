@@ -240,15 +240,20 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: get_sub_paths_from_path({})", path);
         let mut paths = vec![];
 
-        // trim whitespace, remove slashes, and queries/anchors (i.e. ?C=D;O=A)
+        // trim whitespace, remove slashes, and queries/fragments (i.e. ?C=D;O=A)
         let mut path_str = path.to_owned();
         path_str = path_str.trim().to_string();
         path_str.retain(|c| !c.is_whitespace());
         if path_str.starts_with("//") {
             path_str = path_str.trim_start_matches('/').to_string();
         };
-        let re = Regex::new(r"([#?].*)?").unwrap();
-        path_str = re.replace_all(&path_str, "").to_string().trim().to_string();
+        let (path_str, _discarded) = path_str
+            .split_once('?')
+            // if there isn't a '?', try to remove a fragment
+            .unwrap_or_else(|| {
+                // if there isn't a '#', return (original, empty)
+                path_str.split_once('#').unwrap_or((&path_str, ""))
+            });
 
         // filter out any empty strings caused by .split
         let mut parts: Vec<&str> = path_str.split('/').filter(|s| !s.is_empty()).collect();

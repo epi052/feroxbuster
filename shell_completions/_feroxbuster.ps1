@@ -99,7 +99,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('-q', 'q', [CompletionResultType]::ParameterName, 'Hide progress bars and banner (good for tmux windows w/ notifications)')
             [CompletionResult]::new('--quiet', 'quiet', [CompletionResultType]::ParameterName, 'Hide progress bars and banner (good for tmux windows w/ notifications)')
             [CompletionResult]::new('--json', 'json', [CompletionResultType]::ParameterName, 'Emit JSON logs to --output and --debug-log instead of normal text')
-            [CompletionResult]::new('--no-state', 'no-state', [CompletionResultType]::ParameterName, 'Disable state output file (*.state) for continuing scans')
+            [CompletionResult]::new('--no-state', 'no-state', [CompletionResultType]::ParameterName, 'Disable state output file (*.state)')
             break
         }
     })
