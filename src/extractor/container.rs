@@ -191,10 +191,14 @@ impl<'a> Extractor<'a> {
                     // this is the expected error that happens when we try to parse a url fragment
                     //     ex: Url::parse("/login") -> Err("relative URL without a base")
                     // while this is technically an error, these are good results for us
-                    let absolute_path = format!("{}{}", resp_url.path().to_string(), link.to_string());
+                    let absolute_path = format!("{}{}", resp_url.path(), link);
                     if e.to_string().contains("relative URL without a base") {
                         if self.add_all_sub_paths(&absolute_path, &mut links).is_err() {
-                            log::warn!("could not add sub-paths from {} to {:?}", absolute_path, links);
+                            log::warn!(
+                                "could not add sub-paths from {} to {:?}",
+                                absolute_path,
+                                links
+                            );
                         }
                     } else {
                         // unexpected error has occurred
@@ -499,10 +503,14 @@ impl<'a> Extractor<'a> {
                         // this is the expected error that happens when we try to parse a url fragment
                         //     ex: Url::parse("/login") -> Err("relative URL without a base")
                         // while this is technically an error, these are good results for us
-                        let absolute_path = format!("{}{}", resp_url.path().to_string(), link.to_string());
+                        let absolute_path = format!("{}{}", resp_url.path(), link);
                         if e.to_string().contains("relative URL without a base") {
                             if self.add_all_sub_paths(&absolute_path, links).is_err() {
-                                log::warn!("could not add sub-paths from {} to {:?}", absolute_path, links);
+                                log::warn!(
+                                    "could not add sub-paths from {} to {:?}",
+                                    absolute_path,
+                                    links
+                                );
                             }
                         } else {
                             // unexpected error has occurred
