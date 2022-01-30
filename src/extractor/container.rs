@@ -183,7 +183,10 @@ impl<'a> Extractor<'a> {
                         continue;
                     }
 
-                    if self.add_all_sub_paths(absolute.path(), &mut links).is_err() {
+                    if self
+                        .add_all_sub_paths(resp_url, absolute.path(), &mut links)
+                        .is_err()
+                    {
                         log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
                     }
                 }
@@ -192,7 +195,7 @@ impl<'a> Extractor<'a> {
                     //     ex: Url::parse("/login") -> Err("relative URL without a base")
                     // while this is technically an error, these are good results for us
                     if e.to_string().contains("relative URL without a base") {
-                        if self.add_all_sub_paths(link, &mut links).is_err() {
+                        if self.add_all_sub_paths(resp_url, link, &mut links).is_err() {
                             log::warn!("could not add sub-paths from {} to {:?}", link, links);
                         }
                     } else {
@@ -216,11 +219,16 @@ impl<'a> Extractor<'a> {
     ///   - homepage/assets/img/
     ///   - homepage/assets/
     ///   - homepage/
-    fn add_all_sub_paths(&self, url_path: &str, links: &mut HashSet<String>) -> Result<()> {
+    fn add_all_sub_paths(
+        &self,
+        resp_url: &Url,
+        url_path: &str,
+        links: &mut HashSet<String>,
+    ) -> Result<()> {
         log::trace!("enter: add_all_sub_paths({}, {:?})", url_path, links);
 
         for sub_path in self.get_sub_paths_from_path(url_path) {
-            self.add_link_to_set_of_links(&sub_path, links)?;
+            self.add_link_to_set_of_links(resp_url, &sub_path, links)?;
         }
 
         log::trace!("exit: add_all_sub_paths");
@@ -292,21 +300,26 @@ impl<'a> Extractor<'a> {
     /// simple helper to stay DRY, trys to join a url + fragment and add it to the `links` HashSet
     pub(super) fn add_link_to_set_of_links(
         &self,
+        resp_url: &Url,
         link: &str,
         links: &mut HashSet<String>,
     ) -> Result<()> {
-        log::trace!("enter: add_link_to_set_of_links({}, {:?})", link, links);
+        log::trace!(
+            "enter: add_link_to_set_of_links({}, {}, {:?})",
+            resp_url,
+            link,
+            links
+        );
 
         let old_url = match self.target {
             ExtractionTarget::ResponseBody => self.response.unwrap().url().clone(),
-            ExtractionTarget::ParseHtml | ExtractionTarget::RobotsTxt => {
-                match Url::parse(&self.url) {
-                    Ok(u) => u,
-                    Err(e) => {
-                        bail!("Could not parse {}: {}", self.url, e);
-                    }
+            ExtractionTarget::ParseHtml => resp_url.clone(),
+            ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
+                Ok(u) => u,
+                Err(e) => {
+                    bail!("Could not parse {}: {}", self.url, e);
                 }
-            }
+            },
         };
 
         let new_url = old_url
@@ -391,10 +404,13 @@ impl<'a> Extractor<'a> {
 
         for capture in self.robots_regex.captures_iter(body) {
             if let Some(new_path) = capture.name("url_path") {
-                let mut new_url = Url::parse(&self.url)?;
-                new_url.set_path(new_path.as_str());
-                if self.add_all_sub_paths(new_url.path(), &mut links).is_err() {
-                    log::warn!("could not add sub-paths from {} to {:?}", new_url, links);
+                let mut resp_url = Url::parse(&self.url)?;
+                resp_url.set_path(new_path.as_str());
+                if self
+                    .add_all_sub_paths(&resp_url, resp_url.path(), &mut links)
+                    .is_err()
+                {
+                    log::warn!("could not add sub-paths from {} to {:?}", resp_url, links);
                 }
             }
         }
@@ -490,7 +506,10 @@ impl<'a> Extractor<'a> {
                             continue;
                         }
 
-                        if self.add_all_sub_paths(absolute.path(), links).is_err() {
+                        if self
+                            .add_all_sub_paths(resp_url, absolute.path(), links)
+                            .is_err()
+                        {
                             log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
                         }
                     }
@@ -499,7 +518,7 @@ impl<'a> Extractor<'a> {
                         //     ex: Url::parse("/login") -> Err("relative URL without a base")
                         // while this is technically an error, these are good results for us
                         if e.to_string().contains("relative URL without a base") {
-                            if self.add_all_sub_paths(link, links).is_err() {
+                            if self.add_all_sub_paths(resp_url, link, links).is_err() {
                                 log::warn!("could not add sub-paths from {} to {:?}", link, links);
                             }
                         } else {

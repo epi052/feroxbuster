@@ -150,6 +150,7 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
     let mut links = HashSet::<String>::new();
     let link = "admin";
     let handles = Arc::new(Handles::for_testing(None, None).0);
+    let resp_url = Url::parse("http://localhost").unwrap();
 
     let extractor = ExtractorBuilder::default()
         .url("\\\\\\")
@@ -157,7 +158,7 @@ fn extractor_with_non_base_url_bails() -> Result<()> {
         .target(ExtractionTarget::RobotsTxt)
         .build()?;
 
-    let result = extractor.add_link_to_set_of_links(link, &mut links);
+    let result = extractor.add_link_to_set_of_links(&resp_url, link, &mut links);
 
     assert!(result.is_err());
     Ok(())
@@ -171,10 +172,11 @@ fn extractor_add_link_to_set_of_links_happy_path() {
     let r_link = "admin";
     let mut b_links = HashSet::<String>::new();
     let b_link = "shmadmin";
+    let resp_url = Url::parse("http://localhost").unwrap();
 
     assert_eq!(r_links.len(), 0);
     ROBOTS_EXT
-        .add_link_to_set_of_links(r_link, &mut r_links)
+        .add_link_to_set_of_links(&resp_url, r_link, &mut r_links)
         .unwrap();
 
     assert_eq!(r_links.len(), 1);
@@ -183,7 +185,7 @@ fn extractor_add_link_to_set_of_links_happy_path() {
     assert_eq!(b_links.len(), 0);
 
     BODY_EXT
-        .add_link_to_set_of_links(b_link, &mut b_links)
+        .add_link_to_set_of_links(&resp_url, b_link, &mut b_links)
         .unwrap();
 
     assert_eq!(b_links.len(), 1);
@@ -195,12 +197,14 @@ fn extractor_add_link_to_set_of_links_happy_path() {
 fn extractor_add_link_to_set_of_links_with_non_base_url() {
     let mut links = HashSet::<String>::new();
     let link = "\\\\\\\\";
-
+    let resp_url = Url::parse("http://localhost").unwrap();
     assert_eq!(links.len(), 0);
     assert!(ROBOTS_EXT
-        .add_link_to_set_of_links(link, &mut links)
+        .add_link_to_set_of_links(&resp_url, link, &mut links)
         .is_err());
-    assert!(BODY_EXT.add_link_to_set_of_links(link, &mut links).is_err());
+    assert!(BODY_EXT
+        .add_link_to_set_of_links(&resp_url, link, &mut links)
+        .is_err());
 
     assert_eq!(links.len(), 0);
     assert!(links.is_empty());
