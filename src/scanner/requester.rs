@@ -392,7 +392,7 @@ impl Requester {
                     continue;
                 }
 
-                if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
+                if self.handles.config.extract_links {
                     let extractor = ExtractorBuilder::default()
                         .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)
