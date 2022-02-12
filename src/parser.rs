@@ -470,6 +470,26 @@ pub fn initialize() -> App<'static> {
                 .takes_value(false)
                 .help_heading("Scan settings")
                 .help("Don't auto-filter wildcard responses")
+        ).arg(
+            Arg::new("collect_extensions")
+                .short('c')
+                .long("collect-extensions")
+                .takes_value(false)
+                .help_heading("Scan settings")
+                .help("Automatically discover extensions and add them to --extensions (unless they're in --dont-collect)")
+        ).arg(
+            Arg::new("dont_collect")
+                .short('I')
+                .long("dont-collect")
+                .value_name("FILE_EXTENSION")
+                .takes_value(true)
+                .multiple_values(true)
+                .multiple_occurrences(true)
+                .use_delimiter(true)
+                .help_heading("Scan settings")
+                .help(
+                    "File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)",
+                ),
         );
 
     /////////////////////////////////////////////////////////////////////

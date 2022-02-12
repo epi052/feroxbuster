@@ -100,8 +100,9 @@ pub async fn logged_request(
     method: &str,
     data: Option<&[u8]>,
     handles: Arc<Handles>,
+    client: Option<&Client>,
 ) -> Result<Response> {
-    let client = &handles.config.client;
+    let client = client.unwrap_or(&handles.config.client);
     let level = handles.config.output_level;
     let tx_stats = handles.stats.tx.clone();
 
@@ -488,6 +489,20 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
 
     log::trace!("exit: slugify -> {}", filename);
     filename
+}
+
+/// check for runtime options that necessitate reading the response body
+pub fn should_read_body(config: &Configuration) -> bool {
+    log::trace!("enter: should_read_body(running config...)");
+
+    let result = config.extract_links
+        || !config.filter_line_count.is_empty()
+        || !config.filter_word_count.is_empty()
+        || !config.filter_regex.is_empty()
+        || !config.filter_similar.is_empty();
+
+    log::trace!("exit: should_read_body -> {}", result);
+    result
 }
 
 #[cfg(test)]

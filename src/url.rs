@@ -1,6 +1,7 @@
 use crate::{event_handlers::Handles, statistics::StatError::UrlFormat, Command::AddError};
 use anyhow::{anyhow, bail, Result};
 use reqwest::Url;
+use std::collections::HashSet;
 use std::{convert::TryInto, fmt, sync::Arc};
 
 /// abstraction around target urls; collects all Url related shenanigans in one place
@@ -37,7 +38,11 @@ impl FeroxUrl {
     ///
     /// If any extensions were passed to the program, each extension will add a
     /// (base_url + word + ext) Url to the vector
-    pub fn formatted_urls(&self, word: &str) -> Result<Vec<Url>> {
+    pub fn formatted_urls(
+        &self,
+        word: &str,
+        collected_extensions: HashSet<String>,
+    ) -> Result<Vec<Url>> {
         log::trace!("enter: formatted_urls({})", word);
 
         let mut urls = vec![];
@@ -54,7 +59,13 @@ impl FeroxUrl {
             Err(_) => self.handles.stats.send(AddError(UrlFormat))?,
         }
 
-        for ext in self.handles.config.extensions.iter() {
+        for ext in self
+            .handles
+            .config
+            .extensions
+            .iter()
+            .chain(collected_extensions.iter())
+        {
             match self.format(word, Some(ext)) {
                 // any extensions passed in
                 Ok(url) => urls.push(url),

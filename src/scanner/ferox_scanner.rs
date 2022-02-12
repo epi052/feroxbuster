@@ -75,29 +75,34 @@ impl FeroxScanner {
         log::info!("Starting scan against: {}", self.target_url);
 
         let mut scan_timer = Instant::now();
-        let mut dirlist_flag = false;
+        let mut dirlist_type = None;
 
         if self.handles.config.extract_links {
             // parse html for links (i.e. web scraping)
-            let extractor = ExtractorBuilder::default()
+            let mut extractor = ExtractorBuilder::default()
                 .target(ExtractionTarget::ParseHtml)
                 .url(&self.target_url)
                 .handles(self.handles.clone())
                 .build()?;
-            let extract_out = extractor.extract().await?;
-            let links = extract_out.0;
-            dirlist_flag = extract_out.1;
-            extractor.request_links(links).await?;
+
+            let result = extractor.extract().await?;
+
+            if result.dir_list_type.is_some() {
+                dirlist_type = result.dir_list_type;
+            }
+
+            extractor.request_links(result.found_links).await?;
 
             if matches!(self.order, ScanOrder::Initial) {
                 // check for robots.txt (cannot be in subdirs)
-                let extractor = ExtractorBuilder::default()
+                let mut extractor = ExtractorBuilder::default()
                     .target(ExtractionTarget::RobotsTxt)
                     .url(&self.target_url)
                     .handles(self.handles.clone())
                     .build()?;
-                let links = (extractor.extract().await?).0;
-                extractor.request_links(links).await?;
+
+                let result = extractor.extract().await?;
+                extractor.request_links(result.found_links).await?;
             }
         }
 
@@ -119,7 +124,7 @@ impl FeroxScanner {
         let progress_bar = ferox_scan.progress_bar();
 
         // Directory listing heuristic detection to not continue scanning
-        if dirlist_flag {
+        if dirlist_type.is_some() {
             log::trace!("exit: scan_url -> Directory listing heuristic");
 
             self.handles.stats.send(AddToF64Field(
@@ -164,8 +169,6 @@ impl FeroxScanner {
         }
 
         let requester = Arc::new(Requester::from(self, ferox_scan.clone())?);
-        let increment_len =
-            ((self.handles.config.extensions.len() + 1) * self.handles.config.methods.len()) as u64;
 
         // producer tasks (mp of mpsc); responsible for making requests
         let producers = stream::iter(looping_words.deref().to_owned())
@@ -217,6 +220,7 @@ impl FeroxScanner {
             .for_each_concurrent(self.handles.config.threads, |(resp, bar)| async move {
                 match resp.await {
                     Ok(_) => {
+                        let increment_len = self.handles.expected_num_requests_multiplier() as u64;
                         bar.inc(increment_len);
                     }
                     Err(e) => {

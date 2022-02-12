@@ -72,10 +72,11 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
         let url = skip_fail!(Url::parse(similarity_filter));
 
         // attempt to request the given url
-        let resp = skip_fail!(logged_request(&url, DEFAULT_METHOD, None, handles.clone()).await);
+        let resp =
+            skip_fail!(logged_request(&url, DEFAULT_METHOD, None, handles.clone(), None).await);
 
         // if successful, create a filter based on the response's body
-        let fr = FeroxResponse::from(
+        let mut fr = FeroxResponse::from(
             resp,
             similarity_filter,
             DEFAULT_METHOD,
@@ -83,6 +84,10 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
             handles.config.output_level,
         )
         .await;
+
+        if handles.config.collect_extensions {
+            fr.parse_extension(handles.clone())?;
+        }
 
         // hash the response body and store the resulting hash in the filter object
         let hash = FuzzyHash::new(&fr.text()).to_string();

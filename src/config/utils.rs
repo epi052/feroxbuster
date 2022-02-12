@@ -1,6 +1,6 @@
 use crate::{
     utils::{module_colorizer, status_colorizer},
-    DEFAULT_METHOD, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
+    DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
 };
 #[cfg(not(test))]
 use std::process::exit;
@@ -55,6 +55,14 @@ pub(super) fn status_codes() -> Vec<u16> {
 /// default HTTP Method
 pub(super) fn methods() -> Vec<String> {
     vec![DEFAULT_METHOD.to_owned()]
+}
+
+/// default extensions to ignore while auto-collecting
+pub(super) fn ignored_extensions() -> Vec<String> {
+    DEFAULT_IGNORED_EXTENSIONS
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
 }
 
 /// default wordlist

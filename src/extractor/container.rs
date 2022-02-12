@@ -1,5 +1,5 @@
 use super::*;
-use crate::utils::should_deny_url;
+use crate::utils::{should_deny_url, should_read_body};
 use crate::{
     client,
     event_handlers::{
@@ -17,8 +17,9 @@ use crate::{
     DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
-use reqwest::{StatusCode, Url};
+use reqwest::{Client, StatusCode, Url};
 use scraper::{Html, Selector};
+use std::borrow::BorrowMut;
 use std::collections::HashSet;
 use tokio::sync::oneshot;
 
@@ -30,6 +31,33 @@ enum RecursionStatus {
 
     /// Scan is not recursive
     NotRecursive,
+}
+
+/// enum representing the different servers that `parse_html` can detect when directory listing is
+/// enabled
+#[derive(Copy, Debug, Clone)]
+pub enum DirListingType {
+    /// apache server, detected by `Index of /`
+    Apache,
+
+    /// tomcat/python server, detected by `Directory Listing for /`
+    TomCat_Python,
+
+    /// ASP.NET server, detected by `Directory Listing -- /`
+    AspDotNet,
+    // /// IIS/Azure server, detected by `HOST_NAME - /` (not currently used)
+    // IIS_AZURE,
+}
+
+/// Wrapper around the results of performing any kind of extraction against a target web page
+#[derive(Debug, Default, Clone)]
+pub struct ExtractionResult {
+    /// links extracted from the visited page
+    pub found_links: HashSet<String>,
+
+    /// type of server where directory listing was detected
+    /// i.e. https://portswigger.net/kb/issues/00600100_directory-listing
+    pub dir_list_type: Option<DirListingType>,
 }
 
 /// Handles all logic related to extracting links from requested source code
@@ -52,24 +80,86 @@ pub struct Extractor<'a> {
 
     /// type of extraction to be performed
     pub(super) target: ExtractionTarget,
+
+    /// current number of collected extensions, used for updating the base scan's progress bar
+    pub(super) num_collected: usize,
 }
 
 /// Extractor implementation
 impl<'a> Extractor<'a> {
     /// perform extraction from the given target and return any links found
-    pub async fn extract(&self) -> Result<(HashSet<String>, bool)> {
-        log::trace!("enter: extract (this fn has associated trace exit msg)");
+    pub async fn extract(&self) -> Result<ExtractionResult> {
+        log::trace!(
+            "enter: extract({:?}) (this fn has no associated trace exit msg)",
+            self.target
+        );
         match self.target {
-            ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
+            ExtractionTarget::ResponseBody | ExtractionTarget::ParseHtml => {
+                Ok(self.extract_from_body().await?)
+            }
             ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
-            ExtractionTarget::ParseHtml => Ok(self.parse_html().await?),
         }
+    }
+
+    /// wrapper around logic that performs the following:
+    /// - parses `url_to_parse`
+    /// - bails if the parsed url doesn't belong to the original host/domain
+    /// - otherwise, calls `add_all_sub_paths` with the parsed result
+    fn parse_url_and_add_subpaths(
+        &self,
+        url_to_parse: &str,
+        original_url: &Url,
+        links: &mut HashSet<String>,
+    ) -> Result<()> {
+        log::trace!("enter: parse_url_and_add_subpaths({:?})", links);
+
+        match Url::parse(url_to_parse) {
+            Ok(absolute) => {
+                if absolute.domain() != original_url.domain()
+                    || absolute.host() != original_url.host()
+                {
+                    // domains/ips are not the same, don't scan things that aren't part of the original
+                    // target url
+                    bail!("parsed url does not belong to original domain/host");
+                }
+
+                if self.add_all_sub_paths(absolute.path(), links).is_err() {
+                    log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
+                }
+            }
+            Err(e) => {
+                // this is the expected error that happens when we try to parse a url fragment
+                //     ex: Url::parse("/login") -> Err("relative URL without a base")
+                // while this is technically an error, these are good results for us
+                if e.to_string().contains("relative URL without a base") {
+                    if self.add_all_sub_paths(url_to_parse, links).is_err() {
+                        log::warn!(
+                            "could not add sub-paths from {} to {:?}",
+                            url_to_parse,
+                            links
+                        );
+                    }
+                } else {
+                    // unexpected error has occurred
+                    log::warn!("Could not parse given url: {}", e);
+                    self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                }
+            }
+        }
+
+        log::trace!("exit: parse_url_and_add_subpaths");
+        Ok(())
     }
 
     /// given a set of links from a normal http body response, task the request handler to make
     /// the requests
-    pub async fn request_links(&self, links: HashSet<String>) -> Result<()> {
+    pub async fn request_links(&mut self, links: HashSet<String>) -> Result<()> {
         log::trace!("enter: request_links({:?})", links);
+
+        if links.is_empty() {
+            return Ok(());
+        }
+
         let recursive = if self.handles.config.no_recursion {
             RecursionStatus::NotRecursive
         } else {
@@ -77,6 +167,10 @@ impl<'a> Extractor<'a> {
         };
 
         let scanned_urls = self.handles.ferox_scans()?;
+        log::warn!("links: {:?}", links);
+        self.update_stats(links.len())?;
+        // todo: get it to where parsehtml->request_links doesn't run in a single thread/block asyncness
+        // todo: move the parse_html into heuristics (maybe) and then move the check/dirlist stuff lower in scan_url (may not work, but look)
 
         for link in links {
             let mut resp = match self.request_link(&link).await {
@@ -99,6 +193,10 @@ impl<'a> Extractor<'a> {
                 log::debug!("Extracted File: {}", resp);
 
                 scanned_urls.add_file_scan(resp.url().as_str(), ScanOrder::Latest);
+
+                if self.handles.config.collect_extensions {
+                    resp.parse_extension(self.handles.clone())?;
+                }
 
                 if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
                     log::warn!("Could not send FeroxResponse to output handler: {}", e);
@@ -135,8 +233,26 @@ impl<'a> Extractor<'a> {
         Ok(())
     }
 
-    /// Given a `reqwest::Response`, perform the following actions
-    ///   - parse the response's text for links using the linkfinder regex
+    /// wrapper around link extraction via html attributes
+    fn extract_all_links_from_html_tags(
+        &self,
+        resp_url: &Url,
+        links: &mut HashSet<String>,
+        html: &Html,
+    ) {
+        self.extract_links_by_attr(resp_url, links, &html, "a", "href");
+        self.extract_links_by_attr(resp_url, links, &html, "img", "src");
+        self.extract_links_by_attr(resp_url, links, &html, "form", "action");
+        self.extract_links_by_attr(resp_url, links, &html, "script", "src");
+        self.extract_links_by_attr(resp_url, links, &html, "iframe", "src");
+        self.extract_links_by_attr(resp_url, links, &html, "div", "src");
+        self.extract_links_by_attr(resp_url, links, &html, "frame", "src");
+        self.extract_links_by_attr(resp_url, links, &html, "embed", "src");
+        self.extract_links_by_attr(resp_url, links, &html, "script", "src");
+    }
+
+    /// Given the body of a `reqwest::Response`, perform the following actions
+    ///   - parse the body for links using the linkfinder regex
     ///   - for every link found take its url path and parse each sub-path
     ///     - example: Response contains a link fragment `homepage/assets/img/icons/handshake.svg`
     ///       with a base url of http://localhost, the following urls would be returned:
@@ -145,69 +261,32 @@ impl<'a> Extractor<'a> {
     ///         - homepage/assets/img/
     ///         - homepage/assets/
     ///         - homepage/
-    pub(super) async fn extract_from_body(&self) -> Result<(HashSet<String>, bool)> {
-        log::trace!("enter: extract_from_body");
+    fn extract_all_links_from_javascript(
+        &self,
+        response_body: &str,
+        response_url: &Url,
+        links: &mut HashSet<String>,
+    ) {
+        log::trace!(
+            "enter: extract_all_links_from_javascript(html body..., {}, {:?})",
+            response_url.as_str(),
+            links
+        );
 
-        let mut links = HashSet::<String>::new();
-        let dirlist_flag = false;
-
-        // Response
-        let response = self.response.unwrap();
-        let resp_url = response.url();
-        let body = response.text();
-        let html = Html::parse_document(body);
-
-        // Extract Links
-        self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "img", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "form", "action");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "div", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "frame", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "embed", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
-
-        for capture in self.links_regex.captures_iter(body) {
+        for capture in self.links_regex.captures_iter(response_body) {
             // remove single & double quotes from both ends of the capture
             // capture[0] is the entire match, additional capture groups start at [1]
             let link = capture[0].trim_matches(|c| c == '\'' || c == '"');
 
-            match Url::parse(link) {
-                Ok(absolute) => {
-                    if absolute.domain() != self.response.unwrap().url().domain()
-                        || absolute.host() != self.response.unwrap().url().host()
-                    {
-                        // domains/ips are not the same, don't scan things that aren't part of the original
-                        // target url
-                        continue;
-                    }
-
-                    if self.add_all_sub_paths(absolute.path(), &mut links).is_err() {
-                        log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
-                    }
-                }
-                Err(e) => {
-                    // this is the expected error that happens when we try to parse a url fragment
-                    //     ex: Url::parse("/login") -> Err("relative URL without a base")
-                    // while this is technically an error, these are good results for us
-                    if e.to_string().contains("relative URL without a base") {
-                        if self.add_all_sub_paths(link, &mut links).is_err() {
-                            log::warn!("could not add sub-paths from {} to {:?}", link, links);
-                        }
-                    } else {
-                        // unexpected error has occurred
-                        log::warn!("Could not parse given url: {}", e);
-                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
-                    }
-                }
+            if self
+                .parse_url_and_add_subpaths(link, response_url, links)
+                .is_err()
+            {
+                // purposely not logging the error here, due to the frequency with which it gets hit
             }
         }
 
-        self.update_stats(links.len())?;
-
-        log::trace!("exit: extract_from_body -> {:?} {}", links, dirlist_flag);
-        Ok((links, dirlist_flag))
+        log::trace!("exit: extract_all_links_from_javascript");
     }
 
     /// take a url fragment like homepage/assets/img/icons/handshake.svg and
@@ -340,13 +419,13 @@ impl<'a> Extractor<'a> {
 
         // make the request and store the response
         let new_response =
-            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone()).await?;
+            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone(), None).await?;
 
         let new_ferox_response = FeroxResponse::from(
             new_response,
             url,
             DEFAULT_METHOD,
-            true,
+            should_read_body(&self.handles.config),
             self.handles.config.output_level,
         )
         .await;
@@ -364,11 +443,10 @@ impl<'a> Extractor<'a> {
     ///     http://localhost/stuff/things
     /// this function requests:
     ///     http://localhost/robots.txt
-    pub(super) async fn extract_from_robots(&self) -> Result<(HashSet<String>, bool)> {
+    pub(super) async fn extract_from_robots(&self) -> Result<ExtractionResult> {
         log::trace!("enter: extract_robots_txt");
 
         let mut links: HashSet<String> = HashSet::new();
-        let dirlist_flag = false;
 
         // request
         let response = self.make_extract_request("/robots.txt").await?;
@@ -384,66 +462,108 @@ impl<'a> Extractor<'a> {
             }
         }
 
-        self.update_stats(links.len())?;
+        let result = ExtractionResult {
+            found_links: links,
+            dir_list_type: None,
+        };
 
-        log::trace!("exit: extract_robots_txt -> {:?} {}", links, dirlist_flag);
-        Ok((links, dirlist_flag))
+        log::trace!("exit: extract_robots_txt -> {:?}", result);
+        Ok(result)
     }
 
-    /// Entry point to parse html for links (i.e. webscraping, directory listings)
-    /// this function requests:
-    ///     http://localhost/<location>
-    pub(super) async fn parse_html(&self) -> Result<(HashSet<String>, bool)> {
-        log::trace!("enter: parse_html");
+    /// outer-most wrapper for parsing html response bodies in search of additional content.
+    /// performs the following high-level steps:
+    /// - requests the page, if necessary
+    /// - checks the page to see if directory listing is enabled and sucks up all the links, if so
+    /// - uses the linkfinder regex to grab links from embedded javascript/javascript files
+    /// - extracts many different types of link sources from the html itself
+    pub(super) async fn extract_from_body(&self) -> Result<ExtractionResult> {
+        log::trace!("enter: extract_from_body");
 
-        let mut links: HashSet<String> = HashSet::new();
-        let mut dirlist_flag = false;
+        let mut result = ExtractionResult::default();
 
-        // Response
-        let url = Url::parse(&self.url)?;
-        let response = self.make_extract_request(url.path()).await?;
+        // need late binding here to avoid 'creates a temporary which is freed...' in the
+        // `let ... if` below because of self's FeroxResponse lifetime
+        let mut requested = FeroxResponse::default();
+
+        if self.response.is_none() {
+            // called as a ParseHtml target
+            let url = Url::parse(&self.url)?;
+            requested = self.make_extract_request(url.path()).await?;
+        }
+
+        let response = if self.response.is_some() {
+            // called as a ResponseBody extraction
+            self.response.unwrap()
+        } else {
+            &requested
+        };
+
         let resp_url = response.url();
         let body = response.text();
         let html = Html::parse_document(body);
 
-        // Directory listing heuristic detection to not continue scanning
-        // Index of /: apache
-        // Directory Listing for /: tomcat,
-        // Directory Listing -- /: ASP.NET
-        // <host> - /: iis, azure, skipping due to loose heuristic
-        let title_selector = Selector::parse("title").unwrap();
-        for t in html.select(&title_selector) {
-            let title = t.inner_html().to_lowercase();
-            if title.contains("directory listing for /")
-                || title.contains("index of /")
-                || title.contains("directory listing -- /")
-            {
-                log::debug!("Directory listing heuristic detection from \"{}\"", title);
-                dirlist_flag = true;
+        if matches!(self.target, ExtractionTarget::ParseHtml) {
+            // only check for directory listing when ParseHtml is the target, based on where
+            // in the codebase Extractor::extract() is called
+            let dirlist_type = self.detect_directory_listing(&html);
 
-                self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
-                self.update_stats(links.len())?;
+            if dirlist_type.is_some() {
+                log::debug!(
+                    "Directory listing heuristic detected: {:?}",
+                    dirlist_type.unwrap()
+                );
 
-                log::trace!("exit: parse_html -> {:?} {}", links, dirlist_flag);
-                return Ok((links, dirlist_flag));
+                self.extract_links_by_attr(resp_url, &mut result.found_links, &html, "a", "href");
+
+                result.dir_list_type = dirlist_type;
+
+                log::trace!("exit: extract_from_body -> {:?}", result);
+                return Ok(result);
             }
         }
 
-        // Extract Links
-        self.extract_links_by_attr(resp_url, &mut links, &html, "a", "href");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "img", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "form", "action");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "iframe", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "div", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "frame", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "embed", "src");
-        self.extract_links_by_attr(resp_url, &mut links, &html, "script", "src");
+        // extract links from html tags/attributes and embedded javascript
+        self.extract_all_links_from_html_tags(resp_url, &mut result.found_links, &html);
+        self.extract_all_links_from_javascript(body, resp_url, &mut result.found_links);
 
-        self.update_stats(links.len())?;
+        log::trace!("exit: extract_from_body -> {:?}", result);
+        Ok(result)
+    }
 
-        log::trace!("exit: parse_html -> {:?} {}", links, dirlist_flag);
-        Ok((links, dirlist_flag))
+    /// Directory listing heuristic detection, uses <title> tag to make its determination. When
+    /// the inner html of <title> matches one of the following, a `DirListingType` is returned.
+    /// - apache: `Index of /`
+    /// - tomcat/python: `Directory Listing for /`
+    /// - ASP.NET: `Directory Listing -- /`
+    /// - <host> - /: iis, azure, skipping due to loose heuristic
+    pub(super) fn detect_directory_listing(&self, html: &Html) -> Option<DirListingType> {
+        log::trace!("enter: detect_directory_listing(html body...)");
+
+        let title_selector = Selector::parse("title").expect("couldn't parse title selector");
+
+        for t in html.select(&title_selector) {
+            let title = t.inner_html().to_lowercase();
+
+            let dirlist_type = if title.contains("directory listing for /") {
+                Some(DirListingType::TomCat_Python)
+            } else if title.contains("index of /") {
+                Some(DirListingType::Apache)
+            } else if title.contains("directory listing -- /") {
+                Some(DirListingType::AspDotNet)
+            } else {
+                // IIS_AZURE purposely skipped for now
+                None
+            };
+
+            if dirlist_type.is_some() {
+                log::trace!("exit: detect_directory_listing -> {:?}", dirlist_type);
+                return dirlist_type;
+            }
+        }
+
+        log::trace!("exit: detect_directory_listing -> None");
+        None
     }
 
     /// simple helper to get html links by tag/attribute and add it to the `links` HashSet
@@ -458,41 +578,20 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: extract_links_by_attr");
 
         let selector = Selector::parse(html_tag).unwrap();
+
         let tags = html
             .select(&selector)
             .filter(|a| a.value().attrs().any(|attr| attr.0 == html_attr));
-        for t in tags {
-            if let Some(link) = t.value().attr(html_attr) {
+
+        for tag in tags {
+            if let Some(link) = tag.value().attr(html_attr) {
                 log::debug!("Parsed link \"{}\" from {}", link, resp_url.as_str());
 
-                match Url::parse(link) {
-                    Ok(absolute) => {
-                        if absolute.domain() != resp_url.domain()
-                            || absolute.host() != resp_url.host()
-                        {
-                            // domains/ips are not the same, don't scan things that aren't part of the original
-                            // target url
-                            continue;
-                        }
-
-                        if self.add_all_sub_paths(absolute.path(), links).is_err() {
-                            log::warn!("could not add sub-paths from {} to {:?}", absolute, links);
-                        }
-                    }
-                    Err(e) => {
-                        // this is the expected error that happens when we try to parse a url fragment
-                        //     ex: Url::parse("/login") -> Err("relative URL without a base")
-                        // while this is technically an error, these are good results for us
-                        if e.to_string().contains("relative URL without a base") {
-                            if self.add_all_sub_paths(link, links).is_err() {
-                                log::warn!("could not add sub-paths from {} to {:?}", link, links);
-                            }
-                        } else {
-                            // unexpected error has occurred
-                            log::warn!("Could not parse given url: {}", e);
-                            self.handles.stats.send(AddError(Other)).unwrap_or_default();
-                        }
-                    }
+                if self
+                    .parse_url_and_add_subpaths(link, resp_url, links)
+                    .is_err()
+                {
+                    log::debug!("link didn't belong to the target domain/host: {}", link);
                 }
             }
         }
@@ -507,33 +606,45 @@ impl<'a> Extractor<'a> {
     pub(super) async fn make_extract_request(&self, location: &str) -> Result<FeroxResponse> {
         log::trace!("enter: make_extract_request");
 
-        // more often than not, domain/robots.txt will redirect to www.domain/robots.txt or something
-        // similar; to account for that, create a client that will follow redirects, regardless of
-        // what the user specified for the scanning client. Other than redirects, it will respect
-        // all other user specified settings
-        let follow_redirects = true;
+        // need late binding here to avoid 'creates a temporary which is freed...' in the
+        // `let ... if` below to avoid cloning the client out of config
+        let mut client = Client::new();
 
-        let proxy = if self.handles.config.proxy.is_empty() {
-            None
+        if location == "/robots.txt" {
+            // more often than not, domain/robots.txt will redirect to www.domain/robots.txt or something
+            // similar; to account for that, create a client that will follow redirects, regardless of
+            // what the user specified for the scanning client. Other than redirects, it will respect
+            // all other user specified settings
+            let follow_redirects = true;
+
+            let proxy = if self.handles.config.proxy.is_empty() {
+                None
+            } else {
+                Some(self.handles.config.proxy.as_str())
+            };
+
+            client = client::initialize(
+                self.handles.config.timeout,
+                &self.handles.config.user_agent,
+                follow_redirects,
+                self.handles.config.insecure,
+                &self.handles.config.headers,
+                proxy,
+            )?;
+        }
+
+        let client = if location != "/robots.txt" {
+            &self.handles.config.client
         } else {
-            Some(self.handles.config.proxy.as_str())
+            &client
         };
-
-        let client = client::initialize(
-            self.handles.config.timeout,
-            &self.handles.config.user_agent,
-            follow_redirects,
-            self.handles.config.insecure,
-            &self.handles.config.headers,
-            proxy,
-        )?;
 
         let mut url = Url::parse(&self.url)?;
         url.set_path(location); // overwrite existing path
 
         // purposefully not using logged_request here due to using the special client
         let response = make_request(
-            &client,
+            client,
             &url,
             DEFAULT_METHOD,
             None,
@@ -547,10 +658,11 @@ impl<'a> Extractor<'a> {
             response,
             &self.url,
             DEFAULT_METHOD,
-            true,
+            should_read_body(&self.handles.config),
             self.handles.config.output_level,
         )
         .await;
+        // note: don't call parse_extension here. If we call it here, it gets called on robots.txt
 
         log::trace!("exit: make_extract_request -> {}", ferox_response);
         Ok(ferox_response)
@@ -558,7 +670,7 @@ impl<'a> Extractor<'a> {
 
     /// update total number of links extracted and expected responses
     fn update_stats(&self, num_links: usize) -> Result<()> {
-        let multiplier = self.handles.config.extensions.len().max(1);
+        let multiplier = self.handles.expected_num_requests_multiplier();
 
         self.handles
             .stats

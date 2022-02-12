@@ -7,12 +7,13 @@ use crate::{
     scan_manager::{MenuCmd, MenuCmdResult},
     scanner::RESPONSES,
     traits::FeroxSerialize,
-    SLEEP_DURATION,
+    DEFAULT_IGNORED_EXTENSIONS, SLEEP_DURATION,
 };
 use anyhow::Result;
 use reqwest::StatusCode;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
+    collections::HashSet,
     convert::TryInto,
     fs::File,
     io::BufReader,
@@ -47,6 +48,9 @@ pub struct FeroxScans {
 
     /// whether or not the user passed --silent|--quiet on the command line
     output_level: OutputLevel,
+
+    /// vector of extensions discovered and collected during scans
+    pub(crate) collected_extensions: RwLock<HashSet<String>>,
 }
 
 /// Serialize implementation for FeroxScans
@@ -58,17 +62,20 @@ impl Serialize for FeroxScans {
     where
         S: Serializer,
     {
-        if let Ok(scans) = self.scans.read() {
-            let mut seq = serializer.serialize_seq(Some(scans.len()))?;
-            for scan in scans.iter() {
-                seq.serialize_element(&*scan).unwrap_or_default();
-            }
+        match self.scans.read() {
+            Ok(scans) => {
+                let mut seq = serializer.serialize_seq(Some(scans.len() + 1))?;
 
-            seq.end()
-        } else {
-            // if for some reason we can't unlock the RwLock, just write an empty list
-            let seq = serializer.serialize_seq(Some(0))?;
-            seq.end()
+                for scan in scans.iter() {
+                    seq.serialize_element(&*scan).unwrap_or_default();
+                }
+                seq.end()
+            }
+            Err(_) => {
+                // if for some reason we can't unlock the RwLock, just write an empty list
+                let seq = serializer.serialize_seq(Some(0))?;
+                seq.end()
+            }
         }
     }
 }
@@ -109,7 +116,7 @@ impl FeroxScans {
         sentry
     }
 
-    /// load serialized FeroxScan(s) into this FeroxScans  
+    /// load serialized FeroxScan(s) and any previously collected extensions into this FeroxScans  
     pub fn add_serialized_scans(&self, filename: &str) -> Result<()> {
         log::trace!("enter: add_serialized_scans({})", filename);
         let file = File::open(filename)?;
@@ -122,14 +129,27 @@ impl FeroxScans {
                 for scan in arr_scans {
                     let mut deser_scan: FeroxScan =
                         serde_json::from_value(scan.clone()).unwrap_or_default();
+
                     // FeroxScans gets -q value from config as usual; the FeroxScans themselves
                     // rely on that value being passed in. If the user starts a scan without -q
                     // and resumes the scan but adds -q, FeroxScan will not have the proper value
                     // without the line below
                     deser_scan.output_level = self.output_level;
 
-                    log::debug!("added: {}", deser_scan);
                     self.insert(Arc::new(deser_scan));
+                }
+            }
+        }
+
+        if let Some(extensions) = state.get("collected_extensions") {
+            if let Some(arr_exts) = extensions.as_array() {
+                if let Ok(mut guard) = self.collected_extensions.write() {
+                    for ext in arr_exts {
+                        let deser_ext: String =
+                            serde_json::from_value(ext.clone()).unwrap_or_default();
+
+                        guard.insert(deser_ext);
+                    }
                 }
             }
         }
@@ -163,8 +183,8 @@ impl FeroxScans {
         None
     }
 
-    pub(super) fn get_base_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
-        log::trace!("enter: get_sub_paths_from_path({})", url);
+    pub fn get_base_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
+        log::trace!("enter: get_base_scan_by_url({})", url);
 
         // rmatch_indices returns tuples in index, match form, i.e. (10, "/")
         // with the furthest-right match in the first position in the vector
@@ -188,14 +208,14 @@ impl FeroxScans {
                 for scan in guard.iter() {
                     let slice = url.index(0..*idx);
                     if slice == scan.url || format!("{}/", slice).as_str() == scan.url {
-                        log::trace!("enter: get_sub_paths_from_path -> {}", scan);
+                        log::trace!("enter: get_base_scan_by_url -> {}", scan);
                         return Some(scan.clone());
                     }
                 }
             }
         }
 
-        log::trace!("enter: get_sub_paths_from_path -> None");
+        log::trace!("enter: get_base_scan_by_url -> None");
         None
     }
     /// add one to either 403 or 429 tracker in the scan related to the given url
@@ -510,5 +530,32 @@ impl FeroxScans {
             }
         }
         scans
+    }
+
+    /// given an extension, add it to `collected_extensions` if all constraints are met
+    /// returns `true` if an extension was added, `false` otherwise
+    pub fn add_discovered_extension(&self, extension: String) -> bool {
+        log::trace!("enter: add_discovered_extension({})", extension);
+        let mut extension_added = false;
+
+        // note: the filter by --dont-collect happens in the event handler, since it has access
+        // to a Handles object form which it can check the config value. additionally, the check
+        // against --extensions is performed there for the same reason
+
+        if let Ok(extensions) = self.collected_extensions.read() {
+            // quicker to allow most to read and return and then reopen for write if necessary
+            if extensions.contains(&extension) {
+                return extension_added;
+            }
+        }
+
+        if let Ok(mut extensions) = self.collected_extensions.write() {
+            log::info!("discovered new extension: {}", extension);
+            extensions.insert(extension);
+            extension_added = true;
+        }
+
+        log::trace!("exit: add_discovered_extension -> {}", extension_added);
+        extension_added
     }
 }

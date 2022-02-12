@@ -79,9 +79,9 @@ impl<'a> ExtractorBuilder<'a> {
         self
     }
 
-    /// finalize configuration of ExtratorBuilder and return an Extractor
+    /// finalize configuration of `ExtractorBuilder` and return an `Extractor`
     ///
-    /// requires either with_url or with_response to have been used in the build process
+    /// requires either `with_url` or `with_response` to have been used in the build process
     pub fn build(&self) -> Result<Extractor<'a>> {
         if (self.url.is_empty() && self.response.is_none()) || self.handles.is_none() {
             bail!("Extractor requires a URL or a FeroxResponse be specified as well as a Handles object")
@@ -98,6 +98,7 @@ impl<'a> ExtractorBuilder<'a> {
             url: self.url.to_owned(),
             handles: self.handles.as_ref().unwrap().clone(),
             target: self.target,
+            num_collected: 0,
         })
     }
 }

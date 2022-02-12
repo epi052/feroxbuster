@@ -60,6 +60,9 @@ pub struct FeroxResponse {
 
     /// whether the user passed --quiet|--silent on the command line
     pub(crate) output_level: OutputLevel,
+
+    /// Url's file extension, if one exists
+    pub(crate) extension: Option<String>,
 }
 
 /// implement Default trait for FeroxResponse
@@ -78,6 +81,7 @@ impl Default for FeroxResponse {
             headers: Default::default(),
             wildcard: false,
             output_level: Default::default(),
+            extension: None,
         }
     }
 }
@@ -244,7 +248,58 @@ impl FeroxResponse {
             word_count,
             output_level,
             wildcard: false,
+            extension: None,
         }
+    }
+
+    /// if --collect-extensions is used, examine the response's url and grab the file's extension
+    /// if one is available to be grabbed. If an extension is found, send it to the ScanHandler
+    /// for further processing
+    pub(crate) fn parse_extension(&mut self, handles: Arc<Handles>) -> Result<()> {
+        log::trace!("enter: parse_extension");
+
+        if !handles.config.collect_extensions {
+            // early return, --collect-extensions not used
+            return Ok(());
+        }
+
+        // path_segments:
+        //   Return None for cannot-be-a-base URLs.
+        //   When Some is returned, the iterator always contains at least one string
+        //     (which may be empty).
+        //
+        // meaning: the two unwraps here are fine, the worst outcome is an empty string
+        let filename = self.url.path_segments().unwrap().last().unwrap();
+
+        if !filename.is_empty() {
+            // non-empty string, try to get extension
+            let parts: Vec<_> = filename
+                .split('.')
+                // keep things like /.bash_history from becoming an extension
+                .filter(|part| !part.is_empty())
+                .collect();
+
+            if parts.len() > 1 {
+                // filename + at least one extension, i.e. whatever.js becomes ["whatever", "js"]
+                self.extension = Some(parts.last().unwrap().to_string())
+            }
+        }
+
+        if let Some(extension) = &self.extension {
+            if handles
+                .config
+                .status_codes
+                .contains(&self.status().as_u16())
+            {
+                // only add extensions to those responses that pass our checks; filtered out
+                // status codes are handled by should_filter, but we need to still check against
+                // the allow list for what we want to keep
+                handles.send_scan_command(Command::AddDiscoveredExtension(extension.to_owned()))?;
+            }
+        }
+
+        log::trace!("exit: parse_extension");
+        Ok(())
     }
 
     /// Helper function that determines if the configured maximum recursion depth has been reached
@@ -484,6 +539,10 @@ impl Serialize for FeroxResponse {
         state.serialize_field("line_count", &self.line_count)?;
         state.serialize_field("word_count", &self.word_count)?;
         state.serialize_field("headers", &headers)?;
+        state.serialize_field(
+            "extension",
+            self.extension.as_ref().unwrap_or(&String::new()),
+        )?;
 
         state.end()
     }
@@ -508,6 +567,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             output_level: Default::default(),
             line_count: 0,
             word_count: 0,
+            extension: None,
         };
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
@@ -576,6 +636,11 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                         response.wildcard = result;
                     }
                 }
+                "extension" => {
+                    if let Some(result) = value.as_str() {
+                        response.extension = Some(result.to_string());
+                    }
+                }
                 _ => {}
             }
         }
@@ -587,6 +652,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::default::Default;
 
     #[test]
     /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
@@ -595,16 +661,7 @@ mod tests {
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
         let result = response.reached_max_depth(0, 0, handles);
         assert!(!result);
@@ -618,16 +675,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -641,16 +689,7 @@ mod tests {
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -664,16 +703,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(2, 2, handles);
@@ -687,16 +717,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two/three").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(0, 2, handles);

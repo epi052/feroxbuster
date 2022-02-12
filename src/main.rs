@@ -16,6 +16,7 @@ use tokio::{
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
 
+use feroxbuster::scan_manager::ScanType;
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
@@ -70,21 +71,12 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     log::trace!("enter: scan({:?}, {:?})", targets, handles);
-    // cloning an Arc is cheap (it's basically a pointer into the heap)
-    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
-    // as well as additional directories found as part of recursion
-
-    let words = get_unique_words_from_wordlist(&handles.config.wordlist)?;
-
-    if words.len() == 0 {
-        bail!("Did not find any words in {}", handles.config.wordlist);
-    }
 
     let scanned_urls = handles.ferox_scans()?;
 
-    handles.send_scan_command(UpdateWordlist(words.clone()))?;
+    handles.send_scan_command(UpdateWordlist(handles.wordlist.clone()))?;
 
-    scanner::initialize(words.len(), handles.clone()).await?;
+    scanner::initialize(handles.wordlist.len(), handles.clone()).await?;
 
     // at this point, the stat thread's progress bar can be created; things that needed to happen
     // first:
@@ -103,7 +95,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     if handles.config.resumed {
         // display what has already been completed
         scanned_urls.print_known_responses();
-        scanned_urls.print_completed_bars(words.len())?;
+        scanned_urls.print_completed_bars(handles.wordlist.len())?;
     }
 
     log::debug!("sending {:?} to be scanned as initial targets", targets);
@@ -138,8 +130,8 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
             for scan in scans.iter() {
                 // ferox_scans gets deserialized scans added to it at program start if --resume-from
                 // is used, so scans that aren't marked complete still need to be scanned
-                if scan.is_complete() {
-                    // this one's already done, ignore it
+                if scan.is_complete() || matches!(scan.scan_type, ScanType::File) {
+                    // this one's already done, or it's not a directory, ignore it
                     continue;
                 }
 
@@ -199,12 +191,23 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     let (out_task, out_handle) =
         TermOutHandler::initialize(config.clone(), stats_handle.tx.clone());
 
+    // cloning an Arc is cheap (it's basically a pointer into the heap)
+    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
+    // as well as additional directories found as part of recursion
+
+    let words = get_unique_words_from_wordlist(&config.wordlist)?;
+
+    if words.len() == 0 {
+        bail!("Did not find any words in {}", config.wordlist);
+    }
+
     // bundle up all the disparate handles and JoinHandles (tasks)
     let handles = Arc::new(Handles::new(
         stats_handle,
         filters_handle,
         out_handle,
         config.clone(),
+        words,
     ));
 
     let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());

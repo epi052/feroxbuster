@@ -12,7 +12,7 @@ use crate::{
     response::FeroxResponse,
     skip_fail,
     url::FeroxUrl,
-    utils::{ferox_print, fmt_err, logged_request, status_colorizer},
+    utils::{ferox_print, fmt_err, logged_request, should_read_body, status_colorizer},
     DEFAULT_METHOD,
 };
 
@@ -188,6 +188,7 @@ impl HeuristicTests {
             method,
             data,
             self.handles.clone(),
+            None,
         )
         .await?;
 
@@ -198,11 +199,12 @@ impl HeuristicTests {
             .contains(&response.status().as_u16())
         {
             // found a wildcard response
+
             let mut ferox_response = FeroxResponse::from(
                 response,
                 &target.target,
                 method,
-                true,
+                should_read_body(&self.handles.config),
                 self.handles.config.output_level,
             )
             .await;
@@ -247,7 +249,8 @@ impl HeuristicTests {
             let url = FeroxUrl::from_string(target_url, self.handles.clone());
             let request = skip_fail!(url.format("", None));
 
-            let result = logged_request(&request, DEFAULT_METHOD, None, self.handles.clone()).await;
+            let result =
+                logged_request(&request, DEFAULT_METHOD, None, self.handles.clone(), None).await;
 
             match result {
                 Ok(_) => {

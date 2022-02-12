@@ -14,12 +14,13 @@ use crate::{
     atomic_load, atomic_store,
     config::RequesterPolicy,
     event_handlers::{
-        Command::{self, AddError, SubtractFromUsizeField},
+        Command::{self, AddDiscoveredExtension, AddError, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
     response::FeroxResponse,
     scan_manager::{FeroxScan, ScanStatus},
+    scanner::RESPONSES,
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
     utils::logged_request,
@@ -27,7 +28,7 @@ use crate::{
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
-use crate::utils::should_deny_url;
+use crate::utils::{should_deny_url, should_read_body};
 use std::collections::HashSet;
 
 /// Makes multiple requests based on the presence of extensions
@@ -303,8 +304,10 @@ impl Requester {
     pub async fn request(&self, word: &str) -> Result<()> {
         log::trace!("enter: request({})", word);
 
-        let urls =
-            FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
+        let collected = self.handles.collected_extensions();
+
+        let urls = FeroxUrl::from_string(&self.target_url, self.handles.clone())
+            .formatted_urls(word, collected)?;
 
         let should_test_deny = !self.handles.config.url_denylist.is_empty()
             || !self.handles.config.regex_denylist.is_empty();
@@ -336,6 +339,7 @@ impl Requester {
                     method.as_str(),
                     Some(self.handles.config.data.as_slice()),
                     self.handles.clone(),
+                    None,
                 )
                 .await?;
 
@@ -361,11 +365,11 @@ impl Requester {
                 }
 
                 // response came back without error, convert it to FeroxResponse
-                let ferox_response = FeroxResponse::from(
+                let mut ferox_response = FeroxResponse::from(
                     response,
                     &self.target_url,
                     method,
-                    true,
+                    true, // lines/words never gets populated without true
                     self.handles.config.output_level,
                 )
                 .await;
@@ -392,20 +396,30 @@ impl Requester {
                     continue;
                 }
 
+                if self.handles.config.collect_extensions {
+                    ferox_response.parse_extension(self.handles.clone())?;
+                }
+
                 if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
-                    let extractor = ExtractorBuilder::default()
+                    let mut extractor = ExtractorBuilder::default()
                         .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)
                         .handles(self.handles.clone())
                         .build()?;
+
                     let new_links: HashSet<_>;
-                    let extracted = (extractor.extract().await?).0;
+
+                    let result = extractor.extract().await?;
 
                     {
                         // gain and quickly drop the read lock on seen_links, using it while unlocked
                         // to determine if there are any new links to process
                         let read_links = self.seen_links.read().await;
-                        new_links = extracted.difference(&read_links).cloned().collect();
+                        new_links = result
+                            .found_links
+                            .difference(&read_links)
+                            .cloned()
+                            .collect();
                     }
 
                     if !new_links.is_empty() {
@@ -417,7 +431,9 @@ impl Requester {
                         }
                     }
 
-                    extractor.request_links(new_links).await?;
+                    if !new_links.is_empty() {
+                        extractor.request_links(new_links).await?;
+                    }
                 }
 
                 // everything else should be reported

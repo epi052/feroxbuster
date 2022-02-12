@@ -352,6 +352,16 @@ fn feroxstates_feroxserialize_implementation() {
     let ferox_scans = FeroxScans::default();
     let saved_id = ferox_scan.id.clone();
     ferox_scans.insert(ferox_scan);
+    ferox_scans
+        .collected_extensions
+        .write()
+        .unwrap()
+        .insert(String::from("cgi"));
+    ferox_scans
+        .collected_extensions
+        .write()
+        .unwrap()
+        .insert(String::from("php"));
 
     let config = Configuration::new().unwrap();
     let stats = Arc::new(Stats::new(config.json));
@@ -372,12 +382,17 @@ fn feroxstates_feroxserialize_implementation() {
             .and(predicate::str::contains("responses: FeroxResponses"))
             .and(predicate::str::contains("nerdcore.com"))
             .and(predicate::str::contains("/css"))
-            .and(predicate::str::contains("https://spiritanimal.com")),
+            .and(predicate::str::contains("https://spiritanimal.com"))
+            .and(predicate::str::contains("cgi"))
+            .and(predicate::str::contains("php")),
     );
 
     assert!(expected_strs.eval(&ferox_state.as_str()));
 
     let json_state = ferox_state.as_json().unwrap();
+
+    println!("{}", json_state); // for debugging, if the test fails, can see what's going on
+
     for expected in [
         r#""scans""#,
         &format!(r#""id":"{}""#, saved_id),
@@ -445,6 +460,9 @@ fn feroxstates_feroxserialize_implementation() {
         r#""word_count":16"#,
         r#""headers""#,
         r#""server":"nginx/1.16.1"#,
+        r#""collect_extensions":false"#,
+        r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
+        r#""collected_extensions":["cgi","php"]"#,
     ]
     .iter()
     {

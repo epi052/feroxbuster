@@ -1091,3 +1091,60 @@ fn banner_prints_data() {
                 .and(predicate::str::contains("─┴─")),
         );
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + data body
+fn banner_prints_collect_extensions_and_dont_collect_default() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-c")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Collect Extensions"))
+                .and(predicate::str::contains("Ignored Extensions"))
+                .and(predicate::str::contains("Images, Movies, Audio, etc..."))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + data body
+fn banner_prints_collect_extensions_and_dont_collect_with_input() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("-c")
+        .arg("--dont-collect")
+        .arg("pdf")
+        .arg("xps")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Collect Extensions"))
+                .and(predicate::str::contains("Ignored Extensions"))
+                .and(predicate::str::contains("[pdf, xps]"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
