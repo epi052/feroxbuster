@@ -1,5 +1,6 @@
 use std::{
     cmp::max,
+    collections::HashSet,
     sync::{atomic::Ordering, Arc, Mutex},
 };
 
@@ -14,22 +15,19 @@ use crate::{
     atomic_load, atomic_store,
     config::RequesterPolicy,
     event_handlers::{
-        Command::{self, AddDiscoveredExtension, AddError, SubtractFromUsizeField},
+        Command::{self, AddError, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
     response::FeroxResponse,
     scan_manager::{FeroxScan, ScanStatus},
-    scanner::RESPONSES,
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
-    utils::logged_request,
+    utils::{logged_request, should_deny_url},
     HIGH_ERROR_RATIO,
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
-use crate::utils::{should_deny_url, should_read_body};
-use std::collections::HashSet;
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
@@ -415,11 +413,7 @@ impl Requester {
                         // gain and quickly drop the read lock on seen_links, using it while unlocked
                         // to determine if there are any new links to process
                         let read_links = self.seen_links.read().await;
-                        new_links = result
-                            .found_links
-                            .difference(&read_links)
-                            .cloned()
-                            .collect();
+                        new_links = result.difference(&read_links).cloned().collect();
                     }
 
                     if !new_links.is_empty() {
@@ -474,12 +468,14 @@ mod tests {
         let (filters_task, filters_handle) = FiltersHandler::initialize();
         let (out_task, out_handle) =
             TermOutHandler::initialize(configuration.clone(), stats_handle.tx.clone());
+        let wordlist = Arc::new(vec![String::from("this_is_a_test")]);
 
         let handles = Arc::new(Handles::new(
             stats_handle,
             filters_handle,
             out_handle,
             configuration.clone(),
+            wordlist,
         ));
 
         let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());
@@ -603,10 +599,10 @@ mod tests {
 
         let requester = Requester {
             handles,
+            target_url: "http://localhost".to_string(),
             seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
-            target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };

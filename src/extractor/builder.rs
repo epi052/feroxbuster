@@ -16,14 +16,14 @@ pub(super) const ROBOTS_TXT_REGEX: &str =
 /// Which type of extraction should be performed
 #[derive(Debug, Copy, Clone)]
 pub enum ExtractionTarget {
-    /// Examine a response body and extract links
+    /// Examine a response body and extract javascript and html links (multiple tags)
     ResponseBody,
 
     /// Examine robots.txt (specifically) and extract links
     RobotsTxt,
 
-    // Parse HTML and extract links
-    ParseHtml,
+    /// Extract all <a> tags from a page
+    DirectoryListing,
 }
 
 /// responsible for building an `Extractor`
@@ -98,7 +98,6 @@ impl<'a> ExtractorBuilder<'a> {
             url: self.url.to_owned(),
             handles: self.handles.as_ref().unwrap().clone(),
             target: self.target,
-            num_collected: 0,
         })
     }
 }

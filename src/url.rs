@@ -265,7 +265,7 @@ mod tests {
     fn formatted_urls_no_extension_returns_base_url_with_word() {
         let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
-        let urls = url.formatted_urls("turbo").unwrap();
+        let urls = url.formatted_urls("turbo", HashSet::new()).unwrap();
         assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
     }
 
@@ -279,7 +279,7 @@ mod tests {
 
         let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
-        let urls = url.formatted_urls("turbo").unwrap();
+        let urls = url.formatted_urls("turbo", HashSet::new()).unwrap();
 
         assert_eq!(
             urls,
@@ -326,7 +326,7 @@ mod tests {
             let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
             let url = FeroxUrl::from_string("http://localhost", handles);
 
-            let urls = url.formatted_urls("turbo").unwrap();
+            let urls = url.formatted_urls("turbo", HashSet::new()).unwrap();
             assert_eq!(urls, expected[i]);
         }
     }
@@ -513,7 +513,7 @@ mod tests {
         };
         let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
-        match url.formatted_urls("ferox") {
+        match url.formatted_urls("ferox", HashSet::new()) {
             Ok(urls) => {
                 // 3 = One for the main word + slash and for the two extensions
                 assert_eq!(urls.len(), 3);

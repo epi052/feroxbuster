@@ -49,7 +49,11 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
 
     let reader = BufReader::new(file);
 
-    let mut words = Vec::new();
+    // this empty string ensures that we call Requester::request with the base url, i.e.
+    // `http://localhost/` instead of going straight into `http://localhost/WORD.EXT`.
+    // for vanilla scans, it doesn't matter all that much, but it can be a significant difference
+    // when `-e` is used, depending on the content at the base url.
+    let mut words = vec![String::from("")];
 
     for line in reader.lines() {
         line.map(|result| {

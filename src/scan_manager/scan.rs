@@ -41,7 +41,7 @@ pub struct FeroxScan {
     /// Number of requests to populate the progress bar with
     pub(super) num_requests: u64,
 
-    /// Status of this scan 
+    /// Status of this scan
     pub status: Mutex<ScanStatus>,
 
     /// The spawned tokio task performing this scan (uses tokio::sync::Mutex)

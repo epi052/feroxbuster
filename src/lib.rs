@@ -1,7 +1,9 @@
 #![deny(clippy::all)]
+#![allow(clippy::mutex_atomic)]
 // #![warn(clippy::pedantic, clippy::restriction, clippy::nursery, clippy::cargo)]
 use anyhow::Result;
 use reqwest::StatusCode;
+use std::collections::HashSet;
 use tokio::{
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     task::JoinHandle,
@@ -40,6 +42,9 @@ pub(crate) type Joiner = JoinHandle<Result<()>>;
 
 /// Generic mpsc::unbounded_channel type to tidy up some code
 pub(crate) type FeroxChannel<T> = (UnboundedSender<T>, UnboundedReceiver<T>);
+
+/// Wrapper around the results of performing any kind of extraction against a target web page
+pub(crate) type ExtractionResult = HashSet<String>;
 
 /// Version pulled from Cargo.toml at compile time
 pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");

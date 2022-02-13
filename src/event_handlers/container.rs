@@ -93,7 +93,14 @@ impl Handles {
         let terminal_handle = TermOutHandle::new(tx.clone(), tx.clone());
         let stats_handle = StatsHandle::new(Arc::new(Stats::new(configuration.json)), tx.clone());
         let filters_handle = FiltersHandle::new(Arc::new(FeroxFilters::default()), tx.clone());
-        let handles = Self::new(stats_handle, filters_handle, terminal_handle, configuration);
+        let wordlist = Arc::new(vec![String::from("this_is_a_test")]);
+        let handles = Self::new(
+            stats_handle,
+            filters_handle,
+            terminal_handle,
+            configuration,
+            wordlist,
+        );
         if let Some(sh) = scanned_urls {
             let scan_handle = ScanHandle::new(sh, tx);
             handles.set_scan_handle(scan_handle);

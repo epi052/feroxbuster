@@ -15,7 +15,6 @@ use crate::{
 
 use super::command::Command::AddToUsizeField;
 use super::*;
-use crate::scan_manager::{ScanStatus, ScanType};
 use crate::statistics::StatField;
 use reqwest::Url;
 use tokio::time::Duration;

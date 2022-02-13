@@ -7,7 +7,7 @@ use crate::{
     scan_manager::{MenuCmd, MenuCmdResult},
     scanner::RESPONSES,
     traits::FeroxSerialize,
-    DEFAULT_IGNORED_EXTENSIONS, SLEEP_DURATION,
+    SLEEP_DURATION,
 };
 use anyhow::Result;
 use reqwest::StatusCode;
