@@ -104,7 +104,7 @@ fn default_configuration() {
     assert_eq!(config.methods, vec!["GET"]);
     assert_eq!(config.data, Vec::<u8>::new());
     assert_eq!(config.url_denylist, Vec::<Url>::new());
-    assert_eq!(config.dont_collect, Vec::<String>::new());
+    assert_eq!(config.dont_collect, ignored_extensions());
     assert_eq!(config.filter_regex, Vec::<String>::new());
     assert_eq!(config.filter_similar, Vec::<String>::new());
     assert_eq!(config.filter_word_count, Vec::<usize>::new());

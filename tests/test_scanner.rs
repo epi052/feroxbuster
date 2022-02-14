@@ -89,9 +89,9 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.hits(), 1);
-    assert_eq!(js_prod_mock.hits(), 1);
-    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_mock.hits(), 2);
+    assert_eq!(js_prod_mock.hits(), 2);
+    assert_eq!(js_dev_mock.hits(), 2);
     assert_eq!(js_dev_file_mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
@@ -153,9 +153,9 @@ fn scanner_recursive_request_scan_using_only_success_responses(
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.hits(), 1);
-    assert_eq!(js_prod_mock.hits(), 1);
-    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_mock.hits(), 3);
+    assert_eq!(js_prod_mock.hits(), 3);
+    assert_eq!(js_dev_mock.hits(), 3);
     assert_eq!(js_dev_file_mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
@@ -596,7 +596,7 @@ fn scanner_recursion_works_with_403_directories() {
 
     assert_eq!(mock.hits(), 1);
     assert_eq!(found_anyway.hits(), 1);
-    assert_eq!(forbidden_dir.hits(), 1);
+    assert_eq!(forbidden_dir.hits(), 3);
 
     teardown_tmp_directory(tmp_dir);
 }

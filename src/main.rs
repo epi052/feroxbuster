@@ -189,21 +189,23 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         PROGRESS_BAR.join().unwrap();
     });
 
+    // cloning an Arc is cheap (it's basically a pointer into the heap)
+    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
+    // as well as additional directories found as part of recursion
+    let words = get_unique_words_from_wordlist(&config.wordlist)?;
+
+    if words.len() <= 1 {
+        // the check is now <= 1 due to the initial empty string added in 2.6.0
+        // 1 -> empty wordlist
+        // 0 -> error
+        bail!("Did not find any words in {}", config.wordlist);
+    }
+
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event
     let (stats_task, stats_handle) = StatsHandler::initialize(config.clone());
     let (filters_task, filters_handle) = FiltersHandler::initialize();
     let (out_task, out_handle) =
         TermOutHandler::initialize(config.clone(), stats_handle.tx.clone());
-
-    // cloning an Arc is cheap (it's basically a pointer into the heap)
-    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
-    // as well as additional directories found as part of recursion
-
-    let words = get_unique_words_from_wordlist(&config.wordlist)?;
-
-    if words.len() == 0 {
-        bail!("Did not find any words in {}", config.wordlist);
-    }
 
     // bundle up all the disparate handles and JoinHandles (tasks)
     let handles = Arc::new(Handles::new(
@@ -504,6 +506,9 @@ fn main() -> Result<()> {
         let future = wrapped_main(config);
         if let Err(e) = runtime.block_on(future) {
             eprintln!("{}", e);
+            // if we've errored out before clean_up can be called (i.e. a wordlist error) need to
+            // at least spin-down the progress bar
+            PROGRESS_PRINTER.finish();
         };
     }
 
