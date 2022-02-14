@@ -1,3 +1,4 @@
+use std::io::stdin;
 use std::{
     env::args,
     fs::{create_dir, remove_file, File},
@@ -503,11 +504,38 @@ fn main() -> Result<()> {
         .enable_all()
         .build()
     {
-        let future = wrapped_main(config);
+        let future = wrapped_main(config.clone());
         if let Err(e) = runtime.block_on(future) {
             eprintln!("{}", e);
-            // if we've errored out before clean_up can be called (i.e. a wordlist error) need to
-            // at least spin-down the progress bar
+
+            // the code below is to facilitate testing tests/test_banner entries. Since it's an
+            // integration test, normal test detection (cfg!(test), etc...) won't work. So, in
+            // the tests themselves, we pass
+            // `--wordlist /definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676`
+            // and look for that here to print the banner.
+            //
+            // this change became a necessity once we moved wordlist parsing out of `scan` and into
+            // `wrapped_main`.
+            if e.to_string()
+                .contains("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
+            {
+                // support the handful of tests that use `--stdin`
+                let targets: Vec<_> = if config.stdin {
+                    stdin().lock().lines().map(|tgt| tgt.unwrap()).collect()
+                } else {
+                    vec!["http://localhost".to_string()]
+                };
+
+                // print the banner to stderr
+                let std_stderr = stderr(); // std::io::stderr
+                let banner = Banner::new(&targets, &config);
+                if !config.quiet && !config.silent {
+                    banner.print_to(std_stderr, config).unwrap();
+                }
+            }
+
+            // if we've encountered an error before clean_up can be called (i.e. a wordlist error)
+            // we need to at least spin-down the progress bar
             PROGRESS_PRINTER.finish();
         };
     }

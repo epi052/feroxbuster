@@ -16,10 +16,10 @@ fn banner_prints_proxy() -> Result<(), Box<dyn std::error::Error>> {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--stdin")
-        .arg("--wordlist")
-        .arg(file.as_os_str())
         .arg("--proxy")
         .arg("http://127.0.0.1:8080")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .pipe_stdin(file)
         .unwrap()
         .assert()
@@ -57,7 +57,7 @@ fn banner_prints_replay_proxy() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap()
         .arg("--stdin")
         .arg("--wordlist")
-        .arg(file.as_os_str())
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .arg("--replay-proxy")
         .arg("http://127.0.0.1:8081")
         .pipe_stdin(file)
@@ -95,6 +95,8 @@ fn banner_prints_headers() {
         .arg("stuff:things")
         .arg("-H")
         .arg("mostuff:mothings")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -126,6 +128,8 @@ fn banner_prints_denied_urls() {
         .arg("https://also-not.me")
         .arg("https:")
         .arg("/deny.*")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -156,6 +160,8 @@ fn banner_prints_random_agent() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--random-agent")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -192,6 +198,8 @@ fn banner_prints_filter_sizes() {
         .arg("93")
         .arg("--filter-words")
         .arg("94")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -228,6 +236,8 @@ fn banner_prints_queries() {
         .arg("token=supersecret")
         .arg("--query")
         .arg("stuff=things")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -256,6 +266,8 @@ fn banner_prints_status_codes() {
         .arg("http://localhost")
         .arg("-s")
         .arg("201,301,401")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -284,6 +296,8 @@ fn banner_prints_replay_codes() {
         .arg("200,302")
         .arg("--replay-proxy")
         .arg("http://localhost:8081")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -312,6 +326,8 @@ fn banner_prints_output_file() {
         .arg("http://localhost")
         .arg("--output")
         .arg("/super/cool/path")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -326,7 +342,7 @@ fn banner_prints_output_file() {
                 .and(predicate::str::contains("Output File"))
                 .and(predicate::str::contains("/super/cool/path"))
                 .and(predicate::str::contains(
-                    "ERROR: Couldn't start /super/cool/path file handler",
+                    "Could not open /definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676",
                 ))
                 .and(predicate::str::contains("─┴─")),
         );
@@ -341,6 +357,8 @@ fn banner_prints_insecure() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-k")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -367,6 +385,8 @@ fn banner_prints_redirects() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-r")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -396,6 +416,8 @@ fn banner_prints_extensions() {
         .arg("js")
         .arg("--extensions")
         .arg("pdf")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -422,6 +444,8 @@ fn banner_prints_dont_filter() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--dont-filter")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -448,6 +472,8 @@ fn banner_prints_verbosity_one() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-v")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -474,6 +500,8 @@ fn banner_prints_verbosity_two() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-vv")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -500,6 +528,8 @@ fn banner_prints_verbosity_three() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-vvv")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -526,6 +556,8 @@ fn banner_prints_verbosity_four() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-vvvv")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -552,6 +584,8 @@ fn banner_prints_add_slash() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-f")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -579,6 +613,8 @@ fn banner_prints_infinite_depth() {
         .arg("http://localhost")
         .arg("--depth")
         .arg("0")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -606,6 +642,8 @@ fn banner_prints_recursion_depth() {
         .arg("http://localhost")
         .arg("--depth")
         .arg("343214")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -632,6 +670,8 @@ fn banner_prints_no_recursion() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-n")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -658,10 +698,12 @@ fn banner_doesnt_print() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-q")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "Could not connect to any target provided",
+            "Could not open /definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676",
         ));
 }
 
@@ -674,6 +716,8 @@ fn banner_prints_extract_links() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-e")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -701,6 +745,8 @@ fn banner_prints_scan_limit() {
         .arg("http://localhost")
         .arg("-L")
         .arg("4")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -728,6 +774,8 @@ fn banner_prints_filter_status() {
         .arg("http://localhost")
         .arg("-C")
         .arg("200")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -756,6 +804,8 @@ fn banner_prints_json() {
         .arg("--json")
         .arg("--output")
         .arg("/dev/null")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -783,6 +833,8 @@ fn banner_prints_debug_log() {
         .arg("http://localhost")
         .arg("--debug-log")
         .arg("/dev/null")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -810,6 +862,8 @@ fn banner_prints_filter_regex() {
         .arg("http://localhost")
         .arg("--filter-regex")
         .arg("^ignore me$")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -837,6 +891,8 @@ fn banner_prints_time_limit() {
         .arg("http://localhost")
         .arg("--time-limit")
         .arg("10m")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -864,6 +920,8 @@ fn banner_prints_similarity_filter() {
         .arg("http://localhost")
         .arg("--filter-similar-to")
         .arg("https://somesite.com")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -891,6 +949,8 @@ fn banner_prints_rate_limit() {
         .arg("http://localhost")
         .arg("--rate-limit")
         .arg("6735")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -917,6 +977,8 @@ fn banner_prints_auto_tune() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--auto-tune")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -943,6 +1005,8 @@ fn banner_prints_auto_bail() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--auto-bail")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -969,6 +1033,8 @@ fn banner_doesnt_print_when_silent() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--silent")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -993,6 +1059,8 @@ fn banner_doesnt_print_when_quiet() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--quiet")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -1017,18 +1085,19 @@ fn banner_prints_parallel() {
         .arg("--stdin")
         .arg("--parallel")
         .arg("4316")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
             predicate::str::contains("─┬─")
-                .not()
-                .and(predicate::str::contains("Target Url").not())
-                .and(predicate::str::contains("Parallel Scans").not())
-                .and(predicate::str::contains("Threads").not())
-                .and(predicate::str::contains("Wordlist").not())
-                .and(predicate::str::contains("Status Codes").not())
-                .and(predicate::str::contains("Timeout (secs)").not())
-                .and(predicate::str::contains("User-Agent").not()),
+                .and(predicate::str::contains("Parallel Scans"))
+                .and(predicate::str::contains("4316"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent")),
         );
 }
 
@@ -1044,6 +1113,8 @@ fn banner_prints_methods() {
         .arg("PUT")
         .arg("--methods")
         .arg("OPTIONS")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -1075,6 +1146,8 @@ fn banner_prints_data() {
         .arg("POST")
         .arg("--data")
         .arg("some_data")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -1101,6 +1174,8 @@ fn banner_prints_collect_extensions_and_dont_collect_default() {
         .arg("--url")
         .arg("http://localhost")
         .arg("-c")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
@@ -1131,6 +1206,8 @@ fn banner_prints_collect_extensions_and_dont_collect_with_input() {
         .arg("--dont-collect")
         .arg("pdf")
         .arg("xps")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
         .success()
         .stderr(
