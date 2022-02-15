@@ -649,7 +649,7 @@ fn add_discovered_extension_updates_bars_and_stats() {
     )
     .unwrap();
 
-    let mock = srv.mock(|when, then| {
+    srv.mock(|when, then| {
         when.method(GET).path("/stuff.php");
         then.status(200).body("cool... coolcoolcool");
     });
@@ -658,7 +658,8 @@ fn add_discovered_extension_updates_bars_and_stats() {
 
     assert!(!file_path.exists());
 
-    Command::cargo_bin("feroxbuster")?
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
