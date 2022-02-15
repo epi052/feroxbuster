@@ -559,3 +559,39 @@ impl FeroxScans {
         extension_added
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// unknown extension should be added to collected_extensions
+    fn unknown_extension_is_added_to_collected_extensions() {
+        let scans = FeroxScans::new(OutputLevel::Default);
+
+        assert_eq!(0, scans.collected_extensions.read().unwrap().len());
+
+        let added = scans.add_discovered_extension(String::from("js"));
+
+        assert!(added);
+        assert_eq!(1, scans.collected_extensions.read().unwrap().len());
+    }
+
+    #[test]
+    /// known extension should not be added to collected_extensions
+    fn known_extension_is_added_to_collected_extensions() {
+        let scans = FeroxScans::new(OutputLevel::Default);
+        scans
+            .collected_extensions
+            .write()
+            .unwrap()
+            .insert(String::from("js"));
+
+        assert_eq!(1, scans.collected_extensions.read().unwrap().len());
+
+        let added = scans.add_discovered_extension(String::from("js"));
+
+        assert!(!added);
+        assert_eq!(1, scans.collected_extensions.read().unwrap().len());
+    }
+}

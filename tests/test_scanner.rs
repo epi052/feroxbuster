@@ -1,12 +1,8 @@
 mod utils;
-use assay::assay;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
-use std::env::temp_dir;
-use std::thread::sleep;
-use std::time::Duration;
 use std::{process::Command, time};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -643,7 +639,7 @@ fn rate_limit_enforced_when_specified() {
     teardown_tmp_directory(tmp_dir);
 }
 
-#[assay]
+#[test]
 /// ensure that auto-discovered extensions are tracked in statistics and bar lengths are updated
 fn add_discovered_extension_updates_bars_and_stats() {
     let srv = MockServer::start();

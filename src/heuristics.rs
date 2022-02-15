@@ -407,7 +407,6 @@ impl HeuristicTests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assay::assay;
 
     #[test]
     /// request a unique string of 32bytes * a value returns correct result
@@ -419,7 +418,7 @@ mod tests {
         }
     }
 
-    #[assay]
+    #[test]
     /// `detect_directory_listing` correctly identifies tomcat/python instances
     fn detect_directory_listing_finds_tomcat_python() {
         let html = "<title>directory listing for /</title>";
@@ -433,7 +432,7 @@ mod tests {
         ));
     }
 
-    #[assay]
+    #[test]
     /// `detect_directory_listing` correctly identifies apache instances
     fn detect_directory_listing_finds_apache() {
         let html = "<title>index of /</title>";
@@ -444,7 +443,7 @@ mod tests {
         assert!(matches!(dirlist_type.unwrap(), DirListingType::Apache));
     }
 
-    #[assay]
+    #[test]
     /// `detect_directory_listing` correctly identifies ASP.NET instances
     fn detect_directory_listing_finds_asp_dot_net() {
         let html = "<title>directory listing -- /</title>";
@@ -455,7 +454,7 @@ mod tests {
         assert!(matches!(dirlist_type.unwrap(), DirListingType::AspDotNet));
     }
 
-    #[assay]
+    #[test]
     /// `detect_directory_listing` returns None when heuristic doesn't match
     fn detect_directory_listing_returns_none_as_default() {
         let html = "<title>derp listing -- /</title>";
