@@ -407,6 +407,7 @@ impl HeuristicTests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assay::assay;
 
     #[test]
     /// request a unique string of 32bytes * a value returns correct result
@@ -416,5 +417,52 @@ mod tests {
         for i in 0..10 {
             assert_eq!(tester.unique_string(i).len(), i * 32);
         }
+    }
+
+    #[assay]
+    /// `detect_directory_listing` correctly identifies tomcat/python instances
+    fn detect_directory_listing_finds_tomcat_python() {
+        let html = "<title>directory listing for /</title>";
+        let parsed = Html::parse_document(html);
+        let handles = Handles::for_testing(None, None);
+        let heuristics = HeuristicTests::new(Arc::new(handles.0));
+        let dirlist_type = heuristics.detect_directory_listing(&parsed);
+        assert!(matches!(
+            dirlist_type.unwrap(),
+            DirListingType::TomCatOrPython
+        ));
+    }
+
+    #[assay]
+    /// `detect_directory_listing` correctly identifies apache instances
+    fn detect_directory_listing_finds_apache() {
+        let html = "<title>index of /</title>";
+        let parsed = Html::parse_document(html);
+        let handles = Handles::for_testing(None, None);
+        let heuristics = HeuristicTests::new(Arc::new(handles.0));
+        let dirlist_type = heuristics.detect_directory_listing(&parsed);
+        assert!(matches!(dirlist_type.unwrap(), DirListingType::Apache));
+    }
+
+    #[assay]
+    /// `detect_directory_listing` correctly identifies ASP.NET instances
+    fn detect_directory_listing_finds_asp_dot_net() {
+        let html = "<title>directory listing -- /</title>";
+        let parsed = Html::parse_document(html);
+        let handles = Handles::for_testing(None, None);
+        let heuristics = HeuristicTests::new(Arc::new(handles.0));
+        let dirlist_type = heuristics.detect_directory_listing(&parsed);
+        assert!(matches!(dirlist_type.unwrap(), DirListingType::AspDotNet));
+    }
+
+    #[assay]
+    /// `detect_directory_listing` returns None when heuristic doesn't match
+    fn detect_directory_listing_returns_none_as_default() {
+        let html = "<title>derp listing -- /</title>";
+        let parsed = Html::parse_document(html);
+        let handles = Handles::for_testing(None, None);
+        let heuristics = HeuristicTests::new(Arc::new(handles.0));
+        let dirlist_type = heuristics.detect_directory_listing(&parsed);
+        assert!(dirlist_type.is_none());
     }
 }

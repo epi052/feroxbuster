@@ -1,8 +1,12 @@
 mod utils;
+use assay::assay;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
+use std::env::temp_dir;
+use std::thread::sleep;
+use std::time::Duration;
 use std::{process::Command, time};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -637,4 +641,44 @@ fn rate_limit_enforced_when_specified() {
     assert!(now.elapsed() > lower_bound);
 
     teardown_tmp_directory(tmp_dir);
+}
+
+#[assay]
+/// ensure that auto-discovered extensions are tracked in statistics and bar lengths are updated
+fn add_discovered_extension_updates_bars_and_stats() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(
+        &["LICENSE".to_string(), "stuff.php".to_string()],
+        "wordlist",
+    )
+    .unwrap();
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/stuff.php");
+        then.status(200).body("cool... coolcoolcool");
+    });
+
+    let file_path = tmp_dir.path().join("debug-file.txt");
+
+    assert!(!file_path.exists());
+
+    Command::cargo_bin("feroxbuster")?
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--extract-links")
+        .arg("--collect-extensions")
+        .arg("-vvvv")
+        .arg("--debug-log")
+        .arg(file_path.as_os_str())
+        .unwrap()
+        .assert()
+        .success();
+
+    let contents = std::fs::read_to_string(file_path).unwrap();
+    println!("{}", contents);
+    assert!(contents.contains("discovered new extension: php"));
+    assert!(contents.contains("extensions_collected: 1"));
+    assert!(contents.contains("expected_per_scan: 6"));
 }

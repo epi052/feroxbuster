@@ -55,6 +55,7 @@ tempfile = "3.3"
 httpmock = "0.6"
 assert_cmd = "2.0"
 predicates = "2.1"
+assay = "0.1.0"
 
 [profile.release]
 lto = true

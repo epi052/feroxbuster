@@ -294,6 +294,11 @@ impl FeroxResponse {
                 // only add extensions to those responses that pass our checks; filtered out
                 // status codes are handled by should_filter, but we need to still check against
                 // the allow list for what we want to keep
+                #[cfg(test)]
+                handles
+                    .send_scan_command(Command::AddDiscoveredExtension(extension.to_owned()))
+                    .unwrap_or_default();
+                #[cfg(not(test))]
                 handles.send_scan_command(Command::AddDiscoveredExtension(extension.to_owned()))?;
             }
         }
@@ -652,6 +657,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Configuration;
     use std::default::Default;
 
     #[test]
@@ -722,5 +728,66 @@ mod tests {
 
         let result = response.reached_max_depth(0, 2, handles);
         assert!(result);
+    }
+
+    #[test]
+    /// simple case of a single extension gets parsed correctly and stored on the `FeroxResponse`
+    fn parse_extension_finds_simple_extension() {
+        let config = Configuration {
+            collect_extensions: true,
+            ..Default::default()
+        };
+
+        let (handles, _) = Handles::for_testing(None, Some(Arc::new(config)));
+
+        let url = Url::parse("http://localhost/derp.js").unwrap();
+
+        let mut response = FeroxResponse {
+            url,
+            ..Default::default()
+        };
+
+        response.parse_extension(Arc::new(handles)).unwrap();
+
+        assert_eq!(response.extension, Some(String::from("js")));
+    }
+
+    #[test]
+    /// hidden files shouldn't be parsed as extensions, i.e. `/.bash_history`
+    fn parse_extension_ignores_hidden_files() {
+        let config = Configuration {
+            collect_extensions: true,
+            ..Default::default()
+        };
+
+        let (handles, _) = Handles::for_testing(None, Some(Arc::new(config)));
+
+        let url = Url::parse("http://localhost/.bash_history").unwrap();
+
+        let mut response = FeroxResponse {
+            url,
+            ..Default::default()
+        };
+
+        response.parse_extension(Arc::new(handles)).unwrap();
+
+        assert_eq!(response.extension, None);
+    }
+
+    #[test]
+    /// `parse_extension` should return immediately if `--collect-extensions` isn't used
+    fn parse_extension_early_returns_based_on_config() {
+        let (handles, _) = Handles::for_testing(None, None);
+
+        let url = Url::parse("http://localhost/derp.js").unwrap();
+
+        let mut response = FeroxResponse {
+            url,
+            ..Default::default()
+        };
+
+        response.parse_extension(Arc::new(handles)).unwrap();
+
+        assert_eq!(response.extension, None);
     }
 }
