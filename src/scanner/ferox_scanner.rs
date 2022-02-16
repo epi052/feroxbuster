@@ -75,7 +75,6 @@ impl FeroxScanner {
         log::info!("Starting scan against: {}", self.target_url);
 
         let mut scan_timer = Instant::now();
-        // let mut dirlist_type = None;
 
         if self.handles.config.extract_links && matches!(self.order, ScanOrder::Initial) {
             // check for robots.txt (cannot be in sub-directories, so limited to Initial)
