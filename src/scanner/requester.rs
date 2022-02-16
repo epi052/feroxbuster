@@ -366,7 +366,6 @@ impl Requester {
                     response,
                     &self.target_url,
                     method,
-                    true, // lines/words never gets populated without true
                     self.handles.config.output_level,
                 )
                 .await;

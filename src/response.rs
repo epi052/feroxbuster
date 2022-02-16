@@ -209,7 +209,6 @@ impl FeroxResponse {
         response: Response,
         original_url: &str,
         method: &str,
-        read_body: bool,
         output_level: OutputLevel,
     ) -> Self {
         let url = response.url().clone();
@@ -217,21 +216,12 @@ impl FeroxResponse {
         let headers = response.headers().clone();
         let content_length = response.content_length().unwrap_or(0);
 
-        let text = if read_body {
-            // .text() consumes the response, must be called last
-            // additionally, --extract-links is currently the only place we use the body of the
-            // response, so we forego the processing if not performing extraction
-            match response.text().await {
-                // await the response's body
-                Ok(text) => text,
-                Err(e) => {
-                    log::warn!("Could not parse body from response: {}", e);
-                    String::new()
-                }
-            }
-        } else {
-            String::new()
-        };
+        // .text() consumes the response, must be called last
+        let text = response
+            .text()
+            .await
+            .with_context(|| "Could not parse body from response")
+            .unwrap_or_default();
 
         let line_count = text.lines().count();
         let word_count = text.lines().map(|s| s.split_whitespace().count()).sum();

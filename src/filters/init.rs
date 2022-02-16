@@ -79,7 +79,6 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
             resp,
             similarity_filter,
             DEFAULT_METHOD,
-            true,
             handles.config.output_level,
         )
         .await;

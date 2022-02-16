@@ -240,14 +240,8 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let (handles, _rx) = Handles::for_testing(None, None);
 
     let handles = Arc::new(handles);
-    let ferox_response = FeroxResponse::from(
-        response,
-        &srv.url(""),
-        DEFAULT_METHOD,
-        true,
-        OutputLevel::Default,
-    )
-    .await;
+    let ferox_response =
+        FeroxResponse::from(response, &srv.url(""), DEFAULT_METHOD, OutputLevel::Default).await;
 
     let extractor = Extractor {
         links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),

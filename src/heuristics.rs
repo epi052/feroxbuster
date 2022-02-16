@@ -13,7 +13,7 @@ use crate::{
     response::FeroxResponse,
     skip_fail,
     url::FeroxUrl,
-    utils::{ferox_print, fmt_err, logged_request, should_read_body, status_colorizer},
+    utils::{ferox_print, fmt_err, logged_request, status_colorizer},
     DEFAULT_METHOD,
 };
 
@@ -234,7 +234,6 @@ impl HeuristicTests {
                 response,
                 &target.target,
                 method,
-                should_read_body(&self.handles.config),
                 self.handles.config.output_level,
             )
             .await;
@@ -339,7 +338,6 @@ impl HeuristicTests {
             result,
             &url.target,
             DEFAULT_METHOD,
-            true,
             self.handles.config.output_level,
         )
         .await;

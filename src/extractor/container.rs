@@ -12,7 +12,7 @@ use crate::{
         StatField::{LinksExtracted, TotalExpected},
     },
     url::FeroxUrl,
-    utils::{logged_request, make_request, should_deny_url, should_read_body},
+    utils::{logged_request, make_request, should_deny_url},
     ExtractionResult, DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
@@ -389,7 +389,6 @@ impl<'a> Extractor<'a> {
             new_response,
             url,
             DEFAULT_METHOD,
-            should_read_body(&self.handles.config),
             self.handles.config.output_level,
         )
         .await;
@@ -565,7 +564,6 @@ impl<'a> Extractor<'a> {
             response,
             &self.url,
             DEFAULT_METHOD,
-            should_read_body(&self.handles.config),
             self.handles.config.output_level,
         )
         .await;

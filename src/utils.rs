@@ -490,20 +490,6 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
     filename
 }
 
-/// check for runtime options that necessitate reading the response body
-pub fn should_read_body(config: &Configuration) -> bool {
-    log::trace!("enter: should_read_body(running config...)");
-
-    let result = config.extract_links
-        || !config.filter_line_count.is_empty()
-        || !config.filter_word_count.is_empty()
-        || !config.filter_regex.is_empty()
-        || !config.filter_similar.is_empty();
-
-    log::trace!("exit: should_read_body -> {}", result);
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
