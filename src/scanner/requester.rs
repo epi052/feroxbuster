@@ -337,7 +337,6 @@ impl Requester {
                     method.as_str(),
                     Some(self.handles.config.data.as_slice()),
                     self.handles.clone(),
-                    None,
                 )
                 .await?;
 

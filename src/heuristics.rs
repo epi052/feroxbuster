@@ -219,7 +219,6 @@ impl HeuristicTests {
             method,
             data,
             self.handles.clone(),
-            None,
         )
         .await?;
 
@@ -280,8 +279,7 @@ impl HeuristicTests {
             let url = FeroxUrl::from_string(target_url, self.handles.clone());
             let request = skip_fail!(url.format("", None));
 
-            let result =
-                logged_request(&request, DEFAULT_METHOD, None, self.handles.clone(), None).await;
+            let result = logged_request(&request, DEFAULT_METHOD, None, self.handles.clone()).await;
 
             match result {
                 Ok(_) => {
@@ -335,8 +333,7 @@ impl HeuristicTests {
         let url = FeroxUrl::from_string(&tgt, self.handles.clone());
         let request = url.format("", None)?;
 
-        let result =
-            logged_request(&request, DEFAULT_METHOD, None, self.handles.clone(), None).await?;
+        let result = logged_request(&request, DEFAULT_METHOD, None, self.handles.clone()).await?;
 
         let ferox_response = FeroxResponse::from(
             result,

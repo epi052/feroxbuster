@@ -72,8 +72,7 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
         let url = skip_fail!(Url::parse(similarity_filter));
 
         // attempt to request the given url
-        let resp =
-            skip_fail!(logged_request(&url, DEFAULT_METHOD, None, handles.clone(), None).await);
+        let resp = skip_fail!(logged_request(&url, DEFAULT_METHOD, None, handles.clone()).await);
 
         // if successful, create a filter based on the response's body
         let mut fr = FeroxResponse::from(

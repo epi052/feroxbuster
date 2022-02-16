@@ -383,7 +383,7 @@ impl<'a> Extractor<'a> {
 
         // make the request and store the response
         let new_response =
-            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone(), None).await?;
+            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone()).await?;
 
         let new_ferox_response = FeroxResponse::from(
             new_response,

@@ -100,9 +100,8 @@ pub async fn logged_request(
     method: &str,
     data: Option<&[u8]>,
     handles: Arc<Handles>,
-    client: Option<&Client>,
 ) -> Result<Response> {
-    let client = client.unwrap_or(&handles.config.client);
+    let client = &handles.config.client;
     let level = handles.config.output_level;
     let tx_stats = handles.stats.tx.clone();
 
