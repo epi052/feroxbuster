@@ -13,6 +13,9 @@ pub enum StatField {
     /// Translates to `links_extracted`
     LinksExtracted,
 
+    /// Translates to `extensions_collected`
+    ExtensionsCollected,
+
     /// Translates to `total_expected`
     TotalExpected,
 

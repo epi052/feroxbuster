@@ -1,5 +1,6 @@
 use std::{
     cmp::max,
+    collections::HashSet,
     sync::{atomic::Ordering, Arc, Mutex},
 };
 
@@ -22,13 +23,11 @@ use crate::{
     scan_manager::{FeroxScan, ScanStatus},
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
-    utils::logged_request,
+    utils::{logged_request, should_deny_url},
     HIGH_ERROR_RATIO,
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
-use crate::utils::should_deny_url;
-use std::collections::HashSet;
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
@@ -303,8 +302,10 @@ impl Requester {
     pub async fn request(&self, word: &str) -> Result<()> {
         log::trace!("enter: request({})", word);
 
-        let urls =
-            FeroxUrl::from_string(&self.target_url, self.handles.clone()).formatted_urls(word)?;
+        let collected = self.handles.collected_extensions();
+
+        let urls = FeroxUrl::from_string(&self.target_url, self.handles.clone())
+            .formatted_urls(word, collected)?;
 
         let should_test_deny = !self.handles.config.url_denylist.is_empty()
             || !self.handles.config.regex_denylist.is_empty();
@@ -361,11 +362,10 @@ impl Requester {
                 }
 
                 // response came back without error, convert it to FeroxResponse
-                let ferox_response = FeroxResponse::from(
+                let mut ferox_response = FeroxResponse::from(
                     response,
                     &self.target_url,
                     method,
-                    true,
                     self.handles.config.output_level,
                 )
                 .await;
@@ -392,20 +392,26 @@ impl Requester {
                     continue;
                 }
 
+                if self.handles.config.collect_extensions {
+                    ferox_response.parse_extension(self.handles.clone())?;
+                }
+
                 if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
-                    let extractor = ExtractorBuilder::default()
+                    let mut extractor = ExtractorBuilder::default()
                         .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)
                         .handles(self.handles.clone())
                         .build()?;
+
                     let new_links: HashSet<_>;
-                    let extracted = (extractor.extract().await?).0;
+
+                    let result = extractor.extract().await?;
 
                     {
                         // gain and quickly drop the read lock on seen_links, using it while unlocked
                         // to determine if there are any new links to process
                         let read_links = self.seen_links.read().await;
-                        new_links = extracted.difference(&read_links).cloned().collect();
+                        new_links = result.difference(&read_links).cloned().collect();
                     }
 
                     if !new_links.is_empty() {
@@ -417,7 +423,9 @@ impl Requester {
                         }
                     }
 
-                    extractor.request_links(new_links).await?;
+                    if !new_links.is_empty() {
+                        extractor.request_links(new_links).await?;
+                    }
                 }
 
                 // everything else should be reported
@@ -458,12 +466,14 @@ mod tests {
         let (filters_task, filters_handle) = FiltersHandler::initialize();
         let (out_task, out_handle) =
             TermOutHandler::initialize(configuration.clone(), stats_handle.tx.clone());
+        let wordlist = Arc::new(vec![String::from("this_is_a_test")]);
 
         let handles = Arc::new(Handles::new(
             stats_handle,
             filters_handle,
             out_handle,
             configuration.clone(),
+            wordlist,
         ));
 
         let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());
@@ -587,10 +597,10 @@ mod tests {
 
         let requester = Requester {
             handles,
+            target_url: "http://localhost".to_string(),
             seen_links: RwLock::new(HashSet::<String>::new()),
             tuning_lock: Mutex::new(0),
             ferox_scan: Arc::new(FeroxScan::default()),
-            target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
         };

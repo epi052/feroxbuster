@@ -89,9 +89,9 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.hits(), 1);
-    assert_eq!(js_prod_mock.hits(), 1);
-    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_mock.hits(), 2);
+    assert_eq!(js_prod_mock.hits(), 2);
+    assert_eq!(js_dev_mock.hits(), 2);
     assert_eq!(js_dev_file_mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
@@ -153,9 +153,9 @@ fn scanner_recursive_request_scan_using_only_success_responses(
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.hits(), 1);
-    assert_eq!(js_prod_mock.hits(), 1);
-    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_mock.hits(), 3);
+    assert_eq!(js_prod_mock.hits(), 3);
+    assert_eq!(js_dev_mock.hits(), 3);
     assert_eq!(js_dev_file_mock.hits(), 1);
 
     teardown_tmp_directory(tmp_dir);
@@ -596,7 +596,7 @@ fn scanner_recursion_works_with_403_directories() {
 
     assert_eq!(mock.hits(), 1);
     assert_eq!(found_anyway.hits(), 1);
-    assert_eq!(forbidden_dir.hits(), 1);
+    assert_eq!(forbidden_dir.hits(), 3);
 
     teardown_tmp_directory(tmp_dir);
 }
@@ -637,4 +637,45 @@ fn rate_limit_enforced_when_specified() {
     assert!(now.elapsed() > lower_bound);
 
     teardown_tmp_directory(tmp_dir);
+}
+
+#[test]
+/// ensure that auto-discovered extensions are tracked in statistics and bar lengths are updated
+fn add_discovered_extension_updates_bars_and_stats() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(
+        &["LICENSE".to_string(), "stuff.php".to_string()],
+        "wordlist",
+    )
+    .unwrap();
+
+    srv.mock(|when, then| {
+        when.method(GET).path("/stuff.php");
+        then.status(200).body("cool... coolcoolcool");
+    });
+
+    let file_path = tmp_dir.path().join("debug-file.txt");
+
+    assert!(!file_path.exists());
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--extract-links")
+        .arg("--collect-extensions")
+        .arg("-vvvv")
+        .arg("--debug-log")
+        .arg(file_path.as_os_str())
+        .unwrap()
+        .assert()
+        .success();
+
+    let contents = std::fs::read_to_string(file_path).unwrap();
+    println!("{}", contents);
+    assert!(contents.contains("discovered new extension: php"));
+    assert!(contents.contains("extensions_collected: 1"));
+    assert!(contents.contains("expected_per_scan: 6"));
 }

@@ -21,7 +21,7 @@ lazy_static! {
     static ref BODY_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ResponseBody, Arc::new(FeroxScans::default()));
 
     /// Extractor for testing paring html
-    static ref PARSEHTML_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::ParseHtml, Arc::new(FeroxScans::default()));
+    static ref PARSEHTML_EXT: Extractor<'static> = setup_extractor(ExtractionTarget::DirectoryListing, Arc::new(FeroxScans::default()));
 
     /// FeroxResponse for Extractor
     static ref RESPONSE: FeroxResponse = get_test_response();
@@ -45,9 +45,9 @@ fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> E
         ExtractionTarget::RobotsTxt => builder
             .url("http://localhost")
             .target(ExtractionTarget::RobotsTxt),
-        ExtractionTarget::ParseHtml => builder
+        ExtractionTarget::DirectoryListing => builder
             .url("http://localhost")
-            .target(ExtractionTarget::ParseHtml),
+            .target(ExtractionTarget::DirectoryListing),
     };
 
     let config = Arc::new(Configuration::new().unwrap());
@@ -240,14 +240,8 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let (handles, _rx) = Handles::for_testing(None, None);
 
     let handles = Arc::new(handles);
-    let ferox_response = FeroxResponse::from(
-        response,
-        &srv.url(""),
-        DEFAULT_METHOD,
-        true,
-        OutputLevel::Default,
-    )
-    .await;
+    let ferox_response =
+        FeroxResponse::from(response, &srv.url(""), DEFAULT_METHOD, OutputLevel::Default).await;
 
     let extractor = Extractor {
         links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
@@ -258,7 +252,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
         handles: handles.clone(),
     };
 
-    let links = (extractor.extract_from_body().await?).0;
+    let links = extractor.extract_from_body().await?;
 
     assert!(links.is_empty());
     assert_eq!(mock.hits(), 1);

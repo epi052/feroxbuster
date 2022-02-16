@@ -103,7 +103,7 @@ impl StatsHandler {
                 Command::AddToUsizeField(field, value) => {
                     self.stats.update_usize_field(field, value);
 
-                    if matches!(field, StatField::TotalScans) {
+                    if matches!(field, StatField::TotalScans | StatField::TotalExpected) {
                         self.bar.set_length(self.stats.total_expected() as u64);
                     }
                 }

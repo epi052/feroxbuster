@@ -131,8 +131,8 @@ fn deny_list_works_during_recursion() {
             .not(),
     );
 
-    assert_eq!(js_mock.hits(), 1);
-    assert_eq!(js_prod_mock.hits(), 1);
+    assert_eq!(js_mock.hits(), 2);
+    assert_eq!(js_prod_mock.hits(), 2);
     assert_eq!(js_dev_mock.hits(), 0);
     assert_eq!(js_dev_file_mock.hits(), 0);
 
@@ -202,9 +202,9 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
             .not(),
     );
 
-    assert_eq!(js_mock.hits(), 1);
-    assert_eq!(js_prod_mock.hits(), 1);
-    assert_eq!(js_dev_mock.hits(), 1);
+    assert_eq!(js_mock.hits(), 2);
+    assert_eq!(js_prod_mock.hits(), 2);
+    assert_eq!(js_dev_mock.hits(), 2);
     assert_eq!(js_dev_file_mock.hits(), 1);
     assert_eq!(api_mock.hits(), 0);
 
