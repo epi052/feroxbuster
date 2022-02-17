@@ -348,7 +348,25 @@ impl HeuristicTests {
         let dirlist_type = self.detect_directory_listing(&html);
 
         if dirlist_type.is_some() {
-            log::debug!("directory listing heuristic detected: {:?}", dirlist_type);
+            // todo give some extra consideration to what colors should be used
+            // todo if this needs to go to a file, has to be sent to the handler
+            let msg = format!(
+                "{} {:>8} {:>9} {:>9} {:>9} {} => {}\n",
+                style("DIR").bright().blue(),
+                DEFAULT_METHOD,
+                "-",
+                "-",
+                "-",
+                ferox_response.url().as_str(),
+                style("Directory listing").green().bright(),
+            );
+            ferox_print(&msg, &PROGRESS_PRINTER);
+
+            log::info!(
+                "directory listing detected: {} ({:?})",
+                target_url,
+                dirlist_type.unwrap()
+            );
 
             let result = DirListingResult {
                 dir_list_type: dirlist_type,

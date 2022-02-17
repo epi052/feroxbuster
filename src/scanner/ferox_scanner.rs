@@ -129,37 +129,42 @@ impl FeroxScanner {
                     let dirlist_result = dirlist_result.unwrap();
                     // at this point, we have a DirListingType, and it's not the None variant
                     // which means we found directory listing based on the heuristic; now we need
-                    // to process the links that are available
-                    // Directory listing heuristic detection to not continue scanning
+                    // to process the links that are available if --extract-links was used
 
-                    let mut extractor = ExtractorBuilder::default()
-                        .response(&dirlist_result.response)
-                        .target(ExtractionTarget::DirectoryListing)
-                        .url(&self.target_url)
-                        .handles(self.handles.clone())
-                        .build()?;
+                    if self.handles.config.extract_links {
+                        let mut extractor = ExtractorBuilder::default()
+                            .response(&dirlist_result.response)
+                            .target(ExtractionTarget::DirectoryListing)
+                            .url(&self.target_url)
+                            .handles(self.handles.clone())
+                            .build()?;
 
-                    let result = extractor.extract_from_dir_listing().await?;
+                        let result = extractor.extract_from_dir_listing().await?;
 
-                    extractor.request_links(result).await?;
+                        extractor.request_links(result).await?;
 
-                    log::trace!("exit: scan_url -> Directory listing heuristic");
+                        log::trace!("exit: scan_url -> Directory listing heuristic");
 
-                    self.handles.stats.send(AddToF64Field(
-                        DirScanTimes,
-                        scan_timer.elapsed().as_secs_f64(),
-                    ))?;
+                        self.handles.stats.send(AddToF64Field(
+                            DirScanTimes,
+                            scan_timer.elapsed().as_secs_f64(),
+                        ))?;
 
-                    self.handles.stats.send(SubtractFromUsizeField(
-                        TotalExpected,
-                        progress_bar.length() as usize,
-                    ))?;
+                        self.handles.stats.send(SubtractFromUsizeField(
+                            TotalExpected,
+                            progress_bar.length() as usize,
+                        ))?;
+                    }
+
+                    let mut message = format!("=> {}", style("Directory listing").blue().bright());
+
+                    if !self.handles.config.extract_links {
+                        message
+                            .push_str(&format!(" (add {} to scan)", style("-e").bright().yellow()))
+                    }
 
                     progress_bar.reset_eta();
-                    progress_bar.finish_with_message(&format!(
-                        "=> {}",
-                        style("Directory listing").blue().bright()
-                    ));
+                    progress_bar.finish_with_message(&message);
 
                     ferox_scan.finish()?;
 

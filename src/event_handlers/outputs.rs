@@ -20,7 +20,7 @@ use crate::{
 use std::sync::Arc;
 use url::Url;
 
-#[derive(Debug, Copy)]
+#[derive(Debug, Copy, Clone)]
 /// Simple enum for semantic clarity around calling expectations for `process_response`
 enum ProcessResponseCall {
     /// call should allow recursion
@@ -227,7 +227,7 @@ impl TermOutHandler {
         mut resp: Box<FeroxResponse>,
         call_type: ProcessResponseCall,
     ) -> BoxFuture<'_, Result<()>> {
-        log::trace!("enter: generate_backup_urls({:?})", response);
+        log::trace!("enter: process_response({:?}, {:?})", resp, call_type);
 
         async move {
             let contains_sentry = self.config.status_codes.contains(&resp.status().as_u16());
