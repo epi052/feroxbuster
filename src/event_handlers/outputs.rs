@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use futures::future::{BoxFuture, FutureExt};
 use tokio::sync::{mpsc, oneshot};
 
+use crate::statistics::StatField::TotalExpected;
 use crate::{
     config::Configuration,
     progress::PROGRESS_PRINTER,
@@ -18,6 +19,16 @@ use crate::{
 };
 use std::sync::Arc;
 use url::Url;
+
+#[derive(Debug, Copy)]
+/// Simple enum for semantic clarity around calling expectations for `process_response`
+enum ProcessResponseCall {
+    /// call should allow recursion
+    Recursive,
+
+    /// call should not allow recursion
+    NotRecursive,
+}
 
 #[derive(Debug)]
 /// Container for terminal output transmitter
@@ -189,8 +200,8 @@ impl TermOutHandler {
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::Report(resp) => {
-                    // todo add enum to replace bool
-                    self.process_response(tx_stats.clone(), resp, false).await?;
+                    self.process_response(tx_stats.clone(), resp, ProcessResponseCall::Recursive)
+                        .await?;
                 }
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
@@ -208,13 +219,16 @@ impl TermOutHandler {
         Ok(())
     }
 
-    /// todo
+    /// upon receiving a `FeroxResponse` from the mpsc, handle printing, sending to the replay
+    /// proxy, checking for backups of the `FeroxResponse`'s url, and tracking the response.
     fn process_response(
         &self,
         tx_stats: CommandSender,
         mut resp: Box<FeroxResponse>,
-        recursive_call: bool,
+        call_type: ProcessResponseCall,
     ) -> BoxFuture<'_, Result<()>> {
+        log::trace!("enter: generate_backup_urls({:?})", response);
+
         async move {
             let contains_sentry = self.config.status_codes.contains(&resp.status().as_u16());
             let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
@@ -254,8 +268,12 @@ impl TermOutHandler {
             }
 
             // todo update if statement to include --collect-backups
-            if should_process_response && !recursive_call {
+            if should_process_response && matches!(call_type, ProcessResponseCall::Recursive) {
                 let backup_urls = self.generate_backup_urls(&resp).await;
+
+                // need to manually adjust stats
+                send_command!(tx_stats, AddToUsizeField(TotalExpected, backup_urls.len()));
+
                 for backup_url in &backup_urls {
                     let backup_response = make_request(
                         &self.config.client,
@@ -270,15 +288,21 @@ impl TermOutHandler {
                     .with_context(|| {
                         format!("Could not request backup of {}", resp.url().as_str())
                     })?;
-                    let mut ferox_response = FeroxResponse::from(
+
+                    let ferox_response = FeroxResponse::from(
                         backup_response,
                         resp.url().as_str(),
                         resp.method().as_str(),
                         resp.output_level,
                     )
                     .await;
-                    self.process_response(tx_stats.clone(), Box::new(ferox_response), true)
-                        .await?;
+
+                    self.process_response(
+                        tx_stats.clone(),
+                        Box::new(ferox_response),
+                        ProcessResponseCall::NotRecursive,
+                    )
+                    .await?;
                 }
             }
 
@@ -306,9 +330,22 @@ impl TermOutHandler {
         urls.push(new_url);
     }
 
-    /// todo
+    /// given a `FeroxResponse`, generate either 6 or 7 urls that are likely backups of the
+    /// original.
+    ///
+    /// example:
+    ///     original: LICENSE.txt
+    ///     backups:    
+    ///         -  LICENSE.txt~
+    ///         - LICENSE.txt.bak
+    ///         - LICENSE.txt.bak2
+    ///         - LICENSE.txt.old
+    ///         - LICENSE.txt.1
+    ///         - LICENSE.bak
+    ///         - .LICENSE.txt.swp
     async fn generate_backup_urls(&self, response: &FeroxResponse) -> Vec<Url> {
-        // todo
+        log::trace!("enter: generate_backup_urls({:?})", response);
+
         let mut urls = vec![];
         let url = response.url();
 
@@ -337,7 +374,7 @@ impl TermOutHandler {
             }
         }
 
-        // todo
+        log::trace!("exit: generate_backup_urls -> {:?}", urls);
         urls
     }
 }

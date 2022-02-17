@@ -687,51 +687,45 @@ fn collect_backups_makes_appropriate_requests() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE.txt".to_string()], "wordlist").unwrap();
 
-    let mock = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt");
-        then.status(200).body("this is a test");
-    });
+    let valid_paths = vec![
+        "/LICENSE.txt",
+        "/LICENSE.txt~",
+        "/LICENSE.txt.bak",
+        "/LICENSE.txt.bak2",
+        "/LICENSE.txt.old",
+        "/LICENSE.txt.1",
+        "/LICENSE.bak",
+        "/.LICENSE.txt.swp",
+    ];
 
-    let tilde_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt~");
-        then.status(200);
-    });
+    let valid_mocks: Vec<_> = valid_paths
+        .iter()
+        .map(|&p| {
+            srv.mock(|when, then| {
+                when.method(GET).path(p);
+                then.status(200).body("this is a valid test");
+            })
+        })
+        .collect();
 
-    let bak_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt.bak");
-        then.status(200);
-    });
+    let invalid_paths: Vec<_> = vec![
+        "/LICENSE.txt~~",
+        "/LICENSE.txt.bak.bak",
+        "/LICENSE.txt.bak2.bak2",
+        "/LICENSE.txt.old.old",
+        "/LICENSE.txt.1.1",
+        "/..LICENSE.txt.swp.swp",
+    ];
 
-    let bak2_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt.bak2");
-        then.status(200);
-    });
-
-    let old_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt.old");
-        then.status(200);
-    });
-
-    let dot1_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt.1");
-        then.status(200);
-    });
-
-    let replaced_bak_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.bak");
-        then.status(200);
-    });
-
-    let vim_swap_backup = srv.mock(|when, then| {
-        when.method(GET).path("/.LICENSE.txt.swp");
-        then.status(200);
-    });
-
-    // todo add double backup style tests for all variants
-    let tilde_double_backup = srv.mock(|when, then| {
-        when.method(GET).path("/LICENSE.txt~~");
-        then.status(404);
-    });
+    let invalid_mocks: Vec<_> = invalid_paths
+        .iter()
+        .map(|&p| {
+            srv.mock(|when, then| {
+                when.method(GET).path(p);
+                then.status(200).body("this is an invalid test");
+            })
+        })
+        .collect();
 
     // todo add --collect-backups flag when available
     let cmd = Command::cargo_bin("feroxbuster")
@@ -742,28 +736,24 @@ fn collect_backups_makes_appropriate_requests() {
         .arg(file.as_os_str())
         .unwrap();
 
-    // todo maybe add in some stdout checks
     cmd.assert().success().stdout(
-        predicate::str::contains("/LICENSE.txt").and(predicate::str::contains("/LICENSE.txt~")),
+        predicate::str::contains("/LICENSE.txt")
+            .and(predicate::str::contains("/LICENSE.txt~"))
+            .and(predicate::str::contains("/LICENSE.txt.bak"))
+            .and(predicate::str::contains("/LICENSE.txt.bak2"))
+            .and(predicate::str::contains("/LICENSE.txt.old"))
+            .and(predicate::str::contains("/LICENSE.txt.1"))
+            .and(predicate::str::contains("/LICENSE.bak"))
+            .and(predicate::str::contains("/.LICENSE.txt.swp")),
     );
-    //         .and(predicate::str::contains("403"))
-    //         .and(predicate::str::contains("53c"))
-    //         .and(predicate::str::contains("14c"))
-    //         .and(predicate::str::contains("0c"))
-    //         .and(predicate::str::contains("ignored").count(2))
-    //         .and(predicate::str::contains("/ignored/LICENSE")),
-    // );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(tilde_backup.hits(), 1);
-    assert_eq!(tilde_double_backup.hits(), 0); // shouldn't request backups of backups
+    for valid_mock in valid_mocks {
+        assert_eq!(valid_mock.hits(), 1);
+    }
 
-    assert_eq!(bak_backup.hits(), 1);
-    assert_eq!(bak2_backup.hits(), 1);
-    assert_eq!(old_backup.hits(), 1);
-    assert_eq!(dot1_backup.hits(), 1);
-    assert_eq!(replaced_bak_backup.hits(), 1);
-    assert_eq!(vim_swap_backup.hits(), 1);
+    for invalid_mock in invalid_mocks {
+        assert_eq!(invalid_mock.hits(), 0);
+    }
 
     teardown_tmp_directory(tmp_dir);
 }
