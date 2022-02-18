@@ -5,6 +5,7 @@ use console::style;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
+use crate::message::FeroxMessage;
 use crate::{
     config::OutputLevel,
     event_handlers::{Command, Handles},
@@ -348,7 +349,28 @@ impl HeuristicTests {
         let dirlist_type = self.detect_directory_listing(&html);
 
         if dirlist_type.is_some() {
-            log::debug!("directory listing heuristic detected: {:?}", dirlist_type);
+            // folks that run things and step away/rely on logs need to be notified of directory
+            // listing, since they won't see the message on the bar; bastardizing FeroxMessage
+            // for ease of implementation. This could use a bit of polish at some point.
+            let msg = format!(
+                "detected directory listing: {} ({:?})",
+                target_url,
+                dirlist_type.unwrap()
+            );
+            let ferox_msg = FeroxMessage {
+                kind: "log".to_string(),
+                message: msg.clone(),
+                level: "MSG".to_string(),
+                time_offset: 0.0,
+                module: "feroxbuster::heuristics".to_string(),
+            };
+            self.handles
+                .output
+                .tx_file
+                .send(Command::WriteToDisk(Box::new(ferox_msg)))
+                .unwrap_or_default();
+
+            log::info!("{}", msg);
 
             let result = DirListingResult {
                 dir_list_type: dirlist_type,

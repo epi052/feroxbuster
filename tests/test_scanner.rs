@@ -679,3 +679,81 @@ fn add_discovered_extension_updates_bars_and_stats() {
     assert!(contents.contains("extensions_collected: 1"));
     assert!(contents.contains("expected_per_scan: 6"));
 }
+
+#[test]
+/// send a request to a 200 file, expect pre-configured backup collection rules to be applied
+/// and then requested
+fn collect_backups_makes_appropriate_requests() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE.txt".to_string()], "wordlist").unwrap();
+
+    let valid_paths = vec![
+        "/LICENSE.txt",
+        "/LICENSE.txt~",
+        "/LICENSE.txt.bak",
+        "/LICENSE.txt.bak2",
+        "/LICENSE.txt.old",
+        "/LICENSE.txt.1",
+        "/LICENSE.bak",
+        "/.LICENSE.txt.swp",
+    ];
+
+    let valid_mocks: Vec<_> = valid_paths
+        .iter()
+        .map(|&p| {
+            srv.mock(|when, then| {
+                when.method(GET).path(p);
+                then.status(200).body("this is a valid test");
+            })
+        })
+        .collect();
+
+    let invalid_paths: Vec<_> = vec![
+        "/LICENSE.txt~~",
+        "/LICENSE.txt.bak.bak",
+        "/LICENSE.txt.bak2.bak2",
+        "/LICENSE.txt.old.old",
+        "/LICENSE.txt.1.1",
+        "/..LICENSE.txt.swp.swp",
+    ];
+
+    let invalid_mocks: Vec<_> = invalid_paths
+        .iter()
+        .map(|&p| {
+            srv.mock(|when, then| {
+                when.method(GET).path(p);
+                then.status(200).body("this is an invalid test");
+            })
+        })
+        .collect();
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--collect-backups")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE.txt")
+            .and(predicate::str::contains("/LICENSE.txt~"))
+            .and(predicate::str::contains("/LICENSE.txt.bak"))
+            .and(predicate::str::contains("/LICENSE.txt.bak2"))
+            .and(predicate::str::contains("/LICENSE.txt.old"))
+            .and(predicate::str::contains("/LICENSE.txt.1"))
+            .and(predicate::str::contains("/LICENSE.bak"))
+            .and(predicate::str::contains("/.LICENSE.txt.swp")),
+    );
+
+    for valid_mock in valid_mocks {
+        assert_eq!(valid_mock.hits(), 1);
+    }
+
+    for invalid_mock in invalid_mocks {
+        assert_eq!(invalid_mock.hits(), 0);
+    }
+
+    teardown_tmp_directory(tmp_dir);
+}

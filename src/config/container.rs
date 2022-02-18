@@ -275,6 +275,10 @@ pub struct Configuration {
     /// don't collect any of these extensions when --collect-extensions is used
     #[serde(default = "ignored_extensions")]
     pub dont_collect: Vec<String>,
+
+    /// Automatically request likely backup extensions on "found" urls
+    #[serde(default)]
+    pub collect_backups: bool,
 }
 
 impl Default for Configuration {
@@ -320,6 +324,7 @@ impl Default for Configuration {
             extract_links: false,
             random_agent: false,
             collect_extensions: false,
+            collect_backups: false,
             save_state: true,
             proxy: String::new(),
             config: String::new(),
@@ -377,6 +382,7 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **collect_extensions**: `false`
+    /// - **collect_backups**: `false`
     /// - **dont_collect**: [`DEFAULT_IGNORED_EXTENSIONS`](constant.DEFAULT_RESPONSE_CODES.html)
     /// - **methods**: [`DEFAULT_METHOD`](constant.DEFAULT_METHOD.html)
     /// - **data**: `None`
@@ -721,6 +727,10 @@ impl Configuration {
             config.collect_extensions = true;
         }
 
+        if args.is_present("collect_backups") {
+            config.collect_backups = true;
+        }
+
         if args.occurrences_of("verbosity") > 0 {
             // occurrences_of returns 0 if none are found; this is protected in
             // an if block for the same reason as the quiet option
@@ -894,6 +904,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
         update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
         update_if_not_default!(&mut conf.collect_extensions, new.collect_extensions, false);
+        update_if_not_default!(&mut conf.collect_backups, new.collect_backups, false);
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
         conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);

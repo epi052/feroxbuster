@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::traits::FeroxSerialize;
 use crate::utils::fmt_err;
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 /// Representation of a log entry, can be represented as a human readable string or JSON
 pub struct FeroxMessage {
     #[serde(rename = "type")]
@@ -38,7 +38,7 @@ impl FeroxSerialize for FeroxMessage {
             "DEBUG" => ("DBG", Color::Yellow),
             "TRACE" => ("TRC", Color::Magenta),
             "WILDCARD" => ("WLD", Color::Cyan),
-            _ => ("UNK", Color::White),
+            _ => ("MSG", Color::White),
         };
 
         format!(
@@ -143,6 +143,6 @@ mod tests {
         assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("WLD"));
 
         msg.level = "UNKNOWN".to_string();
-        assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("UNK"));
+        assert!(console::strip_ansi_codes(&msg.as_str()).starts_with("MSG"));
     }
 }
