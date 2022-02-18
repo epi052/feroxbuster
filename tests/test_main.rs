@@ -25,12 +25,9 @@ fn main_use_root_owned_file_as_wordlist() {
         .arg("-vvvv")
         .assert()
         .success()
-        .stderr(predicate::str::contains(
-            "Failed while scanning: Could not open /etc/shadow",
-        ));
+        .stderr(predicate::str::contains("Could not open /etc/shadow"));
 
-    // connectivity test hits it once
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.hits(), 0);
 }
 
 #[test]
@@ -53,11 +50,9 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .arg("-vvvv")
         .assert()
         .success()
-        .stderr(predicate::str::contains(
-            "Failed while scanning: Did not find any words in",
-        ));
+        .stderr(predicate::str::contains("Did not find any words in"));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.hits(), 0);
 
     teardown_tmp_directory(tmp_dir);
     Ok(())

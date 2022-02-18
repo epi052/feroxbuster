@@ -2,11 +2,14 @@ use super::Command::AddToUsizeField;
 use super::*;
 
 use anyhow::{Context, Result};
+use futures::future::{BoxFuture, FutureExt};
 use tokio::sync::{mpsc, oneshot};
 
+use crate::statistics::StatField::TotalExpected;
 use crate::{
     config::Configuration,
     progress::PROGRESS_PRINTER,
+    response::FeroxResponse,
     scanner::RESPONSES,
     send_command, skip_fail,
     statistics::StatField::ResourcesDiscovered,
@@ -15,6 +18,17 @@ use crate::{
     CommandReceiver, CommandSender, Joiner,
 };
 use std::sync::Arc;
+use url::Url;
+
+#[derive(Debug, Copy, Clone)]
+/// Simple enum for semantic clarity around calling expectations for `process_response`
+enum ProcessResponseCall {
+    /// call should allow recursion
+    Recursive,
+
+    /// call should not allow recursion
+    NotRecursive,
+}
 
 #[derive(Debug)]
 /// Container for terminal output transmitter
@@ -89,6 +103,12 @@ impl FileOutHandler {
             match command {
                 Command::Report(response) => {
                     skip_fail!(write_to(&*response, &mut file, self.config.json));
+                }
+                Command::WriteToDisk(message) => {
+                    // todo consider making report accept dyn FeroxSerialize; would mean adding
+                    //  as_any/box_eq/PartialEq to the trait and then adding them to the
+                    //  implementing structs
+                    skip_fail!(write_to(&*message, &mut file, self.config.json));
                 }
                 Command::Exit => {
                     break;
@@ -185,56 +205,9 @@ impl TermOutHandler {
 
         while let Some(command) = self.receiver.recv().await {
             match command {
-                Command::Report(mut resp) => {
-                    let contains_sentry =
-                        self.config.status_codes.contains(&resp.status().as_u16());
-                    let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
-                    let should_process_response = contains_sentry && unknown_sentry;
-
-                    if should_process_response {
-                        // print to stdout
-                        ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
-
-                        send_command!(tx_stats, AddToUsizeField(ResourcesDiscovered, 1));
-
-                        if self.file_task.is_some() {
-                            // -o used, need to send the report to be written out to disk
-                            self.tx_file
-                                .send(Command::Report(resp.clone()))
-                                .with_context(|| {
-                                    fmt_err(&format!("Could not send {} to file handler", resp))
-                                })?;
-                        }
-                    }
-                    log::trace!("report complete: {}", resp.url());
-
-                    if self.config.replay_client.is_some() && should_process_response {
-                        // replay proxy specified/client created and this response's status code is one that
-                        // should be replayed; not using logged_request due to replay proxy client
-                        make_request(
-                            self.config.replay_client.as_ref().unwrap(),
-                            resp.url(),
-                            resp.method().as_str(),
-                            None,
-                            self.config.output_level,
-                            &self.config,
-                            tx_stats.clone(),
-                        )
-                        .await
-                        .with_context(|| "Could not replay request through replay proxy")?;
-                    }
-
-                    if should_process_response {
-                        // add response to RESPONSES for serialization in case of ctrl+c
-                        // placed all by its lonesome like this so that RESPONSES can take ownership
-                        // of the FeroxResponse
-
-                        // before ownership is transferred, there's no real reason to keep the body anymore
-                        // so we can free that piece of data, reducing memory usage
-                        resp.drop_text();
-
-                        RESPONSES.insert(*resp);
-                    }
+                Command::Report(resp) => {
+                    self.process_response(tx_stats.clone(), resp, ProcessResponseCall::Recursive)
+                        .await?;
                 }
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
@@ -250,6 +223,169 @@ impl TermOutHandler {
         }
         log::trace!("exit: start");
         Ok(())
+    }
+
+    /// upon receiving a `FeroxResponse` from the mpsc, handle printing, sending to the replay
+    /// proxy, checking for backups of the `FeroxResponse`'s url, and tracking the response.
+    fn process_response(
+        &self,
+        tx_stats: CommandSender,
+        mut resp: Box<FeroxResponse>,
+        call_type: ProcessResponseCall,
+    ) -> BoxFuture<'_, Result<()>> {
+        log::trace!("enter: process_response({:?}, {:?})", resp, call_type);
+
+        async move {
+            let contains_sentry = self.config.status_codes.contains(&resp.status().as_u16());
+            let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
+            let should_process_response = contains_sentry && unknown_sentry;
+
+            if should_process_response {
+                // print to stdout
+                ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
+
+                send_command!(tx_stats, AddToUsizeField(ResourcesDiscovered, 1));
+
+                if self.file_task.is_some() {
+                    // -o used, need to send the report to be written out to disk
+                    self.tx_file
+                        .send(Command::Report(resp.clone()))
+                        .with_context(|| {
+                            fmt_err(&format!("Could not send {} to file handler", resp))
+                        })?;
+                }
+            }
+            log::trace!("report complete: {}", resp.url());
+
+            if self.config.replay_client.is_some() && should_process_response {
+                // replay proxy specified/client created and this response's status code is one that
+                // should be replayed; not using logged_request due to replay proxy client
+                make_request(
+                    self.config.replay_client.as_ref().unwrap(),
+                    resp.url(),
+                    resp.method().as_str(),
+                    None,
+                    self.config.output_level,
+                    &self.config,
+                    tx_stats.clone(),
+                )
+                .await
+                .with_context(|| "Could not replay request through replay proxy")?;
+            }
+
+            if self.config.collect_backups
+                && should_process_response
+                && matches!(call_type, ProcessResponseCall::Recursive)
+            {
+                // --collect-backups was used; the response is one we care about, and the function
+                // call came from the loop in `.start` (i.e. recursive was specified
+                let backup_urls = self.generate_backup_urls(&resp).await;
+
+                // need to manually adjust stats
+                send_command!(tx_stats, AddToUsizeField(TotalExpected, backup_urls.len()));
+
+                for backup_url in &backup_urls {
+                    let backup_response = make_request(
+                        &self.config.client,
+                        backup_url,
+                        resp.method().as_str(),
+                        None,
+                        self.config.output_level,
+                        &self.config,
+                        tx_stats.clone(),
+                    )
+                    .await
+                    .with_context(|| {
+                        format!("Could not request backup of {}", resp.url().as_str())
+                    })?;
+
+                    let ferox_response = FeroxResponse::from(
+                        backup_response,
+                        resp.url().as_str(),
+                        resp.method().as_str(),
+                        resp.output_level,
+                    )
+                    .await;
+
+                    self.process_response(
+                        tx_stats.clone(),
+                        Box::new(ferox_response),
+                        ProcessResponseCall::NotRecursive,
+                    )
+                    .await?;
+                }
+            }
+
+            if should_process_response {
+                // add response to RESPONSES for serialization in case of ctrl+c
+                // placed all by its lonesome like this so that RESPONSES can take ownership
+                // of the FeroxResponse
+
+                // before ownership is transferred, there's no real reason to keep the body anymore
+                // so we can free that piece of data, reducing memory usage
+                resp.drop_text();
+
+                RESPONSES.insert(*resp);
+            }
+            log::trace!("exit: process_response");
+            Ok(())
+        }
+        .boxed()
+    }
+
+    /// internal helper to stay DRY
+    fn add_new_url_to_vec(&self, url: &Url, new_name: &str, urls: &mut Vec<Url>) {
+        let mut new_url = url.clone();
+        new_url.set_path(new_name);
+        urls.push(new_url);
+    }
+
+    /// given a `FeroxResponse`, generate either 6 or 7 urls that are likely backups of the
+    /// original.
+    ///
+    /// example:
+    ///     original: LICENSE.txt
+    ///     backups:    
+    ///         -  LICENSE.txt~
+    ///         - LICENSE.txt.bak
+    ///         - LICENSE.txt.bak2
+    ///         - LICENSE.txt.old
+    ///         - LICENSE.txt.1
+    ///         - LICENSE.bak
+    ///         - .LICENSE.txt.swp
+    async fn generate_backup_urls(&self, response: &FeroxResponse) -> Vec<Url> {
+        log::trace!("enter: generate_backup_urls({:?})", response);
+
+        let mut urls = vec![];
+        let url = response.url();
+
+        // confirmed safe: see src/response.rs for comments
+        let filename = url.path_segments().unwrap().last().unwrap();
+
+        if !filename.is_empty() {
+            // append rules
+            for suffix in ["~", ".bak", ".bak2", ".old", ".1"] {
+                self.add_new_url_to_vec(url, &format!("{}{}", filename, suffix), &mut urls);
+            }
+
+            // vim swap rule
+            self.add_new_url_to_vec(url, &format!(".{}.swp", filename), &mut urls);
+
+            // replace original extension rule
+            let parts: Vec<_> = filename
+                .split('.')
+                // keep things like /.bash_history out of results
+                .filter(|part| !part.is_empty())
+                .collect();
+
+            if parts.len() > 1 {
+                // filename + at least one extension, i.e. whatever.js becomes ["whatever", "js"]
+                self.add_new_url_to_vec(url, &format!("{}.bak", parts.first().unwrap()), &mut urls);
+            }
+        }
+
+        log::trace!("exit: generate_backup_urls -> {:?}", urls);
+        urls
     }
 }
 
@@ -284,6 +420,91 @@ mod tests {
         };
 
         println!("{:?}", toh);
+        tx.send(Command::Exit).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// when the feroxresponse's url contains an extension, there should be 7 urls returned
+    async fn generate_backup_urls_creates_correct_urls_when_extension_present() {
+        let (tx, rx) = mpsc::unbounded_channel::<Command>();
+        let (tx_file, _) = mpsc::unbounded_channel::<Command>();
+        let config = Arc::new(Configuration::new().unwrap());
+
+        let toh = TermOutHandler {
+            config,
+            file_task: None,
+            receiver: rx,
+            tx_file,
+        };
+
+        let expected: Vec<_> = vec![
+            "derp.php~",
+            "derp.php.bak",
+            "derp.php.bak2",
+            "derp.php.old",
+            "derp.php.1",
+            ".derp.php.swp",
+            "derp.bak",
+        ];
+
+        let mut fr = FeroxResponse::default();
+        fr.set_url("http://localhost/derp.php");
+
+        let urls = toh.generate_backup_urls(&fr).await;
+
+        let paths: Vec<_> = urls
+            .iter()
+            .map(|url| url.path_segments().unwrap().last().unwrap())
+            .collect();
+
+        assert_eq!(urls.len(), 7);
+
+        for path in paths {
+            assert!(expected.contains(&path));
+        }
+
+        tx.send(Command::Exit).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// when the feroxresponse's url doesn't contain an extension, there should be 6 urls returned
+    async fn generate_backup_urls_creates_correct_urls_when_extension_not_present() {
+        let (tx, rx) = mpsc::unbounded_channel::<Command>();
+        let (tx_file, _) = mpsc::unbounded_channel::<Command>();
+        let config = Arc::new(Configuration::new().unwrap());
+
+        let toh = TermOutHandler {
+            config,
+            file_task: None,
+            receiver: rx,
+            tx_file,
+        };
+
+        let expected: Vec<_> = vec![
+            "derp~",
+            "derp.bak",
+            "derp.bak2",
+            "derp.old",
+            "derp.1",
+            ".derp.swp",
+        ];
+
+        let mut fr = FeroxResponse::default();
+        fr.set_url("http://localhost/derp");
+
+        let urls = toh.generate_backup_urls(&fr).await;
+
+        let paths: Vec<_> = urls
+            .iter()
+            .map(|url| url.path_segments().unwrap().last().unwrap())
+            .collect();
+
+        assert_eq!(urls.len(), 6);
+
+        for path in paths {
+            assert!(expected.contains(&path));
+        }
+
         tx.send(Command::Exit).unwrap();
     }
 }

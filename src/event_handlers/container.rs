@@ -6,6 +6,7 @@ use crate::Joiner;
 #[cfg(test)]
 use crate::{filters::FeroxFilters, statistics::Stats, Command};
 use anyhow::{bail, Result};
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 #[cfg(test)]
 use tokio::sync::mpsc::{self, UnboundedReceiver};
@@ -56,6 +57,9 @@ pub struct Handles {
 
     /// Handle for recursion
     pub scans: RwLock<Option<ScanHandle>>,
+
+    /// Pointer to the list of words generated from reading in the wordlist
+    pub wordlist: Arc<Vec<String>>,
 }
 
 /// implementation of Handles
@@ -66,6 +70,7 @@ impl Handles {
         filters: FiltersHandle,
         output: TermOutHandle,
         config: Arc<Configuration>,
+        wordlist: Arc<Vec<String>>,
     ) -> Self {
         Self {
             stats,
@@ -73,6 +78,7 @@ impl Handles {
             output,
             config,
             scans: RwLock::new(None),
+            wordlist,
         }
     }
 
@@ -87,7 +93,14 @@ impl Handles {
         let terminal_handle = TermOutHandle::new(tx.clone(), tx.clone());
         let stats_handle = StatsHandle::new(Arc::new(Stats::new(configuration.json)), tx.clone());
         let filters_handle = FiltersHandle::new(Arc::new(FeroxFilters::default()), tx.clone());
-        let handles = Self::new(stats_handle, filters_handle, terminal_handle, configuration);
+        let wordlist = Arc::new(vec![String::from("this_is_a_test")]);
+        let handles = Self::new(
+            stats_handle,
+            filters_handle,
+            terminal_handle,
+            configuration,
+            wordlist,
+        );
         if let Some(sh) = scanned_urls {
             let scan_handle = ScanHandle::new(sh, tx);
             handles.set_scan_handle(scan_handle);
@@ -114,6 +127,46 @@ impl Handles {
         }
 
         bail!("Could not get underlying CommandSender object")
+    }
+
+    /// wrapper to reach into `FeroxScans` and yank out the length of `collected_extensions`
+    pub fn num_collected_extensions(&self) -> usize {
+        if !self.config.collect_extensions {
+            // if --collect-extensions wasn't used, simply return 0 and forego unlocking
+            return 0;
+        }
+
+        self.collected_extensions().len()
+    }
+
+    /// wrapper to reach into `FeroxScans` and yank out the length of `collected_extensions`
+    pub fn collected_extensions(&self) -> HashSet<String> {
+        if let Ok(scans) = self.ferox_scans() {
+            if let Ok(extensions) = scans.collected_extensions.read() {
+                return extensions.clone();
+            }
+        }
+
+        HashSet::new()
+    }
+
+    /// number of words in the wordlist, multiplied by `expected_num_requests_multiplier`
+    pub fn expected_num_requests_per_dir(&self) -> usize {
+        let num_words = self.wordlist.len();
+        let multiplier = self.expected_num_requests_multiplier();
+        multiplier * num_words
+    }
+
+    /// number of extensions plus the number of request method types plus any dynamically collected
+    /// extensions
+    pub fn expected_num_requests_multiplier(&self) -> usize {
+        let multiplier = self.config.extensions.len()
+            + self.config.methods.len()
+            + self.num_collected_extensions();
+
+        // methods should always have at least 1 member, likely making this .max call unneeded
+        // but leaving it for 'just in case' reasons
+        multiplier.max(1)
     }
 
     /// Helper to easily get the (locked) underlying FeroxScans object

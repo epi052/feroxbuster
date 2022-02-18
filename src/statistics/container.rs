@@ -69,6 +69,10 @@ pub struct Stats {
     /// response bodies and robots.txt as of v1.11.0
     links_extracted: AtomicUsize,
 
+    /// tracker for number of extensions discovered when `--collect-extensions` is used; sources
+    /// are response bodies
+    extensions_collected: AtomicUsize,
+
     /// tracker for overall number of 200s seen by the client
     status_200s: AtomicUsize,
 
@@ -166,6 +170,10 @@ impl Serialize for Stats {
         state.serialize_field("total_scans", &atomic_load!(self.total_scans))?;
         state.serialize_field("initial_targets", &atomic_load!(self.initial_targets))?;
         state.serialize_field("links_extracted", &atomic_load!(self.links_extracted))?;
+        state.serialize_field(
+            "extensions_collected",
+            &atomic_load!(self.extensions_collected),
+        )?;
         state.serialize_field("status_200s", &atomic_load!(self.status_200s))?;
         state.serialize_field("status_301s", &atomic_load!(self.status_301s))?;
         state.serialize_field("status_302s", &atomic_load!(self.status_302s))?;
@@ -287,6 +295,13 @@ impl<'a> Deserialize<'a> for Stats {
                     if let Some(num) = value.as_u64() {
                         if let Ok(parsed) = usize::try_from(num) {
                             atomic_increment!(stats.links_extracted, parsed);
+                        }
+                    }
+                }
+                "extensions_collected" => {
+                    if let Some(num) = value.as_u64() {
+                        if let Ok(parsed) = usize::try_from(num) {
+                            atomic_increment!(stats.extensions_collected, parsed);
                         }
                     }
                 }
@@ -628,6 +643,9 @@ impl Stats {
             StatField::LinksExtracted => {
                 atomic_increment!(self.links_extracted, value);
             }
+            StatField::ExtensionsCollected => {
+                atomic_increment!(self.extensions_collected, value);
+            }
             StatField::WildcardsFiltered => {
                 atomic_increment!(self.wildcards_filtered, value);
                 atomic_increment!(self.responses_filtered, value);
@@ -664,6 +682,10 @@ impl Stats {
             atomic_increment!(self.client_errors, atomic_load!(d_stats.client_errors));
             atomic_increment!(self.server_errors, atomic_load!(d_stats.server_errors));
             atomic_increment!(self.links_extracted, atomic_load!(d_stats.links_extracted));
+            atomic_increment!(
+                self.extensions_collected,
+                atomic_load!(d_stats.extensions_collected)
+            );
             atomic_increment!(self.status_200s, atomic_load!(d_stats.status_200s));
             atomic_increment!(self.status_301s, atomic_load!(d_stats.status_301s));
             atomic_increment!(self.status_302s, atomic_load!(d_stats.status_302s));
@@ -834,7 +856,7 @@ mod tests {
     #[test]
     /// Stats::merge_from should properly increment expected fields and ignore others
     fn stats_merge_from_alters_correct_fields() {
-        let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
+        let contents = r#"{"statistics":{"type":"statistics","timeouts":1,"requests":9207,"expected_per_scan":707,"total_expected":9191,"errors":3,"successes":720,"redirects":13,"client_errors":8474,"server_errors":2,"total_scans":13,"initial_targets":1,"links_extracted":51,"extensions_collected":4,"status_403s":3,"status_200s":720,"status_301s":12,"status_302s":1,"status_401s":4,"status_429s":2,"status_500s":5,"status_503s":9,"status_504s":6,"status_508s":7,"wildcards_filtered":707,"responses_filtered":707,"resources_discovered":27,"directory_scan_times":[2.211973078,1.989015505,1.898675839,3.9714468910000003,4.938152838,5.256073528,6.021986595,6.065740734,6.42633762,7.095142125,7.336982137,5.319785619,4.843649778],"total_runtime":[11.556575456000001],"url_format_errors":17,"redirection_errors":12,"connection_errors":21,"request_errors":4}}"#;
         let config = Configuration::new().unwrap();
         let stats = Stats::new(config.json);
 
@@ -857,6 +879,7 @@ mod tests {
         assert_eq!(atomic_load!(stats.total_scans), 0); // not updated in merge_from
         assert_eq!(atomic_load!(stats.initial_targets), 0); // not updated in merge_from
         assert_eq!(atomic_load!(stats.links_extracted), 51);
+        assert_eq!(atomic_load!(stats.extensions_collected), 4);
         assert_eq!(atomic_load!(stats.status_200s), 720);
         assert_eq!(atomic_load!(stats.status_301s), 12);
         assert_eq!(atomic_load!(stats.status_302s), 1);

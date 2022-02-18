@@ -15,6 +15,7 @@ use crate::{
 
 use super::command::Command::AddToUsizeField;
 use super::*;
+use crate::statistics::StatField;
 use reqwest::Url;
 use tokio::time::Duration;
 
@@ -176,11 +177,115 @@ impl ScanHandler {
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
                 }
+                Command::AddDiscoveredExtension(new_extension) => {
+                    // if --collect-extensions was used, AND the new extension isn't in
+                    // the --dont-collect list AND it's also not in the --extensions list, AND
+                    // we actually added a new extension (i.e. wasn't previously known), add
+                    // it to FeroxScans.collected_extensions
+                    if self.handles.config.collect_extensions
+                        && !self.handles.config.dont_collect.contains(&new_extension)
+                        && !self.handles.config.extensions.contains(&new_extension)
+                        && self.data.add_discovered_extension(new_extension)
+                    {
+                        self.update_all_bar_lengths()?;
+                        self.handles
+                            .stats
+                            .send(Command::AddToUsizeField(StatField::ExtensionsCollected, 1))
+                            .unwrap_or_default();
+                    }
+                }
                 _ => {} // no other commands needed for RecursionHandler
             }
         }
 
         log::trace!("exit: start");
+        Ok(())
+    }
+
+    /// update all current and future bar lengths
+    ///
+    /// updating all bar lengths correctly requires a few different actions on our part.
+    /// - get the current number of requests expected per scan (dynamic when --collect-extensions
+    ///     is used)
+    /// - update the overall progress bar via the statistics handler (total expected)
+    /// - update the expected per scan value tracked in the statistics handler
+    /// - update progress bars on each FeroxScan (type::directory) that are running/not-started
+    /// - update progress bar length on FeroxScans (this is used when creating new a FeroxScan and
+    ///     determines the new scan's progress bar length)
+    fn update_all_bar_lengths(&self) -> Result<()> {
+        log::trace!("enter: update_all_bar_lengths");
+
+        // current number of requests expected per scan
+        // ExpectedPerScan and TotalExpected are a += action, so we need the wordlist length to
+        // update them while the other updates use expected_num_requests_per_dir
+        let num_words = self.get_wordlist()?.len();
+        let current_expectation = self.handles.expected_num_requests_per_dir() as u64;
+
+        // used in the calculation of bar width down below, see explanation there
+        let divisor = self.handles.expected_num_requests_multiplier() as u64 - 1;
+
+        // add another `wordlist.len` to the expected per scan tracker in the statistics handler
+        self.handles
+            .stats
+            .send(AddToUsizeField(StatField::ExpectedPerScan, num_words))?;
+
+        // since we're adding extensions in the middle of scans (potentially), we need to take
+        // current number of requests into account, new_total will be used as an accumulator
+        // used to increment the overall progress bar
+        let mut new_total = 0;
+
+        if let Ok(ferox_scans) = self.handles.ferox_scans() {
+            // update progress bar length on FeroxScans, which used when creating a new FeroxScan's
+            // progress bar and should mirror the expected_per_scan field on Statistics
+            ferox_scans.set_bar_length(current_expectation);
+
+            if let Ok(scans_guard) = ferox_scans.scans.read() {
+                // update progress bars on each FeroxScan where its scan type is directory and
+                // scan status is either running or not-started
+                for scan in scans_guard.iter() {
+                    if scan.is_active() {
+                        // current number of words left in the 'to-scan' bin, for example:
+                        //
+                        // say we have a 2000 word wordlist, have `-x js` on the command line, and
+                        // just found `php` as a new extension
+                        //
+                        // that puts our state at:
+                        // - wordlist length: 2000
+                        // - total expected: 4000 (original length * 2 for -x js)
+                        //
+                        // let's assume the current scan has sent 3000 requests so far
+                        // that means to get the number of `words` left to send, we need to take
+                        // the difference of 4000 and 3000 and then divide that by the current
+                        // multiplier (2 in the example)
+                        //
+                        // (4000 - 3000) / 2 => 500 words left to send
+                        //
+                        // the remaining 500 words will be sent as 3 variations (word, word.js,
+                        // word.php). So, we would then need to increment the bar by 500 to
+                        // reflect the dynamism of adding extensions mid-scan.
+                        let bar = scan.progress_bar();
+
+                        // (4000 - 3000) / 2 => 500 words left to send
+                        let length = bar.length();
+                        let num_words_left = (length - bar.position()) / divisor;
+
+                        // accumulate each bar's increment value for incrementing the total bar
+                        new_total += num_words_left;
+
+                        bar.inc_length(num_words_left);
+                    }
+                }
+            }
+
+            // add the total number of newly expected requests to the overall progress bar
+            // via the statistics handler
+            self.handles.stats.send(AddToUsizeField(
+                StatField::TotalExpected,
+                new_total as usize,
+            ))?;
+        }
+
+        log::trace!("exit: update_all_bar_lengths");
         Ok(())
     }
 

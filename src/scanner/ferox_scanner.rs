@@ -75,30 +75,17 @@ impl FeroxScanner {
         log::info!("Starting scan against: {}", self.target_url);
 
         let mut scan_timer = Instant::now();
-        let mut dirlist_flag = false;
 
-        if self.handles.config.extract_links {
-            // parse html for links (i.e. web scraping)
-            let extractor = ExtractorBuilder::default()
-                .target(ExtractionTarget::ParseHtml)
+        if self.handles.config.extract_links && matches!(self.order, ScanOrder::Initial) {
+            // check for robots.txt (cannot be in sub-directories, so limited to Initial)
+            let mut extractor = ExtractorBuilder::default()
+                .target(ExtractionTarget::RobotsTxt)
                 .url(&self.target_url)
                 .handles(self.handles.clone())
                 .build()?;
-            let extract_out = extractor.extract().await?;
-            let links = extract_out.0;
-            dirlist_flag = extract_out.1;
-            extractor.request_links(links).await?;
 
-            if matches!(self.order, ScanOrder::Initial) {
-                // check for robots.txt (cannot be in subdirs)
-                let extractor = ExtractorBuilder::default()
-                    .target(ExtractionTarget::RobotsTxt)
-                    .url(&self.target_url)
-                    .handles(self.handles.clone())
-                    .build()?;
-                let links = (extractor.extract().await?).0;
-                extractor.request_links(links).await?;
-            }
+            let result = extractor.extract().await?;
+            extractor.request_links(result).await?;
         }
 
         let scanned_urls = self.handles.ferox_scans()?;
@@ -118,54 +105,78 @@ impl FeroxScanner {
 
         let progress_bar = ferox_scan.progress_bar();
 
-        // Directory listing heuristic detection to not continue scanning
-        if dirlist_flag {
-            log::trace!("exit: scan_url -> Directory listing heuristic");
-
-            self.handles.stats.send(AddToF64Field(
-                DirScanTimes,
-                scan_timer.elapsed().as_secs_f64(),
-            ))?;
-
-            self.handles.stats.send(SubtractFromUsizeField(
-                TotalExpected,
-                progress_bar.length() as usize,
-            ))?;
-
-            progress_bar.reset_eta();
-            progress_bar.finish_with_message(&format!(
-                "=> {}",
-                style("Directory listing").blue().bright()
-            ));
-
-            ferox_scan.finish()?;
-
-            return Ok(());
-        }
-
         // When acquire is called and the semaphore has remaining permits, the function immediately
         // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
         // waits until an outstanding permit is dropped, at which point, the freed permit is assigned
         // to the caller.
         let _permit = self.scan_limiter.acquire().await;
+
         if self.handles.config.scan_limit > 0 {
             scan_timer = Instant::now();
             progress_bar.reset();
         }
 
-        // Arc clones to be passed around to the various scans
-        let looping_words = self.wordlist.clone();
-
         {
+            // heuristics test block
             let test = heuristics::HeuristicTests::new(self.handles.clone());
+
             if let Ok(num_reqs) = test.wildcard(&self.target_url).await {
                 progress_bar.inc(num_reqs);
             }
+
+            if let Ok(dirlist_result) = test.directory_listing(&self.target_url).await {
+                if dirlist_result.is_some() {
+                    let dirlist_result = dirlist_result.unwrap();
+                    // at this point, we have a DirListingType, and it's not the None variant
+                    // which means we found directory listing based on the heuristic; now we need
+                    // to process the links that are available if --extract-links was used
+
+                    if self.handles.config.extract_links {
+                        let mut extractor = ExtractorBuilder::default()
+                            .response(&dirlist_result.response)
+                            .target(ExtractionTarget::DirectoryListing)
+                            .url(&self.target_url)
+                            .handles(self.handles.clone())
+                            .build()?;
+
+                        let result = extractor.extract_from_dir_listing().await?;
+
+                        extractor.request_links(result).await?;
+
+                        log::trace!("exit: scan_url -> Directory listing heuristic");
+
+                        self.handles.stats.send(AddToF64Field(
+                            DirScanTimes,
+                            scan_timer.elapsed().as_secs_f64(),
+                        ))?;
+
+                        self.handles.stats.send(SubtractFromUsizeField(
+                            TotalExpected,
+                            progress_bar.length() as usize,
+                        ))?;
+                    }
+
+                    let mut message = format!("=> {}", style("Directory listing").blue().bright());
+
+                    if !self.handles.config.extract_links {
+                        message
+                            .push_str(&format!(" (add {} to scan)", style("-e").bright().yellow()))
+                    }
+
+                    progress_bar.reset_eta();
+                    progress_bar.finish_with_message(&message);
+
+                    ferox_scan.finish()?;
+
+                    return Ok(());
+                }
+            }
         }
 
+        // Arc clones to be passed around to the various scans
+        let looping_words = self.wordlist.clone();
+
         let requester = Arc::new(Requester::from(self, ferox_scan.clone())?);
-        let increment_len =
-            ((self.handles.config.extensions.len() + 1) * self.handles.config.methods.len()) as u64;
 
         // producer tasks (mp of mpsc); responsible for making requests
         let producers = stream::iter(looping_words.deref().to_owned())
@@ -217,6 +228,7 @@ impl FeroxScanner {
             .for_each_concurrent(self.handles.config.threads, |(resp, bar)| async move {
                 match resp.await {
                     Ok(_) => {
+                        let increment_len = self.handles.expected_num_requests_multiplier() as u64;
                         bar.inc(increment_len);
                     }
                     Err(e) => {
