@@ -336,7 +336,7 @@ impl TermOutHandler {
     /// internal helper to stay DRY
     fn add_new_url_to_vec(&self, url: &Url, new_name: &str, urls: &mut Vec<Url>) {
         let mut new_url = url.clone();
-        new_url.set_path(&new_name);
+        new_url.set_path(new_name);
         urls.push(new_url);
     }
 
@@ -365,11 +365,11 @@ impl TermOutHandler {
         if !filename.is_empty() {
             // append rules
             for suffix in ["~", ".bak", ".bak2", ".old", ".1"] {
-                self.add_new_url_to_vec(&url, &format!("{}{}", filename, suffix), &mut urls);
+                self.add_new_url_to_vec(url, &format!("{}{}", filename, suffix), &mut urls);
             }
 
             // vim swap rule
-            self.add_new_url_to_vec(&url, &format!(".{}.swp", filename), &mut urls);
+            self.add_new_url_to_vec(url, &format!(".{}.swp", filename), &mut urls);
 
             // replace original extension rule
             let parts: Vec<_> = filename
