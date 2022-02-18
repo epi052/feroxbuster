@@ -90,8 +90,10 @@ _feroxbuster() {
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
-'-c[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
+'-E[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
+'-B[Automatically request likely backup extensions for "found" urls]' \
+'--collect-backups[Automatically request likely backup extensions for "found" urls]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(--silent)*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \

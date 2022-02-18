@@ -157,6 +157,9 @@ pub struct Banner {
 
     /// represents Configuration.dont_collect
     dont_collect: BannerEntry,
+
+    /// represents Configuration.collect_backups
+    collect_backups: BannerEntry,
 }
 
 /// implementation of Banner
@@ -360,6 +363,8 @@ impl Banner {
             "Collect Extensions",
             &config.collect_extensions.to_string(),
         );
+        let collect_backups =
+            BannerEntry::new("🏦", "Collect Backups", &config.collect_backups.to_string());
 
         Self {
             targets,
@@ -401,6 +406,7 @@ impl Banner {
             time_limit,
             url_denylist,
             collect_extensions,
+            collect_backups,
             dont_collect,
             config: cfg,
             version: VERSION.to_string(),
@@ -582,6 +588,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
             // dont-collect is active only when collect-extensions is used
             writeln!(&mut writer, "{}", self.collect_extensions)?;
             writeln!(&mut writer, "{}", self.dont_collect)?;
+        }
+
+        if config.collect_backups {
+            writeln!(&mut writer, "{}", self.collect_backups)?;
         }
 
         if !config.methods.is_empty() {

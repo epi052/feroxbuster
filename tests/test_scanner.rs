@@ -727,11 +727,11 @@ fn collect_backups_makes_appropriate_requests() {
         })
         .collect();
 
-    // todo add --collect-backups flag when available
     let cmd = Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
         .arg(srv.url("/"))
+        .arg("--collect-backups")
         .arg("--wordlist")
         .arg(file.as_os_str())
         .unwrap();

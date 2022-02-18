@@ -455,6 +455,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""headers""#,
         r#""server":"nginx/1.16.1"#,
         r#""collect_extensions":true"#,
+        r#""collect_backups":false"#,
         r#""collected_extensions":["php"]"#,
         r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
     ]

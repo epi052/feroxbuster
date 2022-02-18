@@ -104,6 +104,12 @@ impl FileOutHandler {
                 Command::Report(response) => {
                     skip_fail!(write_to(&*response, &mut file, self.config.json));
                 }
+                Command::WriteToDisk(message) => {
+                    // todo consider making report accept dyn FeroxSerialize; would mean adding
+                    //  as_any/box_eq/PartialEq to the trait and then adding them to the
+                    //  implementing structs
+                    skip_fail!(write_to(&*message, &mut file, self.config.json));
+                }
                 Command::Exit => {
                     break;
                 }
@@ -267,8 +273,12 @@ impl TermOutHandler {
                 .with_context(|| "Could not replay request through replay proxy")?;
             }
 
-            // todo update if statement to include --collect-backups
-            if should_process_response && matches!(call_type, ProcessResponseCall::Recursive) {
+            if self.config.collect_backups
+                && should_process_response
+                && matches!(call_type, ProcessResponseCall::Recursive)
+            {
+                // --collect-backups was used; the response is one we care about, and the function
+                // call came from the loop in `.start` (i.e. recursive was specified
                 let backup_urls = self.generate_backup_urls(&resp).await;
 
                 // need to manually adjust stats
