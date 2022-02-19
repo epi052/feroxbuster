@@ -260,10 +260,10 @@ impl TermOutHandler {
             if self.config.replay_client.is_some() && should_process_response {
                 // replay proxy specified/client created and this response's status code is one that
                 // should be replayed; not using logged_request due to replay proxy client
-                let data = if self.handles.config.data.is_empty() {
+                let data = if self.config.data.is_empty() {
                     None
                 } else {
-                    Some(self.handles.config.data.as_slice())
+                    Some(self.config.data.as_slice())
                 };
 
                 make_request(
