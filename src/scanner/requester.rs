@@ -396,7 +396,7 @@ impl Requester {
                     ferox_response.parse_extension(self.handles.clone())?;
                 }
 
-                if self.handles.config.extract_links && !ferox_response.status().is_redirection() {
+                if self.handles.config.extract_links {
                     let mut extractor = ExtractorBuilder::default()
                         .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)

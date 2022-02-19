@@ -195,7 +195,6 @@ fn extractor_add_link_to_set_of_links_happy_path() {
 fn extractor_add_link_to_set_of_links_with_non_base_url() {
     let mut links = HashSet::<String>::new();
     let link = "\\\\\\\\";
-
     assert_eq!(links.len(), 0);
     assert!(ROBOTS_EXT
         .add_link_to_set_of_links(link, &mut links)
@@ -204,6 +203,34 @@ fn extractor_add_link_to_set_of_links_with_non_base_url() {
 
     assert_eq!(links.len(), 0);
     assert!(links.is_empty());
+}
+
+#[test]
+/// test for filtering queries and fragments
+fn normalize_url_path_filters_queries_and_fragments() {
+    let handles = Arc::new(Handles::for_testing(None, None).0);
+    let extractor = ExtractorBuilder::default()
+        .url("doesnt matter")
+        .target(ExtractionTarget::RobotsTxt)
+        .handles(handles)
+        .build()
+        .unwrap();
+
+    let test_strings = [
+        "over/there?name=ferret#nose",
+        "over/there?name=ferret",
+        "over/there#nose",
+        "over/there",
+        "over/there?name#nose",
+        "over/there?name",
+        "   over/there?name=ferret#nose  ",
+        "over/there?name=ferret   ",
+        "   over/there#nose",
+    ];
+    test_strings.iter().for_each(|&ts| {
+        let normed = extractor.normalize_url_path(ts);
+        assert_eq!(normed, "over/there");
+    });
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

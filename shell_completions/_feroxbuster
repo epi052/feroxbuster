@@ -100,6 +100,7 @@ _feroxbuster() {
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
+'--no-state[Disable state output file (*.state)]' \
 && ret=0
 }
 

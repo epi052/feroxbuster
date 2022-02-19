@@ -554,6 +554,13 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Output settings")
                 .help("Output file to write log entries (use w/ --json for JSON entries)")
                 .takes_value(true),
+        )
+        .arg(
+            Arg::new("no_state")
+                .long("no-state")
+                .takes_value(false)
+                .help_heading("Output settings")
+                .help("Disable state output file (*.state)")
         );
 
     /////////////////////////////////////////////////////////////////////

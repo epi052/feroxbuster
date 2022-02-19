@@ -270,6 +270,45 @@ impl<'a> Extractor<'a> {
         Ok(())
     }
 
+    /// given a url path, trim whitespace, remove slashes, and queries/fragments; return the
+    /// normalized string
+    pub(super) fn normalize_url_path(&self, path: &str) -> String {
+        log::trace!("enter: normalize_url_path({})", path);
+
+        // remove whitespace and leading '/'
+        let path_str: String = path
+            .trim()
+            .trim_start_matches('/')
+            .chars()
+            .filter(|char| !char.is_whitespace())
+            .collect();
+
+        // snippets from rfc-3986:
+        //
+        //          foo://example.com:8042/over/there?name=ferret#nose
+        //          \_/   \______________/\_________/ \_________/ \__/
+        //           |           |            |            |        |
+        //        scheme     authority       path        query   fragment
+        //
+        // The path component is terminated
+        //    by the first question mark ("?") or number sign ("#") character, or
+        //    by the end of the URI.
+        //
+        // The query component is indicated by the first question
+        //    mark ("?") character and terminated by a number sign ("#") character
+        //    or by the end of the URI.
+        let (path_str, _discarded) = path_str
+            .split_once('?')
+            // if there isn't a '?', try to remove a fragment
+            .unwrap_or_else(|| {
+                // if there isn't a '#', return (original, empty)
+                path_str.split_once('#').unwrap_or((&path_str, ""))
+            });
+
+        log::trace!("exit: normalize_url_path -> {}", path_str);
+        path_str.into()
+    }
+
     /// Iterate over a given path, return a list of every sub-path found
     ///
     /// example: `path` contains a link fragment `homepage/assets/img/icons/handshake.svg`
@@ -283,8 +322,13 @@ impl<'a> Extractor<'a> {
         log::trace!("enter: get_sub_paths_from_path({})", path);
         let mut paths = vec![];
 
+        let normalized_path = self.normalize_url_path(path);
+
         // filter out any empty strings caused by .split
-        let mut parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        let mut parts: Vec<&str> = normalized_path
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .collect();
 
         let length = parts.len();
 
@@ -418,7 +462,9 @@ impl<'a> Extractor<'a> {
         for capture in self.robots_regex.captures_iter(body) {
             if let Some(new_path) = capture.name("url_path") {
                 let mut new_url = Url::parse(&self.url)?;
+
                 new_url.set_path(new_path.as_str());
+
                 if self.add_all_sub_paths(new_url.path(), &mut result).is_err() {
                     log::warn!("could not add sub-paths from {} to {:?}", new_url, result);
                 }
