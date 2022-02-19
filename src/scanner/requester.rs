@@ -332,13 +332,14 @@ impl Requester {
                     continue;
                 }
 
-                let response = logged_request(
-                    &url,
-                    method.as_str(),
-                    Some(self.handles.config.data.as_slice()),
-                    self.handles.clone(),
-                )
-                .await?;
+                let data = if self.handles.config.data.is_empty() {
+                    None
+                } else {
+                    Some(self.handles.config.data.as_slice())
+                };
+
+                let response =
+                    logged_request(&url, method.as_str(), data, self.handles.clone()).await?;
 
                 if (should_tune || self.handles.config.auto_bail)
                     && !atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst)

@@ -131,7 +131,7 @@ pub async fn make_request(
     client: &Client,
     url: &Url,
     method: &str,
-    data: Option<&[u8]>,
+    mut data: Option<&[u8]>,
     output_level: OutputLevel,
     config: &Configuration,
     tx_stats: UnboundedSender<Command>,
@@ -142,8 +142,30 @@ pub async fn make_request(
         output_level,
         tx_stats
     );
+    let tmp_workaround: Option<&[u8]> = Some(&[0xd_u8, 0xa]); // \r\n
 
     let mut request = client.request(Method::from_bytes(method.as_bytes())?, url.to_owned());
+
+    if (!config.proxy.is_empty() || config.replay_proxy.is_empty())
+        && data.is_none()
+        && ["post", "put", "patch"].contains(&method.to_ascii_lowercase().as_str())
+    {
+        // either --proxy or --replay-proxy was specified
+        // AND
+        // --data wasn't used
+        // AND
+        // the method is either post/put/patch (case insensitive)
+        //
+        // this combination of factors results in requests that are delayed for 10 seconds before
+        // being issued. The tracking issues are
+        //   https://github.com/epi052/feroxbuster/issues/501
+        //   https://github.com/seanmonstar/reqwest/issues/1474
+        //
+        // as a (hopefully temporary) workaround, we'll add \r\n to the body so that there's no
+        // delay
+        data = tmp_workaround;
+    }
+
     if let Some(body_data) = data {
         request = request.body(body_data.to_vec());
     }
