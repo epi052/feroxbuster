@@ -260,11 +260,17 @@ impl TermOutHandler {
             if self.config.replay_client.is_some() && should_process_response {
                 // replay proxy specified/client created and this response's status code is one that
                 // should be replayed; not using logged_request due to replay proxy client
+                let data = if self.handles.config.data.is_empty() {
+                    None
+                } else {
+                    Some(self.handles.config.data.as_slice())
+                };
+
                 make_request(
                     self.config.replay_client.as_ref().unwrap(),
                     resp.url(),
                     resp.method().as_str(),
-                    None,
+                    data,
                     self.config.output_level,
                     &self.config,
                     tx_stats.clone(),
@@ -346,7 +352,7 @@ impl TermOutHandler {
     /// example:
     ///     original: LICENSE.txt
     ///     backups:    
-    ///         -  LICENSE.txt~
+    ///         - LICENSE.txt~
     ///         - LICENSE.txt.bak
     ///         - LICENSE.txt.bak2
     ///         - LICENSE.txt.old
