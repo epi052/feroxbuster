@@ -32,6 +32,7 @@ fn setup_config_test() -> Configuration {
             insecure = true
             collect_backups = true
             collect_extensions = true
+            collect_words = true
             extensions = ["html", "php", "js"]
             dont_collect = ["png", "gif", "jpg", "jpeg"]
             methods = ["GET", "PUT", "DELETE"]
@@ -99,6 +100,7 @@ fn default_configuration() {
     assert!(!config.insecure);
     assert!(!config.collect_extensions);
     assert!(!config.collect_backups);
+    assert!(!config.collect_words);
     assert!(config.regex_denylist.is_empty());
     assert_eq!(config.queries, Vec::new());
     assert_eq!(config.filter_size, Vec::<u64>::new());
@@ -309,6 +311,13 @@ fn config_reads_collect_extensions() {
 fn config_reads_collect_backups() {
     let config = setup_config_test();
     assert!(config.collect_backups);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_collect_words() {
+    let config = setup_config_test();
+    assert!(config.collect_words);
 }
 
 #[test]

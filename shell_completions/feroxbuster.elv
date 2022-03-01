@@ -97,6 +97,8 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --collect-extensions 'Automatically discover extensions and add them to --extensions (unless they''re in --dont-collect)'
             cand -B 'Automatically request likely backup extensions for "found" urls'
             cand --collect-backups 'Automatically request likely backup extensions for "found" urls'
+            cand -g 'Automatically discover important words from within responses and add them to the wordlist'
+            cand --collect-words 'Automatically discover important words from within responses and add them to the wordlist'
             cand -v 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)'
             cand --verbosity 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)'
             cand --silent 'Only print URLs + turn off logging (good for piping a list of urls to other commands)'

@@ -160,6 +160,9 @@ pub struct Banner {
 
     /// represents Configuration.collect_backups
     collect_backups: BannerEntry,
+
+    /// represents Configuration.collect_words
+    collect_words: BannerEntry,
 }
 
 /// implementation of Banner
@@ -366,6 +369,9 @@ impl Banner {
         let collect_backups =
             BannerEntry::new("🏦", "Collect Backups", &config.collect_backups.to_string());
 
+        let collect_words =
+            BannerEntry::new("🤑", "Collect Words", &config.collect_words.to_string());
+
         Self {
             targets,
             status_codes,
@@ -407,6 +413,7 @@ impl Banner {
             url_denylist,
             collect_extensions,
             collect_backups,
+            collect_words,
             dont_collect,
             config: cfg,
             version: VERSION.to_string(),
@@ -592,6 +599,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.collect_backups {
             writeln!(&mut writer, "{}", self.collect_backups)?;
+        }
+
+        if config.collect_words {
+            writeln!(&mut writer, "{}", self.collect_words)?;
         }
 
         if !config.methods.is_empty() {

@@ -485,6 +485,13 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Dynamic collection settings")
                 .help("Automatically request likely backup extensions for \"found\" urls")
         ).arg(
+            Arg::new("collect_words")
+                .short('g')
+                .long("collect-words")
+                .takes_value(false)
+                .help_heading("Dynamic collection settings")
+                .help("Automatically discover important words from within responses and add them to the wordlist")
+        ).arg(
             Arg::new("dont_collect")
                 .short('I')
                 .long("dont-collect")

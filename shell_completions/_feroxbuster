@@ -94,6 +94,8 @@ _feroxbuster() {
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '-B[Automatically request likely backup extensions for "found" urls]' \
 '--collect-backups[Automatically request likely backup extensions for "found" urls]' \
+'-g[Automatically discover important words from within responses and add them to the wordlist]' \
+'--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(--silent)*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \

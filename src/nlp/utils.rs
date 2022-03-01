@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 /// pre-processing pipeline wrapper that removes punctuation, normalizes word case (utf-8 included)
 /// to lowercase, and remove stop words
-pub fn preprocess(text: &str) -> Vec<String> {
+pub(super) fn preprocess(text: &str) -> Vec<String> {
     let text = remove_punctuation(text);
     let text = normalize_case(text);
     let text = remove_stop_words(&text);
@@ -15,7 +15,7 @@ pub fn preprocess(text: &str) -> Vec<String> {
 }
 
 /// optimized version of `str::to_lowercase`
-pub fn normalize_case<'a, S: Into<Cow<'a, str>>>(input: S) -> Cow<'a, str> {
+fn normalize_case<'a, S: Into<Cow<'a, str>>>(input: S) -> Cow<'a, str> {
     let input = input.into();
 
     let first = input.find(char::is_uppercase);
@@ -39,7 +39,7 @@ pub fn normalize_case<'a, S: Into<Cow<'a, str>>>(input: S) -> Cow<'a, str> {
 }
 
 /// remove ascii and some utf-8 punctuation characters from the given string
-pub fn remove_punctuation(text: &str) -> String {
+fn remove_punctuation(text: &str) -> String {
     // non-separator type chars can be replaced with an empty string, while separators are replaced
     // with a space. This attempts to keep things like
     // 'aboutblogfaqcontactpresstermslexicondisclosure' from happening
@@ -54,7 +54,7 @@ pub fn remove_punctuation(text: &str) -> String {
 }
 
 /// remove stop words from the given string
-pub fn remove_stop_words(text: &str) -> String {
+fn remove_stop_words(text: &str) -> String {
     BOUNDED_WORD_REGEX
         .replace_all(text, |caps: &Captures| {
             let word = &caps[0];
@@ -68,12 +68,12 @@ pub fn remove_stop_words(text: &str) -> String {
 }
 
 /// calculate inverse document frequency
-pub fn inverse_document_frequency(num_docs: f32, doc_frequency: f32) -> f32 {
+pub(super) fn inverse_document_frequency(num_docs: f32, doc_frequency: f32) -> f32 {
     f32::log10(num_docs / doc_frequency)
 }
 
 /// calculate term frequency-inverse document frequency (tf-idf)
-pub fn tf_idf_score(term_frequency: f32, idf: f32) -> f32 {
+pub(super) fn tf_idf_score(term_frequency: f32, idf: f32) -> f32 {
     term_frequency * idf
 }
 

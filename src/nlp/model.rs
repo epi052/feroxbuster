@@ -16,11 +16,8 @@ pub(crate) struct TfIdf {
 
 impl TfIdf {
     /// create an empty TF-IDF model; must be populated with `add_document` prior to use
-    fn new() -> Self {
-        Self {
-            terms: HashMap::new(),
-            num_documents: 0,
-        }
+    pub(crate) fn new() -> Self {
+        Self::default()
     }
 
     /// accessor method for the collection of `Term`s and `TermMetaData`
@@ -28,8 +25,13 @@ impl TfIdf {
         self.terms.borrow()
     }
 
+    /// accessor method for the number of `Document`s the model has processed
+    pub(crate) fn num_documents(&self) -> usize {
+        self.num_documents
+    }
+
     /// add a `Document` to the model
-    fn add_document(&mut self, document: Document) {
+    pub(crate) fn add_document(&mut self, document: Document) {
         // increment number of docs seen, since we don't preserve the document itself; this needs
         // to happen before calls to `self.inverse_document_frequency`, as it relies on the count
         // being up to date
@@ -55,12 +57,9 @@ impl TfIdf {
     ///
     /// old tf-idf scores are removed during calculations to keep new `Term`s at the same relative
     /// level as new ones WRT corpus size
-    fn calculate_tf_idf_scores(&mut self) {
+    pub(crate) fn calculate_tf_idf_scores(&mut self) {
         for metadata in self.terms.borrow_mut().values_mut() {
             let num_frequencies = metadata.term_frequencies().len();
-
-            // clear out old scores before recalculating
-            metadata.tf_idf_scores_mut().clear();
 
             let mut to_add = Vec::with_capacity(num_frequencies);
 
@@ -74,8 +73,19 @@ impl TfIdf {
                 to_add.push(score);
             }
 
-            metadata.tf_idf_scores_mut().append(&mut to_add);
+            let average: f32 = to_add.iter().sum::<f32>() / to_add.len() as f32;
+
+            *metadata.tf_idf_score_mut() = average;
         }
+    }
+
+    /// select all terms with a non-zero tf-idf score
+    pub(crate) fn all_words(&self) -> Vec<String> {
+        self.terms()
+            .iter()
+            .filter(|(_, metadata)| metadata.tf_idf_score() > 0.0)
+            .map(|(term, _)| term.raw().to_owned())
+            .collect()
     }
 }
 
@@ -84,13 +94,8 @@ mod tests {
     use super::*;
 
     /// helper for this test suite
-    fn get_scores(word: &str, model: &TfIdf) -> Vec<f32> {
-        model
-            .terms()
-            .get(&Term::new(word))
-            .unwrap()
-            .tf_idf_scores()
-            .into()
+    fn get_score(word: &str, model: &TfIdf) -> f32 {
+        model.terms().get(&Term::new(word)).unwrap().tf_idf_score()
     }
 
     #[test]
@@ -115,26 +120,64 @@ mod tests {
 
         model.calculate_tf_idf_scores();
 
-        assert_eq!(get_scores("quality", &model), [0.0, 0.0, 0.0, 0.0]);
-        assert_eq!(get_scores("air", &model), [0.0, 0.0, 0.0, 0.0]);
-        assert_eq!(
-            get_scores("wednesday", &model),
-            [0.017848395, 0.013882084, 0.024987752]
-        );
-        assert_eq!(
-            get_scores("island", &model),
-            [0.017848395, 0.013882084, 0.010411563]
-        );
-        assert_eq!(
-            get_scores("singapore", &model),
-            [0.013882084, 0.010411563, 0.024987752]
-        );
-        assert_eq!(get_scores("sunny", &model), [0.08600858]);
-        assert_eq!(get_scores("monitoring", &model), [0.05017167]);
-        assert_eq!(get_scores("stations", &model), [0.05017167]);
-        assert_eq!(get_scores("parts", &model), [0.05017167]);
-        assert_eq!(get_scores("haze", &model), [0.06689556]);
-        assert_eq!(get_scores("hit", &model), [0.06689556]);
-        assert_eq!(get_scores("worse", &model), [0.03344778, 0.060206003]);
+        assert_eq!(get_score("quality", &model), 0.0);
+        assert_eq!(get_score("air", &model), 0.0);
+        assert_eq!(get_score("wednesday", &model), 0.018906077);
+        assert_eq!(get_score("island", &model), 0.014047348);
+        assert_eq!(get_score("singapore", &model), 0.016427131);
+        assert_eq!(get_score("sunny", &model), 0.08600858);
+        assert_eq!(get_score("monitoring", &model), 0.05017167);
+        assert_eq!(get_score("stations", &model), 0.05017167);
+        assert_eq!(get_score("parts", &model), 0.05017167);
+        assert_eq!(get_score("haze", &model), 0.06689556);
+        assert_eq!(get_score("hit", &model), 0.06689556);
+        assert_eq!(get_score("worse", &model), 0.04682689);
+    }
+
+    #[test]
+    /// given the example data at https://remykarem.github.io/tfidf-demo/, ensure the model
+    /// produces the same results
+    fn select_n_words_grabs_correct_words() {
+        let one = "Air quality in the sunny island improved gradually throughout Wednesday.";
+        let two =
+            "Air quality in Singapore on Wednesday continued to get worse as haze hit the island.";
+        let three = "The air quality in Singapore is monitored through a network of air monitoring stations located in different parts of the island";
+        let four = "The air quality in Singapore got worse on Wednesday.";
+
+        let docs = [one, two, three, four];
+        let mut model = TfIdf::new();
+
+        for doc in docs.iter() {
+            let d = Document::new(doc);
+            model.add_document(d);
+        }
+
+        model.calculate_tf_idf_scores();
+
+        let non_zero_words = model.all_words();
+
+        [
+            "gradually",
+            "network",
+            "hit",
+            "located",
+            "continued",
+            "island",
+            "worse",
+            "monitored",
+            "monitoring",
+            "haze",
+            "different",
+            "stations",
+            "sunny",
+            "singapore",
+            "improved",
+            "parts",
+            "wednesday",
+        ]
+        .iter()
+        .for_each(|word| {
+            assert!(non_zero_words.contains(&word.to_string()));
+        });
     }
 }

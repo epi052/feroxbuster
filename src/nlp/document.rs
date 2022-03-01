@@ -5,9 +5,9 @@ use std::collections::HashMap;
 
 /// data container representing a single document, in the nlp sense
 #[derive(Debug, Default)]
-pub struct Document {
+pub(crate) struct Document {
     /// collection of `Term`s and their associated metadata
-    pub terms: HashMap<Term, TermMetaData>,
+    terms: HashMap<Term, TermMetaData>,
 
     /// number of terms contained within the document
     number_of_terms: usize,
@@ -15,7 +15,7 @@ pub struct Document {
 
 impl Document {
     /// create a new `Document` from the given string
-    pub fn new(text: &str) -> Self {
+    pub(super) fn new(text: &str) -> Self {
         let mut document = Self::default();
 
         let processed = preprocess(text);
@@ -32,7 +32,7 @@ impl Document {
 
     /// add a `Term` to the document if it's not already tracked, otherwise increment the number
     /// of times the term has been seen
-    pub fn add_term(&mut self, word: &str) {
+    fn add_term(&mut self, word: &str) {
         let term = Term::new(word);
 
         let metadata = self.terms.entry(term).or_insert_with(TermMetaData::new);
@@ -40,7 +40,7 @@ impl Document {
     }
 
     /// create a new `Document` from the given HTML string
-    pub fn from_html(raw_html: &str) -> Self {
+    pub(crate) fn from_html(raw_html: &str) -> Self {
         let selector = Selector::parse("body").unwrap();
 
         let html = Html::parse_document(raw_html);
@@ -99,7 +99,7 @@ impl Document {
     }
 
     /// Log normalized weighting scheme for term frequency
-    pub fn term_frequency(&self, term: &Term) -> f32 {
+    pub(super) fn term_frequency(&self, term: &Term) -> f32 {
         if let Some(metadata) = self.terms.get(term) {
             metadata.count() as f32 / self.number_of_terms() as f32
         } else {
@@ -113,7 +113,7 @@ impl Document {
     }
 
     /// number of terms the current document knows about
-    pub(super) fn number_of_terms(&self) -> usize {
+    fn number_of_terms(&self) -> usize {
         self.number_of_terms
     }
 }

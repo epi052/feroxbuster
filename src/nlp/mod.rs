@@ -8,4 +8,3 @@ mod utils;
 
 pub(crate) use self::document::Document;
 pub(crate) use self::model::TfIdf;
-pub(crate) use self::term::Term;
