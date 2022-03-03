@@ -30,6 +30,7 @@ mod macros;
 mod url;
 mod response;
 mod message;
+mod nlp;
 
 /// Alias for tokio::sync::mpsc::UnboundedSender<Command>
 pub(crate) type CommandSender = UnboundedSender<Command>;

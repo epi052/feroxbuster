@@ -100,6 +100,8 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--collect-extensions', 'collect-extensions', [CompletionResultType]::ParameterName, 'Automatically discover extensions and add them to --extensions (unless they''re in --dont-collect)')
             [CompletionResult]::new('-B', 'B', [CompletionResultType]::ParameterName, 'Automatically request likely backup extensions for "found" urls')
             [CompletionResult]::new('--collect-backups', 'collect-backups', [CompletionResultType]::ParameterName, 'Automatically request likely backup extensions for "found" urls')
+            [CompletionResult]::new('-g', 'g', [CompletionResultType]::ParameterName, 'Automatically discover important words from within responses and add them to the wordlist')
+            [CompletionResult]::new('--collect-words', 'collect-words', [CompletionResultType]::ParameterName, 'Automatically discover important words from within responses and add them to the wordlist')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)')
             [CompletionResult]::new('--verbosity', 'verbosity', [CompletionResultType]::ParameterName, 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)')
             [CompletionResult]::new('--silent', 'silent', [CompletionResultType]::ParameterName, 'Only print URLs + turn off logging (good for piping a list of urls to other commands)')

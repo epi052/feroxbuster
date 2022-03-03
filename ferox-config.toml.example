@@ -30,6 +30,7 @@
 # random_agent = false
 # redirects = true
 # insecure = true
+# collect_words = true
 # collect_backups = true
 # collect_extensions = true
 # extensions = ["php", "html"]

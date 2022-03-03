@@ -1,19 +1,22 @@
+use std::sync::atomic::AtomicBool;
 use std::{ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
 
 use anyhow::{bail, Result};
 use console::style;
 use futures::{stream, StreamExt};
+use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
 use crate::{
     event_handlers::{
-        Command::{AddError, AddToF64Field, SubtractFromUsizeField},
+        Command::{AddError, AddToF64Field, AddToUsizeField, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
     heuristics,
-    scan_manager::{FeroxResponses, MenuCmdResult, ScanOrder, ScanStatus, PAUSE_SCAN},
+    scan_manager::{FeroxResponses, FeroxScans, MenuCmdResult, ScanOrder, ScanStatus, PAUSE_SCAN},
+    scanner::requester::TF_IDF,
     statistics::{
         StatError::Other,
         StatField::{DirScanTimes, TotalExpected},
@@ -29,6 +32,43 @@ lazy_static! {
     pub static ref RESPONSES: FeroxResponses = FeroxResponses::default();
     // todo consider removing this
 }
+
+/// check to see if `pause_flag` is set to true. when true; enter a busy loop that only exits
+/// by setting PAUSE_SCAN back to false
+async fn check_for_user_input(
+    pause_flag: &AtomicBool,
+    scanned_urls: Arc<FeroxScans>,
+    handles: Arc<Handles>,
+) {
+    log::trace!(
+        "enter: check_for_user_input({:?}, SCANNED_URLS, HANDLES)",
+        pause_flag
+    );
+
+    // todo write a test or two for this function at some point...
+    if pause_flag.load(Ordering::Acquire) {
+        match scanned_urls.pause(true).await {
+            Some(MenuCmdResult::Url(url)) => {
+                // user wants to add a new url to be scanned, need to send
+                // it over to the event handler for processing
+                handles
+                    .send_scan_command(Command::ScanNewUrl(url))
+                    .unwrap_or_else(|e| log::warn!("Could not add scan to scan queue: {}", e))
+            }
+            Some(MenuCmdResult::NumCancelled(num_canx)) => {
+                if num_canx > 0 {
+                    handles
+                        .stats
+                        .send(SubtractFromUsizeField(TotalExpected, num_canx))
+                        .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {}", e));
+                }
+            }
+            _ => {}
+        }
+    }
+    log::trace!("exit: check_for_user_input");
+}
+
 /// handles the main muscle movement of scanning a url
 pub struct FeroxScanner {
     /// handles to handlers and config
@@ -65,6 +105,57 @@ impl FeroxScanner {
             scan_limiter,
             target_url: target_url.to_string(),
         }
+    }
+
+    /// produces and awaits tasks (mp of mpsc); responsible for making requests
+    async fn stream_requests(
+        &self,
+        looping_words: Arc<Vec<String>>,
+        progress_bar: ProgressBar,
+        scanned_urls: Arc<FeroxScans>,
+        requester: Arc<Requester>,
+    ) {
+        log::trace!("enter: stream_requests(params too verbose to print)");
+
+        let producers = stream::iter(looping_words.deref().to_owned())
+            .map(|word| {
+                let pb = progress_bar.clone(); // progress bar is an Arc around internal state
+                let scanned_urls_clone = scanned_urls.clone();
+                let requester_clone = requester.clone();
+                let handles_clone = self.handles.clone();
+                (
+                    tokio::spawn(async move {
+                        // for every word in the wordlist, check to see if user has pressed enter
+                        // in order to go into the interactive menu
+                        check_for_user_input(&PAUSE_SCAN, scanned_urls_clone, handles_clone).await;
+
+                        // after checking for user input, send the request
+                        requester_clone
+                            .request(&word)
+                            .await
+                            .unwrap_or_else(|e| log::warn!("Requester encountered an error: {}", e))
+                    }),
+                    pb,
+                )
+            })
+            .for_each_concurrent(self.handles.config.threads, |(resp, bar)| async move {
+                match resp.await {
+                    Ok(_) => {
+                        let increment_len = self.handles.expected_num_requests_multiplier() as u64;
+                        bar.inc(increment_len);
+                    }
+                    Err(e) => {
+                        log::warn!("error awaiting a response: {}", e);
+                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                    }
+                }
+            });
+
+        // await tx tasks
+        log::trace!("awaiting scan producers");
+        producers.await;
+        log::trace!("done awaiting scan producers");
+        log::trace!("exit: stream_requests");
     }
 
     /// Scan a given url using a given wordlist
@@ -178,70 +269,35 @@ impl FeroxScanner {
 
         let requester = Arc::new(Requester::from(self, ferox_scan.clone())?);
 
-        // producer tasks (mp of mpsc); responsible for making requests
-        let producers = stream::iter(looping_words.deref().to_owned())
-            .map(|word| {
-                let pb = progress_bar.clone(); // progress bar is an Arc around internal state
-                let scanned_urls_clone = scanned_urls.clone();
-                let requester_clone = requester.clone();
-                let handles_clone = self.handles.clone();
-                (
-                    tokio::spawn(async move {
-                        if PAUSE_SCAN.load(Ordering::Acquire) {
-                            // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
-                            // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
-                            // to false
-                            match scanned_urls_clone.pause(true).await {
-                                Some(MenuCmdResult::Url(url)) => {
-                                    // user wants to add a new url to be scanned, need to send
-                                    // it over to the event handler for processing
-                                    handles_clone
-                                        .send_scan_command(Command::ScanNewUrl(url))
-                                        .unwrap_or_else(|e| {
-                                            log::warn!("Could not add scan to scan queue: {}", e)
-                                        })
-                                }
-                                Some(MenuCmdResult::NumCancelled(num_canx)) => {
-                                    if num_canx > 0 {
-                                        handles_clone
-                                            .stats
-                                            .send(SubtractFromUsizeField(TotalExpected, num_canx))
-                                            .unwrap_or_else(|e| {
-                                                log::warn!(
-                                                    "Could not update overall scan bar: {}",
-                                                    e
-                                                )
-                                            });
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                        requester_clone
-                            .request(&word)
-                            .await
-                            .unwrap_or_else(|e| log::warn!("Requester encountered an error: {}", e))
-                    }),
-                    pb,
-                )
-            })
-            .for_each_concurrent(self.handles.config.threads, |(resp, bar)| async move {
-                match resp.await {
-                    Ok(_) => {
-                        let increment_len = self.handles.expected_num_requests_multiplier() as u64;
-                        bar.inc(increment_len);
-                    }
-                    Err(e) => {
-                        log::warn!("error awaiting a response: {}", e);
-                        self.handles.stats.send(AddError(Other)).unwrap_or_default();
-                    }
-                }
-            });
+        self.stream_requests(
+            looping_words.clone(),
+            progress_bar.clone(),
+            scanned_urls.clone(),
+            requester.clone(),
+        )
+        .await;
 
-        // await tx tasks
-        log::trace!("awaiting scan producers");
-        producers.await;
-        log::trace!("done awaiting scan producers");
+        if self.handles.config.collect_words {
+            let new_words = TF_IDF.read().unwrap().all_words();
+
+            let cur_length = progress_bar.length();
+            let new_length = cur_length + new_words.len() as u64;
+
+            progress_bar.set_length(new_length);
+
+            self.handles
+                .stats
+                .send(AddToUsizeField(TotalExpected, new_words.len()))
+                .unwrap_or_default();
+
+            self.stream_requests(
+                Arc::new(new_words),
+                progress_bar.clone(),
+                scanned_urls.clone(),
+                requester.clone(),
+            )
+            .await;
+        }
 
         self.handles.stats.send(AddToF64Field(
             DirScanTimes,

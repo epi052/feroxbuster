@@ -1,10 +1,11 @@
 use std::{
     cmp::max,
     collections::HashSet,
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{self, atomic::Ordering, Arc, Mutex},
 };
 
 use anyhow::Result;
+use lazy_static::lazy_static;
 use leaky_bucket::LeakyBucket;
 use tokio::{
     sync::{oneshot, RwLock},
@@ -19,6 +20,7 @@ use crate::{
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
+    nlp::{Document, TfIdf},
     response::FeroxResponse,
     scan_manager::{FeroxScan, ScanStatus},
     statistics::{StatError::Other, StatField::TotalExpected},
@@ -28,6 +30,11 @@ use crate::{
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
+
+lazy_static! {
+    /// make sure to note that this is a std rwlock and not tokio
+    pub(crate) static ref TF_IDF: Arc<sync::RwLock<TfIdf>> = Arc::new(sync::RwLock::new(TfIdf::new()));
+}
 
 /// Makes multiple requests based on the presence of extensions
 pub(super) struct Requester {
@@ -395,6 +402,19 @@ impl Requester {
 
                 if self.handles.config.collect_extensions {
                     ferox_response.parse_extension(self.handles.clone())?;
+                }
+
+                if self.handles.config.collect_words {
+                    // todo think about before/after filtering, similar to recursion
+                    if let Ok(mut guard) = TF_IDF.write() {
+                        let doc = Document::from_html(ferox_response.text());
+                        guard.add_document(doc);
+                        if guard.num_documents() % 12 == 0
+                            || (guard.num_documents() < 5 && guard.num_documents() % 2 == 0)
+                        {
+                            guard.calculate_tf_idf_scores();
+                        }
+                    }
                 }
 
                 if self.handles.config.extract_links {
