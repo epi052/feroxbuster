@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicBool;
 use std::{ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
 
 use anyhow::{bail, Result};
@@ -31,6 +32,43 @@ lazy_static! {
     pub static ref RESPONSES: FeroxResponses = FeroxResponses::default();
     // todo consider removing this
 }
+
+/// check to see if `pause_flag` is set to true. when true; enter a busy loop that only exits
+/// by setting PAUSE_SCAN back to false
+async fn check_for_user_input(
+    pause_flag: &AtomicBool,
+    scanned_urls: Arc<FeroxScans>,
+    handles: Arc<Handles>,
+) {
+    log::trace!(
+        "enter: check_for_user_input({:?}, SCANNED_URLS, HANDLES)",
+        pause_flag
+    );
+
+    // todo write a test or two for this function at some point...
+    if pause_flag.load(Ordering::Acquire) {
+        match scanned_urls.pause(true).await {
+            Some(MenuCmdResult::Url(url)) => {
+                // user wants to add a new url to be scanned, need to send
+                // it over to the event handler for processing
+                handles
+                    .send_scan_command(Command::ScanNewUrl(url))
+                    .unwrap_or_else(|e| log::warn!("Could not add scan to scan queue: {}", e))
+            }
+            Some(MenuCmdResult::NumCancelled(num_canx)) => {
+                if num_canx > 0 {
+                    handles
+                        .stats
+                        .send(SubtractFromUsizeField(TotalExpected, num_canx))
+                        .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {}", e));
+                }
+            }
+            _ => {}
+        }
+    }
+    log::trace!("exit: check_for_user_input");
+}
+
 /// handles the main muscle movement of scanning a url
 pub struct FeroxScanner {
     /// handles to handlers and config
@@ -69,6 +107,7 @@ impl FeroxScanner {
         }
     }
 
+    /// produces and awaits tasks (mp of mpsc); responsible for making requests
     async fn stream_requests(
         &self,
         looping_words: Arc<Vec<String>>,
@@ -76,6 +115,8 @@ impl FeroxScanner {
         scanned_urls: Arc<FeroxScans>,
         requester: Arc<Requester>,
     ) {
+        log::trace!("enter: stream_requests(params too verbose to print)");
+
         let producers = stream::iter(looping_words.deref().to_owned())
             .map(|word| {
                 let pb = progress_bar.clone(); // progress bar is an Arc around internal state
@@ -84,36 +125,11 @@ impl FeroxScanner {
                 let handles_clone = self.handles.clone();
                 (
                     tokio::spawn(async move {
-                        if PAUSE_SCAN.load(Ordering::Acquire) {
-                            // for every word in the wordlist, check to see if PAUSE_SCAN is set to true
-                            // when true; enter a busy loop that only exits by setting PAUSE_SCAN back
-                            // to false
-                            match scanned_urls_clone.pause(true).await {
-                                Some(MenuCmdResult::Url(url)) => {
-                                    // user wants to add a new url to be scanned, need to send
-                                    // it over to the event handler for processing
-                                    handles_clone
-                                        .send_scan_command(Command::ScanNewUrl(url))
-                                        .unwrap_or_else(|e| {
-                                            log::warn!("Could not add scan to scan queue: {}", e)
-                                        })
-                                }
-                                Some(MenuCmdResult::NumCancelled(num_canx)) => {
-                                    if num_canx > 0 {
-                                        handles_clone
-                                            .stats
-                                            .send(SubtractFromUsizeField(TotalExpected, num_canx))
-                                            .unwrap_or_else(|e| {
-                                                log::warn!(
-                                                    "Could not update overall scan bar: {}",
-                                                    e
-                                                )
-                                            });
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
+                        // for every word in the wordlist, check to see if user has pressed enter
+                        // in order to go into the interactive menu
+                        check_for_user_input(&PAUSE_SCAN, scanned_urls_clone, handles_clone).await;
+
+                        // after checking for user input, send the request
                         requester_clone
                             .request(&word)
                             .await
@@ -139,6 +155,7 @@ impl FeroxScanner {
         log::trace!("awaiting scan producers");
         producers.await;
         log::trace!("done awaiting scan producers");
+        log::trace!("exit: stream_requests");
     }
 
     /// Scan a given url using a given wordlist

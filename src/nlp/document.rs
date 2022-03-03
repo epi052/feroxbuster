@@ -149,8 +149,15 @@ mod tests {
         let empty = Document::from_html("<html></html>");
         assert_eq!(empty.number_of_terms, 0);
 
+        let other_empty = Document::from_html("<html><body><p></p></body></html>");
+        assert_eq!(other_empty.number_of_terms, 0);
+
+        let third_empty = Document::from_html("<!DOCTYPE html><html><!DOCTYPE html><p></p></html>");
+        assert_eq!(third_empty.number_of_terms, 0);
+
+        // p tag for is_text check and comment for is_comment
         let doc = Document::from_html(
-            "<html><body><p>The air quality in Singapore got worse on Wednesday.</p></body></html>",
+            "<html><body><p>The air quality in Singapore.</p><!--got worse on Wednesday--></body></html>",
         );
 
         let expected_terms = ["air", "quality", "singapore", "worse", "wednesday"];
@@ -192,6 +199,22 @@ mod tests {
         let expected = ["air", "quality", "singapore", "worse", "wednesday"];
 
         assert_eq!(doc.number_of_terms(), 5);
+
+        for key in keys {
+            assert!(expected.contains(&key));
+        }
+    }
+
+    #[test]
+    /// ensure words in script/style tags aren't processed
+    fn document_creation_skips_script_and_style_tags() {
+        let html = "<body><script>The air quality</script><style>in Singapore</style><p>got worse on Wednesday.</p></body>";
+        let doc = Document::from_html(html);
+        let keys = doc.terms().keys().map(|key| key.raw()).collect::<Vec<_>>();
+
+        let expected = ["worse", "wednesday"];
+
+        assert_eq!(doc.number_of_terms(), 2);
 
         for key in keys {
             assert!(expected.contains(&key));

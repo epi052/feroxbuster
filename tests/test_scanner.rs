@@ -757,3 +757,89 @@ fn collect_backups_makes_appropriate_requests() {
 
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// send a request to 4 200 files, expect non-zero tf-idf rated words to be requested as well
+fn collect_words_makes_appropriate_requests() {
+    let srv = MockServer::start();
+
+    let wordlist: Vec<_> = ["doc1", "doc2", "doc3", "doc4"]
+        .iter()
+        .map(|w| w.to_string())
+        .collect();
+
+    let (tmp_dir, file) = setup_tmp_directory(&wordlist, "wordlist").unwrap();
+
+    srv.mock(|when, then| {
+        when.method(GET).path("/doc1");
+        then.status(200)
+            .body("Air quality in the sunny island improved gradually throughout Wednesday.");
+    });
+    srv.mock(|when, then| {
+        when.method(GET).path("/doc2");
+        then.status(200).body(
+            "Air quality in Singapore on Wednesday continued to get worse as haze hit the island.",
+        );
+    });
+    srv.mock(|when, then| {
+        when.method(GET).path("/doc3");
+        then.status(200).body("The air quality in Singapore is monitored through a network of air monitoring stations located in different parts of the island");
+    });
+    srv.mock(|when, then| {
+        when.method(GET).path("/doc4");
+        then.status(200)
+            .body("The air quality in Singapore got worse on Wednesday.");
+    });
+
+    let valid_paths = vec![
+        "/gradually",
+        "/network",
+        "/hit",
+        "/located",
+        "/continued",
+        "/island",
+        "/worse",
+        "/monitored",
+        "/monitoring",
+        "/haze",
+        "/different",
+        "/stations",
+        "/sunny",
+        "/singapore",
+        "/improved",
+        "/parts",
+        "/wednesday",
+    ];
+
+    let valid_mocks: Vec<_> = valid_paths
+        .iter()
+        .map(|&p| {
+            srv.mock(|when, then| {
+                when.method(GET).path(p);
+                then.status(200).body("this is a valid test");
+            })
+        })
+        .collect();
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--collect-words")
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/doc1")
+            .and(predicate::str::contains("/doc2"))
+            .and(predicate::str::contains("/doc3"))
+            .and(predicate::str::contains("/doc4")),
+    );
+
+    for valid_mock in valid_mocks {
+        assert_eq!(valid_mock.hits(), 1);
+    }
+
+    teardown_tmp_directory(tmp_dir);
+}

@@ -152,6 +152,8 @@ mod tests {
             model.add_document(d);
         }
 
+        assert_eq!(model.num_documents(), 4);
+
         model.calculate_tf_idf_scores();
 
         let non_zero_words = model.all_words();
