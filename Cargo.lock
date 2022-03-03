@@ -329,9 +329,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clap"
-version = "3.0.7"
+version = "3.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12e8611f9ae4e068fa3e56931fded356ff745e70987ff76924a6e0ab1c8ef2e3"
+checksum = "ced1892c55c910c1219e98d6fc8d71f6bddba7905866ce740066d8bfea859312"
 dependencies = [
  "atty",
  "bitflags",
@@ -346,9 +346,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "3.0.4"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d044e9db8cd0f68191becdeb5246b7462e4cf0c069b19ae00d1bf3fa9889498d"
+checksum = "df6f3613c0a3cddfd78b41b10203eb322cb29b600cbdf808a7d3db95691b8e25"
 dependencies = [
  "clap",
 ]
@@ -2231,9 +2231,9 @@ checksum = "507e9898683b6c43a9aa55b64259b721b52ba226e0f3779137e50ad114a4c90b"
 
 [[package]]
 name = "textwrap"
-version = "0.14.2"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0066c8d12af8b5acd21e00547c3797fde4e8677254a7ee429176ccebbe93dd80"
+checksum = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb"
 dependencies = [
  "terminal_size",
 ]
