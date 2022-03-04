@@ -279,9 +279,10 @@ impl FeroxScanner {
 
         if self.handles.config.collect_words {
             let new_words = TF_IDF.read().unwrap().all_words();
+            let new_words_len = new_words.len();
 
             let cur_length = progress_bar.length();
-            let new_length = cur_length + new_words.len() as u64;
+            let new_length = cur_length + new_words_len as u64;
 
             progress_bar.set_length(new_length);
 
@@ -289,6 +290,12 @@ impl FeroxScanner {
                 .stats
                 .send(AddToUsizeField(TotalExpected, new_words.len()))
                 .unwrap_or_default();
+
+            log::info!(
+                "requesting {} collected words: {:?}...",
+                new_words_len,
+                &new_words[..new_words_len.min(3) as usize]
+            );
 
             self.stream_requests(
                 Arc::new(new_words),

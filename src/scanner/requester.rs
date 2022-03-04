@@ -405,7 +405,6 @@ impl Requester {
                 }
 
                 if self.handles.config.collect_words {
-                    // todo think about before/after filtering, similar to recursion
                     if let Ok(mut guard) = TF_IDF.write() {
                         let doc = Document::from_html(ferox_response.text());
                         guard.add_document(doc);
