@@ -3,6 +3,8 @@ use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
+use std::thread::sleep;
+use std::time::Duration;
 use std::{process::Command, time};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -763,10 +765,12 @@ fn collect_backups_makes_appropriate_requests() {
 fn collect_words_makes_appropriate_requests() {
     let srv = MockServer::start();
 
-    let wordlist: Vec<_> = ["doc1", "doc2", "doc3", "doc4"]
-        .iter()
-        .map(|w| w.to_string())
-        .collect();
+    let wordlist: Vec<_> = [
+        "doc1", "doc2", "doc3", "doc4", "blah", "blah2", "blah3", "blah4",
+    ]
+    .iter()
+    .map(|w| w.to_string())
+    .collect();
 
     let (tmp_dir, file) = setup_tmp_directory(&wordlist, "wordlist").unwrap();
 
@@ -816,7 +820,7 @@ fn collect_words_makes_appropriate_requests() {
         .map(|&p| {
             srv.mock(|when, then| {
                 when.method(GET).path(p);
-                then.status(200).body("this is a valid test");
+                then.status(200);
             })
         })
         .collect();
@@ -825,10 +829,15 @@ fn collect_words_makes_appropriate_requests() {
         .unwrap()
         .arg("--url")
         .arg(srv.url("/"))
+        .arg("-vv")
         .arg("--collect-words")
+        .arg("-t")
+        .arg("1")
         .arg("--wordlist")
         .arg(file.as_os_str())
         .unwrap();
+
+    print!("{}", std::str::from_utf8(&cmd.stdout).unwrap().to_string());
 
     cmd.assert().success().stdout(
         predicate::str::contains("/doc1")
@@ -836,8 +845,9 @@ fn collect_words_makes_appropriate_requests() {
             .and(predicate::str::contains("/doc3"))
             .and(predicate::str::contains("/doc4")),
     );
-
+    sleep(Duration::new(2, 0));
     for valid_mock in valid_mocks {
+        println!("mock: {}", valid_paths[valid_mock.id - 4]);
         assert_eq!(valid_mock.hits(), 1);
     }
 
