@@ -30,7 +30,8 @@ tokio-util = { version = "0.7.0", features = ["codec"] }
 log = "0.4.14"
 env_logger = "0.9.0"
 reqwest = { version = "0.11.9", features = ["socks"] }
-url = { version = "2.2.2", features = ["serde"] }  # uses feature unification to add 'serde' to reqwest::Url
+# uses feature unification to add 'serde' to reqwest::Url
+url = { version = "2.2.2", features = ["serde"] }
 serde_regex = "1.1.0"
 clap = { version = "3.1.5", features = ["wrap_help", "cargo"] }
 lazy_static = "1.4.0"
