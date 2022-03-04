@@ -1,5 +1,5 @@
 use clap::{
-    crate_authors, crate_description, crate_name, crate_version, App, Arg, ArgGroup, ValueHint,
+    crate_authors, crate_description, crate_name, crate_version, Arg, ArgGroup, Command, ValueHint,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -25,8 +25,8 @@ lazy_static! {
 }
 
 /// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
-pub fn initialize() -> App<'static> {
-    let app = App::new(crate_name!())
+pub fn initialize() -> Command<'static> {
+    let app = Command::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
         .about(crate_description!());
@@ -42,7 +42,7 @@ pub fn initialize() -> App<'static> {
                 .required_unless_present_any(&["stdin", "resume_from"])
                 .help_heading("Target selection")
                 .value_name("URL")
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .value_hint(ValueHint::Url)
                 .help("The target URL (required, unless [--stdin || --resume-from] used)"),
         )
@@ -101,7 +101,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .requires("replay_proxy")
                 .help_heading("Proxy settings")
                 .help(
@@ -138,7 +138,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "File extension(s) to search for (ex: -x php -x pdf js)",
@@ -152,7 +152,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "Which HTTP request method(s) should be sent (default: GET)",
@@ -177,7 +177,7 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Request settings")
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help(
                     "Specify HTTP headers to be used in each request (ex: -H Header:val -H 'stuff: things')",
                 ),
@@ -190,7 +190,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "Specify HTTP cookies to be used in each request (ex: -b stuff=things)",
@@ -204,7 +204,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "Request's URL query parameters (ex: -Q token=stuff -Q secret=key)",
@@ -229,7 +229,7 @@ pub fn initialize() -> App<'static> {
             .takes_value(true)
             .multiple_values(true)
             .multiple_occurrences(true)
-            .use_delimiter(true)
+            .use_value_delimiter(true)
             .help_heading("Request filters")
             .help("URL(s) or Regex Pattern(s) to exclude from recursion/scans"),
     );
@@ -246,7 +246,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)",
@@ -260,7 +260,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages via regular expression matching on the response's body (ex: -X '^ignore me$')",
@@ -274,7 +274,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages of a particular word count (ex: -W 312 -W 91,82)",
@@ -288,7 +288,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages of a particular line count (ex: -N 20 -N 31,30)",
@@ -302,7 +302,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out status codes (deny list) (ex: -C 200 -C 401)",
@@ -316,7 +316,7 @@ pub fn initialize() -> App<'static> {
                 .multiple_values(true)
                 .multiple_occurrences(true)
                 .value_hint(ValueHint::Url)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)",
@@ -330,7 +330,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)",
@@ -499,7 +499,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Dynamic collection settings")
                 .help(
                     "File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)",

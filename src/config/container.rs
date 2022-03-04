@@ -26,7 +26,7 @@ macro_rules! update_config_if_present {
         match $matches.value_of_t($arg_name) {
             Ok(value) => *$conf_val = value, // Update value
             Err(err) => {
-                if !matches!(err.kind, clap::ErrorKind::ArgumentNotFound) {
+                if !matches!(err.kind(), clap::ErrorKind::ArgumentNotFound) {
                     // Do nothing if argument not found
                     err.exit() // Exit with error on any other parse error
                 }
