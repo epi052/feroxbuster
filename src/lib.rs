@@ -1,6 +1,5 @@
 #![deny(clippy::all)]
 #![allow(clippy::mutex_atomic)]
-// #![warn(clippy::pedantic, clippy::restriction, clippy::nursery, clippy::cargo)]
 use anyhow::Result;
 use reqwest::StatusCode;
 use std::collections::HashSet;
