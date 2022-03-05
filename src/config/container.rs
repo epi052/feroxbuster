@@ -713,7 +713,7 @@ impl Configuration {
             config.output_level = OutputLevel::Quiet;
         }
 
-        if args.is_present("auto_tune") {
+        if args.is_present("auto_tune") || args.is_present("smart") || args.is_present("thorough") {
             config.auto_tune = true;
             config.requester_policy = RequesterPolicy::AutoTune;
         }
@@ -731,15 +731,21 @@ impl Configuration {
             config.dont_filter = true;
         }
 
-        if args.is_present("collect_extensions") {
+        if args.is_present("collect_extensions") || args.is_present("thorough") {
             config.collect_extensions = true;
         }
 
-        if args.is_present("collect_backups") {
+        if args.is_present("collect_backups")
+            || args.is_present("smart")
+            || args.is_present("thorough")
+        {
             config.collect_backups = true;
         }
 
-        if args.is_present("collect_words") {
+        if args.is_present("collect_words")
+            || args.is_present("smart")
+            || args.is_present("thorough")
+        {
             config.collect_words = true;
         }
 
@@ -757,7 +763,10 @@ impl Configuration {
             config.add_slash = true;
         }
 
-        if args.is_present("extract_links") {
+        if args.is_present("extract_links")
+            || args.is_present("smart")
+            || args.is_present("thorough")
+        {
             config.extract_links = true;
         }
 
@@ -773,6 +782,14 @@ impl Configuration {
         update_config_if_present!(&mut config.user_agent, args, "user_agent");
         update_config_if_present!(&mut config.timeout, args, "timeout");
 
+        if args.is_present("burp") {
+            config.proxy = String::from("http://127.0.0.1:8080");
+        }
+
+        if args.is_present("burp_replay") {
+            config.replay_proxy = String::from("http://127.0.0.1:8080");
+        }
+
         if args.is_present("random_agent") {
             config.random_agent = true;
         }
@@ -781,7 +798,8 @@ impl Configuration {
             config.redirects = true;
         }
 
-        if args.is_present("insecure") {
+        if args.is_present("insecure") || args.is_present("burp") || args.is_present("burp_replay")
+        {
             config.insecure = true;
         }
 

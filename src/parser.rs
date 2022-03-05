@@ -66,6 +66,36 @@ pub fn initialize() -> Command<'static> {
         );
 
     /////////////////////////////////////////////////////////////////////
+    // group - composite settings
+    /////////////////////////////////////////////////////////////////////
+    let app = app
+        .arg(
+            Arg::new("burp")
+                .long("burp")
+                .help_heading("Composite settings")
+                .conflicts_with_all(&["proxy", "insecure", "burp_replay"])
+                .help("Set --proxy to http://127.0.0.1:8080 and set --insecure to true"),
+        )
+        .arg(
+            Arg::new("burp_replay")
+                .long("burp-replay")
+                .help_heading("Composite settings")
+                .conflicts_with_all(&["replay_proxy", "insecure"])
+                .help("Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true"),
+        )
+        .arg(
+            Arg::new("smart")
+                .long("smart")
+                .help_heading("Composite settings")
+                .help("Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true"),
+        ).arg(
+            Arg::new("thorough")
+                .long("thorough")
+                .help_heading("Composite settings")
+                .help("Use the same settings as --smart and set --collect-extensions to true"),
+        );
+
+    /////////////////////////////////////////////////////////////////////
     // group - proxy settings
     /////////////////////////////////////////////////////////////////////
     let app = app

@@ -837,7 +837,7 @@ fn collect_words_makes_appropriate_requests() {
         .arg(file.as_os_str())
         .unwrap();
 
-    print!("{}", std::str::from_utf8(&cmd.stdout).unwrap().to_string());
+    print!("{}", std::str::from_utf8(&cmd.stdout).unwrap());
 
     cmd.assert().success().stdout(
         predicate::str::contains("/doc1")
