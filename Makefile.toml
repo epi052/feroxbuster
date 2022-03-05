@@ -1,0 +1,18 @@
+# composite tasks
+[tasks.upgrade]
+dependencies = ["upgrade-deps", "update"]
+
+# cleaning
+[tasks.clean-state]
+script = """
+rm ferox-*.state
+"""
+
+# dependency management
+[tasks.upgrade-deps]
+command = "cargo"
+args = ["upgrade", "--exclude", "indicatif", "leaky-bucket"]
+
+[tasks.update]
+command = "cargo"
+args = ["update"]

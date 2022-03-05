@@ -27,7 +27,8 @@ pub fn initialize(
         .user_agent(user_agent)
         .danger_accept_invalid_certs(insecure)
         .default_headers(header_map)
-        .redirect(policy);
+        .redirect(policy)
+        .http1_title_case_headers();
 
     if let Some(some_proxy) = proxy {
         if !some_proxy.is_empty() {

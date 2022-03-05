@@ -60,6 +60,9 @@ pub struct FeroxResponse {
 
     /// whether the user passed --quiet|--silent on the command line
     pub(crate) output_level: OutputLevel,
+
+    /// Url's file extension, if one exists
+    pub(crate) extension: Option<String>,
 }
 
 /// implement Default trait for FeroxResponse
@@ -78,6 +81,7 @@ impl Default for FeroxResponse {
             headers: Default::default(),
             wildcard: false,
             output_level: Default::default(),
+            extension: None,
         }
     }
 }
@@ -205,7 +209,6 @@ impl FeroxResponse {
         response: Response,
         original_url: &str,
         method: &str,
-        read_body: bool,
         output_level: OutputLevel,
     ) -> Self {
         let url = response.url().clone();
@@ -213,21 +216,12 @@ impl FeroxResponse {
         let headers = response.headers().clone();
         let content_length = response.content_length().unwrap_or(0);
 
-        let text = if read_body {
-            // .text() consumes the response, must be called last
-            // additionally, --extract-links is currently the only place we use the body of the
-            // response, so we forego the processing if not performing extraction
-            match response.text().await {
-                // await the response's body
-                Ok(text) => text,
-                Err(e) => {
-                    log::warn!("Could not parse body from response: {}", e);
-                    String::new()
-                }
-            }
-        } else {
-            String::new()
-        };
+        // .text() consumes the response, must be called last
+        let text = response
+            .text()
+            .await
+            .with_context(|| "Could not parse body from response")
+            .unwrap_or_default();
 
         let line_count = text.lines().count();
         let word_count = text.lines().map(|s| s.split_whitespace().count()).sum();
@@ -244,7 +238,63 @@ impl FeroxResponse {
             word_count,
             output_level,
             wildcard: false,
+            extension: None,
         }
+    }
+
+    /// if --collect-extensions is used, examine the response's url and grab the file's extension
+    /// if one is available to be grabbed. If an extension is found, send it to the ScanHandler
+    /// for further processing
+    pub(crate) fn parse_extension(&mut self, handles: Arc<Handles>) -> Result<()> {
+        log::trace!("enter: parse_extension");
+
+        if !handles.config.collect_extensions {
+            // early return, --collect-extensions not used
+            return Ok(());
+        }
+
+        // path_segments:
+        //   Return None for cannot-be-a-base URLs.
+        //   When Some is returned, the iterator always contains at least one string
+        //     (which may be empty).
+        //
+        // meaning: the two unwraps here are fine, the worst outcome is an empty string
+        let filename = self.url.path_segments().unwrap().last().unwrap();
+
+        if !filename.is_empty() {
+            // non-empty string, try to get extension
+            let parts: Vec<_> = filename
+                .split('.')
+                // keep things like /.bash_history from becoming an extension
+                .filter(|part| !part.is_empty())
+                .collect();
+
+            if parts.len() > 1 {
+                // filename + at least one extension, i.e. whatever.js becomes ["whatever", "js"]
+                self.extension = Some(parts.last().unwrap().to_string())
+            }
+        }
+
+        if let Some(extension) = &self.extension {
+            if handles
+                .config
+                .status_codes
+                .contains(&self.status().as_u16())
+            {
+                // only add extensions to those responses that pass our checks; filtered out
+                // status codes are handled by should_filter, but we need to still check against
+                // the allow list for what we want to keep
+                #[cfg(test)]
+                handles
+                    .send_scan_command(Command::AddDiscoveredExtension(extension.to_owned()))
+                    .unwrap_or_default();
+                #[cfg(not(test))]
+                handles.send_scan_command(Command::AddDiscoveredExtension(extension.to_owned()))?;
+            }
+        }
+
+        log::trace!("exit: parse_extension");
+        Ok(())
     }
 
     /// Helper function that determines if the configured maximum recursion depth has been reached
@@ -484,6 +534,10 @@ impl Serialize for FeroxResponse {
         state.serialize_field("line_count", &self.line_count)?;
         state.serialize_field("word_count", &self.word_count)?;
         state.serialize_field("headers", &headers)?;
+        state.serialize_field(
+            "extension",
+            self.extension.as_ref().unwrap_or(&String::new()),
+        )?;
 
         state.end()
     }
@@ -508,6 +562,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             output_level: Default::default(),
             line_count: 0,
             word_count: 0,
+            extension: None,
         };
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
@@ -576,6 +631,11 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                         response.wildcard = result;
                     }
                 }
+                "extension" => {
+                    if let Some(result) = value.as_str() {
+                        response.extension = Some(result.to_string());
+                    }
+                }
                 _ => {}
             }
         }
@@ -587,6 +647,8 @@ impl<'de> Deserialize<'de> for FeroxResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Configuration;
+    use std::default::Default;
 
     #[test]
     /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false
@@ -595,16 +657,7 @@ mod tests {
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
         let result = response.reached_max_depth(0, 0, handles);
         assert!(!result);
@@ -618,16 +671,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -641,16 +685,7 @@ mod tests {
         let url = Url::parse("http://localhost").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(0, 2, handles);
@@ -664,16 +699,7 @@ mod tests {
         let url = Url::parse("http://localhost/one/two").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(2, 2, handles);
@@ -687,19 +713,71 @@ mod tests {
         let url = Url::parse("http://localhost/one/two/three").unwrap();
         let response = FeroxResponse {
             url,
-            original_url: String::new(),
-            status: Default::default(),
-            method: Default::default(),
-            text: "".to_string(),
-            content_length: 0,
-            line_count: 0,
-            word_count: 0,
-            headers: Default::default(),
-            wildcard: false,
-            output_level: Default::default(),
+            ..Default::default()
         };
 
         let result = response.reached_max_depth(0, 2, handles);
         assert!(result);
+    }
+
+    #[test]
+    /// simple case of a single extension gets parsed correctly and stored on the `FeroxResponse`
+    fn parse_extension_finds_simple_extension() {
+        let config = Configuration {
+            collect_extensions: true,
+            ..Default::default()
+        };
+
+        let (handles, _) = Handles::for_testing(None, Some(Arc::new(config)));
+
+        let url = Url::parse("http://localhost/derp.js").unwrap();
+
+        let mut response = FeroxResponse {
+            url,
+            ..Default::default()
+        };
+
+        response.parse_extension(Arc::new(handles)).unwrap();
+
+        assert_eq!(response.extension, Some(String::from("js")));
+    }
+
+    #[test]
+    /// hidden files shouldn't be parsed as extensions, i.e. `/.bash_history`
+    fn parse_extension_ignores_hidden_files() {
+        let config = Configuration {
+            collect_extensions: true,
+            ..Default::default()
+        };
+
+        let (handles, _) = Handles::for_testing(None, Some(Arc::new(config)));
+
+        let url = Url::parse("http://localhost/.bash_history").unwrap();
+
+        let mut response = FeroxResponse {
+            url,
+            ..Default::default()
+        };
+
+        response.parse_extension(Arc::new(handles)).unwrap();
+
+        assert_eq!(response.extension, None);
+    }
+
+    #[test]
+    /// `parse_extension` should return immediately if `--collect-extensions` isn't used
+    fn parse_extension_early_returns_based_on_config() {
+        let (handles, _) = Handles::for_testing(None, None);
+
+        let url = Url::parse("http://localhost/derp.js").unwrap();
+
+        let mut response = FeroxResponse {
+            url,
+            ..Default::default()
+        };
+
+        response.parse_extension(Arc::new(handles)).unwrap();
+
+        assert_eq!(response.extension, None);
     }
 }

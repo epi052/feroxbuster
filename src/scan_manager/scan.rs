@@ -33,7 +33,7 @@ pub struct FeroxScan {
     pub(super) url: String,
 
     /// The type of scan
-    pub(super) scan_type: ScanType,
+    pub scan_type: ScanType,
 
     /// The order in which the scan was received
     pub(crate) scan_order: ScanOrder,
@@ -42,7 +42,7 @@ pub struct FeroxScan {
     pub(super) num_requests: u64,
 
     /// Status of this scan
-    pub(super) status: Mutex<ScanStatus>,
+    pub status: Mutex<ScanStatus>,
 
     /// The spawned tokio task performing this scan (uses tokio::sync::Mutex)
     pub(super) task: sync::Mutex<Option<JoinHandle<()>>>,

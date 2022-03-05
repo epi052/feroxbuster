@@ -303,7 +303,7 @@ fn ferox_scans_serialize() {
 #[test]
 /// given a FeroxResponses, test that it serializes into the proper JSON entry
 fn ferox_responses_serialize() {
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":""}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     let responses = FeroxResponses::default();
@@ -321,7 +321,7 @@ fn ferox_responses_serialize() {
 /// given a FeroxResponse, test that it serializes into the proper JSON entry
 fn ferox_response_serialize_and_deserialize() {
     // deserialize
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":""}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     assert_eq!(response.url().as_str(), "https://nerdcore.com/css");
@@ -351,33 +351,42 @@ fn feroxstates_feroxserialize_implementation() {
     );
     let ferox_scans = FeroxScans::default();
     let saved_id = ferox_scan.id.clone();
+
     ferox_scans.insert(ferox_scan);
 
-    let config = Configuration::new().unwrap();
+    ferox_scans
+        .collected_extensions
+        .write()
+        .unwrap()
+        .insert(String::from("php"));
+
+    let mut config = Configuration::new().unwrap();
+
+    config.collect_extensions = true;
+
     let stats = Arc::new(Stats::new(config.json));
 
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"}}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","path":"/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":""}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
     RESPONSES.insert(response);
 
-    let ferox_state = FeroxState::new(
-        Arc::new(ferox_scans),
-        Arc::new(Configuration::new().unwrap()),
-        &RESPONSES,
-        stats,
-    );
+    let ferox_state = FeroxState::new(Arc::new(ferox_scans), Arc::new(config), &RESPONSES, stats);
 
     let expected_strs = predicates::str::contains("scans: FeroxScans").and(
         predicate::str::contains("config: Configuration")
             .and(predicate::str::contains("responses: FeroxResponses"))
             .and(predicate::str::contains("nerdcore.com"))
             .and(predicate::str::contains("/css"))
-            .and(predicate::str::contains("https://spiritanimal.com")),
+            .and(predicate::str::contains("https://spiritanimal.com"))
+            .and(predicate::str::contains("php")),
     );
 
     assert!(expected_strs.eval(&ferox_state.as_str()));
 
     let json_state = ferox_state.as_json().unwrap();
+
+    println!("echo '{}'|jq", json_state); // for debugging, if the test fails, can see what's going on
+
     for expected in [
         r#""scans""#,
         &format!(r#""id":"{}""#, saved_id),
@@ -445,14 +454,17 @@ fn feroxstates_feroxserialize_implementation() {
         r#""word_count":16"#,
         r#""headers""#,
         r#""server":"nginx/1.16.1"#,
+        r#""collect_extensions":true"#,
+        r#""collect_backups":false"#,
+        r#""collect_words":false"#,
+        r#""collected_extensions":["php"]"#,
+        r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
     ]
     .iter()
     {
         assert!(
-            predicates::str::contains(*expected).eval(&json_state),
-            "{}",
-            expected
-        )
+            predicates::str::contains(*expected).eval(&json_state)
+        );
     }
 }
 

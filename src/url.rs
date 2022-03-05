@@ -1,6 +1,7 @@
 use crate::{event_handlers::Handles, statistics::StatError::UrlFormat, Command::AddError};
 use anyhow::{anyhow, bail, Result};
 use reqwest::Url;
+use std::collections::HashSet;
 use std::{convert::TryInto, fmt, sync::Arc};
 
 /// abstraction around target urls; collects all Url related shenanigans in one place
@@ -37,7 +38,11 @@ impl FeroxUrl {
     ///
     /// If any extensions were passed to the program, each extension will add a
     /// (base_url + word + ext) Url to the vector
-    pub fn formatted_urls(&self, word: &str) -> Result<Vec<Url>> {
+    pub fn formatted_urls(
+        &self,
+        word: &str,
+        collected_extensions: HashSet<String>,
+    ) -> Result<Vec<Url>> {
         log::trace!("enter: formatted_urls({})", word);
 
         let mut urls = vec![];
@@ -54,7 +59,13 @@ impl FeroxUrl {
             Err(_) => self.handles.stats.send(AddError(UrlFormat))?,
         }
 
-        for ext in self.handles.config.extensions.iter() {
+        for ext in self
+            .handles
+            .config
+            .extensions
+            .iter()
+            .chain(collected_extensions.iter())
+        {
             match self.format(word, Some(ext)) {
                 // any extensions passed in
                 Ok(url) => urls.push(url),
@@ -254,7 +265,7 @@ mod tests {
     fn formatted_urls_no_extension_returns_base_url_with_word() {
         let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
-        let urls = url.formatted_urls("turbo").unwrap();
+        let urls = url.formatted_urls("turbo", HashSet::new()).unwrap();
         assert_eq!(urls, [Url::parse("http://localhost/turbo").unwrap()])
     }
 
@@ -268,7 +279,7 @@ mod tests {
 
         let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
-        let urls = url.formatted_urls("turbo").unwrap();
+        let urls = url.formatted_urls("turbo", HashSet::new()).unwrap();
 
         assert_eq!(
             urls,
@@ -315,7 +326,7 @@ mod tests {
             let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
             let url = FeroxUrl::from_string("http://localhost", handles);
 
-            let urls = url.formatted_urls("turbo").unwrap();
+            let urls = url.formatted_urls("turbo", HashSet::new()).unwrap();
             assert_eq!(urls, expected[i]);
         }
     }
@@ -502,7 +513,7 @@ mod tests {
         };
         let handles = Arc::new(Handles::for_testing(None, Some(Arc::new(config))).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
-        match url.formatted_urls("ferox") {
+        match url.formatted_urls("ferox", HashSet::new()) {
             Ok(urls) => {
                 // 3 = One for the main word + slash and for the two extensions
                 assert_eq!(urls.len(), 3);

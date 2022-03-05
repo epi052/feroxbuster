@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default: feroxbuster/2.5.0)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/2.5.0)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.6.0)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.6.0)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
@@ -64,6 +64,8 @@ _feroxbuster() {
 '--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]:TIME_SPEC: ' \
 '-w+[Path to the wordlist]:FILE:_files' \
 '--wordlist=[Path to the wordlist]:FILE:_files' \
+'*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
+'*--dont-collect=[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--output=[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]:FILE:_files' \
@@ -72,6 +74,10 @@ _feroxbuster() {
 '-V[Print version information]' \
 '--version[Print version information]' \
 '(-u --url)--stdin[Read url(s) from STDIN]' \
+'(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http://127.0.0.1:8080 and set --insecure to true]' \
+'(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true]' \
+'--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
+'--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
 '-A[Use a random User-Agent]' \
 '--random-agent[Use a random User-Agent]' \
 '-f[Append / to each request'\''s URL]' \
@@ -88,12 +94,19 @@ _feroxbuster() {
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
+'-E[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
+'--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
+'-B[Automatically request likely backup extensions for "found" urls]' \
+'--collect-backups[Automatically request likely backup extensions for "found" urls]' \
+'-g[Automatically discover important words from within responses and add them to the wordlist]' \
+'--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(--silent)*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
+'--no-state[Disable state output file (*.state)]' \
 && ret=0
 }
 

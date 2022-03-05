@@ -16,14 +16,14 @@ pub(super) const ROBOTS_TXT_REGEX: &str =
 /// Which type of extraction should be performed
 #[derive(Debug, Copy, Clone)]
 pub enum ExtractionTarget {
-    /// Examine a response body and extract links
+    /// Examine a response body and extract javascript and html links (multiple tags)
     ResponseBody,
 
     /// Examine robots.txt (specifically) and extract links
     RobotsTxt,
 
-    // Parse HTML and extract links
-    ParseHtml,
+    /// Extract all <a> tags from a page
+    DirectoryListing,
 }
 
 /// responsible for building an `Extractor`
@@ -79,9 +79,9 @@ impl<'a> ExtractorBuilder<'a> {
         self
     }
 
-    /// finalize configuration of ExtratorBuilder and return an Extractor
+    /// finalize configuration of `ExtractorBuilder` and return an `Extractor`
     ///
-    /// requires either with_url or with_response to have been used in the build process
+    /// requires either `with_url` or `with_response` to have been used in the build process
     pub fn build(&self) -> Result<Extractor<'a>> {
         if (self.url.is_empty() && self.response.is_none()) || self.handles.is_none() {
             bail!("Extractor requires a URL or a FeroxResponse be specified as well as a Handles object")

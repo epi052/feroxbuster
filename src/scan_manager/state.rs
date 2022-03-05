@@ -2,6 +2,7 @@ use super::*;
 use crate::{config::Configuration, statistics::Stats, traits::FeroxSerialize, utils::fmt_err};
 use anyhow::{Context, Result};
 use serde::Serialize;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Data container for (de)?serialization of multiple items
@@ -18,6 +19,9 @@ pub struct FeroxState {
 
     /// Gathered statistics
     statistics: Arc<Stats>,
+
+    /// collected extensions
+    collected_extensions: HashSet<String>,
 }
 
 /// implementation of FeroxState
@@ -29,11 +33,17 @@ impl FeroxState {
         responses: &'static FeroxResponses,
         statistics: Arc<Stats>,
     ) -> Self {
+        let collected_extensions = match scans.collected_extensions.read() {
+            Ok(extensions) => extensions.clone(),
+            Err(_) => HashSet::new(),
+        };
+
         Self {
             scans,
             config,
             responses,
             statistics,
+            collected_extensions,
         }
     }
 }

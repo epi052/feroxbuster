@@ -1,5 +1,5 @@
 use clap::{
-    crate_authors, crate_description, crate_name, crate_version, App, Arg, ArgGroup, ValueHint,
+    crate_authors, crate_description, crate_name, crate_version, Arg, ArgGroup, Command, ValueHint,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -25,8 +25,8 @@ lazy_static! {
 }
 
 /// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
-pub fn initialize() -> App<'static> {
-    let app = App::new(crate_name!())
+pub fn initialize() -> Command<'static> {
+    let app = Command::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
         .about(crate_description!());
@@ -42,7 +42,7 @@ pub fn initialize() -> App<'static> {
                 .required_unless_present_any(&["stdin", "resume_from"])
                 .help_heading("Target selection")
                 .value_name("URL")
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .value_hint(ValueHint::Url)
                 .help("The target URL (required, unless [--stdin || --resume-from] used)"),
         )
@@ -63,6 +63,36 @@ pub fn initialize() -> App<'static> {
                 .help("State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)")
                 .conflicts_with("url")
                 .takes_value(true),
+        );
+
+    /////////////////////////////////////////////////////////////////////
+    // group - composite settings
+    /////////////////////////////////////////////////////////////////////
+    let app = app
+        .arg(
+            Arg::new("burp")
+                .long("burp")
+                .help_heading("Composite settings")
+                .conflicts_with_all(&["proxy", "insecure", "burp_replay"])
+                .help("Set --proxy to http://127.0.0.1:8080 and set --insecure to true"),
+        )
+        .arg(
+            Arg::new("burp_replay")
+                .long("burp-replay")
+                .help_heading("Composite settings")
+                .conflicts_with_all(&["replay_proxy", "insecure"])
+                .help("Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true"),
+        )
+        .arg(
+            Arg::new("smart")
+                .long("smart")
+                .help_heading("Composite settings")
+                .help("Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true"),
+        ).arg(
+            Arg::new("thorough")
+                .long("thorough")
+                .help_heading("Composite settings")
+                .help("Use the same settings as --smart and set --collect-extensions to true"),
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -101,7 +131,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .requires("replay_proxy")
                 .help_heading("Proxy settings")
                 .help(
@@ -138,7 +168,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "File extension(s) to search for (ex: -x php -x pdf js)",
@@ -152,7 +182,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "Which HTTP request method(s) should be sent (default: GET)",
@@ -177,7 +207,7 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Request settings")
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help(
                     "Specify HTTP headers to be used in each request (ex: -H Header:val -H 'stuff: things')",
                 ),
@@ -190,7 +220,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "Specify HTTP cookies to be used in each request (ex: -b stuff=things)",
@@ -204,7 +234,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
                     "Request's URL query parameters (ex: -Q token=stuff -Q secret=key)",
@@ -229,7 +259,7 @@ pub fn initialize() -> App<'static> {
             .takes_value(true)
             .multiple_values(true)
             .multiple_occurrences(true)
-            .use_delimiter(true)
+            .use_value_delimiter(true)
             .help_heading("Request filters")
             .help("URL(s) or Regex Pattern(s) to exclude from recursion/scans"),
     );
@@ -246,7 +276,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)",
@@ -260,7 +290,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages via regular expression matching on the response's body (ex: -X '^ignore me$')",
@@ -274,7 +304,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages of a particular word count (ex: -W 312 -W 91,82)",
@@ -288,7 +318,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out messages of a particular line count (ex: -N 20 -N 31,30)",
@@ -302,7 +332,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out status codes (deny list) (ex: -C 200 -C 401)",
@@ -316,7 +346,7 @@ pub fn initialize() -> App<'static> {
                 .multiple_values(true)
                 .multiple_occurrences(true)
                 .value_hint(ValueHint::Url)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)",
@@ -330,7 +360,7 @@ pub fn initialize() -> App<'static> {
                 .takes_value(true)
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_delimiter(true)
+                .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
                     "Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)",
@@ -470,6 +500,40 @@ pub fn initialize() -> App<'static> {
                 .takes_value(false)
                 .help_heading("Scan settings")
                 .help("Don't auto-filter wildcard responses")
+        ).arg(
+            Arg::new("collect_extensions")
+                .short('E')
+                .long("collect-extensions")
+                .takes_value(false)
+                .help_heading("Dynamic collection settings")
+                .help("Automatically discover extensions and add them to --extensions (unless they're in --dont-collect)")
+        ).arg(
+            Arg::new("collect_backups")
+                .short('B')
+                .long("collect-backups")
+                .takes_value(false)
+                .help_heading("Dynamic collection settings")
+                .help("Automatically request likely backup extensions for \"found\" urls")
+        ).arg(
+            Arg::new("collect_words")
+                .short('g')
+                .long("collect-words")
+                .takes_value(false)
+                .help_heading("Dynamic collection settings")
+                .help("Automatically discover important words from within responses and add them to the wordlist")
+        ).arg(
+            Arg::new("dont_collect")
+                .short('I')
+                .long("dont-collect")
+                .value_name("FILE_EXTENSION")
+                .takes_value(true)
+                .multiple_values(true)
+                .multiple_occurrences(true)
+                .use_value_delimiter(true)
+                .help_heading("Dynamic collection settings")
+                .help(
+                    "File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)",
+                ),
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -527,6 +591,13 @@ pub fn initialize() -> App<'static> {
                 .help_heading("Output settings")
                 .help("Output file to write log entries (use w/ --json for JSON entries)")
                 .takes_value(true),
+        )
+        .arg(
+            Arg::new("no_state")
+                .long("no-state")
+                .takes_value(false)
+                .help_heading("Output settings")
+                .help("Disable state output file (*.state)")
         );
 
     /////////////////////////////////////////////////////////////////////

@@ -1,6 +1,6 @@
 use super::utils::{
-    depth, methods, report_and_exit, save_state, serialized_type, status_codes, threads, timeout,
-    user_agent, wordlist, OutputLevel, RequesterPolicy,
+    depth, ignored_extensions, methods, report_and_exit, save_state, serialized_type, status_codes,
+    threads, timeout, user_agent, wordlist, OutputLevel, RequesterPolicy,
 };
 use crate::config::determine_output_level;
 use crate::config::utils::determine_requester_policy;
@@ -26,7 +26,7 @@ macro_rules! update_config_if_present {
         match $matches.value_of_t($arg_name) {
             Ok(value) => *$conf_val = value, // Update value
             Err(err) => {
-                if !matches!(err.kind, clap::ErrorKind::ArgumentNotFound) {
+                if !matches!(err.kind(), clap::ErrorKind::ArgumentNotFound) {
                     // Do nothing if argument not found
                     err.exit() // Exit with error on any other parse error
                 }
@@ -246,8 +246,6 @@ pub struct Configuration {
     pub resume_from: String,
 
     /// Whether or not a scan's current state should be saved when user presses Ctrl+C
-    ///
-    /// Not configurable from CLI; can only be set from a config file
     #[serde(default = "save_state")]
     pub save_state: bool,
 
@@ -264,8 +262,25 @@ pub struct Configuration {
     #[serde(default)]
     pub url_denylist: Vec<Url>,
 
+    /// URLs that should never be scanned/recursed into based on a regular expression
     #[serde(with = "serde_regex", default)]
     pub regex_denylist: Vec<Regex>,
+
+    /// Automatically discover extensions and add them to --extensions (unless they're in --dont-collect)
+    #[serde(default)]
+    pub collect_extensions: bool,
+
+    /// don't collect any of these extensions when --collect-extensions is used
+    #[serde(default = "ignored_extensions")]
+    pub dont_collect: Vec<String>,
+
+    /// Automatically request likely backup extensions on "found" urls
+    #[serde(default)]
+    pub collect_backups: bool,
+
+    /// Automatically discover important words from within responses and add them to the wordlist
+    #[serde(default)]
+    pub collect_words: bool,
 }
 
 impl Default for Configuration {
@@ -310,6 +325,9 @@ impl Default for Configuration {
             no_recursion: false,
             extract_links: false,
             random_agent: false,
+            collect_extensions: false,
+            collect_backups: false,
+            collect_words: false,
             save_state: true,
             proxy: String::new(),
             config: String::new(),
@@ -335,6 +353,7 @@ impl Default for Configuration {
             depth: depth(),
             threads: threads(),
             wordlist: wordlist(),
+            dont_collect: ignored_extensions(),
         }
     }
 }
@@ -365,7 +384,11 @@ impl Configuration {
     /// - **random_agent**: `false`
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
-    /// - **methods**: [`DEFAULT_METHOD`]
+    /// - **collect_extensions**: `false`
+    /// - **collect_backups**: `false`
+    /// - **collect_words**: `false`
+    /// - **dont_collect**: [`DEFAULT_IGNORED_EXTENSIONS`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - **methods**: [`DEFAULT_METHOD`](constant.DEFAULT_METHOD.html)
     /// - **data**: `None`
     /// - **url_denylist**: `None`
     /// - **regex_denylist**: `None`
@@ -566,6 +589,10 @@ impl Configuration {
             config.extensions = arg.map(|val| val.to_string()).collect();
         }
 
+        if let Some(arg) = args.values_of("dont_collect") {
+            config.dont_collect = arg.map(|val| val.to_string()).collect();
+        }
+
         if let Some(arg) = args.values_of("methods") {
             config.methods = arg
                 .map(|val| {
@@ -686,7 +713,7 @@ impl Configuration {
             config.output_level = OutputLevel::Quiet;
         }
 
-        if args.is_present("auto_tune") {
+        if args.is_present("auto_tune") || args.is_present("smart") || args.is_present("thorough") {
             config.auto_tune = true;
             config.requester_policy = RequesterPolicy::AutoTune;
         }
@@ -696,8 +723,30 @@ impl Configuration {
             config.requester_policy = RequesterPolicy::AutoBail;
         }
 
+        if args.is_present("no_state") {
+            config.save_state = false;
+        }
+
         if args.is_present("dont_filter") {
             config.dont_filter = true;
+        }
+
+        if args.is_present("collect_extensions") || args.is_present("thorough") {
+            config.collect_extensions = true;
+        }
+
+        if args.is_present("collect_backups")
+            || args.is_present("smart")
+            || args.is_present("thorough")
+        {
+            config.collect_backups = true;
+        }
+
+        if args.is_present("collect_words")
+            || args.is_present("smart")
+            || args.is_present("thorough")
+        {
+            config.collect_words = true;
         }
 
         if args.occurrences_of("verbosity") > 0 {
@@ -714,7 +763,10 @@ impl Configuration {
             config.add_slash = true;
         }
 
-        if args.is_present("extract_links") {
+        if args.is_present("extract_links")
+            || args.is_present("smart")
+            || args.is_present("thorough")
+        {
             config.extract_links = true;
         }
 
@@ -730,6 +782,14 @@ impl Configuration {
         update_config_if_present!(&mut config.user_agent, args, "user_agent");
         update_config_if_present!(&mut config.timeout, args, "timeout");
 
+        if args.is_present("burp") {
+            config.proxy = String::from("http://127.0.0.1:8080");
+        }
+
+        if args.is_present("burp_replay") {
+            config.replay_proxy = String::from("http://127.0.0.1:8080");
+        }
+
         if args.is_present("random_agent") {
             config.random_agent = true;
         }
@@ -738,7 +798,8 @@ impl Configuration {
             config.redirects = true;
         }
 
-        if args.is_present("insecure") {
+        if args.is_present("insecure") || args.is_present("burp") || args.is_present("burp_replay")
+        {
             config.insecure = true;
         }
 
@@ -872,6 +933,9 @@ impl Configuration {
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
         update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
+        update_if_not_default!(&mut conf.collect_extensions, new.collect_extensions, false);
+        update_if_not_default!(&mut conf.collect_backups, new.collect_backups, false);
+        update_if_not_default!(&mut conf.collect_words, new.collect_words, false);
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
         conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);
@@ -941,6 +1005,11 @@ impl Configuration {
         // status_codes() is the default for replay_codes, if they're not provided
         update_if_not_default!(&mut conf.replay_codes, new.replay_codes, status_codes());
         update_if_not_default!(&mut conf.save_state, new.save_state, save_state());
+        update_if_not_default!(
+            &mut conf.dont_collect,
+            new.dont_collect,
+            ignored_extensions()
+        );
     }
 
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values

@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.5.0"
+version = "2.6.0"
 authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
 edition = "2021"
@@ -16,45 +16,46 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [build-dependencies]
-clap = {version = "3.0", features = ["cargo"]}
-clap_complete = "3.0"
-regex = "1"
-lazy_static = "1.4"
-dirs = "4.0"
+clap = { version = "3.1.5", features = ["wrap_help", "cargo"] }
+clap_complete = "3.1.1"
+regex = "1.5.4"
+lazy_static = "1.4.0"
+dirs = "4.0.0"
 
 [dependencies]
-scraper = "0.12"
-futures = { version = "0.3"}
-tokio = { version = "1.15", features = ["full"] }
-tokio-util = {version = "0.6", features = ["codec"]}
-log = "0.4"
-env_logger = "0.9"
-reqwest = { version = "0.11", features = ["socks"] }
-url = { version = "2.2", features = ["serde"]}  # uses feature unification to add 'serde' to reqwest::Url
-serde_regex = "1.1"
-clap = {version = "3.0", features = ["wrap_help", "cargo"]}
-lazy_static = "1.4"
-toml = "0.5"
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = "1.0"
-uuid = { version = "0.8", features = ["v4"] }
+scraper = "0.12.0"
+futures = "0.3.21"
+tokio = { version = "1.17.0", features = ["full"] }
+tokio-util = { version = "0.7.0", features = ["codec"] }
+log = "0.4.14"
+env_logger = "0.9.0"
+reqwest = { version = "0.11.9", features = ["socks"] }
+# uses feature unification to add 'serde' to reqwest::Url
+url = { version = "2.2.2", features = ["serde"] }
+serde_regex = "1.1.0"
+clap = { version = "3.1.5", features = ["wrap_help", "cargo"] }
+lazy_static = "1.4.0"
+toml = "0.5.8"
+serde = { version = "1.0.136", features = ["derive", "rc"] }
+serde_json = "1.0.79"
+uuid = { version = "0.8.2", features = ["v4"] }
 indicatif = "0.15"
-console = "0.15"
-openssl = { version = "0.10", features = ["vendored"] }
-dirs = "4.0"
-regex = "1"
-crossterm = "0.20"
-rlimit = "0.6"
-ctrlc = "3.2"
+console = "0.15.0"
+openssl = { version = "0.10.38", features = ["vendored"] }
+dirs = "4.0.0"
+regex = "1.5.4"
+crossterm = "0.23.0"
+rlimit = "0.7.0"
+ctrlc = "3.2.1"
 fuzzyhash = "0.2.1"
-anyhow = "1.0"
-leaky-bucket = "0.10.0"
+anyhow = "1.0.55"
+leaky-bucket = "0.10.0"  # todo: upgrade, will take a little work/thought since api changed
 
 [dev-dependencies]
-tempfile = "3.3"
-httpmock = "0.6"
-assert_cmd = "2.0"
-predicates = "2.1"
+tempfile = "3.3.0"
+httpmock = "0.6.6"
+assert_cmd = "2.0.4"
+predicates = "2.1.1"
 
 [profile.release]
 lto = true

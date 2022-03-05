@@ -5,6 +5,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::response::FeroxResponse;
 use crate::{
+    message::FeroxMessage,
     statistics::{StatError, StatField},
     traits::FeroxFilter,
 };
@@ -65,6 +66,12 @@ pub enum Command {
 
     /// Just receive a sender and reply, used for slowing down the main thread
     Sync(Sender<bool>),
+
+    /// Notify event handler that a new extension has been seen
+    AddDiscoveredExtension(String),
+
+    /// Write an arbitrary string to disk
+    WriteToDisk(Box<FeroxMessage>),
 
     /// Break out of the (infinite) mpsc receive loop
     Exit,

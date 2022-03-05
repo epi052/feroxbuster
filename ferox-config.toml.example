@@ -30,7 +30,11 @@
 # random_agent = false
 # redirects = true
 # insecure = true
+# collect_words = true
+# collect_backups = true
+# collect_extensions = true
 # extensions = ["php", "html"]
+# dont_collect = ["png", "gif", "jpg", "jpeg"]
 # methods = ["GET", "POST"]
 # data = [11, 12, 13, 14, 15]
 # url_denylist = ["http://dont-scan.me", "https://also-not.me"]
