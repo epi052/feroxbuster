@@ -837,17 +837,16 @@ fn collect_words_makes_appropriate_requests() {
         .arg(file.as_os_str())
         .unwrap();
 
-    print!("{}", std::str::from_utf8(&cmd.stdout).unwrap());
-
     cmd.assert().success().stdout(
         predicate::str::contains("/doc1")
             .and(predicate::str::contains("/doc2"))
             .and(predicate::str::contains("/doc3"))
             .and(predicate::str::contains("/doc4")),
     );
+
     sleep(Duration::new(2, 0));
+
     for valid_mock in valid_mocks {
-        println!("mock: {}", valid_paths[valid_mock.id - 4]);
         assert_eq!(valid_mock.hits(), 1);
     }
 
