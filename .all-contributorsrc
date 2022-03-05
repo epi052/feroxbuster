@@ -366,6 +366,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "ippsec",
+      "name": "ippsec",
+      "avatar_url": "https://avatars.githubusercontent.com/u/24677271?v=4",
+      "profile": "https://github.com/IppSec",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
