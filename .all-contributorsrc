@@ -375,6 +375,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "gtjamesa",
+      "name": "James",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2078364?v=4",
+      "profile": "https://github.com/gtjamesa",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,

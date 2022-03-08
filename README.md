@@ -232,6 +232,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/godylockz"><img src="https://avatars.githubusercontent.com/u/81207744?v=4?s=100" width="100px;" alt=""/><br /><sub><b>godylockz</b></sub></a><br /><a href="#ideas-godylockz" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/epi052/feroxbuster/commits?author=godylockz" title="Code">💻</a></td>
     <td align="center"><a href="http://ryanmontgomery.me"><img src="https://avatars.githubusercontent.com/u/44453666?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ryan Montgomery</b></sub></a><br /><a href="#ideas-0dayCTF" title="Ideas, Planning, & Feedback">🤔</a></td>
     <td align="center"><a href="https://github.com/IppSec"><img src="https://avatars.githubusercontent.com/u/24677271?v=4?s=100" width="100px;" alt=""/><br /><sub><b>ippsec</b></sub></a><br /><a href="#ideas-ippsec" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://github.com/gtjamesa"><img src="https://avatars.githubusercontent.com/u/2078364?v=4?s=100" width="100px;" alt=""/><br /><sub><b>James</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Agtjamesa" title="Bug reports">🐛</a></td>
   </tr>
 </table>
 
