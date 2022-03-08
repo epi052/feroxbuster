@@ -48,7 +48,7 @@ crossterm = "0.23.0"
 rlimit = "0.7.0"
 ctrlc = "3.2.1"
 fuzzyhash = "0.2.1"
-anyhow = "1.0.55"
+anyhow = "1.0.56"
 leaky-bucket = "0.10.0"  # todo: upgrade, will take a little work/thought since api changed
 
 [dev-dependencies]
