@@ -341,9 +341,9 @@ impl TermOutHandler {
 
     /// internal helper to stay DRY
     fn add_new_url_to_vec(&self, url: &Url, new_name: &str, urls: &mut Vec<Url>) {
-        let mut new_url = url.clone();
-        new_url.set_path(new_name);
-        urls.push(new_url);
+        if let Ok(joined) = url.join(new_name) {
+            urls.push(joined);
+        }
     }
 
     /// given a `FeroxResponse`, generate either 6 or 7 urls that are likely backups of the
@@ -509,6 +509,47 @@ mod tests {
 
         for path in paths {
             assert!(expected.contains(&path));
+        }
+
+        tx.send(Command::Exit).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// test to ensure that backups are requested from the directory in which they were found
+    /// re: issue #513
+    async fn generate_backup_urls_creates_correct_urls_when_not_at_root() {
+        let (tx, rx) = mpsc::unbounded_channel::<Command>();
+        let (tx_file, _) = mpsc::unbounded_channel::<Command>();
+        let config = Arc::new(Configuration::new().unwrap());
+
+        let toh = TermOutHandler {
+            config,
+            file_task: None,
+            receiver: rx,
+            tx_file,
+        };
+
+        let expected: Vec<_> = vec![
+            "http://localhost/wordpress/derp.php~",
+            "http://localhost/wordpress/derp.php.bak",
+            "http://localhost/wordpress/derp.php.bak2",
+            "http://localhost/wordpress/derp.php.old",
+            "http://localhost/wordpress/derp.php.1",
+            "http://localhost/wordpress/.derp.php.swp",
+            "http://localhost/wordpress/derp.bak",
+        ];
+
+        let mut fr = FeroxResponse::default();
+        fr.set_url("http://localhost/wordpress/derp.php");
+
+        let urls = toh.generate_backup_urls(&fr).await;
+
+        let url_strs: Vec<_> = urls.iter().map(|url| url.as_str()).collect();
+
+        assert_eq!(urls.len(), 7);
+
+        for url_str in url_strs {
+            assert!(expected.contains(&url_str));
         }
 
         tx.send(Command::Exit).unwrap();
