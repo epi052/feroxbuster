@@ -1,9 +1,5 @@
 use super::*;
-use crate::config::Configuration;
 use crate::{
-    filters::{
-        LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
-    },
     progress::PROGRESS_PRINTER,
     scan_manager::{FeroxState, PAUSE_SCAN},
     scanner::RESPONSES,

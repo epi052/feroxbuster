@@ -8,9 +8,7 @@ use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
-use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
-use crate::progress::PROGRESS_PRINTER;
-use crate::utils::ferox_print;
+use crate::filters::{create_similarity_filter, SimilarityFilter};
 use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
@@ -68,7 +66,7 @@ async fn check_for_user_input(
                 }
             }
             Some(MenuCmdResult::Filter(mut filter)) => {
-                let url = if let Some(SimilarityFilter { hash, threshold }) =
+                let url = if let Some(SimilarityFilter { hash, threshold: _ }) =
                     filter.as_any().downcast_ref::<SimilarityFilter>()
                 {
                     hash.to_owned()

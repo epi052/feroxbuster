@@ -1,6 +1,5 @@
 use super::*;
 use ::regex::Regex;
-use serde::{ser::SerializeStruct, Deserializer, Serializer};
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on a given regular
 /// expression; specified using -X|--filter-regex

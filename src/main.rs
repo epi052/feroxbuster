@@ -17,7 +17,6 @@ use tokio::{
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-use feroxbuster::event_handlers::Command::AddFilter;
 use feroxbuster::scan_manager::ScanType;
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},

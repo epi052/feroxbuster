@@ -1,5 +1,4 @@
 //! contains all of feroxbuster's filters
-use ::regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::fmt::Debug;

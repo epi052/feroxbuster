@@ -2,7 +2,6 @@ use super::*;
 use crate::filters::EmptyFilter;
 use crate::{filters::FeroxFilters, CommandSender, FeroxChannel, Joiner};
 use anyhow::Result;
-use std::io::Empty;
 use std::sync::Arc;
 use tokio::sync::{
     mpsc::{self, UnboundedReceiver},

@@ -1,4 +1,5 @@
 use super::*;
+use crate::filters::FeroxFilters;
 use crate::{
     config::{Configuration, OutputLevel},
     event_handlers::Handles,
@@ -370,7 +371,15 @@ fn feroxstates_feroxserialize_implementation() {
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
     RESPONSES.insert(response);
 
-    let ferox_state = FeroxState::new(Arc::new(ferox_scans), Arc::new(config), &RESPONSES, stats);
+    let filters = Arc::new(FeroxFilters::default());
+
+    let ferox_state = FeroxState::new(
+        Arc::new(ferox_scans),
+        Arc::new(config),
+        &RESPONSES,
+        stats,
+        filters,
+    );
 
     let expected_strs = predicates::str::contains("scans: FeroxScans").and(
         predicate::str::contains("config: Configuration")
@@ -602,9 +611,9 @@ fn menu_print_header_and_footer() {
     menu.show_progress_bars();
 }
 
-#[test]
 /// ensure command parsing from user input results int he correct MenuCmd returned
-fn menu_get_command_input_from_user_returns_cancel() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn menu_get_command_input_from_user_returns_cancel() {
     let menu = Menu::new();
 
     for (idx, cmd) in ["cancel", "Cancel", "c", "C"].iter().enumerate() {
@@ -616,7 +625,7 @@ fn menu_get_command_input_from_user_returns_cancel() {
             format!("{} {}\n", cmd, idx)
         };
 
-        let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+        let result = menu.get_command_input_from_user(&full_cmd).await.unwrap();
 
         assert!(matches!(result, MenuCmd::Cancel(_, _)));
 
@@ -631,9 +640,9 @@ fn menu_get_command_input_from_user_returns_cancel() {
     }
 }
 
-#[test]
 /// ensure command parsing from user input results int he correct MenuCmd returned
-fn menu_get_command_input_from_user_returns_add() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn menu_get_command_input_from_user_returns_add() {
     let menu = Menu::new();
 
     for cmd in ["add", "Addd", "a", "A", "None"] {
@@ -641,14 +650,14 @@ fn menu_get_command_input_from_user_returns_add() {
         let full_cmd = format!("{} {}\n", cmd, test_url);
 
         if cmd != "None" {
-            let result = menu.get_command_input_from_user(&full_cmd).unwrap();
+            let result = menu.get_command_input_from_user(&full_cmd).await.unwrap();
             assert!(matches!(result, MenuCmd::Add(_)));
 
             if let MenuCmd::Add(url) = result {
                 assert_eq!(url, test_url);
             }
         } else {
-            assert!(menu.get_command_input_from_user(&full_cmd).is_none());
+            assert!(menu.get_command_input_from_user(&full_cmd).await.is_none());
         };
     }
 }

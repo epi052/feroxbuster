@@ -1,19 +1,10 @@
 use super::{
-    utils::create_similarity_filter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter,
-    StatusCodeFilter, WordsFilter,
+    utils::create_similarity_filter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter,
+    WordsFilter,
 };
-use crate::{
-    event_handlers::Handles,
-    response::FeroxResponse,
-    skip_fail,
-    utils::{fmt_err, logged_request},
-    Command::AddFilter,
-    DEFAULT_METHOD, SIMILARITY_THRESHOLD,
-};
+use crate::{event_handlers::Handles, skip_fail, utils::fmt_err, Command::AddFilter};
 use anyhow::Result;
-use fuzzyhash::FuzzyHash;
 use regex::Regex;
-use reqwest::Url;
 use std::sync::Arc;
 
 /// add all user-supplied filters to the (already started) filters handler

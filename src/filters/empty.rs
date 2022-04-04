@@ -6,7 +6,7 @@ pub struct EmptyFilter {}
 
 impl FeroxFilter for EmptyFilter {
     /// `EmptyFilter` always returns false
-    fn should_filter_response(&self, response: &FeroxResponse) -> bool {
+    fn should_filter_response(&self, _response: &FeroxResponse) -> bool {
         false
     }
 

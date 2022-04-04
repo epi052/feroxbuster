@@ -2,10 +2,9 @@ use super::scan::ScanType;
 use super::*;
 use crate::event_handlers::Handles;
 use crate::filters::{
-    EmptyFilter, FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter,
-    StatusCodeFilter, WildcardFilter, WordsFilter,
+    EmptyFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+    WildcardFilter, WordsFilter,
 };
-use crate::scan_manager::MenuCmd::Add;
 use crate::traits::FeroxFilter;
 use crate::utils::{create_report_string, ferox_print};
 use crate::Command::AddFilter;
@@ -22,7 +21,6 @@ use anyhow::Result;
 use console::style;
 use reqwest::StatusCode;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
-use std::alloc::handle_alloc_error;
 use std::{
     collections::HashSet,
     convert::TryInto,
