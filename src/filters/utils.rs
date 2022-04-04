@@ -108,3 +108,90 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
 
     None
 }
+
+// todo add tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::filters::{LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WordsFilter};
+    use crate::scan_manager::FeroxScans;
+    use httpmock::Method::GET;
+    use httpmock::MockServer;
+
+    #[test]
+    /// filter_lookup returns correct filters
+    fn filter_lookup_returns_correct_filters() {
+        let filter = filter_lookup("status", "200").unwrap();
+        assert_eq!(
+            filter.as_any().downcast_ref::<StatusCodeFilter>().unwrap(),
+            &StatusCodeFilter { filter_code: 200 }
+        );
+
+        let filter = filter_lookup("lines", "10").unwrap();
+        assert_eq!(
+            filter.as_any().downcast_ref::<LinesFilter>().unwrap(),
+            &LinesFilter { line_count: 10 }
+        );
+
+        let filter = filter_lookup("size", "20").unwrap();
+        assert_eq!(
+            filter.as_any().downcast_ref::<SizeFilter>().unwrap(),
+            &SizeFilter { content_length: 20 }
+        );
+
+        let filter = filter_lookup("words", "30").unwrap();
+        assert_eq!(
+            filter.as_any().downcast_ref::<WordsFilter>().unwrap(),
+            &WordsFilter { word_count: 30 }
+        );
+
+        let filter = filter_lookup("regex", "stuff.*").unwrap();
+        let compiled = Regex::new("stuff.*").unwrap();
+        let raw_string = String::from("stuff.*");
+        assert_eq!(
+            filter.as_any().downcast_ref::<RegexFilter>().unwrap(),
+            &RegexFilter {
+                compiled,
+                raw_string
+            }
+        );
+
+        let filter = filter_lookup("similarity", "http://localhost").unwrap();
+        assert_eq!(
+            filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
+            &SimilarityFilter {
+                hash: "http://localhost".to_string(),
+                threshold: SIMILARITY_THRESHOLD
+            }
+        );
+
+        assert!(filter_lookup("non-existent", "").is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// ensure create_similarity_filter correctness of return value and side-effects
+    async fn create_similarity_filter_is_correct() {
+        let srv = MockServer::start();
+
+        let mock = srv.mock(|when, then| {
+            when.method(GET).path("/");
+            then.status(200).body("this is a test");
+        });
+        let scans = FeroxScans::default();
+        let test_handles = Handles::for_testing(Some(Arc::new(scans)), None).0;
+
+        let filter = create_similarity_filter(&srv.url("/"), Arc::new(test_handles))
+            .await
+            .unwrap();
+
+        assert_eq!(mock.hits(), 1);
+
+        assert_eq!(
+            filter,
+            SimilarityFilter {
+                hash: "3:YKEpn:Yfp".to_string(),
+                threshold: SIMILARITY_THRESHOLD
+            }
+        );
+    }
+}
