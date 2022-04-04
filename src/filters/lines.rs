@@ -1,5 +1,5 @@
 use super::*;
-use serde::{Deserialize, Serialize};
+
 /// Simple implementor of FeroxFilter; used to filter out responses based on the number of lines
 /// in a Response body; specified using -N|--filter-lines
 #[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
