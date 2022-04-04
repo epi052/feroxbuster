@@ -10,6 +10,13 @@ use regex::Regex;
 use reqwest::Url;
 use std::sync::Arc;
 
+/// wrapper around logic necessary to create a SimilarityFilter
+///
+/// - parses given url
+/// - makes request to the parsed url
+/// - gathers extensions from the url, if configured to do so
+/// - computes hash of response body
+/// - creates filter with hash
 pub(crate) async fn create_similarity_filter(
     similarity_filter: &str,
     handles: Arc<Handles>,
@@ -42,6 +49,15 @@ pub(crate) async fn create_similarity_filter(
     })
 }
 
+/// used in conjunction with the Scan Management Menu
+///
+/// when a user uses the n[ew-filter] command in the menu, the two params are passed here for
+/// processing.
+///
+/// an example command may be `new-filter lines 40`. `lines` and `40` are passed here as &str's
+///
+/// once here, the type and value are used to create an appropriate FeroxFilter. If anything
+/// goes wrong during creation, None is returned.
 pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box<dyn FeroxFilter>> {
     match filter_type {
         "status" => {
