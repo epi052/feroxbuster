@@ -202,7 +202,7 @@ impl Menu {
     }
 
     /// get input from the user and translate it to a `MenuCmd`
-    pub(super) async fn get_command_input_from_user(&self, line: &str) -> Option<MenuCmd> {
+    pub(super) fn get_command_input_from_user(&self, line: &str) -> Option<MenuCmd> {
         let line = line.trim(); // normalize input if there are leading spaces
 
         match line.chars().next().unwrap_or('_').to_ascii_lowercase() {

@@ -381,7 +381,7 @@ impl FeroxScans {
         self.menu.print_footer();
 
         let menu_cmd = if let Ok(line) = self.menu.term.read_line() {
-            self.menu.get_command_input_from_user(&line).await
+            self.menu.get_command_input_from_user(&line)
         } else {
             None
         };

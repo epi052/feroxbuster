@@ -625,7 +625,7 @@ async fn menu_get_command_input_from_user_returns_cancel() {
             format!("{} {}\n", cmd, idx)
         };
 
-        let result = menu.get_command_input_from_user(&full_cmd).await.unwrap();
+        let result = menu.get_command_input_from_user(&full_cmd).unwrap();
 
         assert!(matches!(result, MenuCmd::Cancel(_, _)));
 
@@ -650,14 +650,14 @@ async fn menu_get_command_input_from_user_returns_add() {
         let full_cmd = format!("{} {}\n", cmd, test_url);
 
         if cmd != "None" {
-            let result = menu.get_command_input_from_user(&full_cmd).await.unwrap();
+            let result = menu.get_command_input_from_user(&full_cmd).unwrap();
             assert!(matches!(result, MenuCmd::Add(_)));
 
             if let MenuCmd::Add(url) = result {
                 assert_eq!(url, test_url);
             }
         } else {
-            assert!(menu.get_command_input_from_user(&full_cmd).await.is_none());
+            assert!(menu.get_command_input_from_user(&full_cmd).is_none());
         };
     }
 }
