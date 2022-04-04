@@ -103,3 +103,41 @@ impl FiltersHandler {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::filters::WordsFilter;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn empty_filter_skipped() {
+        let data = Arc::new(FeroxFilters::default());
+        let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
+
+        let mut handler = FiltersHandler::new(data.clone(), rx);
+
+        let event_handle = FiltersHandle::new(data, tx);
+
+        let _task = tokio::spawn(async move { handler.start().await });
+
+        event_handle
+            .send(Command::AddFilter(Box::new(EmptyFilter {})))
+            .unwrap();
+
+        let (tx, rx) = oneshot::channel::<bool>();
+        event_handle.send(Command::Sync(tx)).unwrap();
+        rx.await.unwrap();
+
+        assert!(event_handle.data.filters.lock().unwrap().is_empty());
+
+        event_handle
+            .send(Command::AddFilter(Box::new(WordsFilter { word_count: 1 })))
+            .unwrap();
+
+        let (tx, rx) = oneshot::channel::<bool>();
+        event_handle.send(Command::Sync(tx)).unwrap();
+        rx.await.unwrap();
+
+        assert_eq!(event_handle.data.filters.lock().unwrap().len(), 1);
+    }
+}
