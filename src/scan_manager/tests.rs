@@ -612,8 +612,8 @@ fn menu_print_header_and_footer() {
 }
 
 /// ensure command parsing from user input results int he correct MenuCmd returned
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn menu_get_command_input_from_user_returns_cancel() {
+#[test]
+fn menu_get_command_input_from_user_returns_cancel() {
     let menu = Menu::new();
 
     for (idx, cmd) in ["cancel", "Cancel", "c", "C"].iter().enumerate() {
@@ -641,8 +641,8 @@ async fn menu_get_command_input_from_user_returns_cancel() {
 }
 
 /// ensure command parsing from user input results int he correct MenuCmd returned
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn menu_get_command_input_from_user_returns_add() {
+#[test]
+fn menu_get_command_input_from_user_returns_add() {
     let menu = Menu::new();
 
     for cmd in ["add", "Addd", "a", "A", "None"] {
