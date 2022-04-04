@@ -1,14 +1,17 @@
 use std::sync::Mutex;
 
 use anyhow::Result;
+use serde::{ser::SerializeSeq, Serialize, Serializer};
 
-use crate::response::FeroxResponse;
 use crate::{
-    event_handlers::Command::AddToUsizeField, statistics::StatField::WildcardsFiltered,
-    CommandSender,
+    event_handlers::Command::AddToUsizeField, response::FeroxResponse,
+    statistics::StatField::WildcardsFiltered, CommandSender,
 };
 
-use super::{FeroxFilter, WildcardFilter};
+use super::{
+    FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+    WildcardFilter, WordsFilter,
+};
 
 /// Container around a collection of `FeroxFilters`s
 #[derive(Debug, Default)]
@@ -52,5 +55,45 @@ impl FeroxFilters {
             }
         }
         false
+    }
+}
+
+impl Serialize for FeroxFilters {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Ok(guard) = self.filters.lock() {
+            let mut seq = serializer.serialize_seq(Some(guard.len()))?;
+
+            for filter in &*guard {
+                if let Some(line_filter) = filter.as_any().downcast_ref::<LinesFilter>() {
+                    seq.serialize_element(line_filter).unwrap_or_default();
+                } else if let Some(word_filter) = filter.as_any().downcast_ref::<WordsFilter>() {
+                    seq.serialize_element(word_filter).unwrap_or_default();
+                } else if let Some(size_filter) = filter.as_any().downcast_ref::<SizeFilter>() {
+                    seq.serialize_element(size_filter).unwrap_or_default();
+                } else if let Some(status_filter) =
+                    filter.as_any().downcast_ref::<StatusCodeFilter>()
+                {
+                    seq.serialize_element(status_filter).unwrap_or_default();
+                } else if let Some(regex_filter) = filter.as_any().downcast_ref::<RegexFilter>() {
+                    seq.serialize_element(regex_filter).unwrap_or_default();
+                } else if let Some(similarity_filter) =
+                    filter.as_any().downcast_ref::<SimilarityFilter>()
+                {
+                    seq.serialize_element(similarity_filter).unwrap_or_default();
+                } else if let Some(wildcard_filter) =
+                    filter.as_any().downcast_ref::<WildcardFilter>()
+                {
+                    seq.serialize_element(wildcard_filter).unwrap_or_default();
+                }
+            }
+            seq.end()
+        } else {
+            // if for some reason we can't unlock the mutex, just write an empty list
+            let seq = serializer.serialize_seq(Some(0))?;
+            seq.end()
+        }
     }
 }

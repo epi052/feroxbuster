@@ -254,10 +254,17 @@ pub fn create_report_string(
     } else {
         // normal printing with status and sizes
         let color_status = status_colorizer(status);
-        format!(
-            "{} {:>8} {:>8}l {:>8}w {:>8}c {}\n",
-            color_status, method, line_count, word_count, content_length, url
-        )
+        if status.contains("MSG") {
+            format!(
+                "{} {:>8} {:>9} {:>9} {:>9} {}\n",
+                color_status, method, line_count, word_count, content_length, url
+            )
+        } else {
+            format!(
+                "{} {:>8} {:>8}l {:>8}w {:>8}c {}\n",
+                color_status, method, line_count, word_count, content_length, url
+            )
+        }
     }
 }
 

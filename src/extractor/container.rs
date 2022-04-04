@@ -212,7 +212,7 @@ impl<'a> Extractor<'a> {
         self.extract_links_by_attr(resp_url, links, html, "div", "src");
         self.extract_links_by_attr(resp_url, links, html, "frame", "src");
         self.extract_links_by_attr(resp_url, links, html, "embed", "src");
-        self.extract_links_by_attr(resp_url, links, html, "script", "src");
+        self.extract_links_by_attr(resp_url, links, html, "script", "src"); // todo: remove
     }
 
     /// Given the body of a `reqwest::Response`, perform the following actions

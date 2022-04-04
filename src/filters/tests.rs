@@ -186,7 +186,7 @@ fn similarity_filter_is_accurate() {
     resp.set_text("sitting");
 
     let mut filter = SimilarityFilter {
-        text: FuzzyHash::new("kitten").to_string(),
+        hash: FuzzyHash::new("kitten").to_string(),
         threshold: 95,
     };
 
@@ -194,14 +194,14 @@ fn similarity_filter_is_accurate() {
     assert!(!filter.should_filter_response(&resp));
 
     resp.set_text("");
-    filter.text = String::new();
+    filter.hash = String::new();
     filter.threshold = 100;
 
     // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
     assert!(!filter.should_filter_response(&resp));
 
     resp.set_text("some data to hash for the purposes of running a test");
-    filter.text = FuzzyHash::new("some data to hash for the purposes of running a te").to_string();
+    filter.hash = FuzzyHash::new("some data to hash for the purposes of running a te").to_string();
     filter.threshold = 17;
 
     assert!(filter.should_filter_response(&resp));
@@ -211,18 +211,18 @@ fn similarity_filter_is_accurate() {
 /// just a simple test to increase code coverage by hitting as_any and the inner value
 fn similarity_filter_as_any() {
     let filter = SimilarityFilter {
-        text: String::from("stuff"),
+        hash: String::from("stuff"),
         threshold: 95,
     };
 
     let filter2 = SimilarityFilter {
-        text: String::from("stuff"),
+        hash: String::from("stuff"),
         threshold: 95,
     };
 
     assert!(filter.box_eq(filter2.as_any()));
 
-    assert_eq!(filter.text, "stuff");
+    assert_eq!(filter.hash, "stuff");
     assert_eq!(
         *filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
         filter

@@ -1,7 +1,7 @@
 //! collection of all traits used
 use crate::response::FeroxResponse;
 use anyhow::Result;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::fmt::Debug;
 

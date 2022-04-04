@@ -1,6 +1,8 @@
 use super::*;
+use crate::filters::EmptyFilter;
 use crate::{filters::FeroxFilters, CommandSender, FeroxChannel, Joiner};
 use anyhow::Result;
+use std::io::Empty;
 use std::sync::Arc;
 use tokio::sync::{
     mpsc::{self, UnboundedReceiver},
@@ -84,7 +86,10 @@ impl FiltersHandler {
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::AddFilter(filter) => {
-                    self.data.push(filter)?;
+                    if filter.as_any().downcast_ref::<EmptyFilter>().is_none() {
+                        // don't add an empty filter
+                        self.data.push(filter)?;
+                    }
                 }
                 Command::Sync(sender) => {
                     log::debug!("filters: {:?}", self);

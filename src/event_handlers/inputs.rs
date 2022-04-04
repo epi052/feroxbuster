@@ -1,5 +1,9 @@
 use super::*;
+use crate::config::Configuration;
 use crate::{
+    filters::{
+        LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
+    },
     progress::PROGRESS_PRINTER,
     scan_manager::{FeroxState, PAUSE_SCAN},
     scanner::RESPONSES,
@@ -98,6 +102,7 @@ impl TermInputHandler {
             handles.config.clone(),
             &RESPONSES,
             handles.stats.data.clone(),
+            handles.filters.data.clone(),
         );
 
         let state_file = open_file(&filename);

@@ -1,4 +1,6 @@
+use crate::filters::filter_lookup;
 use crate::progress::PROGRESS_BAR;
+use crate::traits::FeroxFilter;
 use console::{measure_text_width, pad_str, style, Alignment, Term};
 use indicatif::ProgressDrawTarget;
 use regex::Regex;
@@ -11,6 +13,9 @@ pub enum MenuCmd {
 
     /// user wants to cancel one or more active scans
     Cancel(Vec<usize>, bool),
+
+    /// user wants to create a new filter
+    NewFilter(Box<dyn FeroxFilter>),
 }
 
 /// Data container for a command result to be used internally by the ferox_scanner
@@ -21,6 +26,9 @@ pub enum MenuCmdResult {
 
     /// Number of scans that were actually cancelled, can be 0
     NumCancelled(usize),
+
+    /// Filter to be added to current list of `FeroxFilters`
+    Filter(Box<dyn FeroxFilter>),
 }
 
 /// Interactive scan cancellation menu
@@ -57,16 +65,35 @@ impl Menu {
         );
 
         let canx_cmd = format!(
-            "  {}[{}] [-f] SCAN_ID[-SCAN_ID[,...]] (ex: {} 1-4,8,9-13 or {} -f 3)",
+            "  {}[{}] [-f] SCAN_ID[-SCAN_ID[,...]] (ex: {} 1-4,8,9-13 or {} -f 3)\n",
             style("c").red(),
             style("ancel").red(),
             style("cancel").red(),
             style("c").red(),
         );
 
+        let new_filter_cmd = format!(
+            "  {}[{}] FILTER_TYPE FILTER_VALUE (ex: {} lines 40)\n",
+            style("n").yellow(),
+            style("ew-filter").yellow(),
+            style("n").yellow(),
+        );
+
+        let valid_filters = format!(
+            "    FILTER_TYPEs: {}, {}, {}, {}, {}, {}",
+            style("status").yellow(),
+            style("lines").yellow(),
+            style("size").yellow(),
+            style("words").yellow(),
+            style("regex").yellow(),
+            style("similarity").yellow()
+        );
+
         let mut commands = String::from("Commands:\n");
         commands.push_str(&add_cmd);
         commands.push_str(&canx_cmd);
+        commands.push_str(&new_filter_cmd);
+        commands.push_str(&valid_filters);
 
         let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name));
 
@@ -175,7 +202,7 @@ impl Menu {
     }
 
     /// get input from the user and translate it to a `MenuCmd`
-    pub(super) fn get_command_input_from_user(&self, line: &str) -> Option<MenuCmd> {
+    pub(super) async fn get_command_input_from_user(&self, line: &str) -> Option<MenuCmd> {
         let line = line.trim(); // normalize input if there are leading spaces
 
         match line.chars().next().unwrap_or('_').to_ascii_lowercase() {
@@ -199,6 +226,23 @@ impl Menu {
                 let line = re.replace(line, "").to_string().trim().to_string();
 
                 Some(MenuCmd::Add(line))
+            }
+            'n' => {
+                // new filter command
+                let mut line = line.split_whitespace();
+                line.next(); // 'n' or 'new-filter'
+
+                if let Some(filter_type) = line.next() {
+                    // have a string in the filter_type position
+                    if let Some(filter_value) = line.next() {
+                        // have a string in the filter_value position
+                        if let Some(result) = filter_lookup(filter_type, filter_value) {
+                            // lookup was successful, return the new filter
+                            return Some(MenuCmd::NewFilter(result));
+                        }
+                    }
+                }
+                None
             }
             _ => {
                 // invalid input

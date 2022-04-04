@@ -1,4 +1,5 @@
 use super::*;
+use crate::filters::FeroxFilters;
 use crate::{config::Configuration, statistics::Stats, traits::FeroxSerialize, utils::fmt_err};
 use anyhow::{Context, Result};
 use serde::Serialize;
@@ -22,6 +23,9 @@ pub struct FeroxState {
 
     /// collected extensions
     collected_extensions: HashSet<String>,
+
+    /// runtime filters, as they may differ from original config
+    filters: Arc<FeroxFilters>,
 }
 
 /// implementation of FeroxState
@@ -32,6 +36,7 @@ impl FeroxState {
         config: Arc<Configuration>,
         responses: &'static FeroxResponses,
         statistics: Arc<Stats>,
+        filters: Arc<FeroxFilters>,
     ) -> Self {
         let collected_extensions = match scans.collected_extensions.read() {
             Ok(extensions) => extensions.clone(),
@@ -44,6 +49,7 @@ impl FeroxState {
             responses,
             statistics,
             collected_extensions,
+            filters,
         }
     }
 }

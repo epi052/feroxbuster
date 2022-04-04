@@ -2,7 +2,7 @@ use super::*;
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on the length of a
 /// Response body; specified using -S|--filter-size
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SizeFilter {
     /// Overall length of a Response's body that should be filtered
     pub content_length: u64,
