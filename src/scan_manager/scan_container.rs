@@ -1,5 +1,13 @@
 use super::scan::ScanType;
 use super::*;
+use crate::event_handlers::Handles;
+use crate::filters::{
+    EmptyFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+    WildcardFilter, WordsFilter,
+};
+use crate::traits::FeroxFilter;
+use crate::utils::{create_report_string, ferox_print};
+use crate::Command::AddFilter;
 use crate::{
     config::OutputLevel,
     progress::PROGRESS_PRINTER,
@@ -10,6 +18,7 @@ use crate::{
     SLEEP_DURATION,
 };
 use anyhow::Result;
+use console::style;
 use reqwest::StatusCode;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
@@ -117,7 +126,7 @@ impl FeroxScans {
     }
 
     /// load serialized FeroxScan(s) and any previously collected extensions into this FeroxScans  
-    pub fn add_serialized_scans(&self, filename: &str) -> Result<()> {
+    pub fn add_serialized_scans(&self, filename: &str, handles: Arc<Handles>) -> Result<()> {
         log::trace!("enter: add_serialized_scans({})", filename);
         let file = File::open(filename)?;
 
@@ -150,6 +159,49 @@ impl FeroxScans {
 
                         guard.insert(deser_ext);
                     }
+                }
+            }
+        }
+
+        if let Some(filters) = state.get("filters") {
+            if let Some(arr_filters) = filters.as_array() {
+                for filter in arr_filters {
+                    let final_filter: Box<dyn FeroxFilter> = if let Ok(deserialized) =
+                        serde_json::from_value::<RegexFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<WordsFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<WildcardFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<SizeFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<LinesFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<SimilarityFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<StatusCodeFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else {
+                        Box::new(EmptyFilter {})
+                    };
+
+                    handles
+                        .filters
+                        .send(AddFilter(final_filter))
+                        .unwrap_or_default();
                 }
             }
         }
@@ -341,8 +393,10 @@ impl FeroxScans {
                 Some(MenuCmdResult::NumCancelled(num_cancelled))
             }
             Some(MenuCmd::Add(url)) => Some(MenuCmdResult::Url(url)),
+            Some(MenuCmd::NewFilter(filter)) => Some(MenuCmdResult::Filter(filter)),
             None => None,
         };
+        log::error!("{}", format!("{:?}", result)); // todo remove
 
         self.menu.clear_screen();
         self.menu.show_progress_bars();
@@ -410,6 +464,27 @@ impl FeroxScans {
                 command_result = self.interactive_menu().await;
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
                 self.print_known_responses();
+
+                if let Some(MenuCmdResult::Filter(_)) = command_result {
+                    // adding/cancelling a url has immediate visual cues, whereas adding a filter
+                    // does not. in order to print this message below already found urls, we need
+                    // to postpone printing until after the call to `self.print_known_responses`
+                    let colored = format!(
+                        "New {} successfully {}!",
+                        style("filter").bright().blue(),
+                        style("created").green()
+                    );
+                    let msg = create_report_string(
+                        &style("MSG").bright().blue().to_string(),
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        &colored,
+                        OutputLevel::Default,
+                    );
+                    ferox_print(&msg, &PROGRESS_PRINTER);
+                }
             }
         }
 

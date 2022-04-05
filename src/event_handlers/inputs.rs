@@ -98,6 +98,7 @@ impl TermInputHandler {
             handles.config.clone(),
             &RESPONSES,
             handles.stats.data.clone(),
+            handles.filters.data.clone(),
         );
 
         let state_file = open_file(&filename);

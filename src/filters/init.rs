@@ -1,18 +1,10 @@
 use super::{
-    LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
+    utils::create_similarity_filter, LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter,
+    WordsFilter,
 };
-use crate::{
-    event_handlers::Handles,
-    response::FeroxResponse,
-    skip_fail,
-    utils::{fmt_err, logged_request},
-    Command::AddFilter,
-    DEFAULT_METHOD, SIMILARITY_THRESHOLD,
-};
+use crate::{event_handlers::Handles, skip_fail, utils::fmt_err, Command::AddFilter};
 use anyhow::Result;
-use fuzzyhash::FuzzyHash;
 use regex::Regex;
-use reqwest::Url;
 use std::sync::Arc;
 
 /// add all user-supplied filters to the (already started) filters handler
@@ -68,32 +60,7 @@ pub async fn initialize(handles: Arc<Handles>) -> Result<()> {
 
     // add any similarity filters to filters handler's FeroxFilters  (--filter-similar-to)
     for similarity_filter in &handles.config.filter_similar {
-        // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-        let url = skip_fail!(Url::parse(similarity_filter));
-
-        // attempt to request the given url
-        let resp = skip_fail!(logged_request(&url, DEFAULT_METHOD, None, handles.clone()).await);
-
-        // if successful, create a filter based on the response's body
-        let mut fr = FeroxResponse::from(
-            resp,
-            similarity_filter,
-            DEFAULT_METHOD,
-            handles.config.output_level,
-        )
-        .await;
-
-        if handles.config.collect_extensions {
-            fr.parse_extension(handles.clone())?;
-        }
-
-        // hash the response body and store the resulting hash in the filter object
-        let hash = FuzzyHash::new(&fr.text()).to_string();
-
-        let filter = SimilarityFilter {
-            text: hash,
-            threshold: SIMILARITY_THRESHOLD,
-        };
+        let filter = skip_fail!(create_similarity_filter(similarity_filter, handles.clone()).await);
 
         let boxed_filter = Box::new(filter);
         skip_fail!(handles.filters.send(AddFilter(boxed_filter)));

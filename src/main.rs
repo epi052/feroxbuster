@@ -247,7 +247,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         let from_here = config.resume_from.clone();
 
         // populate FeroxScans object with previously seen scans
-        scanned_urls.add_serialized_scans(&from_here)?;
+        scanned_urls.add_serialized_scans(&from_here, handles.clone())?;
 
         // populate Stats object with previously known statistics
         handles.stats.send(LoadStats(from_here))?;

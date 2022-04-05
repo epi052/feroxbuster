@@ -8,6 +8,8 @@ use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
+use crate::filters::{create_similarity_filter, SimilarityFilter};
+use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
         Command::{AddError, AddToF64Field, AddToUsizeField, SubtractFromUsizeField},
@@ -62,6 +64,33 @@ async fn check_for_user_input(
                         .send(SubtractFromUsizeField(TotalExpected, num_canx))
                         .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {}", e));
                 }
+            }
+            Some(MenuCmdResult::Filter(mut filter)) => {
+                let url = if let Some(SimilarityFilter { hash, threshold: _ }) =
+                    filter.as_any().downcast_ref::<SimilarityFilter>()
+                {
+                    hash.to_owned()
+                } else {
+                    String::new()
+                };
+
+                if !url.is_empty() {
+                    // filter was a SimilarityFilter and now we have a url to request.
+                    //
+                    // The reason for this janky structure is that `filter.as_any().downcast_ref`
+                    // isn't Send so we can't call create_similarity_filter(...).await, within
+                    // the if let Some ipso-facto, janky code /shrug
+                    let real_filter = create_similarity_filter(&url, handles.clone())
+                        .await
+                        .unwrap_or_default();
+
+                    filter = Box::new(real_filter)
+                }
+
+                handles
+                    .filters
+                    .send(AddFilter(filter))
+                    .unwrap_or_else(|e| log::warn!("Could not add new filter: {}", e));
             }
             _ => {}
         }

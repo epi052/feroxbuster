@@ -3,13 +3,23 @@ use ::regex::Regex;
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on a given regular
 /// expression; specified using -X|--filter-regex
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct RegexFilter {
     /// Regular expression to be applied to the response body for filtering, compiled
+    #[serde(with = "serde_regex")]
     pub compiled: Regex,
 
     /// Regular expression as passed in on the command line, not compiled
     pub raw_string: String,
+}
+
+impl Default for RegexFilter {
+    fn default() -> Self {
+        Self {
+            compiled: Regex::new("").unwrap(),
+            raw_string: String::new(),
+        }
+    }
 }
 
 /// implementation of FeroxFilter for RegexFilter
