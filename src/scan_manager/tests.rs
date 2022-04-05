@@ -1,5 +1,8 @@
 use super::*;
-use crate::filters::FeroxFilters;
+use crate::filters::{
+    FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+    WordsFilter,
+};
 use crate::{
     config::{Configuration, OutputLevel},
     event_handlers::Handles,
@@ -7,10 +10,11 @@ use crate::{
     scanner::RESPONSES,
     statistics::Stats,
     traits::FeroxSerialize,
-    SLEEP_DURATION, VERSION,
+    SIMILARITY_THRESHOLD, SLEEP_DURATION, VERSION,
 };
 use indicatif::ProgressBar;
 use predicates::prelude::*;
+use regex::Regex;
 use std::sync::{atomic::Ordering, Arc};
 use std::thread::sleep;
 use std::time::Instant;
@@ -371,14 +375,40 @@ fn feroxstates_feroxserialize_implementation() {
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
     RESPONSES.insert(response);
 
-    let filters = Arc::new(FeroxFilters::default());
+    let filters = FeroxFilters::default();
+    filters
+        .push(Box::new(StatusCodeFilter { filter_code: 100 }))
+        .unwrap();
+    filters
+        .push(Box::new(WordsFilter { word_count: 200 }))
+        .unwrap();
+    filters
+        .push(Box::new(SizeFilter {
+            content_length: 300,
+        }))
+        .unwrap();
+    filters
+        .push(Box::new(LinesFilter { line_count: 400 }))
+        .unwrap();
+    filters
+        .push(Box::new(RegexFilter {
+            raw_string: ".*".to_string(),
+            compiled: Regex::new(".*").unwrap(),
+        }))
+        .unwrap();
+    filters
+        .push(Box::new(SimilarityFilter {
+            hash: "3:YKEpn:Yfp".to_string(),
+            threshold: SIMILARITY_THRESHOLD,
+        }))
+        .unwrap();
 
     let ferox_state = FeroxState::new(
         Arc::new(ferox_scans),
         Arc::new(config),
         &RESPONSES,
         stats,
-        filters,
+        Arc::new(filters),
     );
 
     let expected_strs = predicates::str::contains("scans: FeroxScans").and(
@@ -466,6 +496,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""collect_extensions":true"#,
         r#""collect_backups":false"#,
         r#""collect_words":false"#,
+        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":"3:YKEpn:Yfp","threshold":95}]"#,
         r#""collected_extensions":["php"]"#,
         r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
     ]

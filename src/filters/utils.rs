@@ -113,6 +113,7 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Configuration;
     use crate::filters::{LinesFilter, RegexFilter, SizeFilter, StatusCodeFilter, WordsFilter};
     use crate::scan_manager::FeroxScans;
     use httpmock::Method::GET;
@@ -177,10 +178,18 @@ mod tests {
             when.method(GET).path("/");
             then.status(200).body("this is a test");
         });
-        let scans = FeroxScans::default();
-        let test_handles = Handles::for_testing(Some(Arc::new(scans)), None).0;
 
-        let filter = create_similarity_filter(&srv.url("/"), Arc::new(test_handles))
+        let scans = FeroxScans::default();
+        let config = Configuration {
+            collect_extensions: true,
+            ..Default::default()
+        };
+
+        let (test_handles, _) = Handles::for_testing(Some(Arc::new(scans)), Some(Arc::new(config)));
+
+        let handles = Arc::new(test_handles);
+
+        let filter = create_similarity_filter(&srv.url("/"), handles.clone())
             .await
             .unwrap();
 
