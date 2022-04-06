@@ -45,7 +45,7 @@ openssl = { version = "0.10.38", features = ["vendored"] }
 dirs = "4.0.0"
 regex = "1.5.5"
 crossterm = "0.23.1"
-rlimit = "0.8.1"
+rlimit = "0.8.2"
 ctrlc = "3.2.1"
 fuzzyhash = "0.2.1"
 anyhow = "1.0.56"

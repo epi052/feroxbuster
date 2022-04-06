@@ -1934,9 +1934,9 @@ dependencies = [
 
 [[package]]
 name = "rlimit"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fbcc6f9672090a4060a6de8d0fb2d4acd381363cda5b7049a26e2b32464f8ad"
+checksum = "781bb6e6b15411557739c7ed12d2f259b0b7412230d177364b4d648872deac75"
 dependencies = [
  "libc",
 ]
