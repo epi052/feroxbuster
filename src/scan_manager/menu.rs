@@ -9,13 +9,16 @@ use regex::Regex;
 #[derive(Debug)]
 pub enum MenuCmd {
     /// user wants to add a url to be scanned
-    Add(String),
+    AddUrl(String),
 
     /// user wants to cancel one or more active scans
     Cancel(Vec<usize>, bool),
 
     /// user wants to create a new filter
-    NewFilter(Box<dyn FeroxFilter>),
+    AddFilter(Box<dyn FeroxFilter>),
+
+    /// user wants to remove one or more active filters
+    RemoveFilter(Vec<usize>),
 }
 
 /// Data container for a command result to be used internally by the ferox_scanner
@@ -39,6 +42,9 @@ pub(super) struct Menu {
 
     /// footer: instructions surrounded by separators
     footer: String,
+
+    /// unicode line border, matched to longest displayed line
+    border: String,
 
     /// target for output
     pub(super) term: Term,
@@ -74,13 +80,13 @@ impl Menu {
 
         let new_filter_cmd = format!(
             "  {}[{}] FILTER_TYPE FILTER_VALUE (ex: {} lines 40)\n",
-            style("n").yellow(),
-            style("ew-filter").yellow(),
-            style("n").yellow(),
+            style("n").green(),
+            style("ew-filter").green(),
+            style("n").green(),
         );
 
         let valid_filters = format!(
-            "    FILTER_TYPEs: {}, {}, {}, {}, {}, {}",
+            "    FILTER_TYPEs: {}, {}, {}, {}, {}, {}\n",
             style("status").yellow(),
             style("lines").yellow(),
             style("size").yellow(),
@@ -89,11 +95,20 @@ impl Menu {
             style("similarity").yellow()
         );
 
-        let mut commands = String::from("Commands:\n");
+        let rm_filter_cmd = format!(
+            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)",
+            style("r").red(),
+            style("m-filter").red(),
+            style("rm-filter").red(),
+            style("r").red(),
+        );
+
+        let mut commands = format!("{}:\n", style("Commands").bright().blue());
         commands.push_str(&add_cmd);
         commands.push_str(&canx_cmd);
         commands.push_str(&new_filter_cmd);
         commands.push_str(&valid_filters);
+        commands.push_str(&rm_filter_cmd);
 
         let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name));
 
@@ -102,11 +117,12 @@ impl Menu {
         let padded_name = pad_str(&name, longest, Alignment::Center, None);
 
         let header = format!("{}\n{}\n{}", border, padded_name, border);
-        let footer = format!("{}\n{}\n{}", border, commands, border);
+        let footer = format!("{}\n{}", commands, border);
 
         Self {
             header,
             footer,
+            border,
             term: Term::stderr(),
         }
     }
@@ -114,6 +130,11 @@ impl Menu {
     /// print menu header
     pub(super) fn print_header(&self) {
         self.println(&self.header);
+    }
+
+    /// print menu unicode border line
+    pub(super) fn print_border(&self) {
+        self.println(&self.border);
     }
 
     /// print menu footer
@@ -225,7 +246,7 @@ impl Menu {
                 let re = Regex::new(r"^[aA][dD]*").unwrap();
                 let line = re.replace(line, "").to_string().trim().to_string();
 
-                Some(MenuCmd::Add(line))
+                Some(MenuCmd::AddUrl(line))
             }
             'n' => {
                 // new filter command
@@ -238,11 +259,26 @@ impl Menu {
                         // have a string in the filter_value position
                         if let Some(result) = filter_lookup(filter_type, filter_value) {
                             // lookup was successful, return the new filter
-                            return Some(MenuCmd::NewFilter(result));
+                            return Some(MenuCmd::AddFilter(result));
                         }
                     }
                 }
                 None
+            }
+            'r' => {
+                // remove filter command
+
+                // remove r[m-filter] from the command so it can be passed to the number
+                // splitter
+                let re = Regex::new(r"^[rR][mfilterMFILTER-]*").unwrap();
+                // we don't respect a -f or lack thereof in this command, but in case the user
+                // doesn't realize / thinks its the same as cancel -f, just remove it
+                let line = line.replace("-f", "");
+                let line = re.replace(&line, "").to_string();
+
+                let indices = self.split_to_nums(&line);
+
+                Some(MenuCmd::RemoveFilter(indices))
             }
             _ => {
                 // invalid input

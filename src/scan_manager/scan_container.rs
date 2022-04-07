@@ -6,7 +6,6 @@ use crate::filters::{
     WildcardFilter, WordsFilter,
 };
 use crate::traits::FeroxFilter;
-use crate::utils::{create_report_string, ferox_print};
 use crate::Command::AddFilter;
 use crate::{
     config::OutputLevel,
@@ -15,7 +14,7 @@ use crate::{
     scan_manager::{MenuCmd, MenuCmdResult},
     scanner::RESPONSES,
     traits::FeroxSerialize,
-    SLEEP_DURATION,
+    Command, SLEEP_DURATION,
 };
 use anyhow::Result;
 use console::style;
@@ -309,6 +308,8 @@ impl FeroxScans {
                 .clone()
         };
 
+        let mut printed = 0;
+
         for (i, scan) in scans.iter().enumerate() {
             if matches!(scan.scan_order, ScanOrder::Initial) || scan.task.try_lock().is_err() {
                 // original target passed in via either -u or --stdin
@@ -316,11 +317,20 @@ impl FeroxScans {
             }
 
             if matches!(scan.scan_type, ScanType::Directory) {
+                if printed == 0 {
+                    self.menu
+                        .println(&format!("{}:", style("Scans").bright().blue()));
+                }
                 // we're only interested in displaying directory scans, as those are
                 // the only ones that make sense to be stopped
                 let scan_msg = format!("{:3}: {}", i, scan);
                 self.menu.println(&scan_msg);
+                printed += 1;
             }
+        }
+
+        if printed > 0 {
+            self.menu.print_border();
         }
     }
 
@@ -372,12 +382,34 @@ impl FeroxScans {
         num_cancelled
     }
 
+    fn display_filters(&self, handles: Arc<Handles>) {
+        let mut printed = 0;
+
+        if let Ok(guard) = handles.filters.data.filters.read() {
+            for (i, filter) in guard.iter().enumerate() {
+                if i == 0 {
+                    self.menu
+                        .println(&format!("{}:", style("Filters").bright().blue()));
+                }
+
+                let filter_msg = format!("{:3}: {}", i + 1, filter);
+                self.menu.println(&filter_msg);
+                printed += 1;
+            }
+
+            if printed > 0 {
+                self.menu.print_border();
+            }
+        }
+    }
+
     /// CLI menu that allows for interactive cancellation of recursed-into directories
-    async fn interactive_menu(&self) -> Option<MenuCmdResult> {
+    async fn interactive_menu(&self, handles: Arc<Handles>) -> Option<MenuCmdResult> {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
         self.display_scans().await;
+        self.display_filters(handles.clone());
         self.menu.print_footer();
 
         let menu_cmd = if let Ok(line) = self.menu.term.read_line() {
@@ -392,11 +424,17 @@ impl FeroxScans {
                 let num_cancelled = self.cancel_scans(indices, should_force).await;
                 Some(MenuCmdResult::NumCancelled(num_cancelled))
             }
-            Some(MenuCmd::Add(url)) => Some(MenuCmdResult::Url(url)),
-            Some(MenuCmd::NewFilter(filter)) => Some(MenuCmdResult::Filter(filter)),
+            Some(MenuCmd::AddUrl(url)) => Some(MenuCmdResult::Url(url)),
+            Some(MenuCmd::AddFilter(filter)) => Some(MenuCmdResult::Filter(filter)),
+            Some(MenuCmd::RemoveFilter(indices)) => {
+                handles
+                    .filters
+                    .send(Command::RemoveFilters(indices))
+                    .unwrap_or_default();
+                None
+            }
             None => None,
         };
-        log::error!("{}", format!("{:?}", result)); // todo remove
 
         self.menu.clear_screen();
         self.menu.show_progress_bars();
@@ -449,7 +487,11 @@ impl FeroxScans {
     ///
     /// When the value stored in `PAUSE_SCAN` becomes `false`, the function returns, exiting the busy
     /// loop
-    pub async fn pause(&self, get_user_input: bool) -> Option<MenuCmdResult> {
+    pub async fn pause(
+        &self,
+        get_user_input: bool,
+        handles: Arc<Handles>,
+    ) -> Option<MenuCmdResult> {
         // function uses tokio::time, not std
 
         // local testing showed a pretty slow increase (less than linear) in CPU usage as # of
@@ -461,30 +503,9 @@ impl FeroxScans {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                command_result = self.interactive_menu().await;
+                command_result = self.interactive_menu(handles).await;
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
                 self.print_known_responses();
-
-                if let Some(MenuCmdResult::Filter(_)) = command_result {
-                    // adding/cancelling a url has immediate visual cues, whereas adding a filter
-                    // does not. in order to print this message below already found urls, we need
-                    // to postpone printing until after the call to `self.print_known_responses`
-                    let colored = format!(
-                        "New {} successfully {}!",
-                        style("filter").bright().blue(),
-                        style("created").green()
-                    );
-                    let msg = create_report_string(
-                        &style("MSG").bright().blue().to_string(),
-                        "-",
-                        "-",
-                        "-",
-                        "-",
-                        &colored,
-                        OutputLevel::Default,
-                    );
-                    ferox_print(&msg, &PROGRESS_PRINTER);
-                }
             }
         }
 

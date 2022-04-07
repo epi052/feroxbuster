@@ -90,6 +90,7 @@ impl FiltersHandler {
                         self.data.push(filter)?;
                     }
                 }
+                Command::RemoveFilters(mut indices) => self.data.remove(&mut indices),
                 Command::Sync(sender) => {
                     log::debug!("filters: {:?}", self);
                     sender.send(true).unwrap_or_default();
@@ -128,7 +129,7 @@ mod tests {
         event_handle.send(Command::Sync(tx)).unwrap();
         rx.await.unwrap();
 
-        assert!(event_handle.data.filters.lock().unwrap().is_empty());
+        assert!(event_handle.data.filters.read().unwrap().is_empty());
 
         event_handle
             .send(Command::AddFilter(Box::new(WordsFilter { word_count: 1 })))
@@ -138,6 +139,6 @@ mod tests {
         event_handle.send(Command::Sync(tx)).unwrap();
         rx.await.unwrap();
 
-        assert_eq!(event_handle.data.filters.lock().unwrap().len(), 1);
+        assert_eq!(event_handle.data.filters.read().unwrap().len(), 1);
     }
 }

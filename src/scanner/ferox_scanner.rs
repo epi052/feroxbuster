@@ -8,7 +8,7 @@ use indicatif::ProgressBar;
 use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
-use crate::filters::{create_similarity_filter, SimilarityFilter};
+use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
 use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
@@ -49,7 +49,7 @@ async fn check_for_user_input(
 
     // todo write a test or two for this function at some point...
     if pause_flag.load(Ordering::Acquire) {
-        match scanned_urls.pause(true).await {
+        match scanned_urls.pause(true, handles.clone()).await {
             Some(MenuCmdResult::Url(url)) => {
                 // user wants to add a new url to be scanned, need to send
                 // it over to the event handler for processing
@@ -66,10 +66,10 @@ async fn check_for_user_input(
                 }
             }
             Some(MenuCmdResult::Filter(mut filter)) => {
-                let url = if let Some(SimilarityFilter { hash, threshold: _ }) =
+                let url = if let Some(SimilarityFilter { original_url, .. }) =
                     filter.as_any().downcast_ref::<SimilarityFilter>()
                 {
-                    hash.to_owned()
+                    original_url.to_owned()
                 } else {
                     String::new()
                 };
@@ -84,7 +84,12 @@ async fn check_for_user_input(
                         .await
                         .unwrap_or_default();
 
-                    filter = Box::new(real_filter)
+                    if real_filter.original_url.is_empty() {
+                        // failed to create filter
+                        filter = Box::new(EmptyFilter {});
+                    } else {
+                        filter = Box::new(real_filter)
+                    }
                 }
 
                 handles

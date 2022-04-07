@@ -43,6 +43,9 @@ pub enum Command {
     /// Add a `FeroxFilter` implementor to `FilterHandler`'s instance of `FeroxFilters`
     AddFilter(Box<dyn FeroxFilter>),
 
+    /// Remove a set of `FeroxFilter` implementors from `FeroxFilters` by index
+    RemoveFilters(Vec<usize>),
+
     /// Send a `FeroxResponse` to the output handler for reporting
     Report(Box<FeroxResponse>),
 
