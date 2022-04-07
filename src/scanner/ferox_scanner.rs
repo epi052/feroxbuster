@@ -9,8 +9,6 @@ use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
 use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
-use crate::progress::PROGRESS_PRINTER;
-use crate::utils::ferox_print;
 use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
@@ -85,10 +83,7 @@ async fn check_for_user_input(
                     let real_filter = create_similarity_filter(&url, handles.clone())
                         .await
                         .unwrap_or_default();
-                    ferox_print(
-                        &format!("real filter: {:?}", real_filter),
-                        &PROGRESS_PRINTER,
-                    );
+
                     if real_filter.original_url.is_empty() {
                         // failed to create filter
                         filter = Box::new(EmptyFilter {});

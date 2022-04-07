@@ -34,6 +34,11 @@ impl FeroxFilters {
         Ok(())
     }
 
+    /// remove items from the underlying collection by their index
+    ///
+    /// note: indexes passed in should be index-to-remove+1. This is built for the scan mgt menu
+    ///       so indexes aren't 0-based whehn the user enters them.
+    ///       
     pub fn remove(&self, indices: &mut [usize]) {
         // since we're removing by index, indices must be sorted and then reversed.
         // this allows us to iterate over the collection from the rear, allowing any shifting
