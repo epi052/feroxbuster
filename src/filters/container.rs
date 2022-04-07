@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use anyhow::Result;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
@@ -17,14 +17,14 @@ use super::{
 #[derive(Debug, Default)]
 pub struct FeroxFilters {
     /// collection of `FeroxFilters`
-    pub filters: Mutex<Vec<Box<dyn FeroxFilter>>>,
+    pub filters: RwLock<Vec<Box<dyn FeroxFilter>>>,
 }
 
 /// implementation of FeroxFilter collection
 impl FeroxFilters {
     /// add a single FeroxFilter to the collection
     pub fn push(&self, filter: Box<dyn FeroxFilter>) -> Result<()> {
-        if let Ok(mut guard) = self.filters.lock() {
+        if let Ok(mut guard) = self.filters.write() {
             if guard.contains(&filter) {
                 return Ok(());
             }
@@ -34,6 +34,32 @@ impl FeroxFilters {
         Ok(())
     }
 
+    pub fn remove(&self, indices: &mut [usize]) {
+        // since we're removing by index, indices must be sorted and then reversed.
+        // this allows us to iterate over the collection from the rear, allowing any shifting
+        // of the vector to happen on sections that we no longer care about, as we're moving
+        // in the opposite direction
+        indices.sort_unstable();
+        indices.reverse();
+
+        if let Ok(mut guard) = self.filters.write() {
+            for index in indices {
+                // numbering of the menu starts at 1, so we'll need to reduce the index by 1
+                // to account for that. if they've provided 0 as an offset, we'll set the
+                // result to a gigantic number and skip it in the loop with a bounds check
+                let reduced_idx = index.checked_sub(1).unwrap_or(usize::MAX);
+
+                // check if number provided is out of range
+                if reduced_idx >= guard.len() {
+                    // usize can't be negative, just need to handle exceeding bounds
+                    continue;
+                }
+
+                guard.remove(reduced_idx);
+            }
+        }
+    }
+
     /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
     /// to the user or not.
     pub fn should_filter_response(
@@ -41,7 +67,7 @@ impl FeroxFilters {
         response: &FeroxResponse,
         tx_stats: CommandSender,
     ) -> bool {
-        if let Ok(filters) = self.filters.lock() {
+        if let Ok(filters) = self.filters.read() {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(response) {
@@ -63,7 +89,7 @@ impl Serialize for FeroxFilters {
     where
         S: Serializer,
     {
-        if let Ok(guard) = self.filters.lock() {
+        if let Ok(guard) = self.filters.read() {
             let mut seq = serializer.serialize_seq(Some(guard.len()))?;
 
             for filter in &*guard {

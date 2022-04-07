@@ -36,6 +36,7 @@ fn default_scantype_is_file() {
 async fn scanner_pause_scan_with_finished_spinner() {
     let now = time::Instant::now();
     let urls = FeroxScans::default();
+    let handles = Arc::new(Handles::for_testing(None, None).0);
 
     PAUSE_SCAN.store(true, Ordering::Relaxed);
 
@@ -46,7 +47,7 @@ async fn scanner_pause_scan_with_finished_spinner() {
         PAUSE_SCAN.store(false, Ordering::Relaxed);
     });
 
-    urls.pause(false).await;
+    urls.pause(false, handles).await;
 
     assert!(now.elapsed() > expected);
 }
@@ -400,6 +401,7 @@ fn feroxstates_feroxserialize_implementation() {
         .push(Box::new(SimilarityFilter {
             hash: "3:YKEpn:Yfp".to_string(),
             threshold: SIMILARITY_THRESHOLD,
+            original_url: "http://localhost:12345/".to_string(),
         }))
         .unwrap();
 
@@ -496,7 +498,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""collect_extensions":true"#,
         r#""collect_backups":false"#,
         r#""collect_words":false"#,
-        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":"3:YKEpn:Yfp","threshold":95}]"#,
+        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":"3:YKEpn:Yfp","threshold":95,"original_url":"http://localhost:12345/"}]"#,
         r#""collected_extensions":["php"]"#,
         r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
     ]
@@ -627,7 +629,7 @@ async fn ferox_scan_abort() {
 /// and their correctness can be verified easily manually; just calling for now
 fn menu_print_header_and_footer() {
     let menu = Menu::new();
-    let menu_cmd_1 = MenuCmd::Add(String::from("http://localhost"));
+    let menu_cmd_1 = MenuCmd::AddUrl(String::from("http://localhost"));
     let menu_cmd_2 = MenuCmd::Cancel(vec![0], false);
     let menu_cmd_res_1 = MenuCmdResult::Url(String::from("http://localhost"));
     let menu_cmd_res_2 = MenuCmdResult::NumCancelled(2);
@@ -682,9 +684,9 @@ fn menu_get_command_input_from_user_returns_add() {
 
         if cmd != "None" {
             let result = menu.get_command_input_from_user(&full_cmd).unwrap();
-            assert!(matches!(result, MenuCmd::Add(_)));
+            assert!(matches!(result, MenuCmd::AddUrl(_)));
 
-            if let MenuCmd::Add(url) = result {
+            if let MenuCmd::AddUrl(url) = result {
                 assert_eq!(url, test_url);
             }
         } else {

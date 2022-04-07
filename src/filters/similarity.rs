@@ -10,6 +10,9 @@ pub struct SimilarityFilter {
 
     /// Percentage of similarity at which a page is determined to be a near-duplicate of another
     pub threshold: u32,
+
+    /// Url originally requested for the similarity filter
+    pub original_url: String,
 }
 
 /// implementation of FeroxFilter for SimilarityFilter

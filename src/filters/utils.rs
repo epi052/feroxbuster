@@ -46,6 +46,7 @@ pub(crate) async fn create_similarity_filter(
     Ok(SimilarityFilter {
         hash,
         threshold: SIMILARITY_THRESHOLD,
+        original_url: similarity_filter.to_string(),
     })
 }
 
@@ -94,13 +95,9 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
         }
         "similarity" => {
             return Some(Box::new(SimilarityFilter {
-                // bastardizing the hash field to pass back a url, this means that a caller
-                // of this function needs to turn the url into a hash. This is a workaround for
-                // wanting to call this this function from menu.rs but not having access to
-                // a Handles instance. So, we pass things back up into ferox_scanner.rs and use the
-                // Handles there to make the actual request.
-                hash: filter_value.to_string(),
+                hash: String::new(),
                 threshold: SIMILARITY_THRESHOLD,
+                original_url: filter_value.to_string(),
             }));
         }
         _ => (),
@@ -109,7 +106,6 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
     None
 }
 
-// todo add tests
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,8 +157,9 @@ mod tests {
         assert_eq!(
             filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
             &SimilarityFilter {
-                hash: "http://localhost".to_string(),
-                threshold: SIMILARITY_THRESHOLD
+                hash: String::new(),
+                threshold: SIMILARITY_THRESHOLD,
+                original_url: "http://localhost".to_string()
             }
         );
 
@@ -199,7 +196,8 @@ mod tests {
             filter,
             SimilarityFilter {
                 hash: "3:YKEpn:Yfp".to_string(),
-                threshold: SIMILARITY_THRESHOLD
+                threshold: SIMILARITY_THRESHOLD,
+                original_url: srv.url("/")
             }
         );
     }

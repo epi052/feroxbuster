@@ -188,6 +188,7 @@ fn similarity_filter_is_accurate() {
     let mut filter = SimilarityFilter {
         hash: FuzzyHash::new("kitten").to_string(),
         threshold: 95,
+        original_url: "".to_string(),
     };
 
     // kitten/sitting is 57% similar, so a threshold of 95 should not be filtered
@@ -213,11 +214,13 @@ fn similarity_filter_as_any() {
     let filter = SimilarityFilter {
         hash: String::from("stuff"),
         threshold: 95,
+        original_url: "".to_string(),
     };
 
     let filter2 = SimilarityFilter {
         hash: String::from("stuff"),
         threshold: 95,
+        original_url: "".to_string(),
     };
 
     assert!(filter.box_eq(filter2.as_any()));
@@ -227,4 +230,40 @@ fn similarity_filter_as_any() {
         *filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
         filter
     );
+}
+
+#[test]
+/// test correctness of FeroxFilters::remove
+fn remove_function_works_as_expected() {
+    let data = FeroxFilters::default();
+    assert!(data.filters.read().unwrap().is_empty());
+
+    (0..8).for_each(|i| {
+        data.push(Box::new(WordsFilter { word_count: i })).unwrap();
+    });
+
+    // remove removes index-1 from the vec, zero is skipped, and out-of-bounds indices are skipped
+    data.remove(&mut [0]);
+    assert_eq!(data.filters.read().unwrap().len(), 8);
+
+    data.remove(&mut [10000]);
+    assert_eq!(data.filters.read().unwrap().len(), 8);
+
+    // removing 0, 2, 4
+    data.remove(&mut [1, 3, 5]);
+
+    assert_eq!(data.filters.read().unwrap().len(), 5);
+
+    let expected = vec![
+        WordsFilter { word_count: 1 },
+        WordsFilter { word_count: 3 },
+        WordsFilter { word_count: 5 },
+        WordsFilter { word_count: 6 },
+        WordsFilter { word_count: 7 },
+    ];
+
+    for filter in data.filters.read().unwrap().iter() {
+        let downcast = filter.as_any().downcast_ref::<WordsFilter>().unwrap();
+        assert!(expected.contains(downcast));
+    }
 }

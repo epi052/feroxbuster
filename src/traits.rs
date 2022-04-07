@@ -1,9 +1,14 @@
 //! collection of all traits used
+use crate::filters::{
+    LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
+    WordsFilter,
+};
 use crate::response::FeroxResponse;
 use anyhow::Result;
+use crossterm::style::{style, Stylize};
 use serde::Serialize;
 use std::any::Any;
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Display, Formatter};
 
 // references:
 //   https://dev.to/magnusstrale/rust-trait-objects-in-a-vector-non-trivial-4co5
@@ -20,6 +25,36 @@ pub trait FeroxFilter: Debug + Send + Sync {
 
     /// gives us `other` as Any in box_eq
     fn as_any(&self) -> &dyn Any;
+}
+
+impl Display for dyn FeroxFilter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        if let Some(filter) = self.as_any().downcast_ref::<LinesFilter>() {
+            write!(f, "Line count: {}", style(filter.line_count).cyan())
+        } else if let Some(filter) = self.as_any().downcast_ref::<WordsFilter>() {
+            write!(f, "Word count: {}", style(filter.word_count).cyan())
+        } else if let Some(filter) = self.as_any().downcast_ref::<SizeFilter>() {
+            write!(f, "Response size: {}", style(filter.content_length).cyan())
+        } else if let Some(filter) = self.as_any().downcast_ref::<RegexFilter>() {
+            write!(f, "Regex: {}", style(&filter.raw_string).cyan())
+        } else if let Some(filter) = self.as_any().downcast_ref::<WildcardFilter>() {
+            if filter.dynamic != u64::MAX {
+                write!(f, "Dynamic wildcard: {}", style(filter.dynamic).cyan())
+            } else {
+                write!(f, "Static wildcard: {}", style(filter.size).cyan())
+            }
+        } else if let Some(filter) = self.as_any().downcast_ref::<StatusCodeFilter>() {
+            write!(f, "Status code: {}", style(filter.filter_code).cyan())
+        } else if let Some(filter) = self.as_any().downcast_ref::<SimilarityFilter>() {
+            write!(
+                f,
+                "Pages similar to: {}",
+                style(&filter.original_url).cyan()
+            )
+        } else {
+            write!(f, "Filter: {:?}", self)
+        }
+    }
 }
 
 /// implementation of PartialEq, necessary long-form due to "trait cannot be made into an object"
