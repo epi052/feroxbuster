@@ -146,7 +146,7 @@ pub async fn make_request(
 
     let mut request = client.request(Method::from_bytes(method.as_bytes())?, url.to_owned());
 
-    if (!config.proxy.is_empty() || config.replay_proxy.is_empty())
+    if (!config.proxy.is_empty() || !config.replay_proxy.is_empty())
         && data.is_none()
         && ["post", "put", "patch"].contains(&method.to_ascii_lowercase().as_str())
     {
