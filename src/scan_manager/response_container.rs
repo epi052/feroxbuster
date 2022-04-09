@@ -45,7 +45,7 @@ impl FeroxResponses {
     pub fn contains(&self, other: &FeroxResponse) -> bool {
         if let Ok(responses) = self.responses.read() {
             for response in responses.iter() {
-                if response.url() == other.url() {
+                if response.url() == other.url() && response.method() == other.method() {
                     return true;
                 }
             }
