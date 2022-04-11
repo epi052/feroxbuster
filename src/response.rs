@@ -279,7 +279,9 @@ impl FeroxResponse {
             if handles
                 .config
                 .status_codes
-                .contains(&self.status().as_u16())
+                .contains(&self.status().as_u16())  // in -s list
+                // or -C was used, and -s should be all responses that aren't filtered
+                || !handles.config.filter_status.is_empty()
             {
                 // only add extensions to those responses that pass our checks; filtered out
                 // status codes are handled by should_filter, but we need to still check against

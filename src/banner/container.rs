@@ -511,11 +511,12 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         writeln!(&mut writer, "{}", self.threads)?;
         writeln!(&mut writer, "{}", self.wordlist)?;
-        writeln!(&mut writer, "{}", self.status_codes)?;
 
-        if !config.filter_status.is_empty() {
-            // exception here for an optional print in the middle of always printed values is due
-            // to me wanting the allows and denys to be printed one after the other
+        if config.filter_status.is_empty() {
+            // -C and -s are mutually exclusive, and -s meaning changes when -C is used
+            // so only print one or the other
+            writeln!(&mut writer, "{}", self.status_codes)?;
+        } else {
             writeln!(&mut writer, "{}", self.filter_status)?;
         }
 
