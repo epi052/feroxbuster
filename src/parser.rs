@@ -333,6 +333,7 @@ pub fn initialize() -> Command<'static> {
                 .multiple_values(true)
                 .multiple_occurrences(true)
                 .use_value_delimiter(true)
+                .conflicts_with("status_codes")
                 .help_heading("Response filters")
                 .help(
                     "Filter out status codes (deny list) (ex: -C 200 -C 401)",

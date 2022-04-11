@@ -236,7 +236,16 @@ impl TermOutHandler {
         log::trace!("enter: process_response({:?}, {:?})", resp, call_type);
 
         async move {
-            let contains_sentry = self.config.status_codes.contains(&resp.status().as_u16());
+            let contains_sentry = if !self.config.filter_status.is_empty() {
+                // -C was used, meaning -s was not and we should ignore the defaults
+                // https://github.com/epi052/feroxbuster/issues/535
+                // -C indicates that we should filter that status code, but allow all others
+                true
+            } else {
+                // -C wasn't used, so, we defer to checking the -s values
+                self.config.status_codes.contains(&resp.status().as_u16())
+            };
+
             let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
             let should_process_response = contains_sentry && unknown_sentry;
 
