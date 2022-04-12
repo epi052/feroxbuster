@@ -339,8 +339,6 @@ impl FeroxResponse {
     pub fn is_directory(&self) -> bool {
         log::trace!("enter: is_directory({})", self);
 
-        
-
         if self.status().is_redirection() {
             // status code is 3xx
             match self.headers().get("Location") {
