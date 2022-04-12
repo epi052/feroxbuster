@@ -8,7 +8,7 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use leaky_bucket::LeakyBucket;
 use tokio::{
-    sync::{oneshot, RwLock},
+    sync::RwLock,
     time::{sleep, Duration},
 };
 
@@ -16,7 +16,8 @@ use crate::{
     atomic_load, atomic_store,
     config::RequesterPolicy,
     event_handlers::{
-        Command::{self, AddError, SubtractFromUsizeField},
+        Command,
+        Command::{AddError, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
@@ -25,7 +26,7 @@ use crate::{
     scan_manager::{FeroxScan, ScanStatus},
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
-    utils::{logged_request, should_deny_url},
+    utils::{logged_request, send_try_recursion_command, should_deny_url},
     HIGH_ERROR_RATIO,
 };
 
@@ -385,7 +386,7 @@ impl Requester {
                     //
                     // this branch will retain the 'old' behavior by checking that
                     // --force-recursion isn't turned on
-                    self.send_try_recursion_command(ferox_response.clone())
+                    send_try_recursion_command(self.handles.clone(), ferox_response.clone())
                         .await?;
                 }
 
@@ -413,13 +414,16 @@ impl Requester {
                             .status_codes
                             .contains(&ferox_response.status().as_u16())
                         {
-                            self.send_try_recursion_command(ferox_response.clone())
-                                .await?;
+                            send_try_recursion_command(
+                                self.handles.clone(),
+                                ferox_response.clone(),
+                            )
+                            .await?;
                         }
                     } else {
                         // -C was used, that means the filters above would have removed
                         // those responses, and anything else should be let through
-                        self.send_try_recursion_command(ferox_response.clone())
+                        send_try_recursion_command(self.handles.clone(), ferox_response.clone())
                             .await?;
                     }
                 }
@@ -482,15 +486,6 @@ impl Requester {
         log::trace!("exit: request");
         Ok(())
     }
-
-    async fn send_try_recursion_command(&self, response: FeroxResponse) -> Result<()> {
-        self.handles
-            .send_scan_command(Command::TryRecursion(Box::new(response.clone())))?;
-        let (tx, rx) = oneshot::channel::<bool>();
-        self.handles.send_scan_command(Command::Sync(tx))?;
-        rx.await?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -542,10 +537,7 @@ mod tests {
     /// helper to stay DRY
     async fn increment_errors(handles: Arc<Handles>, scan: Arc<FeroxScan>, num_errors: usize) {
         for _ in 0..num_errors {
-            handles
-                .stats
-                .send(Command::AddError(StatError::Other))
-                .unwrap();
+            handles.stats.send(AddError(StatError::Other)).unwrap();
             scan.add_error();
         }
 
