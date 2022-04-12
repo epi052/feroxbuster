@@ -903,9 +903,9 @@ fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dy
     assert!(contents.contains("14"));
 
     assert_eq!(mock1.hits(), 2);
-    assert_eq!(mock2.hits(), 2);
-    assert_eq!(mock3.hits(), 2);
-    assert_eq!(mock4.hits(), 1);
+    assert_eq!(mock2.hits(), 1);
+    assert_eq!(mock3.hits(), 0);
+    assert_eq!(mock4.hits(), 0);
 
     teardown_tmp_directory(tmp_dir);
 
