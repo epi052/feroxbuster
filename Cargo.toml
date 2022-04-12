@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.6.4"
+version = "2.7.0"
 authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
 edition = "2021"
@@ -8,7 +8,13 @@ homepage = "https://github.com/epi052/feroxbuster"
 repository = "https://github.com/epi052/feroxbuster"
 description = "A fast, simple, recursive content discovery tool."
 categories = ["command-line-utilities"]
-keywords = ["pentest", "enumeration", "url-bruteforce", "content-discovery", "web"]
+keywords = [
+    "pentest",
+    "enumeration",
+    "url-bruteforce",
+    "content-discovery",
+    "web",
+]
 exclude = [".github/*", "img/*", "check-coverage.sh"]
 build = "build.rs"
 
@@ -49,7 +55,7 @@ rlimit = "0.8.3"
 ctrlc = "3.2.1"
 fuzzyhash = "0.2.1"
 anyhow = "1.0.56"
-leaky-bucket = "0.10.0"  # todo: upgrade, will take a little work/thought since api changed
+leaky-bucket = "0.10.0"                                         # todo: upgrade, will take a little work/thought since api changed
 
 [dev-dependencies]
 tempfile = "3.3.0"
@@ -67,9 +73,29 @@ section = "utility"
 license-file = ["LICENSE", "4"]
 conf-files = ["/etc/feroxbuster/ferox-config.toml"]
 assets = [
-    ["target/release/feroxbuster", "/usr/bin/", "755"],
-    ["ferox-config.toml.example", "/etc/feroxbuster/ferox-config.toml", "644"],
-    ["shell_completions/feroxbuster.bash", "/usr/share/bash-completion/completions/feroxbuster.bash", "644"],
-    ["shell_completions/feroxbuster.fish", "/usr/share/fish/completions/feroxbuster.fish", "644"],
-    ["shell_completions/_feroxbuster", "/usr/share/zsh/vendor-completions/_feroxbuster", "644"],
+    [
+        "target/release/feroxbuster",
+        "/usr/bin/",
+        "755",
+    ],
+    [
+        "ferox-config.toml.example",
+        "/etc/feroxbuster/ferox-config.toml",
+        "644",
+    ],
+    [
+        "shell_completions/feroxbuster.bash",
+        "/usr/share/bash-completion/completions/feroxbuster.bash",
+        "644",
+    ],
+    [
+        "shell_completions/feroxbuster.fish",
+        "/usr/share/fish/completions/feroxbuster.fish",
+        "644",
+    ],
+    [
+        "shell_completions/_feroxbuster",
+        "/usr/share/zsh/vendor-completions/_feroxbuster",
+        "644",
+    ],
 ]
