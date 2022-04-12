@@ -49,6 +49,7 @@ fn setup_config_test() -> Configuration {
             json = true
             save_state = false
             depth = 1
+            force_recursion = true
             filter_size = [4120]
             filter_regex = ["^ignore me$"]
             filter_similar = ["https://somesite.com/soft404"]
@@ -95,6 +96,7 @@ fn default_configuration() {
     assert!(config.save_state);
     assert!(!config.stdin);
     assert!(!config.add_slash);
+    assert!(!config.force_recursion);
     assert!(!config.redirects);
     assert!(!config.extract_links);
     assert!(!config.insecure);
@@ -206,6 +208,13 @@ fn config_reads_replay_proxy() {
 fn config_reads_silent() {
     let config = setup_config_test();
     assert!(config.silent);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_force_recursion() {
+    let config = setup_config_test();
+    assert!(config.force_recursion);
 }
 
 #[test]

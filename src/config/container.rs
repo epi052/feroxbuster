@@ -281,6 +281,10 @@ pub struct Configuration {
     /// Automatically discover important words from within responses and add them to the wordlist
     #[serde(default)]
     pub collect_words: bool,
+
+    /// override recursion logic to always attempt recursion, still respects --depth
+    #[serde(default)]
+    pub force_recursion: bool,
 }
 
 impl Default for Configuration {
@@ -329,6 +333,7 @@ impl Default for Configuration {
             collect_backups: false,
             collect_words: false,
             save_state: true,
+            force_recursion: false,
             proxy: String::new(),
             config: String::new(),
             output: String::new(),
@@ -405,6 +410,7 @@ impl Configuration {
     /// - **json**: `false`
     /// - **dont_filter**: `false` (auto filter wildcard responses)
     /// - **depth**: `4` (maximum recursion depth)
+    /// - **force_recursion**: `false` (still respects recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
     /// - **parallel**: `0` (no limit on parallel scans imposed)
     /// - **rate_limit**: `0` (no limit on requests per second imposed)
@@ -774,6 +780,10 @@ impl Configuration {
             config.json = true;
         }
 
+        if args.is_present("force_recursion") {
+            config.force_recursion = true;
+        }
+
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
@@ -942,6 +952,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.output, new.output, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
+        update_if_not_default!(&mut conf.force_recursion, new.force_recursion, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
         update_if_not_default!(&mut conf.methods, new.methods, Vec::<String>::new());

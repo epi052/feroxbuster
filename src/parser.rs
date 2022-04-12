@@ -428,6 +428,11 @@ pub fn initialize() -> Command<'static> {
                 .help_heading("Scan settings")
                 .help("Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)"),
         ).arg(
+            Arg::new("force_recursion")
+                .long("force-recursion")
+                .help_heading("Scan settings")
+                .help("Force recursion attempts on all 'found' endpoints (still respects recursion depth)"),
+        ).arg(
             Arg::new("extract_links")
                 .short('e')
                 .long("extract-links")

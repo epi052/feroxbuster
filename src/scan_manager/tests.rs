@@ -452,6 +452,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""quiet":false"#,
         r#""auto_bail":false"#,
         r#""auto_tune":false"#,
+        r#""force_recursion":false"#,
         r#""json":false"#,
         r#""output":"""#,
         r#""debug_log":"""#,

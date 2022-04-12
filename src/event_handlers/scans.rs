@@ -368,8 +368,8 @@ impl ScanHandler {
     async fn try_recursion(&mut self, response: Box<FeroxResponse>) -> Result<()> {
         log::trace!("enter: try_recursion({:?})", response,);
 
-        if !response.is_directory() {
-            // not a directory, quick exit
+        if !self.handles.config.force_recursion && !response.is_directory() {
+            // not a directory and --force-recursion wasn't used, quick exit
             return Ok(());
         }
 
