@@ -78,8 +78,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+      - name: Install cargo-deb
+        run: cargo install -f cargo-deb
       - name: Deb Build
-        uses: ebbflow-io/cargo-deb-amd64-ubuntu@1.0
+        run: cargo deb --target=x86_64-unknown-linux-musl
       - name: Upload Deb Artifact
         uses: actions/upload-artifact@v2
         with:
