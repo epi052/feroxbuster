@@ -16,7 +16,6 @@ use crate::{
     atomic_load, atomic_store,
     config::RequesterPolicy,
     event_handlers::{
-        Command,
         Command::{AddError, SubtractFromUsizeField},
         Handles,
     },
@@ -497,6 +496,7 @@ mod tests {
     use crate::{
         config::Configuration,
         config::OutputLevel,
+        event_handlers::Command::AddStatus,
         event_handlers::{FiltersHandler, ScanHandler, StatsHandler, Tasks, TermOutHandler},
         filters,
         scan_manager::{ScanOrder, ScanType},
@@ -574,7 +574,7 @@ mod tests {
         code: StatusCode,
     ) {
         for _ in 0..num_codes {
-            handles.stats.send(Command::AddStatus(code)).unwrap();
+            handles.stats.send(AddStatus(code)).unwrap();
             if code == StatusCode::FORBIDDEN {
                 scan.add_403();
             } else {

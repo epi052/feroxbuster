@@ -5,14 +5,13 @@ use anyhow::{Context, Result};
 use futures::future::{BoxFuture, FutureExt};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::statistics::StatField::TotalExpected;
 use crate::{
     config::Configuration,
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     scanner::RESPONSES,
     send_command, skip_fail,
-    statistics::StatField::ResourcesDiscovered,
+    statistics::StatField::{ResourcesDiscovered, TotalExpected},
     traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
     CommandReceiver, CommandSender, Joiner,
@@ -422,6 +421,7 @@ impl TermOutHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::event_handlers::Command;
 
     #[test]
     /// try to hit struct field coverage of FileOutHandler
@@ -441,12 +441,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         println!("{:?}", toh);
@@ -459,12 +461,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         let expected: Vec<_> = vec![
@@ -502,12 +506,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         let expected: Vec<_> = vec![
@@ -545,12 +551,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         let expected: Vec<_> = vec![
