@@ -675,7 +675,7 @@ EXAMPLES:
         cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Proxy traffic through Burp
-        ./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080
+        ./feroxbuster -u http://127.1 --burp
 
     Proxy traffic through a SOCKS proxy
         ./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050
