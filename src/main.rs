@@ -22,7 +22,9 @@ use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
     event_handlers::{
-        Command::{CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist},
+        Command::{
+            AddHandles, CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist,
+        },
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermInputHandler,
         TermOutHandler, SCAN_COMPLETE,
     },
@@ -220,6 +222,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     let (scan_task, scan_handle) = ScanHandler::initialize(handles.clone());
 
     handles.set_scan_handle(scan_handle); // must be done after Handles initialization
+    handles.output.send(AddHandles(handles.clone()))?;
 
     filters::initialize(handles.clone()).await?; // send user-supplied filters to the handler
 
