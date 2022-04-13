@@ -23,7 +23,7 @@ impl Document {
         document.number_of_terms += processed.len();
 
         for normalized in processed {
-            if normalized.len() > 2 {
+            if normalized.len() >= 2 {
                 document.add_term(&normalized)
             }
         }

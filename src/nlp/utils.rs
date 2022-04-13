@@ -38,19 +38,16 @@ fn normalize_case<'a, S: Into<Cow<'a, str>>>(input: S) -> Cow<'a, str> {
     }
 }
 
-/// remove ascii and some utf-8 punctuation characters from the given string
+/// replace ascii and some utf-8 punctuation characters with ' ' (space) in the given string
 fn remove_punctuation(text: &str) -> String {
-    // non-separator type chars can be replaced with an empty string, while separators are replaced
-    // with a space. This attempts to keep things like
-    // 'aboutblogfaqcontactpresstermslexicondisclosure' from happening
     text.replace(
         [
             '!', '\\', '"', '#', '$', '%', '&', '(', ')', '*', '+', ':', ';', '<', '=', '>', '?',
-            '@', '[', ']', '^', '{', '}', '|', '~', ',', '\'', '“', '”', '’', '‘', '’', '‘',
+            '@', '[', ']', '^', '{', '}', '|', '~', ',', '\'', '“', '”', '’', '‘', '’', '‘', '/',
+            '–', '—', '.',
         ],
-        "",
+        " ",
     )
-    .replace(['/', '–', '—', '.'], " ")
 }
 
 /// remove stop words from the given string
