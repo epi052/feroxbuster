@@ -430,6 +430,7 @@ pub fn initialize() -> Command<'static> {
         ).arg(
             Arg::new("force_recursion")
                 .long("force-recursion")
+                .conflicts_with("no_recursion")
                 .help_heading("Scan settings")
                 .help("Force recursion attempts on all 'found' endpoints (still respects recursion depth)"),
         ).arg(

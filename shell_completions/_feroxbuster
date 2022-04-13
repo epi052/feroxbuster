@@ -88,7 +88,7 @@ _feroxbuster() {
 '--insecure[Disables TLS certificate validation in the client]' \
 '-n[Do not scan recursively]' \
 '--no-recursion[Do not scan recursively]' \
-'--force-recursion[Force recursion attempts on all '\''found'\'' endpoints (still respects recursion depth)]' \
+'(-n --no-recursion)--force-recursion[Force recursion attempts on all '\''found'\'' endpoints (still respects recursion depth)]' \
 '-e[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
 '--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
