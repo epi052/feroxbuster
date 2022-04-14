@@ -7,7 +7,7 @@ jobs:
     name: LLVM Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - name: Install llvm-tools-preview
         run: rustup toolchain install stable --component llvm-tools-preview
       - name: Install cargo-llvm-cov
