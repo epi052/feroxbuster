@@ -12,10 +12,10 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - name: Update rust
-        run: rustup update
-      - name: Install llvm-tools-preview
-        run: rustup component add llvm-tools-preview
+      # - name: Update rust
+      #   run: rustup update
+      # - name: Install llvm-tools-preview
+      #   run: rustup component add llvm-tools-preview
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - uses: actions-rs/cargo@v1
