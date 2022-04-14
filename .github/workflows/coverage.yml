@@ -22,7 +22,7 @@ jobs:
         with:
           command: llvm-cov
           args: clean --workspace
-      - run: cargo llvm-cov --all-features --no-fail-fast --lcov --output-path lcov.info
+      - run: cargo llcargo llvm-cov  nextest  --all-features --no-fail-fast --lcov --output-path lcov.info -- --retries 10
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
