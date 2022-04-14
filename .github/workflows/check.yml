@@ -27,13 +27,9 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Install latest nextest release
-        uses: taiki-e/install-action@nextest
-      - name: Test with latest nextest release
-        uses: actions-rs/cargo@v1
+      - uses: actions-rs/cargo@v1
         with:
-          command: nextest
-          args: run --all-targets --all-features
+          command: test
 
   fmt:
     name: Rust fmt
@@ -65,4 +61,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-targets --all-features -- -D warnings
+          args: --all-targets --all-features -- -D warnings -A clippy::deref_addrof -A clippy::mutex-atomic
