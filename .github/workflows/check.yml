@@ -22,11 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+      # - uses: actions-rs/toolchain@v1
+      #   with:
+      #     profile: minimal
+      #     override: true
       - name: Install latest nextest release
         uses: taiki-e/install-action@nextest
       - name: Test with latest nextest release
