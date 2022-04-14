@@ -263,6 +263,8 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
         .arg("--dont-filter")
         .unwrap();
 
+    teardown_tmp_directory(tmp_dir);
+
     assert_eq!(mock.hits(), 0);
     Ok(())
 }
