@@ -8,21 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      # - name: Update rust
-      #   run: rustup update
       - name: Install llvm-tools-preview
-        run: rustup component add llvm-tools-preview --toolchain nightly-x86_64-unknown-linux-gnu
+        run: rustup toolchain install stable --component llvm-tools-preview
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: actions-rs/cargo@v1
-        with:
-          command: llvm-cov
-          args: clean --workspace
-      - run: cargo llvm-cov  nextest  --all-features --no-fail-fast --lcov --output-path lcov.info -- --retries 10
+      - name: Generate code coverage
+        run: cargo llvm-cov  nextest  --all-features --no-fail-fast --lcov --output-path lcov.info -- --retries 10
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
