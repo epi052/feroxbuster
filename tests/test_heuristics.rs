@@ -305,6 +305,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards() {
             .and(predicate::str::contains("Got"))
             .and(predicate::str::contains("200"))
             .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("(url length: 96)"))
             .and(predicate::str::contains(
                 "Wildcard response is static; auto-filtering 46",
             )),
@@ -394,12 +395,14 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
     assert!(contents.contains("Got"));
     assert!(contents.contains("200"));
     assert!(contents.contains("(url length: 32)"));
+    assert!(contents.contains("(url length: 96)"));
 
     cmd.assert().success().stdout(
         predicate::str::contains("WLD")
             .and(predicate::str::contains("Got"))
             .and(predicate::str::contains("200"))
             .and(predicate::str::contains("(url length: 32)"))
+            .and(predicate::str::contains("(url length: 96)"))
             .and(predicate::str::contains(
                 "Wildcard response is static; auto-filtering 46",
             )),
@@ -448,10 +451,10 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
 
     teardown_tmp_directory(tmp_dir);
 
-    println!("contents: {}", contents);
-
     assert!(contents.contains("WLD"));
     assert!(contents.contains("301"));
+    assert!(contents.contains("/some-redirect"));
+    assert!(contents.contains(" => "));
     assert!(contents.contains(&srv.url("/")));
     assert!(contents.contains("(url length: 32)"));
 
