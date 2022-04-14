@@ -83,7 +83,10 @@ mod tests {
     fn test_remove_punctuation() {
         let tester = "!\\\"#$%&()*+/:;<=>?@[]^{}|~,.'“”’‘–—\n‘’";
         // the `"    \n"` is because of the things like / getting replaced with a space
-        assert_eq!(remove_punctuation(tester), "                                   \n  ");
+        assert_eq!(
+            remove_punctuation(tester),
+            "                                   \n  "
+        );
     }
 
     #[test]
