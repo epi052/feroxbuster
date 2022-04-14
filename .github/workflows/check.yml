@@ -22,17 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # - uses: actions-rs/toolchain@v1
-      #   with:
-      #     profile: minimal
-      #     override: true
-      - name: Install latest nextest release
-        uses: taiki-e/install-action@nextest
-      - name: Test with latest nextest release
-        uses: actions-rs/cargo@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          command: nextest
-          args: run --all-targets --all-features
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
 
   fmt:
     name: Rust fmt
@@ -64,4 +61,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-targets --all-features -- -D warnings
+          args: --all-targets --all-features -- -D warnings -A clippy::deref_addrof -A clippy::mutex-atomic
