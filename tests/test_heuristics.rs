@@ -481,4 +481,4 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
 //     Ok(())
 // }
 
-// todo figure out why ci hates these tests 
+// todo figure out why ci hates these tests

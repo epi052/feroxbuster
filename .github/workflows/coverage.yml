@@ -3,7 +3,8 @@ on: [push]
 name: Code Coverage Pipeline
 
 jobs:
-  upload-coverage:
+  coverage:
+    name: LLVM Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -11,34 +12,20 @@ jobs:
         with:
           toolchain: nightly
           override: true
+      - name: Update rust
+        run: rustup update
+      - name: Install llvm-tools-preview
+        run: rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
       - uses: actions-rs/cargo@v1
         with:
-          command: clean
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all-features --no-fail-fast
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort'
-          RUSTDOCFLAGS: '-Cpanic=abort'
-      - uses: actions-rs/grcov@v0.1
-      - uses: actions/upload-artifact@v2
-        with:
-          name: lcov.info
-          path: lcov.info
-      - name: Convert lcov to xml
-        run: |
-          curl -O https://raw.githubusercontent.com/eriwen/lcov-to-cobertura-xml/master/lcov_cobertura/lcov_cobertura.py
-          chmod +x lcov_cobertura.py
-          ./lcov_cobertura.py ./lcov.info
-      - uses: codecov/codecov-action@v1
+          command: llvm-cov
+          args: clean --workspace
+      - run: cargo llvm-cov --all-features --no-fail-fast --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.xml
-          name: codecov-umbrella
+          files: lcov.info
           fail_ci_if_error: true
-      - uses: actions/upload-artifact@v2
-        with:
-          name: coverage.xml
-          path: ./coverage.xml
