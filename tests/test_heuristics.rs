@@ -448,6 +448,8 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
 
     teardown_tmp_directory(tmp_dir);
 
+    println!("contents: {}", contents);
+
     assert!(contents.contains("WLD"));
     assert!(contents.contains("301"));
     assert!(contents.contains("/some-redirect"));
