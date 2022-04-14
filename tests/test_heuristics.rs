@@ -452,8 +452,6 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
 
     assert!(contents.contains("WLD"));
     assert!(contents.contains("301"));
-    assert!(contents.contains("/some-redirect"));
-    assert!(contents.contains(" => "));
     assert!(contents.contains(&srv.url("/")));
     assert!(contents.contains("(url length: 32)"));
 
