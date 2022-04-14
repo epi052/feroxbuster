@@ -83,7 +83,7 @@ mod tests {
     fn test_remove_punctuation() {
         let tester = "!\\\"#$%&()*+/:;<=>?@[]^{}|~,.'“”’‘–—\n‘’";
         // the `"    \n"` is because of the things like / getting replaced with a space
-        assert_eq!(remove_punctuation(tester), "    \n");
+        assert_eq!(remove_punctuation(tester), "                                   \n  ");
     }
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
     /// ensure preprocess
     fn test_preprocess_results() {
         let tester = "WHY are Y'all YELLing?";
-        assert_eq!(&preprocess(tester), &["yall", "yelling"]);
+        assert_eq!(&preprocess(tester), &["y", "all", "yelling"]);
     }
 
     #[test]
