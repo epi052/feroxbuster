@@ -263,8 +263,6 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
         .arg("--dont-filter")
         .unwrap();
 
-    teardown_tmp_directory(tmp_dir);
-
     assert_eq!(mock.hits(), 0);
     Ok(())
 }
@@ -296,6 +294,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards() {
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--add-slash")
+        .arg("--threads")
+        .arg("1")
         .unwrap();
 
     teardown_tmp_directory(tmp_dir);
@@ -344,6 +344,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
         .arg(file.as_os_str())
         .arg("--add-slash")
         .arg("--silent")
+        .arg("--threads")
+        .arg("1")
         .unwrap();
 
     teardown_tmp_directory(tmp_dir);
@@ -385,6 +387,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
         .arg("--add-slash")
         .arg("--output")
         .arg(outfile.as_os_str())
+        .arg("--threads")
+        .arg("1")
         .unwrap();
 
     let contents = std::fs::read_to_string(outfile).unwrap();
@@ -418,6 +422,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards_and_output_to_file() {
 fn heuristics_wildcard_test_with_redirect_as_response_code(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let srv = MockServer::start();
+
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
     let outfile = tmp_dir.path().join("outfile");
 
@@ -445,6 +450,8 @@ fn heuristics_wildcard_test_with_redirect_as_response_code(
         .arg("--add-slash")
         .arg("--output")
         .arg(outfile.as_os_str())
+        .arg("--threads")
+        .arg("1")
         .unwrap();
 
     let contents = std::fs::read_to_string(outfile).unwrap();
