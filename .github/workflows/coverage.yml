@@ -12,6 +12,8 @@ jobs:
         run: rustup toolchain install stable --component llvm-tools-preview
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
       - name: Generate code coverage
         run: cargo llvm-cov  nextest  --all-features --no-fail-fast --lcov --output-path lcov.info -- --retries 10
       - name: Upload coverage to Codecov
