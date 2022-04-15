@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default: feroxbuster/2.6.4)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/2.6.4)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.7.0)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.7.0)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
@@ -46,8 +46,8 @@ _feroxbuster() {
 '*--filter-words=[Filter out messages of a particular word count (ex: -W 312 -W 91,82)]:WORDS: ' \
 '*-N+[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]:LINES: ' \
 '*--filter-lines=[Filter out messages of a particular line count (ex: -N 20 -N 31,30)]:LINES: ' \
-'*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
-'*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
+'(-s --status-codes)*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
+'(-s --status-codes)*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
 '*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]:UNWANTED_PAGE:_urls' \
 '*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
 '*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
@@ -88,6 +88,7 @@ _feroxbuster() {
 '--insecure[Disables TLS certificate validation in the client]' \
 '-n[Do not scan recursively]' \
 '--no-recursion[Do not scan recursively]' \
+'(-n --no-recursion)--force-recursion[Force recursion attempts on all '\''found'\'' endpoints (still respects recursion depth)]' \
 '-e[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
 '--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \

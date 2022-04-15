@@ -38,19 +38,16 @@ fn normalize_case<'a, S: Into<Cow<'a, str>>>(input: S) -> Cow<'a, str> {
     }
 }
 
-/// remove ascii and some utf-8 punctuation characters from the given string
+/// replace ascii and some utf-8 punctuation characters with ' ' (space) in the given string
 fn remove_punctuation(text: &str) -> String {
-    // non-separator type chars can be replaced with an empty string, while separators are replaced
-    // with a space. This attempts to keep things like
-    // 'aboutblogfaqcontactpresstermslexicondisclosure' from happening
     text.replace(
         [
             '!', '\\', '"', '#', '$', '%', '&', '(', ')', '*', '+', ':', ';', '<', '=', '>', '?',
-            '@', '[', ']', '^', '{', '}', '|', '~', ',', '\'', '“', '”', '’', '‘', '’', '‘',
+            '@', '[', ']', '^', '{', '}', '|', '~', ',', '\'', '“', '”', '’', '‘', '’', '‘', '/',
+            '–', '—', '.',
         ],
-        "",
+        " ",
     )
-    .replace(['/', '–', '—', '.'], " ")
 }
 
 /// remove stop words from the given string
@@ -86,7 +83,10 @@ mod tests {
     fn test_remove_punctuation() {
         let tester = "!\\\"#$%&()*+/:;<=>?@[]^{}|~,.'“”’‘–—\n‘’";
         // the `"    \n"` is because of the things like / getting replaced with a space
-        assert_eq!(remove_punctuation(tester), "    \n");
+        assert_eq!(
+            remove_punctuation(tester),
+            "                                   \n  "
+        );
     }
 
     #[test]
@@ -115,7 +115,7 @@ mod tests {
     /// ensure preprocess
     fn test_preprocess_results() {
         let tester = "WHY are Y'all YELLing?";
-        assert_eq!(&preprocess(tester), &["yall", "yelling"]);
+        assert_eq!(&preprocess(tester), &["y", "all", "yelling"]);
     }
 
     #[test]

@@ -5,14 +5,13 @@ use anyhow::{Context, Result};
 use futures::future::{BoxFuture, FutureExt};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::statistics::StatField::TotalExpected;
 use crate::{
     config::Configuration,
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     scanner::RESPONSES,
     send_command, skip_fail,
-    statistics::StatField::ResourcesDiscovered,
+    statistics::StatField::{ResourcesDiscovered, TotalExpected},
     traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
     CommandReceiver, CommandSender, Joiner,
@@ -144,6 +143,9 @@ pub struct TermOutHandler {
 
     /// pointer to "global" configuration struct
     config: Arc<Configuration>,
+
+    /// handles instance
+    handles: Option<Arc<Handles>>,
 }
 
 /// implementation of TermOutHandler
@@ -161,6 +163,7 @@ impl TermOutHandler {
             tx_file,
             file_task,
             config,
+            handles: None,
         }
     }
 
@@ -212,6 +215,9 @@ impl TermOutHandler {
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
                 }
+                Command::AddHandles(handles) => {
+                    self.handles = Some(handles);
+                }
                 Command::Exit => {
                     if self.file_task.is_some() && self.tx_file.send(Command::Exit).is_ok() {
                         self.file_task.as_mut().unwrap().await??; // wait for death
@@ -236,9 +242,26 @@ impl TermOutHandler {
         log::trace!("enter: process_response({:?}, {:?})", resp, call_type);
 
         async move {
-            let contains_sentry = self.config.status_codes.contains(&resp.status().as_u16());
+            let should_filter = self
+                .handles
+                .as_ref()
+                .unwrap()
+                .filters
+                .data
+                .should_filter_response(&resp, self.handles.as_ref().unwrap().stats.tx.clone());
+
+            let contains_sentry = if !self.config.filter_status.is_empty() {
+                // -C was used, meaning -s was not and we should ignore the defaults
+                // https://github.com/epi052/feroxbuster/issues/535
+                // -C indicates that we should filter that status code, but allow all others
+                !self.config.filter_status.contains(&resp.status().as_u16())
+            } else {
+                // -C wasn't used, so, we defer to checking the -s values
+                self.config.status_codes.contains(&resp.status().as_u16())
+            };
+
             let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
-            let should_process_response = contains_sentry && unknown_sentry;
+            let should_process_response = contains_sentry && unknown_sentry && !should_filter;
 
             if should_process_response {
                 // print to stdout
@@ -284,7 +307,7 @@ impl TermOutHandler {
                 && matches!(call_type, ProcessResponseCall::Recursive)
             {
                 // --collect-backups was used; the response is one we care about, and the function
-                // call came from the loop in `.start` (i.e. recursive was specified
+                // call came from the loop in `.start` (i.e. recursive was specified)
                 let backup_urls = self.generate_backup_urls(&resp).await;
 
                 // need to manually adjust stats
@@ -398,6 +421,7 @@ impl TermOutHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::event_handlers::Command;
 
     #[test]
     /// try to hit struct field coverage of FileOutHandler
@@ -417,12 +441,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         println!("{:?}", toh);
@@ -435,12 +461,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         let expected: Vec<_> = vec![
@@ -478,12 +506,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         let expected: Vec<_> = vec![
@@ -521,12 +551,14 @@ mod tests {
         let (tx, rx) = mpsc::unbounded_channel::<Command>();
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
+        let handles = Arc::new(Handles::for_testing(None, None).0);
 
         let toh = TermOutHandler {
             config,
             file_task: None,
             receiver: rx,
             tx_file,
+            handles: Some(handles),
         };
 
         let expected: Vec<_> = vec![

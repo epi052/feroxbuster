@@ -333,6 +333,7 @@ pub fn initialize() -> Command<'static> {
                 .multiple_values(true)
                 .multiple_occurrences(true)
                 .use_value_delimiter(true)
+                .conflicts_with("status_codes")
                 .help_heading("Response filters")
                 .help(
                     "Filter out status codes (deny list) (ex: -C 200 -C 401)",
@@ -426,6 +427,12 @@ pub fn initialize() -> Command<'static> {
                 .takes_value(true)
                 .help_heading("Scan settings")
                 .help("Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)"),
+        ).arg(
+            Arg::new("force_recursion")
+                .long("force-recursion")
+                .conflicts_with("no_recursion")
+                .help_heading("Scan settings")
+                .help("Force recursion attempts on all 'found' endpoints (still respects recursion depth)"),
         ).arg(
             Arg::new("extract_links")
                 .short('e')
@@ -668,7 +675,7 @@ EXAMPLES:
         cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | fff -s 200 -o js-files
 
     Proxy traffic through Burp
-        ./feroxbuster -u http://127.1 --insecure --proxy http://127.0.0.1:8080
+        ./feroxbuster -u http://127.1 --burp
 
     Proxy traffic through a SOCKS proxy
         ./feroxbuster -u http://127.1 --proxy socks5://127.0.0.1:9050

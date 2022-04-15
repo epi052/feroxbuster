@@ -45,6 +45,7 @@
 # dont_filter = true
 # extract_links = true
 # depth = 1
+# force_recursion = true
 # filter_size = [5174]
 # filter_regex = ["^ignore me$"]
 # filter_similar = ["https://somesite.com/soft404"]

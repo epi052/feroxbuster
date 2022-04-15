@@ -852,3 +852,62 @@ fn collect_words_makes_appropriate_requests() {
 
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// send a request to an endpoint that has abnormal redirect logic, ala fast-api
+fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dyn std::error::Error>>
+{
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
+
+    let mock1 = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(301)
+            .body("this is a test")
+            .header("Location", &srv.url("/LICENSE"));
+    });
+
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE/LICENSE");
+        then.status(404);
+    });
+
+    let mock3 = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE/LICENSE/LICENSE");
+        then.status(404);
+    });
+
+    let mock4 = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE/LICENSE/LICENSE/LICENSE");
+        then.status(404);
+    });
+
+    let outfile = tmp_dir.path().join("output");
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--force-recursion")
+        .arg("-o")
+        .arg(outfile.as_os_str())
+        .unwrap();
+
+    let contents = std::fs::read_to_string(outfile)?;
+    println!("{}", contents);
+
+    assert!(contents.contains("/LICENSE"));
+    assert!(contents.contains("301"));
+    assert!(contents.contains("14"));
+
+    assert_eq!(mock1.hits(), 2);
+    assert_eq!(mock2.hits(), 1);
+    assert_eq!(mock3.hits(), 0);
+    assert_eq!(mock4.hits(), 0);
+
+    teardown_tmp_directory(tmp_dir);
+
+    Ok(())
+}

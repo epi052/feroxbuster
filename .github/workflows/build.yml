@@ -73,18 +73,22 @@ jobs:
           name: ${{ matrix.name }}.tar.gz
           path: ${{ matrix.name }}.tar.gz
 
-  build-deb:
-    needs: [build-nix]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Deb Build
-        uses: ebbflow-io/cargo-deb-amd64-ubuntu@1.0
-      - name: Upload Deb Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: feroxbuster_amd64.deb
-          path: ./target/x86_64-unknown-linux-musl/debian/*
+  # build-deb:
+  #   needs: [build-nix]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@master
+  #     - name: Install cargo-deb
+  #       run: cargo install -f cargo-deb
+  #     - name: Install musl toolchain
+  #       run: rustup target add x86_64-unknown-linux-musl
+  #     - name: Deb Build
+  #       run: cargo deb --target=x86_64-unknown-linux-musl
+  #     - name: Upload Deb Artifact
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: feroxbuster_amd64.deb
+  #         path: ./target/x86_64-unknown-linux-musl/debian/*
 
   build-macos:
     env:

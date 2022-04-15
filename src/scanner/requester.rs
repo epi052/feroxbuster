@@ -8,7 +8,7 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use leaky_bucket::LeakyBucket;
 use tokio::{
-    sync::{oneshot, RwLock},
+    sync::RwLock,
     time::{sleep, Duration},
 };
 
@@ -16,7 +16,7 @@ use crate::{
     atomic_load, atomic_store,
     config::RequesterPolicy,
     event_handlers::{
-        Command::{self, AddError, SubtractFromUsizeField},
+        Command::{AddError, SubtractFromUsizeField},
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
@@ -25,7 +25,7 @@ use crate::{
     scan_manager::{FeroxScan, ScanStatus},
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
-    utils::{logged_request, should_deny_url},
+    utils::{logged_request, send_try_recursion_command, should_deny_url},
     HIGH_ERROR_RATIO,
 };
 
@@ -379,14 +379,14 @@ impl Requester {
                 .await;
 
                 // do recursion if appropriate
-                if !self.handles.config.no_recursion {
-                    self.handles
-                        .send_scan_command(Command::TryRecursion(Box::new(
-                            ferox_response.clone(),
-                        )))?;
-                    let (tx, rx) = oneshot::channel::<bool>();
-                    self.handles.send_scan_command(Command::Sync(tx))?;
-                    rx.await?;
+                if !self.handles.config.no_recursion && !self.handles.config.force_recursion {
+                    // to support --force-recursion, we want to limit recursive calls to only
+                    // 'found' assets. That means we need to either gate or delay the call.
+                    //
+                    // this branch will retain the 'old' behavior by checking that
+                    // --force-recursion isn't turned on
+                    send_try_recursion_command(self.handles.clone(), ferox_response.clone())
+                        .await?;
                 }
 
                 // purposefully doing recursion before filtering. the thought process is that
@@ -398,6 +398,33 @@ impl Requester {
                     .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
                 {
                     continue;
+                }
+
+                if !self.handles.config.no_recursion && self.handles.config.force_recursion {
+                    // in this branch, we're saying that both recursion AND force recursion
+                    // are turned on. It comes after should_filter_response, so those cases
+                    // are handled. Now we need to account for -s/-C options.
+
+                    if self.handles.config.filter_status.is_empty() {
+                        // -C wasn't used, so -s is the only 'filter' left to account for
+                        if self
+                            .handles
+                            .config
+                            .status_codes
+                            .contains(&ferox_response.status().as_u16())
+                        {
+                            send_try_recursion_command(
+                                self.handles.clone(),
+                                ferox_response.clone(),
+                            )
+                            .await?;
+                        }
+                    } else {
+                        // -C was used, that means the filters above would have removed
+                        // those responses, and anything else should be let through
+                        send_try_recursion_command(self.handles.clone(), ferox_response.clone())
+                            .await?;
+                    }
                 }
 
                 if self.handles.config.collect_extensions {
@@ -469,6 +496,7 @@ mod tests {
     use crate::{
         config::Configuration,
         config::OutputLevel,
+        event_handlers::Command::AddStatus,
         event_handlers::{FiltersHandler, ScanHandler, StatsHandler, Tasks, TermOutHandler},
         filters,
         scan_manager::{ScanOrder, ScanType},
@@ -509,10 +537,7 @@ mod tests {
     /// helper to stay DRY
     async fn increment_errors(handles: Arc<Handles>, scan: Arc<FeroxScan>, num_errors: usize) {
         for _ in 0..num_errors {
-            handles
-                .stats
-                .send(Command::AddError(StatError::Other))
-                .unwrap();
+            handles.stats.send(AddError(StatError::Other)).unwrap();
             scan.add_error();
         }
 
@@ -549,7 +574,7 @@ mod tests {
         code: StatusCode,
     ) {
         for _ in 0..num_codes {
-            handles.stats.send(Command::AddStatus(code)).unwrap();
+            handles.stats.send(AddStatus(code)).unwrap();
             if code == StatusCode::FORBIDDEN {
                 scan.add_403();
             } else {

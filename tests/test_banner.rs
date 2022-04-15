@@ -784,7 +784,6 @@ fn banner_prints_filter_status() {
                 .and(predicate::str::contains("http://localhost"))
                 .and(predicate::str::contains("Threads"))
                 .and(predicate::str::contains("Wordlist"))
-                .and(predicate::str::contains("Status Codes"))
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Status Code Filters"))
@@ -1391,6 +1390,33 @@ fn banner_prints_all_composite_settings_burp_replay() {
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Replay Proxy"))
                 .and(predicate::str::contains("Insecure"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + force recursion
+fn banner_prints_force_recursion() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--force-recursion")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Force Recursion"))
                 .and(predicate::str::contains("─┴─")),
         );
 }

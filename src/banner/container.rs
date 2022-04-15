@@ -163,6 +163,9 @@ pub struct Banner {
 
     /// represents Configuration.collect_words
     collect_words: BannerEntry,
+
+    /// represents Configuration.collect_words
+    force_recursion: BannerEntry,
 }
 
 /// implementation of Banner
@@ -300,6 +303,8 @@ impl Banner {
             &config.scan_limit.to_string(),
         );
 
+        let force_recursion =
+            BannerEntry::new("🤘", "Force Recursion", &config.force_recursion.to_string());
         let replay_proxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
         let auto_tune = BannerEntry::new("🎶", "Auto Tune", &config.auto_tune.to_string());
         let auto_bail = BannerEntry::new("🪣", "Auto Bail", &config.auto_bail.to_string());
@@ -409,6 +414,7 @@ impl Banner {
             no_recursion,
             rate_limit,
             scan_limit,
+            force_recursion,
             time_limit,
             url_denylist,
             collect_extensions,
@@ -511,11 +517,12 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         writeln!(&mut writer, "{}", self.threads)?;
         writeln!(&mut writer, "{}", self.wordlist)?;
-        writeln!(&mut writer, "{}", self.status_codes)?;
 
-        if !config.filter_status.is_empty() {
-            // exception here for an optional print in the middle of always printed values is due
-            // to me wanting the allows and denys to be printed one after the other
+        if config.filter_status.is_empty() {
+            // -C and -s are mutually exclusive, and -s meaning changes when -C is used
+            // so only print one or the other
+            writeln!(&mut writer, "{}", self.status_codes)?;
+        } else {
             writeln!(&mut writer, "{}", self.filter_status)?;
         }
 
@@ -641,6 +648,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
 
         writeln!(&mut writer, "{}", self.no_recursion)?;
+
+        if config.force_recursion {
+            writeln!(&mut writer, "{}", self.force_recursion)?;
+        }
 
         if config.scan_limit > 0 {
             writeln!(&mut writer, "{}", self.scan_limit)?;

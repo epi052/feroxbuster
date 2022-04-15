@@ -2,7 +2,6 @@ use super::*;
 use crate::{
     client,
     event_handlers::{
-        Command,
         Command::{AddError, AddToUsizeField},
         Handles,
     },
@@ -12,14 +11,13 @@ use crate::{
         StatField::{LinksExtracted, TotalExpected},
     },
     url::FeroxUrl,
-    utils::{logged_request, make_request, should_deny_url},
+    utils::{logged_request, make_request, send_try_recursion_command, should_deny_url},
     ExtractionResult, DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
 use reqwest::{Client, StatusCode, Url};
 use scraper::{Html, Selector};
 use std::collections::HashSet;
-use tokio::sync::oneshot;
 
 /// Whether an active scan is recursive or not
 #[derive(Debug)]
@@ -186,11 +184,21 @@ impl<'a> Extractor<'a> {
                     resp.set_url(&format!("{}/", resp.url()));
                 }
 
-                self.handles
-                    .send_scan_command(Command::TryRecursion(Box::new(resp)))?;
-                let (tx, rx) = oneshot::channel::<bool>();
-                self.handles.send_scan_command(Command::Sync(tx))?;
-                rx.await?;
+                if self.handles.config.filter_status.is_empty() {
+                    // -C wasn't used, so -s is the only 'filter' left to account for
+                    if self
+                        .handles
+                        .config
+                        .status_codes
+                        .contains(&resp.status().as_u16())
+                    {
+                        send_try_recursion_command(self.handles.clone(), resp).await?;
+                    }
+                } else {
+                    // -C was used, that means the filters above would have removed
+                    // those responses, and anything else should be let through
+                    send_try_recursion_command(self.handles.clone(), resp).await?;
+                }
             }
         }
         log::trace!("exit: request_links");

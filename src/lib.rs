@@ -65,10 +65,17 @@ pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 38] = [
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
 ///
-/// defaults to kali's default install location:
+/// defaults to kali's default install location on linux:
 /// - `/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt`
+///
+/// and to the current directory on windows
+/// - `.\seclists\Discovery\Web-Content\raft-medium-directories.txt`
+#[cfg(not(target_os = "windows"))]
 pub const DEFAULT_WORDLIST: &str =
     "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
+#[cfg(target_os = "windows")]
+pub const DEFAULT_WORDLIST: &str =
+    ".\\SecLists\\Discovery\\Web-Content\\raft-medium-directories.txt";
 
 /// Number of milliseconds to wait between polls of `PAUSE_SCAN` when user pauses a scan
 pub(crate) const SLEEP_DURATION: u64 = 500;
