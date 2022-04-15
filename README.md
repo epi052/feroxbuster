@@ -191,7 +191,8 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://n-thumann.de/"><img src="https://avatars.githubusercontent.com/u/46975855?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicolas Thumann</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=n-thumann" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/commits?author=n-thumann" title="Documentation">📖</a></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/tomtastic"><img src="https://avatars.githubusercontent.com/u/302127?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tom Matthews</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=tomtastic" title="Documentation">📖</a></td>
+          <td align="center"><a href="https://github.com/Flangyver"><img src="https://avatars.githubusercontent.com/u/59575870?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Flangyver</b></sub></a><br /><a href="#ideas-Flangyver" title="Ideas, Planning, & Feedback">🤔</a></td>
+
     <td align="center"><a href="https://github.com/bsysop"><img src="https://avatars.githubusercontent.com/u/9998303?v=4?s=100" width="100px;" alt=""/><br /><sub><b>bsysop</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=bsysop" title="Documentation">📖</a></td>
     <td align="center"><a href="http://bpsizemore.me"><img src="https://avatars.githubusercontent.com/u/11645898?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Brian Sizemore</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=bpsizemore" title="Code">💻</a></td>
     <td align="center"><a href="https://pwn.by/noraj"><img src="https://avatars.githubusercontent.com/u/16578570?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Alexandre ZANNI</b></sub></a><br /><a href="#infra-noraj" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/epi052/feroxbuster/commits?author=noraj" title="Documentation">📖</a></td>
@@ -238,8 +239,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://github.com/ThisLimn0"><img src="https://avatars.githubusercontent.com/u/67125885?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Limn0</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AThisLimn0" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://github.com/0xdf223"><img src="https://avatars.githubusercontent.com/u/76954092?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf223" title="Bug reports">🐛</a> <a href="#ideas-0xdf223" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center"><a href="https://github.com/Flangyver"><img src="https://avatars.githubusercontent.com/u/59575870?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Flangyver</b></sub></a><br /><a href="#ideas-Flangyver" title="Ideas, Planning, & Feedback">🤔</a></td>
+        <td align="center"><a href="https://github.com/tomtastic"><img src="https://avatars.githubusercontent.com/u/302127?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tom Matthews</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=tomtastic" title="Documentation">📖</a></td>
 
+  </tr>
 </table>
 
 <!-- markdownlint-restore -->
