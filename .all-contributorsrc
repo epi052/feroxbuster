@@ -393,6 +393,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "ThisLimn0",
+      "name": "Limn0",
+      "avatar_url": "https://avatars.githubusercontent.com/u/67125885?v=4",
+      "profile": "https://github.com/ThisLimn0",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,

@@ -235,6 +235,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/gtjamesa"><img src="https://avatars.githubusercontent.com/u/2078364?v=4?s=100" width="100px;" alt=""/><br /><sub><b>James</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Agtjamesa" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://twitter.com/Jhaddix"><img src="https://avatars.githubusercontent.com/u/3488554?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jason Haddix</b></sub></a><br /><a href="#ideas-jhaddix" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/ThisLimn0"><img src="https://avatars.githubusercontent.com/u/67125885?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Limn0</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AThisLimn0" title="Bug reports">🐛</a></td>
+  </tr>
 </table>
 
 <!-- markdownlint-restore -->
