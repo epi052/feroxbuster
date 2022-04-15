@@ -237,6 +237,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/ThisLimn0"><img src="https://avatars.githubusercontent.com/u/67125885?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Limn0</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AThisLimn0" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/0xdf223"><img src="https://avatars.githubusercontent.com/u/76954092?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf223" title="Bug reports">🐛</a> <a href="#ideas-0xdf223" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
 </table>
 
