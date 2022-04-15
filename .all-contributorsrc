@@ -412,6 +412,15 @@
         "bug",
         "ideas"
       ]
+    },
+    {
+      "login": "Flangyver",
+      "name": "Flangyver",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59575870?v=4",
+      "profile": "https://github.com/Flangyver",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
