@@ -402,6 +402,16 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "0xdf223",
+      "name": "0xdf",
+      "avatar_url": "https://avatars.githubusercontent.com/u/76954092?v=4",
+      "profile": "https://github.com/0xdf223",
+      "contributions": [
+        "bug",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
