@@ -125,7 +125,7 @@ impl Requester {
     /// limit the number of requests per second
     pub async fn limit(&self) -> Result<()> {
         let guard = self.rate_limiter.read().await;
-        
+
         if guard.is_some() {
             guard.as_ref().unwrap().acquire_one().await?;
         }
