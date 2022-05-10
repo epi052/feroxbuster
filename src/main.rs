@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::io::stdin;
 use std::{
     env::args,
@@ -10,6 +11,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
+use feroxbuster::SECONDARY_WORDLIST;
 use futures::StreamExt;
 use tokio::{
     io,
@@ -150,7 +152,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
     }
 
     // remove footgun that arises if a --dont-scan value matches on a base url
-    for target in &targets {
+    for target in targets.iter_mut() {
         for denier in &handles.config.regex_denylist {
             if denier.is_match(target) {
                 bail!(
@@ -168,6 +170,11 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
                     target
                 );
             }
+        }
+
+        if !target.starts_with("http") && !target.starts_with("https") {
+            // --url hackerone.com
+            *target = format!("https://{}", target);
         }
     }
 
@@ -195,7 +202,16 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
-    let words = get_unique_words_from_wordlist(&config.wordlist)?;
+    let words = match get_unique_words_from_wordlist(&config.wordlist) {
+        Ok(w) => w,
+        Err(_) => {
+            eprintln!(
+                "Could not open {}, checking secondary location",
+                &config.wordlist,
+            );
+            get_unique_words_from_wordlist(&SECONDARY_WORDLIST)?
+        }
+    };
 
     if words.len() <= 1 {
         // the check is now <= 1 due to the initial empty string added in 2.6.0
