@@ -70,7 +70,7 @@ pub struct FeroxScan {
 impl Default for FeroxScan {
     /// Create a default FeroxScan, populates ID with a new UUID
     fn default() -> Self {
-        let new_id = Uuid::new_v4().to_simple().to_string();
+        let new_id = Uuid::new_v4().as_simple().to_string();
 
         FeroxScan {
             id: new_id,
