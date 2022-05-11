@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::io::stdin;
 use std::{
     env::args,
@@ -11,7 +10,6 @@ use std::{
 };
 
 use anyhow::{bail, Context, Result};
-use feroxbuster::SECONDARY_WORDLIST;
 use futures::StreamExt;
 use tokio::{
     io,
@@ -19,7 +17,6 @@ use tokio::{
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-use feroxbuster::scan_manager::ScanType;
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
@@ -32,9 +29,10 @@ use feroxbuster::{
     },
     filters, heuristics, logger,
     progress::{PROGRESS_BAR, PROGRESS_PRINTER},
-    scan_manager::{self},
+    scan_manager::{self, ScanType},
     scanner,
     utils::{fmt_err, slugify_filename},
+    SECONDARY_WORDLIST,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
@@ -204,12 +202,15 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     // as well as additional directories found as part of recursion
     let words = match get_unique_words_from_wordlist(&config.wordlist) {
         Ok(w) => w,
-        Err(_) => {
-            eprintln!(
-                "Could not open {}, checking secondary location",
-                &config.wordlist,
-            );
-            get_unique_words_from_wordlist(&SECONDARY_WORDLIST)?
+        Err(err) => {
+            let secondary = Path::new(SECONDARY_WORDLIST);
+
+            if secondary.exists() {
+                eprintln!("Found wordlist in secondary location");
+                get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
+            } else {
+                return Err(err);
+            }
         }
     };
 
