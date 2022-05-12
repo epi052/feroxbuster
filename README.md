@@ -201,7 +201,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   </tr>
   <tr>
     <td align="center"><a href="https://tib3rius.com"><img src="https://avatars.githubusercontent.com/u/48113936?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Tib3rius</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3ATib3rius" title="Bug reports">🐛</a></td>
-    <td align="center"><a href="https://github.com/Flangyver"><img src="https://avatars.githubusercontent.com/u/59575870?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Flangyver</b></sub></a><br /><a href="#ideas-Flangyver" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://github.com/0xdf"><img src="https://avatars.githubusercontent.com/u/1489045?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf" title="Bug reports">🐛</a></td>
     <td align="center"><a href="http://secure77.de"><img src="https://avatars.githubusercontent.com/u/31564517?v=4?s=100" width="100px;" alt=""/><br /><sub><b>secure-77</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asecure-77" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://github.com/sbrun"><img src="https://avatars.githubusercontent.com/u/7712154?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Sophie Brun</b></sub></a><br /><a href="#infra-sbrun" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     <td align="center"><a href="https://github.com/black-A"><img src="https://avatars.githubusercontent.com/u/30686803?v=4?s=100" width="100px;" alt=""/><br /><sub><b>black-A</b></sub></a><br /><a href="#ideas-black-A" title="Ideas, Planning, & Feedback">🤔</a></td>
@@ -233,12 +233,12 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="http://ryanmontgomery.me"><img src="https://avatars.githubusercontent.com/u/44453666?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ryan Montgomery</b></sub></a><br /><a href="#ideas-0dayCTF" title="Ideas, Planning, & Feedback">🤔</a></td>
     <td align="center"><a href="https://github.com/IppSec"><img src="https://avatars.githubusercontent.com/u/24677271?v=4?s=100" width="100px;" alt=""/><br /><sub><b>ippsec</b></sub></a><br /><a href="#ideas-ippsec" title="Ideas, Planning, & Feedback">🤔</a></td>
     <td align="center"><a href="https://github.com/gtjamesa"><img src="https://avatars.githubusercontent.com/u/2078364?v=4?s=100" width="100px;" alt=""/><br /><sub><b>James</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Agtjamesa" title="Bug reports">🐛</a></td>
-    <td align="center"><a href="https://twitter.com/Jhaddix"><img src="https://avatars.githubusercontent.com/u/3488554?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jason Haddix</b></sub></a><br /><a href="#ideas-jhaddix" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://twitter.com/Jhaddix"><img src="https://avatars.githubusercontent.com/u/3488554?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jason Haddix</b></sub></a><br /><a href="#ideas-jhaddix" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/epi052/feroxbuster/issues?q=author%3Ajhaddix" title="Bug reports">🐛</a></td>
   </tr>
   <tr>
     <td align="center"><a href="https://github.com/ThisLimn0"><img src="https://avatars.githubusercontent.com/u/67125885?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Limn0</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AThisLimn0" title="Bug reports">🐛</a></td>
     <td align="center"><a href="https://github.com/0xdf223"><img src="https://avatars.githubusercontent.com/u/76954092?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf223" title="Bug reports">🐛</a> <a href="#ideas-0xdf223" title="Ideas, Planning, & Feedback">🤔</a></td>
-    
+    <td align="center"><a href="https://github.com/Flangyver"><img src="https://avatars.githubusercontent.com/u/59575870?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Flangyver</b></sub></a><br /><a href="#ideas-Flangyver" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
 </table>
 
