@@ -240,6 +240,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/0xdf223"><img src="https://avatars.githubusercontent.com/u/76954092?v=4?s=100" width="100px;" alt=""/><br /><sub><b>0xdf</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3A0xdf223" title="Bug reports">🐛</a> <a href="#ideas-0xdf223" title="Ideas, Planning, & Feedback">🤔</a></td>
     <td align="center"><a href="https://github.com/Flangyver"><img src="https://avatars.githubusercontent.com/u/59575870?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Flangyver</b></sub></a><br /><a href="#ideas-Flangyver" title="Ideas, Planning, & Feedback">🤔</a></td>
     <td align="center"><a href="https://github.com/DonatoReis"><img src="https://avatars.githubusercontent.com/u/93531354?v=4?s=100" width="100px;" alt=""/><br /><sub><b>PeakyBlinder</b></sub></a><br /><a href="#ideas-DonatoReis" title="Ideas, Planning, & Feedback">🤔</a></td>
+    <td align="center"><a href="https://postmodern.github.io/"><img src="https://avatars.githubusercontent.com/u/12671?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Postmodern</b></sub></a><br /><a href="#ideas-postmodern" title="Ideas, Planning, & Feedback">🤔</a></td>
   </tr>
 </table>
 
