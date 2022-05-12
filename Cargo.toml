@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.7.0"
+version = "2.7.1"
 authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
 edition = "2021"
@@ -22,40 +22,40 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [build-dependencies]
-clap = { version = "3.1.8", features = ["wrap_help", "cargo"] }
-clap_complete = "3.1.1"
+clap = { version = "3.1.18", features = ["wrap_help", "cargo"] }
+clap_complete = "3.1.4"
 regex = "1.5.5"
 lazy_static = "1.4.0"
 dirs = "4.0.0"
 
 [dependencies]
-scraper = "0.12.0"
+scraper = "0.13.0"
 futures = "0.3.21"
-tokio = { version = "1.17.0", features = ["full"] }
+tokio = { version = "1.18.2", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["codec"] }
-log = "0.4.16"
+log = "0.4.17"
 env_logger = "0.9.0"
 reqwest = { version = "0.11.10", features = ["socks"] }
 # uses feature unification to add 'serde' to reqwest::Url
 url = { version = "2.2.2", features = ["serde"] }
 serde_regex = "1.1.0"
-clap = { version = "3.1.8", features = ["wrap_help", "cargo"] }
+clap = { version = "3.1.18", features = ["wrap_help", "cargo"] }
 lazy_static = "1.4.0"
-toml = "0.5.8"
-serde = { version = "1.0.136", features = ["derive", "rc"] }
-serde_json = "1.0.79"
-uuid = { version = "0.8.2", features = ["v4"] }
+toml = "0.5.9"
+serde = { version = "1.0.137", features = ["derive", "rc"] }
+serde_json = "1.0.81"
+uuid = { version = "1.0.0", features = ["v4"] }
 indicatif = "0.15"
 console = "0.15.0"
-openssl = { version = "0.10.38", features = ["vendored"] }
+openssl = { version = "0.10.40", features = ["vendored"] }
 dirs = "4.0.0"
 regex = "1.5.5"
 crossterm = "0.23.2"
 rlimit = "0.8.3"
-ctrlc = "3.2.1"
+ctrlc = "3.2.2"
 fuzzyhash = "0.2.1"
-anyhow = "1.0.56"
-leaky-bucket = "0.10.0"                                         # todo: upgrade, will take a little work/thought since api changed
+anyhow = "1.0.57"
+leaky-bucket = "0.10.0"
 
 [dev-dependencies]
 tempfile = "3.3.0"

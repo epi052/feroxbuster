@@ -17,7 +17,6 @@ use tokio::{
 };
 use tokio_util::codec::{FramedRead, LinesCodec};
 
-use feroxbuster::scan_manager::ScanType;
 use feroxbuster::{
     banner::{Banner, UPDATE_URL},
     config::{Configuration, OutputLevel},
@@ -30,9 +29,10 @@ use feroxbuster::{
     },
     filters, heuristics, logger,
     progress::{PROGRESS_BAR, PROGRESS_PRINTER},
-    scan_manager::{self},
+    scan_manager::{self, ScanType},
     scanner,
     utils::{fmt_err, slugify_filename},
+    SECONDARY_WORDLIST,
 };
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
@@ -150,7 +150,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
     }
 
     // remove footgun that arises if a --dont-scan value matches on a base url
-    for target in &targets {
+    for target in targets.iter_mut() {
         for denier in &handles.config.regex_denylist {
             if denier.is_match(target) {
                 bail!(
@@ -168,6 +168,11 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
                     target
                 );
             }
+        }
+
+        if !target.starts_with("http") && !target.starts_with("https") {
+            // --url hackerone.com
+            *target = format!("https://{}", target);
         }
     }
 
@@ -195,7 +200,19 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
     // as well as additional directories found as part of recursion
-    let words = get_unique_words_from_wordlist(&config.wordlist)?;
+    let words = match get_unique_words_from_wordlist(&config.wordlist) {
+        Ok(w) => w,
+        Err(err) => {
+            let secondary = Path::new(SECONDARY_WORDLIST);
+
+            if secondary.exists() {
+                eprintln!("Found wordlist in secondary location");
+                get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
+            } else {
+                return Err(err);
+            }
+        }
+    };
 
     if words.len() <= 1 {
         // the check is now <= 1 due to the initial empty string added in 2.6.0

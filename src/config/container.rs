@@ -592,7 +592,9 @@ impl Configuration {
         }
 
         if let Some(arg) = args.values_of("extensions") {
-            config.extensions = arg.map(|val| val.to_string()).collect();
+            config.extensions = arg
+                .map(|val| val.trim_start_matches('.').to_string())
+                .collect();
         }
 
         if let Some(arg) = args.values_of("dont_collect") {
@@ -1028,7 +1030,17 @@ impl Configuration {
     /// uses serde to deserialize the toml into a `Configuration` struct
     pub(super) fn parse_config(config_file: PathBuf) -> Result<Self> {
         let content = read_to_string(config_file)?;
-        let config: Self = toml::from_str(content.as_str())?;
+        let mut config: Self = toml::from_str(content.as_str())?;
+
+        if !config.extensions.is_empty() {
+            // remove leading periods, if any are found
+            config.extensions = config
+                .extensions
+                .iter()
+                .map(|ext| ext.trim_start_matches('.').to_string())
+                .collect();
+        }
+
         Ok(config)
     }
 }

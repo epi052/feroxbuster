@@ -76,6 +76,8 @@ pub const DEFAULT_WORDLIST: &str =
 #[cfg(target_os = "windows")]
 pub const DEFAULT_WORDLIST: &str =
     ".\\SecLists\\Discovery\\Web-Content\\raft-medium-directories.txt";
+pub const SECONDARY_WORDLIST: &str =
+    "/usr/local/share/seclists/Discovery/Web-Content/raft-medium-directories.txt";
 
 /// Number of milliseconds to wait between polls of `PAUSE_SCAN` when user pauses a scan
 pub(crate) const SLEEP_DURATION: u64 = 500;

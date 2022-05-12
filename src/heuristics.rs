@@ -91,7 +91,7 @@ impl HeuristicTests {
         let mut ids = vec![];
 
         for _ in 0..length {
-            ids.push(Uuid::new_v4().to_simple().to_string());
+            ids.push(Uuid::new_v4().as_simple().to_string());
         }
 
         let unique_id = ids.join("");
