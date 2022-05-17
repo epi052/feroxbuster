@@ -59,15 +59,11 @@ fn main() {
     if !config_dir.exists() {
         // recursively create the feroxbuster directory and all of its parent components if
         // they are missing
-        if !config_dir.exists() {
-            // recursively create the feroxbuster directory and all of its parent components if
-            // they are missing
-            if create_dir_all(&config_dir).is_err() {
-                // only copy the config file when we're not running in the CI/CD pipeline
-                // which fails with permission denied
-                eprintln!("Couldn't create one or more directories needed to copy the config file");
-                return;
-            }
+        if create_dir_all(&config_dir).is_err() {
+            // only copy the config file when we're not running in the CI/CD pipeline
+            // which fails with permission denied
+            eprintln!("Couldn't create one or more directories needed to copy the config file");
+            return;
         }
     }
 
