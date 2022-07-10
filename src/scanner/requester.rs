@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use lazy_static::lazy_static;
-use leaky_bucket::LeakyBucket;
+use leaky_bucket::RateLimiter;
 use tokio::{
     sync::RwLock,
     time::{sleep, Duration},
@@ -45,7 +45,7 @@ pub(super) struct Requester {
     target_url: String,
 
     /// limits requests per second if present
-    rate_limiter: RwLock<Option<LeakyBucket>>,
+    rate_limiter: RwLock<Option<RateLimiter>>,
 
     /// data regarding policy and metadata about last enforced trigger etc...
     policy_data: PolicyData,
@@ -94,18 +94,18 @@ impl Requester {
         })
     }
 
-    /// build a LeakyBucket, given a rate limit (as requests per second)
-    fn build_a_bucket(limit: usize) -> Result<LeakyBucket> {
+    /// build a RateLimiter, given a rate limit (as requests per second)
+    fn build_a_bucket(limit: usize) -> Result<RateLimiter> {
         let refill = max((limit as f64 / 10.0).round() as usize, 1); // minimum of 1 per second
         let tokens = max((limit as f64 / 2.0).round() as usize, 1);
         let interval = if refill == 1 { 1000 } else { 100 }; // 1 second if refill is 1
 
-        Ok(LeakyBucket::builder()
-            .refill_interval(Duration::from_millis(interval)) // add tokens every 0.1s
-            .refill_amount(refill) // ex: 100 req/s -> 10 tokens per 0.1s
-            .tokens(tokens) // reduce initial burst, 2 is arbitrary, but felt good
+        Ok(RateLimiter::builder()
+            .interval(Duration::from_millis(interval)) // add tokens every 0.1s
+            .refill(refill) // ex: 100 req/s -> 10 tokens per 0.1s
+            .initial(tokens) // reduce initial burst, 2 is arbitrary, but felt good
             .max(limit)
-            .build()?)
+            .build())
     }
 
     /// sleep and set a flag that can be checked by other threads
@@ -127,7 +127,7 @@ impl Requester {
         let guard = self.rate_limiter.read().await;
 
         if guard.is_some() {
-            guard.as_ref().unwrap().acquire_one().await?;
+            guard.as_ref().unwrap().acquire_one().await;
         }
 
         Ok(())
@@ -925,10 +925,10 @@ mod tests {
     /// decrease the scan rate
     async fn adjust_limit_resets_streak_counter_on_downward_movement() {
         let (handles, _) = setup_requester_test(None).await;
-        let mut buckets = leaky_bucket::LeakyBuckets::new();
-        let coordinator = buckets.coordinate().unwrap();
-        tokio::spawn(async move { coordinator.await.expect("coordinator errored") });
-        let limiter = buckets.rate_limiter().max(200).build().unwrap();
+        let limiter = RateLimiter::builder()
+            .interval(Duration::from_secs(1))
+            .max(200)
+            .build();
 
         let scan = FeroxScan::default();
         scan.add_error();
@@ -1036,10 +1036,10 @@ mod tests {
     /// set_rate_limiter should exit early when new limit equals the current bucket's max
     async fn set_rate_limiter_early_exit() {
         let (handles, _) = setup_requester_test(None).await;
-        let mut buckets = leaky_bucket::LeakyBuckets::new();
-        let coordinator = buckets.coordinate().unwrap();
-        tokio::spawn(async move { coordinator.await.expect("coordinator errored") });
-        let limiter = buckets.rate_limiter().max(200).build().unwrap();
+        let limiter = RateLimiter::builder()
+            .interval(Duration::from_secs(1))
+            .max(200)
+            .build();
 
         let requester = Requester {
             handles,
@@ -1068,10 +1068,10 @@ mod tests {
     async fn tune_sets_expected_values_and_then_waits() {
         let (handles, _) = setup_requester_test(None).await;
 
-        let mut buckets = leaky_bucket::LeakyBuckets::new();
-        let coordinator = buckets.coordinate().unwrap();
-        tokio::spawn(async move { coordinator.await.expect("coordinator errored") });
-        let limiter = buckets.rate_limiter().max(200).build().unwrap();
+        let limiter = RateLimiter::builder()
+            .interval(Duration::from_secs(1))
+            .max(200)
+            .build();
 
         let scan = FeroxScan::new(
             "http://localhost",
