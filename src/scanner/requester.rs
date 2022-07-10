@@ -947,9 +947,10 @@ mod tests {
         requester.policy_data.set_reqs_sec(400);
         requester.policy_data.set_errors(1);
 
-        let mut guard = requester.tuning_lock.lock().unwrap();
-        *guard = 2;
-        drop(guard);
+        {
+            let mut guard = requester.tuning_lock.lock().unwrap();
+            *guard = 2;
+        }
 
         requester
             .adjust_limit(PolicyTrigger::Errors, false)
