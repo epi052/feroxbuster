@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::sync::atomic::AtomicBool;
 use std::{ops::Deref, sync::atomic::Ordering, sync::Arc, time::Instant};
 
@@ -284,8 +285,7 @@ impl FeroxScanner {
                     let mut message = format!("=> {}", style("Directory listing").blue().bright());
 
                     if !self.handles.config.extract_links {
-                        message
-                            .push_str(&format!(" (add {} to scan)", style("-e").bright().yellow()))
+                        write!(message, " (add {} to scan)", style("-e").bright().yellow())?;
                     }
 
                     progress_bar.reset_eta();
