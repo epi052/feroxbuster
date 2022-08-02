@@ -42,7 +42,7 @@ serde_regex = "1.1.0"
 clap = { version = "3.1.18", features = ["wrap_help", "cargo"] }
 lazy_static = "1.4.0"
 toml = "0.5.9"
-serde = { version = "1.0.137", features = ["derive", "rc"] }
+serde = { version = "1.0.141", features = ["derive", "rc"] }
 serde_json = "1.0.81"
 uuid = { version = "1.0.0", features = ["v4"] }
 indicatif = "0.15"
