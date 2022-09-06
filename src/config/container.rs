@@ -957,7 +957,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.force_recursion, new.force_recursion, false);
         update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
-        update_if_not_default!(&mut conf.methods, new.methods, Vec::<String>::new());
+        update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
         update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
         if !new.regex_denylist.is_empty() {
