@@ -37,7 +37,7 @@ log = "0.4.17"
 env_logger = "0.9.0"
 reqwest = { version = "0.11.10", features = ["socks"] }
 # uses feature unification to add 'serde' to reqwest::Url
-url = { version = "2.2.2", features = ["serde"] }
+url = { version = "2.3.0", features = ["serde"] }
 serde_regex = "1.1.0"
 clap = { version = "3.1.18", features = ["wrap_help", "cargo"] }
 lazy_static = "1.4.0"
