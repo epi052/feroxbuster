@@ -207,7 +207,6 @@ pub fn initialize() -> Command<'static> {
                 .help_heading("Request settings")
                 .multiple_values(true)
                 .multiple_occurrences(true)
-                .use_value_delimiter(true)
                 .help(
                     "Specify HTTP headers to be used in each request (ex: -H Header:val -H 'stuff: things')",
                 ),
