@@ -199,7 +199,7 @@ fn main_parallel_creates_output_directory() -> Result<(), Box<dyn std::error::Er
     let sub_dir = output_dir.as_ref().join(&sub_dir);
 
     // created directory like output-file-1627845741.logs/
-    assert!(dir_regex.is_match(&sub_dir.to_string_lossy().to_string()));
+    assert!(dir_regex.is_match(&sub_dir.to_string_lossy()));
 
     for entry in sub_dir.read_dir()? {
         let entry = entry?;
