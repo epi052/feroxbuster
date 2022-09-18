@@ -413,7 +413,7 @@ impl<'a> Extractor<'a> {
 
         let scanned_urls = self.handles.ferox_scans()?;
 
-        if scanned_urls.get_scan_by_url(&new_url.to_string()).is_some() {
+        if scanned_urls.get_scan_by_url(new_url.as_ref()).is_some() {
             //we've seen the url before and don't need to scan again
             log::trace!("exit: request_link -> None");
             bail!("previously seen url");

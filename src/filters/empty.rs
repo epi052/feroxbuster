@@ -1,7 +1,7 @@
 use super::*;
 
 /// Dummy filter for internal shenanigans
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct EmptyFilter {}
 
 impl FeroxFilter for EmptyFilter {

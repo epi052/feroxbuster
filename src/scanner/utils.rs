@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 /// represents different situations where different criteria can trigger auto-tune/bail behavior
 pub enum PolicyTrigger {
     /// excessive 403 trigger
