@@ -9,7 +9,7 @@ use crate::{url::FeroxUrl, DEFAULT_METHOD};
 ///
 /// `size` is size of the response that should be included with filters passed via runtime
 /// configuration and any static wildcard lengths.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WildcardFilter {
     /// size of the response that will later be combined with the length of the path of the url
     /// requested

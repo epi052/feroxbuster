@@ -2,7 +2,7 @@ use super::*;
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on the number of words
 /// in a Response body; specified using -W|--filter-words
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WordsFilter {
     /// Number of words in a Response's body that should be filtered
     pub word_count: usize,

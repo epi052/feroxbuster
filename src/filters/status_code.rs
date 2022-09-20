@@ -2,7 +2,7 @@ use super::*;
 
 /// Simple implementor of FeroxFilter; used to filter out status codes specified using
 /// -C|--filter-status
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StatusCodeFilter {
     /// Status code that should not be displayed to the user
     pub filter_code: u16,

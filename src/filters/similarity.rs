@@ -3,7 +3,7 @@ use fuzzyhash::FuzzyHash;
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on the similarity of a
 /// Response body with a known response; specified using --filter-similar-to
-#[derive(Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SimilarityFilter {
     /// Hash of Response's body to be used during similarity comparison
     pub hash: String,

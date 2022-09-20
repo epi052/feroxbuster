@@ -81,7 +81,7 @@ pub(super) fn depth() -> usize {
 }
 
 /// enum representing the three possible states for informational output (not logging verbosity)
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum OutputLevel {
     /// normal scan, no --quiet|--silent
     Default,
@@ -116,7 +116,7 @@ pub fn determine_output_level(quiet: bool, silent: bool) -> OutputLevel {
 }
 
 /// represents actions the Requester should take in certain situations
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum RequesterPolicy {
     /// automatically try to lower request rate in order to reduce errors
     AutoTune,

@@ -75,7 +75,7 @@ impl Serialize for FeroxScans {
                 let mut seq = serializer.serialize_seq(Some(scans.len() + 1))?;
 
                 for scan in scans.iter() {
-                    seq.serialize_element(&*scan).unwrap_or_default();
+                    seq.serialize_element(scan).unwrap_or_default();
                 }
                 seq.end()
             }
