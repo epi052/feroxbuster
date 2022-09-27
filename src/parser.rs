@@ -687,7 +687,7 @@ EXAMPLES:
         ./feroxbuster -u http://127.1 --extract-links
 
     Ludicrous speed... go!
-        ./feroxbuster -u http://127.1 -threads 200
+        ./feroxbuster -u http://127.1 --threads 200
         
     Limit to a total of 60 active requests at any given time (threads * scan limit)
         ./feroxbuster -u http://127.1 --threads 30 --scan-limit 2
