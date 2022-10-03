@@ -72,10 +72,6 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand -o 'Output file to write results to (use w/ --json for JSON entries)'
             cand --output 'Output file to write results to (use w/ --json for JSON entries)'
             cand --debug-log 'Output file to write log entries (use w/ --json for JSON entries)'
-            cand -h 'Print help information'
-            cand --help 'Print help information'
-            cand -V 'Print version information'
-            cand --version 'Print version information'
             cand --stdin 'Read url(s) from STDIN'
             cand --burp 'Set --proxy to http://127.0.0.1:8080 and set --insecure to true'
             cand --burp-replay 'Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true'
@@ -111,6 +107,10 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --quiet 'Hide progress bars and banner (good for tmux windows w/ notifications)'
             cand --json 'Emit JSON logs to --output and --debug-log instead of normal text'
             cand --no-state 'Disable state output file (*.state)'
+            cand -h 'Print help information (use `--help` for more detail)'
+            cand --help 'Print help information (use `--help` for more detail)'
+            cand -V 'Print version information'
+            cand --version 'Print version information'
         }
     ]
     $completions[$command]
