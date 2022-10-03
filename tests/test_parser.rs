@@ -42,7 +42,13 @@ fn parser_incorrect_param_with_tack_h() {
         .arg("-h")
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "[CAUTION] 4 -v's is probably too much",
-        ));
+        .stdout(
+            predicate::str::contains("[CAUTION]")
+                .and(predicate::str::contains("4"))
+                .and(predicate::str::contains("-v's"))
+                .and(predicate::str::contains("is"))
+                .and(predicate::str::contains("probably"))
+                .and(predicate::str::contains("too"))
+                .and(predicate::str::contains("much")),
+        );
 }

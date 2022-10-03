@@ -9,7 +9,7 @@ use crate::{
     DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
-use clap::ArgMatches;
+use clap::{parser::ValueSource, ArgMatches};
 use regex::Regex;
 use reqwest::{Client, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
@@ -22,15 +22,10 @@ use std::{
 
 /// macro helper to abstract away repetitive configuration updates
 macro_rules! update_config_if_present {
-    ($conf_val:expr, $matches:ident, $arg_name:expr) => {
-        match $matches.value_of_t($arg_name) {
-            Ok(value) => *$conf_val = value, // Update value
-            Err(err) => {
-                if !matches!(err.kind(), clap::ErrorKind::ArgumentNotFound) {
-                    // Do nothing if argument not found
-                    err.exit() // Exit with error on any other parse error
-                }
-            }
+    ($conf_val:expr, $matches:ident, $arg_name:expr, $arg_type:ty) => {
+        match $matches.get_one::<$arg_type>($arg_name) {
+            Some(value) => *$conf_val = value.to_owned(), // Update value
+            None => {}
         }
     };
 }
@@ -40,6 +35,35 @@ macro_rules! update_if_not_default {
     ($old:expr, $new:expr, $default:expr) => {
         if $new != $default {
             *$old = $new;
+        }
+    };
+}
+
+/// macro helper to abstract away repetitive checks to see if the user has specified a value
+/// for a given argument from the commandline or if we just had a default value in the parser
+macro_rules! came_from_cli {
+    ($matches:ident, $arg_name:expr) => {
+        matches!(
+            $matches.value_source($arg_name),
+            Some(ValueSource::CommandLine)
+        )
+    };
+}
+
+/// macro helper to abstract away repetitive if not default: update checks, specifically for
+/// values that are number types, i.e. usize, u64, etc
+macro_rules! update_config_with_num_type_if_present {
+    ($conf_val:expr, $matches:ident, $arg_name:expr, $arg_type:ty) => {
+        if let Some(val) = $matches.get_one::<String>($arg_name) {
+            match val.parse::<$arg_type>() {
+                Ok(v) => *$conf_val = v,
+                Err(_) => {
+                    report_and_exit(&format!(
+                        "Invalid value for --{}, must be a positive integer",
+                        $arg_name
+                    ));
+                }
+            }
         }
     };
 }
@@ -460,7 +484,7 @@ impl Configuration {
 
         // --resume-from used, need to first read the Configuration from disk, and then
         // merge the cli_config into the resumed config
-        if let Some(filename) = args.value_of("resume_from") {
+        if let Some(filename) = args.get_one::<String>("resume_from") {
             // when resuming a scan, instead of normal configuration loading, we just
             // load the config from disk by calling resume_scan
             let mut previous_config = resume_scan(filename);
@@ -546,18 +570,21 @@ impl Configuration {
     fn parse_cli_args(args: &ArgMatches) -> Self {
         let mut config = Configuration::default();
 
-        update_config_if_present!(&mut config.threads, args, "threads");
-        update_config_if_present!(&mut config.depth, args, "depth");
-        update_config_if_present!(&mut config.scan_limit, args, "scan_limit");
-        update_config_if_present!(&mut config.parallel, args, "parallel");
-        update_config_if_present!(&mut config.rate_limit, args, "rate_limit");
-        update_config_if_present!(&mut config.wordlist, args, "wordlist");
-        update_config_if_present!(&mut config.output, args, "output");
-        update_config_if_present!(&mut config.debug_log, args, "debug_log");
-        update_config_if_present!(&mut config.time_limit, args, "time_limit");
-        update_config_if_present!(&mut config.resume_from, args, "resume_from");
+        update_config_with_num_type_if_present!(&mut config.threads, args, "threads", usize);
+        update_config_with_num_type_if_present!(&mut config.parallel, args, "parallel", usize);
+        update_config_with_num_type_if_present!(&mut config.depth, args, "depth", usize);
+        update_config_with_num_type_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
+        update_config_with_num_type_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
+        update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
+        update_config_if_present!(&mut config.output, args, "output", String);
+        update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
+        update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
 
-        if let Some(arg) = args.values_of("status_codes") {
+        if let Ok(Some(inner)) = args.try_get_one::<String>("time_limit") {
+            config.time_limit = inner.to_owned();
+        }
+
+        if let Some(arg) = args.get_many::<String>("status_codes") {
             config.status_codes = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
@@ -567,7 +594,7 @@ impl Configuration {
                 .collect();
         }
 
-        if let Some(arg) = args.values_of("replay_codes") {
+        if let Some(arg) = args.get_many::<String>("replay_codes") {
             // replay codes passed in by the user
             config.replay_codes = arg
                 .map(|code| {
@@ -581,7 +608,7 @@ impl Configuration {
             config.replay_codes = config.status_codes.clone();
         }
 
-        if let Some(arg) = args.values_of("filter_status") {
+        if let Some(arg) = args.get_many::<String>("filter_status") {
             config.filter_status = arg
                 .map(|code| {
                     StatusCode::from_bytes(code.as_bytes())
@@ -591,17 +618,17 @@ impl Configuration {
                 .collect();
         }
 
-        if let Some(arg) = args.values_of("extensions") {
+        if let Some(arg) = args.get_many::<String>("extensions") {
             config.extensions = arg
                 .map(|val| val.trim_start_matches('.').to_string())
                 .collect();
         }
 
-        if let Some(arg) = args.values_of("dont_collect") {
+        if let Some(arg) = args.get_many::<String>("dont_collect") {
             config.dont_collect = arg.map(|val| val.to_string()).collect();
         }
 
-        if let Some(arg) = args.values_of("methods") {
+        if let Some(arg) = args.get_many::<String>("methods") {
             config.methods = arg
                 .map(|val| {
                     // Check methods if they are correct
@@ -613,7 +640,7 @@ impl Configuration {
                 .collect();
         }
 
-        if let Some(arg) = args.value_of("data") {
+        if let Some(arg) = args.get_one::<String>("data") {
             if let Some(stripped) = arg.strip_prefix('@') {
                 config.data =
                     std::fs::read(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
@@ -622,13 +649,13 @@ impl Configuration {
             }
         }
 
-        if args.is_present("stdin") {
+        if came_from_cli!(args, "stdin") {
             config.stdin = true;
-        } else if let Some(url) = args.value_of("url") {
-            config.target_url = String::from(url);
+        } else if let Some(url) = args.get_one::<String>("url") {
+            config.target_url = url.into();
         }
 
-        if let Some(arg) = args.values_of("url_denylist") {
+        if let Some(arg) = args.get_many::<String>("url_denylist") {
             // compile all regular expressions and absolute urls used for --dont-scan
             //
             // when --dont-scan is used, the should_deny_url function is called at least once per
@@ -672,15 +699,15 @@ impl Configuration {
             }
         }
 
-        if let Some(arg) = args.values_of("filter_regex") {
+        if let Some(arg) = args.get_many::<String>("filter_regex") {
             config.filter_regex = arg.map(|val| val.to_string()).collect();
         }
 
-        if let Some(arg) = args.values_of("filter_similar") {
+        if let Some(arg) = args.get_many::<String>("filter_similar") {
             config.filter_similar = arg.map(|val| val.to_string()).collect();
         }
 
-        if let Some(arg) = args.values_of("filter_size") {
+        if let Some(arg) = args.get_many::<String>("filter_size") {
             config.filter_size = arg
                 .map(|size| {
                     size.parse::<u64>()
@@ -689,7 +716,7 @@ impl Configuration {
                 .collect();
         }
 
-        if let Some(arg) = args.values_of("filter_words") {
+        if let Some(arg) = args.get_many::<String>("filter_words") {
             config.filter_word_count = arg
                 .map(|size| {
                     size.parse::<usize>()
@@ -698,7 +725,7 @@ impl Configuration {
                 .collect();
         }
 
-        if let Some(arg) = args.values_of("filter_lines") {
+        if let Some(arg) = args.get_many::<String>("filter_lines") {
             config.filter_line_count = arg
                 .map(|size| {
                     size.parse::<usize>()
@@ -707,7 +734,7 @@ impl Configuration {
                 .collect();
         }
 
-        if args.is_present("silent") {
+        if came_from_cli!(args, "silent") {
             // the reason this is protected by an if statement:
             // consider a user specifying silent = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
@@ -716,106 +743,111 @@ impl Configuration {
             config.output_level = OutputLevel::Silent;
         }
 
-        if args.is_present("quiet") {
+        if came_from_cli!(args, "quiet") {
             config.quiet = true;
             config.output_level = OutputLevel::Quiet;
         }
 
-        if args.is_present("auto_tune") || args.is_present("smart") || args.is_present("thorough") {
+        if came_from_cli!(args, "auto_tune")
+            || came_from_cli!(args, "smart")
+            || came_from_cli!(args, "thorough")
+        {
             config.auto_tune = true;
             config.requester_policy = RequesterPolicy::AutoTune;
         }
 
-        if args.is_present("auto_bail") {
+        if came_from_cli!(args, "auto_bail") {
             config.auto_bail = true;
             config.requester_policy = RequesterPolicy::AutoBail;
         }
 
-        if args.is_present("no_state") {
+        if came_from_cli!(args, "no_state") {
             config.save_state = false;
         }
 
-        if args.is_present("dont_filter") {
+        if came_from_cli!(args, "dont_filter") {
             config.dont_filter = true;
         }
 
-        if args.is_present("collect_extensions") || args.is_present("thorough") {
+        if came_from_cli!(args, "collect_extensions") || came_from_cli!(args, "thorough") {
             config.collect_extensions = true;
         }
 
-        if args.is_present("collect_backups")
-            || args.is_present("smart")
-            || args.is_present("thorough")
+        if came_from_cli!(args, "collect_backups")
+            || came_from_cli!(args, "smart")
+            || came_from_cli!(args, "thorough")
         {
             config.collect_backups = true;
         }
 
-        if args.is_present("collect_words")
-            || args.is_present("smart")
-            || args.is_present("thorough")
+        if came_from_cli!(args, "collect_words")
+            || came_from_cli!(args, "smart")
+            || came_from_cli!(args, "thorough")
         {
             config.collect_words = true;
         }
 
-        if args.occurrences_of("verbosity") > 0 {
+        if args.get_count("verbosity") > 0 {
             // occurrences_of returns 0 if none are found; this is protected in
             // an if block for the same reason as the quiet option
-            config.verbosity = args.occurrences_of("verbosity") as u8;
+            config.verbosity = args.get_count("verbosity") as u8;
         }
 
-        if args.is_present("no_recursion") {
+        if came_from_cli!(args, "no_recursion") {
             config.no_recursion = true;
         }
 
-        if args.is_present("add_slash") {
+        if came_from_cli!(args, "add_slash") {
             config.add_slash = true;
         }
 
-        if args.is_present("extract_links")
-            || args.is_present("smart")
-            || args.is_present("thorough")
+        if came_from_cli!(args, "extract_links")
+            || came_from_cli!(args, "smart")
+            || came_from_cli!(args, "thorough")
         {
             config.extract_links = true;
         }
 
-        if args.is_present("json") {
+        if came_from_cli!(args, "json") {
             config.json = true;
         }
 
-        if args.is_present("force_recursion") {
+        if came_from_cli!(args, "force_recursion") {
             config.force_recursion = true;
         }
 
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
-        update_config_if_present!(&mut config.proxy, args, "proxy");
-        update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy");
-        update_config_if_present!(&mut config.user_agent, args, "user_agent");
-        update_config_if_present!(&mut config.timeout, args, "timeout");
+        update_config_if_present!(&mut config.proxy, args, "proxy", String);
+        update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
+        update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
+        update_config_with_num_type_if_present!(&mut config.timeout, args, "timeout", u64);
 
-        if args.is_present("burp") {
+        if came_from_cli!(args, "burp") {
             config.proxy = String::from("http://127.0.0.1:8080");
         }
 
-        if args.is_present("burp_replay") {
+        if came_from_cli!(args, "burp_replay") {
             config.replay_proxy = String::from("http://127.0.0.1:8080");
         }
 
-        if args.is_present("random_agent") {
+        if came_from_cli!(args, "random_agent") {
             config.random_agent = true;
         }
 
-        if args.is_present("redirects") {
+        if came_from_cli!(args, "redirects") {
             config.redirects = true;
         }
 
-        if args.is_present("insecure") || args.is_present("burp") || args.is_present("burp_replay")
+        if came_from_cli!(args, "insecure")
+            || came_from_cli!(args, "burp")
+            || came_from_cli!(args, "burp_replay")
         {
             config.insecure = true;
         }
 
-        if let Some(headers) = args.values_of("headers") {
+        if let Some(headers) = args.get_many::<String>("headers") {
             for val in headers {
                 let mut split_val = val.split(':');
 
@@ -829,7 +861,7 @@ impl Configuration {
             }
         }
 
-        if let Some(cookies) = args.values_of("cookies") {
+        if let Some(cookies) = args.get_many::<String>("cookies") {
             config.headers.insert(
                 // we know the header name is always "cookie"
                 "Cookie".to_string(),
@@ -845,7 +877,7 @@ impl Configuration {
             );
         }
 
-        if let Some(queries) = args.values_of("queries") {
+        if let Some(queries) = args.get_many::<String>("queries") {
             for val in queries {
                 // same basic logic used as reading in the headers HashMap above
                 let mut split_val = val.split('=');

@@ -75,10 +75,6 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('-o', 'o', [CompletionResultType]::ParameterName, 'Output file to write results to (use w/ --json for JSON entries)')
             [CompletionResult]::new('--output', 'output', [CompletionResultType]::ParameterName, 'Output file to write results to (use w/ --json for JSON entries)')
             [CompletionResult]::new('--debug-log', 'debug-log', [CompletionResultType]::ParameterName, 'Output file to write log entries (use w/ --json for JSON entries)')
-            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information')
-            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information')
-            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')
-            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version information')
             [CompletionResult]::new('--stdin', 'stdin', [CompletionResultType]::ParameterName, 'Read url(s) from STDIN')
             [CompletionResult]::new('--burp', 'burp', [CompletionResultType]::ParameterName, 'Set --proxy to http://127.0.0.1:8080 and set --insecure to true')
             [CompletionResult]::new('--burp-replay', 'burp-replay', [CompletionResultType]::ParameterName, 'Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true')
@@ -114,6 +110,10 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--quiet', 'quiet', [CompletionResultType]::ParameterName, 'Hide progress bars and banner (good for tmux windows w/ notifications)')
             [CompletionResult]::new('--json', 'json', [CompletionResultType]::ParameterName, 'Emit JSON logs to --output and --debug-log instead of normal text')
             [CompletionResult]::new('--no-state', 'no-state', [CompletionResultType]::ParameterName, 'Disable state output file (*.state)')
+            [CompletionResult]::new('-h', 'h', [CompletionResultType]::ParameterName, 'Print help information (use `--help` for more detail)')
+            [CompletionResult]::new('--help', 'help', [CompletionResultType]::ParameterName, 'Print help information (use `--help` for more detail)')
+            [CompletionResult]::new('-V', 'V', [CompletionResultType]::ParameterName, 'Print version information')
+            [CompletionResult]::new('--version', 'version', [CompletionResultType]::ParameterName, 'Print version information')
             break
         }
     })

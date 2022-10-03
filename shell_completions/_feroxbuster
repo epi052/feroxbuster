@@ -69,10 +69,6 @@ _feroxbuster() {
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--output=[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]:FILE:_files' \
-'-h[Print help information]' \
-'--help[Print help information]' \
-'-V[Print version information]' \
-'--version[Print version information]' \
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http://127.0.0.1:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true]' \
@@ -108,6 +104,10 @@ _feroxbuster() {
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
 '--no-state[Disable state output file (*.state)]' \
+'-h[Print help information (use `--help` for more detail)]' \
+'--help[Print help information (use `--help` for more detail)]' \
+'-V[Print version information]' \
+'--version[Print version information]' \
 && ret=0
 }
 

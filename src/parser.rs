@@ -1,3 +1,4 @@
+use clap::ArgAction;
 use clap::{
     crate_authors, crate_description, crate_name, crate_version, Arg, ArgGroup, Command, ValueHint,
 };
@@ -25,7 +26,7 @@ lazy_static! {
 }
 
 /// Create and return an instance of [clap::App](https://docs.rs/clap/latest/clap/struct.App.html), i.e. the Command Line Interface's configuration
-pub fn initialize() -> Command<'static> {
+pub fn initialize() -> Command {
     let app = Command::new(crate_name!())
         .version(crate_version!())
         .author(crate_authors!())
@@ -50,7 +51,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("stdin")
                 .long("stdin")
                 .help_heading("Target selection")
-                .takes_value(false)
+                .num_args(0)
                 .help("Read url(s) from STDIN")
                 .conflicts_with("url")
         )
@@ -62,7 +63,7 @@ pub fn initialize() -> Command<'static> {
                 .help_heading("Target selection")
                 .help("State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)")
                 .conflicts_with("url")
-                .takes_value(true),
+                .num_args(1),
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -72,6 +73,7 @@ pub fn initialize() -> Command<'static> {
         .arg(
             Arg::new("burp")
                 .long("burp")
+                .num_args(0)
                 .help_heading("Composite settings")
                 .conflicts_with_all(&["proxy", "insecure", "burp_replay"])
                 .help("Set --proxy to http://127.0.0.1:8080 and set --insecure to true"),
@@ -79,6 +81,7 @@ pub fn initialize() -> Command<'static> {
         .arg(
             Arg::new("burp_replay")
                 .long("burp-replay")
+                .num_args(0)
                 .help_heading("Composite settings")
                 .conflicts_with_all(&["replay_proxy", "insecure"])
                 .help("Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true"),
@@ -86,11 +89,13 @@ pub fn initialize() -> Command<'static> {
         .arg(
             Arg::new("smart")
                 .long("smart")
+                .num_args(0)
                 .help_heading("Composite settings")
                 .help("Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true"),
         ).arg(
             Arg::new("thorough")
                 .long("thorough")
+                .num_args(0)
                 .help_heading("Composite settings")
                 .help("Use the same settings as --smart and set --collect-extensions to true"),
         );
@@ -103,7 +108,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("proxy")
                 .short('p')
                 .long("proxy")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("PROXY")
                 .value_hint(ValueHint::Url)
                 .help_heading("Proxy settings")
@@ -115,7 +120,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("replay_proxy")
                 .short('P')
                 .long("replay-proxy")
-                .takes_value(true)
+                .num_args(1)
                 .value_hint(ValueHint::Url)
                 .value_name("REPLAY_PROXY")
                 .help_heading("Proxy settings")
@@ -128,9 +133,8 @@ pub fn initialize() -> Command<'static> {
                 .short('R')
                 .long("replay-codes")
                 .value_name("REPLAY_CODE")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .requires("replay_proxy")
                 .help_heading("Proxy settings")
@@ -148,7 +152,7 @@ pub fn initialize() -> Command<'static> {
                 .short('a')
                 .long("user-agent")
                 .value_name("USER_AGENT")
-                .takes_value(true)
+                .num_args(1)
                 .help_heading("Request settings")
                 .help(&**DEFAULT_USER_AGENT),
         )
@@ -156,7 +160,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("random_agent")
                 .short('A')
                 .long("random-agent")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Request settings")
                 .help("Use a random User-Agent"),
         )
@@ -165,9 +169,8 @@ pub fn initialize() -> Command<'static> {
                 .short('x')
                 .long("extensions")
                 .value_name("FILE_EXTENSION")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
@@ -179,9 +182,8 @@ pub fn initialize() -> Command<'static> {
                 .short('m')
                 .long("methods")
                 .value_name("HTTP_METHODS")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
@@ -192,7 +194,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("data")
                 .long("data")
                 .value_name("DATA")
-                .takes_value(true)
+                .num_args(1)
                 .help_heading("Request settings")
                 .help(
                     "Request's Body; can read data from a file if input starts with an @ (ex: @post.bin)",
@@ -203,10 +205,9 @@ pub fn initialize() -> Command<'static> {
                 .short('H')
                 .long("headers")
                 .value_name("HEADER")
-                .takes_value(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .help_heading("Request settings")
-                .multiple_values(true)
-                .multiple_occurrences(true)
                 .use_value_delimiter(true)
                 .help(
                     "Specify HTTP headers to be used in each request (ex: -H Header:val -H 'stuff: things')",
@@ -217,9 +218,8 @@ pub fn initialize() -> Command<'static> {
                 .short('b')
                 .long("cookies")
                 .value_name("COOKIE")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
@@ -231,9 +231,8 @@ pub fn initialize() -> Command<'static> {
                 .short('Q')
                 .long("query")
                 .value_name("QUERY")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
@@ -245,7 +244,7 @@ pub fn initialize() -> Command<'static> {
                 .short('f')
                 .long("add-slash")
                 .help_heading("Request settings")
-                .takes_value(false)
+                .num_args(0)
                 .help("Append / to each request's URL")
         );
 
@@ -256,9 +255,8 @@ pub fn initialize() -> Command<'static> {
         Arg::new("url_denylist")
             .long("dont-scan")
             .value_name("URL")
-            .takes_value(true)
-            .multiple_values(true)
-            .multiple_occurrences(true)
+            .num_args(1..)
+            .action(ArgAction::Append)
             .use_value_delimiter(true)
             .help_heading("Request filters")
             .help("URL(s) or Regex Pattern(s) to exclude from recursion/scans"),
@@ -273,9 +271,8 @@ pub fn initialize() -> Command<'static> {
                 .short('S')
                 .long("filter-size")
                 .value_name("SIZE")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
@@ -287,9 +284,8 @@ pub fn initialize() -> Command<'static> {
                 .short('X')
                 .long("filter-regex")
                 .value_name("REGEX")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
@@ -301,9 +297,8 @@ pub fn initialize() -> Command<'static> {
                 .short('W')
                 .long("filter-words")
                 .value_name("WORDS")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
@@ -315,9 +310,8 @@ pub fn initialize() -> Command<'static> {
                 .short('N')
                 .long("filter-lines")
                 .value_name("LINES")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
@@ -329,9 +323,8 @@ pub fn initialize() -> Command<'static> {
                 .short('C')
                 .long("filter-status")
                 .value_name("STATUS_CODE")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .conflicts_with("status_codes")
                 .help_heading("Response filters")
@@ -343,9 +336,8 @@ pub fn initialize() -> Command<'static> {
             Arg::new("filter_similar")
                 .long("filter-similar-to")
                 .value_name("UNWANTED_PAGE")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .value_hint(ValueHint::Url)
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
@@ -358,9 +350,8 @@ pub fn initialize() -> Command<'static> {
                 .short('s')
                 .long("status-codes")
                 .value_name("STATUS_CODE")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
@@ -377,7 +368,7 @@ pub fn initialize() -> Command<'static> {
                 .short('T')
                 .long("timeout")
                 .value_name("SECONDS")
-                .takes_value(true)
+                .num_args(1)
                 .help_heading("Client settings")
                 .help("Number of seconds before a client's request times out (default: 7)"),
         )
@@ -385,7 +376,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("redirects")
                 .short('r')
                 .long("redirects")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Client settings")
                 .help("Allow client to follow redirects"),
         )
@@ -393,7 +384,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("insecure")
                 .short('k')
                 .long("insecure")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Client settings")
                 .help("Disables TLS certificate validation in the client"),
         );
@@ -407,7 +398,7 @@ pub fn initialize() -> Command<'static> {
                 .short('t')
                 .long("threads")
                 .value_name("THREADS")
-                .takes_value(true)
+                .num_args(1)
                 .help_heading("Scan settings")
                 .help("Number of concurrent threads (default: 50)"),
         )
@@ -415,7 +406,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("no_recursion")
                 .short('n')
                 .long("no-recursion")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Scan settings")
                 .help("Do not scan recursively"),
         )
@@ -424,12 +415,13 @@ pub fn initialize() -> Command<'static> {
                 .short('d')
                 .long("depth")
                 .value_name("RECURSION_DEPTH")
-                .takes_value(true)
+                .num_args(1)
                 .help_heading("Scan settings")
                 .help("Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)"),
         ).arg(
             Arg::new("force_recursion")
                 .long("force-recursion")
+                .num_args(0)
                 .conflicts_with("no_recursion")
                 .help_heading("Scan settings")
                 .help("Force recursion attempts on all 'found' endpoints (still respects recursion depth)"),
@@ -437,7 +429,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("extract_links")
                 .short('e')
                 .long("extract-links")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Scan settings")
                 .help("Extract links from response body (html, javascript, etc...); make new requests based on findings")
         )
@@ -446,7 +438,7 @@ pub fn initialize() -> Command<'static> {
                 .short('L')
                 .long("scan-limit")
                 .value_name("SCAN_LIMIT")
-                .takes_value(true)
+                .num_args(1)
                 .help_heading("Scan settings")
                 .help("Limit total number of concurrent scans (default: 0, i.e. no limit)")
         )
@@ -454,7 +446,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("parallel")
                 .long("parallel")
                 .value_name("PARALLEL_SCANS")
-                .takes_value(true)
+                .num_args(1)
                 .requires("stdin")
                 .help_heading("Scan settings")
                 .help("Run parallel feroxbuster instances (one child process per url passed via stdin)")
@@ -463,7 +455,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("rate_limit")
                 .long("rate-limit")
                 .value_name("RATE_LIMIT")
-                .takes_value(true)
+                .num_args(1)
                 .conflicts_with("auto_tune")
                 .help_heading("Scan settings")
                 .help("Limit number of requests per second (per directory) (default: 0, i.e. no limit)")
@@ -472,8 +464,8 @@ pub fn initialize() -> Command<'static> {
             Arg::new("time_limit")
                 .long("time-limit")
                 .value_name("TIME_SPEC")
-                .takes_value(true)
-                .validator(valid_time_spec)
+                .num_args(1)
+                .value_parser(valid_time_spec)
                 .help_heading("Scan settings")
                 .help("Limit total run time of all scans (ex: --time-limit 10m)")
         )
@@ -485,11 +477,11 @@ pub fn initialize() -> Command<'static> {
                 .value_name("FILE")
                 .help("Path to the wordlist")
                 .help_heading("Scan settings")
-                .takes_value(true),
+                .num_args(1),
         ).arg(
             Arg::new("auto_tune")
                 .long("auto-tune")
-                .takes_value(false)
+                .num_args(0)
                 .conflicts_with("auto_bail")
                 .help_heading("Scan settings")
                 .help("Automatically lower scan rate when an excessive amount of errors are encountered")
@@ -497,35 +489,35 @@ pub fn initialize() -> Command<'static> {
         .arg(
             Arg::new("auto_bail")
                 .long("auto-bail")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Scan settings")
                 .help("Automatically stop scanning when an excessive amount of errors are encountered")
         ).arg(
             Arg::new("dont_filter")
                 .short('D')
                 .long("dont-filter")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Scan settings")
                 .help("Don't auto-filter wildcard responses")
         ).arg(
             Arg::new("collect_extensions")
                 .short('E')
                 .long("collect-extensions")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Dynamic collection settings")
                 .help("Automatically discover extensions and add them to --extensions (unless they're in --dont-collect)")
         ).arg(
             Arg::new("collect_backups")
                 .short('B')
                 .long("collect-backups")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Dynamic collection settings")
                 .help("Automatically request likely backup extensions for \"found\" urls")
         ).arg(
             Arg::new("collect_words")
                 .short('g')
                 .long("collect-words")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Dynamic collection settings")
                 .help("Automatically discover important words from within responses and add them to the wordlist")
         ).arg(
@@ -533,9 +525,8 @@ pub fn initialize() -> Command<'static> {
                 .short('I')
                 .long("dont-collect")
                 .value_name("FILE_EXTENSION")
-                .takes_value(true)
-                .multiple_values(true)
-                .multiple_occurrences(true)
+                .num_args(1..)
+                .action(ArgAction::Append)
                 .use_value_delimiter(true)
                 .help_heading("Dynamic collection settings")
                 .help(
@@ -551,15 +542,15 @@ pub fn initialize() -> Command<'static> {
             Arg::new("verbosity")
                 .short('v')
                 .long("verbosity")
-                .takes_value(false)
-                .multiple_occurrences(true)
+                .num_args(0)
+                .action(ArgAction::Count)
                 .conflicts_with("silent")
                 .help_heading("Output settings")
                 .help("Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v's is probably too much)"),
         ).arg(
             Arg::new("silent")
                 .long("silent")
-                .takes_value(false)
+                .num_args(0)
                 .conflicts_with("quiet")
                 .help_heading("Output settings")
                 .help("Only print URLs + turn off logging (good for piping a list of urls to other commands)")
@@ -568,7 +559,7 @@ pub fn initialize() -> Command<'static> {
             Arg::new("quiet")
                 .short('q')
                 .long("quiet")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Output settings")
                 .help("Hide progress bars and banner (good for tmux windows w/ notifications)")
         )
@@ -576,7 +567,7 @@ pub fn initialize() -> Command<'static> {
         .arg(
             Arg::new("json")
                 .long("json")
-                .takes_value(false)
+                .num_args(0)
                 .requires("output_files")
                 .help_heading("Output settings")
                 .help("Emit JSON logs to --output and --debug-log instead of normal text")
@@ -588,7 +579,7 @@ pub fn initialize() -> Command<'static> {
                 .value_name("FILE")
                 .help_heading("Output settings")
                 .help("Output file to write results to (use w/ --json for JSON entries)")
-                .takes_value(true),
+                .num_args(1),
         )
         .arg(
             Arg::new("debug_log")
@@ -597,12 +588,12 @@ pub fn initialize() -> Command<'static> {
                 .value_hint(ValueHint::FilePath)
                 .help_heading("Output settings")
                 .help("Output file to write log entries (use w/ --json for JSON entries)")
-                .takes_value(true),
+                .num_args(1),
         )
         .arg(
             Arg::new("no_state")
                 .long("no-state")
-                .takes_value(false)
+                .num_args(0)
                 .help_heading("Output settings")
                 .help("Disable state output file (*.state)")
         );
@@ -641,9 +632,9 @@ pub fn initialize() -> Command<'static> {
 }
 
 /// Validate that a string is formatted as a number followed by s, m, h, or d (10d, 30s, etc...)
-fn valid_time_spec(time_spec: &str) -> Result<(), String> {
+fn valid_time_spec(time_spec: &str) -> Result<String, String> {
     match TIMESPEC_REGEX.is_match(time_spec) {
-        true => Ok(()),
+        true => Ok(time_spec.to_string()),
         false => {
             let msg = format!(
                 "Expected a non-negative, whole number followed by s, m, h, or d (case insensitive); received {}",
