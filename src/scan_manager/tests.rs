@@ -277,7 +277,7 @@ fn ferox_scan_serialize() {
         None,
     );
     let fs_json = format!(
-        r#"{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
+        r#"{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
         fs.id
     );
     assert_eq!(fs_json, serde_json::to_string(&*fs).unwrap());
@@ -296,7 +296,7 @@ fn ferox_scans_serialize() {
     );
     let ferox_scans = FeroxScans::default();
     let ferox_scans_json = format!(
-        r#"[{{"id":"{}","url":"https://spiritanimal.com","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
+        r#"[{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
         ferox_scan.id
     );
     ferox_scans.scans.write().unwrap().push(ferox_scan);
@@ -556,6 +556,7 @@ fn feroxscan_display() {
     let scan = FeroxScan {
         id: "".to_string(),
         url: String::from("http://localhost"),
+        normalized_url: String::from("http://localhost/"),
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
@@ -600,6 +601,7 @@ async fn ferox_scan_abort() {
     let scan = FeroxScan {
         id: "".to_string(),
         url: String::from("http://localhost"),
+        normalized_url: String::from("http://localhost/"),
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,

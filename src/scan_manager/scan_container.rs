@@ -216,7 +216,7 @@ impl FeroxScans {
             let normalized = format!("{}/", url.trim_end_matches('/'));
 
             for scan in scans.iter() {
-                if scan.url == normalized {
+                if scan.normalized_url == normalized {
                     return true;
                 }
             }
@@ -230,7 +230,7 @@ impl FeroxScans {
             let normalized = format!("{}/", url.trim_end_matches('/'));
 
             for scan in guard.iter() {
-                if scan.url == normalized {
+                if scan.normalized_url == normalized {
                     return Some(scan.clone());
                 }
             }

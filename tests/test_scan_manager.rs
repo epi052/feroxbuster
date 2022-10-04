@@ -20,11 +20,13 @@ fn resume_scan_works() {
     // localhost:PORT/ <- complete
     // localhost:PORT/js <- will get scanned with /css and /stuff
     let complete_scan = format!(
-        r#"{{"id":"057016a14769414aac9a7a62707598cb","url":"{}","scan_type":"Directory","status":"Complete"}}"#,
-        srv.url("/")
+        r#"{{"id":"057016a14769414aac9a7a62707598cb","url":"{}","normalized_url":"{}","scan_type":"Directory","status":"Complete"}}"#,
+        srv.url("/"),
+        srv.url("/"),
     );
     let incomplete_scan = format!(
-        r#"{{"id":"400b2323a16f43468a04ffcbbeba34c6","url":"{}","scan_type":"Directory","status":"NotStarted"}}"#,
+        r#"{{"id":"400b2323a16f43468a04ffcbbeba34c6","url":"{}","normalized_url":"{}/","scan_type":"Directory","status":"NotStarted"}}"#,
+        srv.url("/js"),
         srv.url("/js")
     );
     let scans = format!(r#""scans":[{},{}]"#, complete_scan, incomplete_scan);
