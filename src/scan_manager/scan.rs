@@ -32,6 +32,9 @@ pub struct FeroxScan {
     /// The URL that to be scanned
     pub(super) url: String,
 
+    /// A url used solely for comparison to other URLs
+    pub(super) normalized_url: String,
+
     /// The type of scan
     pub scan_type: ScanType,
 
@@ -79,6 +82,7 @@ impl Default for FeroxScan {
             num_requests: 0,
             scan_order: ScanOrder::Latest,
             url: String::new(),
+            normalized_url: String::new(),
             progress_bar: Mutex::new(None),
             scan_type: ScanType::File,
             output_level: Default::default(),
@@ -191,6 +195,7 @@ impl FeroxScan {
     ) -> Arc<Self> {
         Arc::new(Self {
             url: url.to_string(),
+            normalized_url: format!("{}/", url.trim_end_matches('/')),
             scan_type,
             scan_order,
             num_requests,
@@ -332,10 +337,11 @@ impl Serialize for FeroxScan {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("FeroxScan", 4)?;
+        let mut state = serializer.serialize_struct("FeroxScan", 6)?;
 
         state.serialize_field("id", &self.id)?;
         state.serialize_field("url", &self.url)?;
+        state.serialize_field("normalized_url", &self.normalized_url)?;
         state.serialize_field("scan_type", &self.scan_type)?;
         state.serialize_field("status", &self.status)?;
         state.serialize_field("num_requests", &self.num_requests)?;
@@ -385,6 +391,11 @@ impl<'de> Deserialize<'de> for FeroxScan {
                 "url" => {
                     if let Some(url) = value.as_str() {
                         scan.url = url.to_string();
+                    }
+                }
+                "normalized_url" => {
+                    if let Some(normalized_url) = value.as_str() {
+                        scan.normalized_url = normalized_url.to_string();
                     }
                 }
                 "num_requests" => {
@@ -480,6 +491,7 @@ mod tests {
         let scan = FeroxScan {
             id: "".to_string(),
             url: "".to_string(),
+            normalized_url: String::from("/"),
             scan_type: ScanType::Directory,
             scan_order: ScanOrder::Initial,
             num_requests: 0,

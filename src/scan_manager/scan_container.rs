@@ -213,8 +213,10 @@ impl FeroxScans {
     /// on the given URL
     pub fn contains(&self, url: &str) -> bool {
         if let Ok(scans) = self.scans.read() {
+            let normalized = format!("{}/", url.trim_end_matches('/'));
+
             for scan in scans.iter() {
-                if scan.url == url {
+                if scan.normalized_url == normalized {
                     return true;
                 }
             }
@@ -225,8 +227,10 @@ impl FeroxScans {
     /// Find and return a `FeroxScan` based on the given URL
     pub fn get_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
         if let Ok(guard) = self.scans.read() {
+            let normalized = format!("{}/", url.trim_end_matches('/'));
+
             for scan in guard.iter() {
-                if scan.url == url {
+                if scan.normalized_url == normalized {
                     return Some(scan.clone());
                 }
             }
@@ -589,7 +593,8 @@ impl FeroxScans {
     ///
     /// Also return a reference to the new `FeroxScan`
     pub fn add_directory_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
-        self.add_scan(url, ScanType::Directory, scan_order)
+        let normalized = format!("{}/", url.trim_end_matches('/'));
+        self.add_scan(&normalized, ScanType::Directory, scan_order)
     }
 
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
