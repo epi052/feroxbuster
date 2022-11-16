@@ -9,7 +9,7 @@ pub fn setup_tmp_directory(
     filename: &str,
 ) -> Result<(TempDir, PathBuf), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
-    let file = tmp_dir.path().join(&filename);
+    let file = tmp_dir.path().join(filename);
     write(&file, words.join("\n"))?;
     Ok((tmp_dir, file))
 }
