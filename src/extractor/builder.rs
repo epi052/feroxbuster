@@ -13,6 +13,11 @@ pub(super) const LINKFINDER_REGEX: &str = r#"(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^
 pub(super) const ROBOTS_TXT_REGEX: &str =
     r#"(?m)^ *(Allow|Disallow): *(?P<url_path>[a-zA-Z0-9._/?#@!&'()+,;%=-]+?)$"#; // multi-line (?m)
 
+/// Regular expression to filter bad characters from extracted url paths
+///
+/// ref: https://www.rfc-editor.org/rfc/rfc3986#section-2
+pub(super) const URL_CHARS_REGEX: &str = r#"["<>\\^`{|} ]"#;
+
 /// Which type of extraction should be performed
 #[derive(Debug, Copy, Clone)]
 pub enum ExtractionTarget {
@@ -90,6 +95,7 @@ impl<'a> ExtractorBuilder<'a> {
         Ok(Extractor {
             links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
             robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
+            url_regex: Regex::new(URL_CHARS_REGEX).unwrap(),
             response: if self.response.is_some() {
                 Some(self.response.unwrap())
             } else {
