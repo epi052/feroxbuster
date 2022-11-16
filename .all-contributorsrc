@@ -449,6 +449,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "udoprog",
+      "name": "John-John Tedro",
+      "avatar_url": "https://avatars.githubusercontent.com/u/111092?v=4",
+      "profile": "http://udoprog.github.io/",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
@@ -456,5 +465,6 @@
   "projectOwner": "epi052",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "skipCi": true
+  "skipCi": true,
+  "commitConvention": "angular"
 }
