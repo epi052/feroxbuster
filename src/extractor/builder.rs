@@ -16,7 +16,6 @@ pub(super) const ROBOTS_TXT_REGEX: &str =
 /// Regular expression to filter bad characters from extracted url paths
 ///
 /// ref: https://www.rfc-editor.org/rfc/rfc3986#section-2
-// pub(super) const URL_CHARS_REGEX: &str = r#""<>\\^`\{|\} \t\r\n\x0b\x0c"#;
 pub(super) const URL_CHARS_REGEX: &str = r#"["<>\\^`{|} ]"#;
 
 /// Which type of extraction should be performed
