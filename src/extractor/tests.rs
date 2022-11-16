@@ -1,4 +1,4 @@
-use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX};
+use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX, URL_CHARS_REGEX};
 use super::*;
 use crate::config::{Configuration, OutputLevel};
 use crate::scan_manager::ScanOrder;
@@ -273,6 +273,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let extractor = Extractor {
         links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
         robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
+        url_regex: Regex::new(URL_CHARS_REGEX).unwrap(),
         response: Some(&ferox_response),
         url: String::new(),
         target: ExtractionTarget::ResponseBody,
@@ -301,6 +302,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
     let extractor = Extractor {
         links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
         robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
+        url_regex: Regex::new(URL_CHARS_REGEX).unwrap(),
         response: None,
         url: srv.url("/api/users/stuff/things"),
         target: ExtractionTarget::RobotsTxt,
