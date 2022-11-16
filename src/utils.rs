@@ -526,7 +526,7 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
         String::new()
     };
 
-    let slug = url.replace("://", "_").replace('/', "_").replace('.', "_");
+    let slug = url.replace("://", "_").replace(['/', '.'], "_");
 
     let filename = format!("{}{}-{}.{}", altered_prefix, slug, ts, suffix);
 

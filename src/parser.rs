@@ -40,7 +40,7 @@ pub fn initialize() -> Command {
             Arg::new("url")
                 .short('u')
                 .long("url")
-                .required_unless_present_any(&["stdin", "resume_from"])
+                .required_unless_present_any(["stdin", "resume_from"])
                 .help_heading("Target selection")
                 .value_name("URL")
                 .use_value_delimiter(true)
@@ -75,7 +75,7 @@ pub fn initialize() -> Command {
                 .long("burp")
                 .num_args(0)
                 .help_heading("Composite settings")
-                .conflicts_with_all(&["proxy", "insecure", "burp_replay"])
+                .conflicts_with_all(["proxy", "insecure", "burp_replay"])
                 .help("Set --proxy to http://127.0.0.1:8080 and set --insecure to true"),
         )
         .arg(
@@ -83,7 +83,7 @@ pub fn initialize() -> Command {
                 .long("burp-replay")
                 .num_args(0)
                 .help_heading("Composite settings")
-                .conflicts_with_all(&["replay_proxy", "insecure"])
+                .conflicts_with_all(["replay_proxy", "insecure"])
                 .help("Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true"),
         )
         .arg(
@@ -604,7 +604,7 @@ pub fn initialize() -> Command {
     let mut app = app
         .group(
             ArgGroup::new("output_files")
-                .args(&["debug_log", "output"])
+                .args(["debug_log", "output"])
                 .multiple(true),
         )
         .after_long_help(EPILOGUE);

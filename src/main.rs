@@ -48,7 +48,7 @@ lazy_static! {
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
 
-    let file = File::open(&path).with_context(|| format!("Could not open {}", path))?;
+    let file = File::open(path).with_context(|| format!("Could not open {}", path))?;
 
     let reader = BufReader::new(file);
 

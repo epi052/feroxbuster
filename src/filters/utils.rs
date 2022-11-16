@@ -41,7 +41,7 @@ pub(crate) async fn create_similarity_filter(
     }
 
     // hash the response body and store the resulting hash in the filter object
-    let hash = FuzzyHash::new(&fr.text()).to_string();
+    let hash = FuzzyHash::new(fr.text()).to_string();
 
     Ok(SimilarityFilter {
         hash,

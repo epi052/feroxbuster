@@ -208,7 +208,7 @@ impl Requester {
             } else {
                 // errors can only be incremented, so an else is sufficient
                 *guard += 1;
-                self.policy_data.adjust_up(&*guard);
+                self.policy_data.adjust_up(&guard);
             }
         }
 
