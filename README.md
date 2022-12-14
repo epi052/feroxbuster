@@ -245,6 +245,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center"><a href="https://github.com/herrcykel"><img src="https://avatars.githubusercontent.com/u/1936757?v=4?s=100" width="100px;" alt="O"/><br /><sub><b>O</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=herrcykel" title="Code">💻</a></td>
       <td align="center"><a href="http://udoprog.github.io/"><img src="https://avatars.githubusercontent.com/u/111092?v=4?s=100" width="100px;" alt="John-John Tedro"/><br /><sub><b>John-John Tedro</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=udoprog" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center"><a href="https://github.com/kmanc"><img src="https://avatars.githubusercontent.com/u/14863147?v=4?s=100" width="100px;" alt="kmanc"/><br /><sub><b>kmanc</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Akmanc" title="Bug reports">🐛</a> <a href="https://github.com/epi052/feroxbuster/commits?author=kmanc" title="Code">💻</a></td>
+    </tr>
   </tbody>
 </table>
 
