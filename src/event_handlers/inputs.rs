@@ -101,10 +101,13 @@ impl TermInputHandler {
             handles.filters.data.clone(),
         );
 
-        let state_file = open_file(&filename);
+        // User didn't set the --no-state flag (so saved_state is still the default true)
+        if handles.config.save_state {
+            let state_file = open_file(&filename);
 
-        let mut buffered_file = state_file?;
-        write_to(&state, &mut buffered_file, true)?;
+            let mut buffered_file = state_file?;
+            write_to(&state, &mut buffered_file, true)?;
+        }
 
         log::trace!("exit: sigint_handler (end of program)");
         std::process::exit(1);
