@@ -790,7 +790,7 @@ impl Configuration {
         if args.get_count("verbosity") > 0 {
             // occurrences_of returns 0 if none are found; this is protected in
             // an if block for the same reason as the quiet option
-            config.verbosity = args.get_count("verbosity") as u8;
+            config.verbosity = args.get_count("verbosity");
         }
 
         if came_from_cli!(args, "no_recursion") {

@@ -22,7 +22,7 @@ impl FeroxFilter for SimilarityFilter {
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
         let other = FuzzyHash::new(response.text());
 
-        if let Ok(result) = FuzzyHash::compare(&self.hash, &other.to_string()) {
+        if let Ok(result) = FuzzyHash::compare(&self.hash, other.to_string()) {
             return result >= self.threshold;
         }
 

@@ -328,7 +328,7 @@ impl FeroxScanner {
             log::info!(
                 "requesting {} collected words: {:?}...",
                 new_words_len,
-                &new_words[..new_words_len.min(3) as usize]
+                &new_words[..new_words_len.min(3)]
             );
 
             self.stream_requests(

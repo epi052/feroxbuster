@@ -328,7 +328,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
             let new_folder = slugify_filename(&base_name.to_string_lossy(), "", "logs");
 
-            let final_path = output_path.with_file_name(&new_folder);
+            let final_path = output_path.with_file_name(new_folder);
 
             // create the directory or fail silently, assuming the reason for failure is that
             // the path exists already

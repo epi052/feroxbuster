@@ -53,17 +53,17 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 
     let js_mock = srv.mock(|when, then| {
         when.method(GET).path("/js");
-        then.status(301).header("Location", &srv.url("/js/"));
+        then.status(301).header("Location", srv.url("/js/"));
     });
 
     let js_prod_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/prod");
-        then.status(301).header("Location", &srv.url("/js/prod/"));
+        then.status(301).header("Location", srv.url("/js/prod/"));
     });
 
     let js_dev_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/dev");
-        then.status(301).header("Location", &srv.url("/js/dev/"));
+        then.status(301).header("Location", srv.url("/js/dev/"));
     });
 
     let js_dev_file_mock = srv.mock(|when, then| {
@@ -116,17 +116,17 @@ fn scanner_recursive_request_scan_using_only_success_responses(
 
     let js_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/");
-        then.status(200).header("Location", &srv.url("/js/"));
+        then.status(200).header("Location", srv.url("/js/"));
     });
 
     let js_prod_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/prod/");
-        then.status(200).header("Location", &srv.url("/js/prod/"));
+        then.status(200).header("Location", srv.url("/js/prod/"));
     });
 
     let js_dev_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/dev/");
-        then.status(200).header("Location", &srv.url("/js/dev/"));
+        then.status(200).header("Location", srv.url("/js/dev/"));
     });
 
     let js_dev_file_mock = srv.mock(|when, then| {
@@ -864,7 +864,7 @@ fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dy
         when.method(GET).path("/LICENSE");
         then.status(301)
             .body("this is a test")
-            .header("Location", &srv.url("/LICENSE"));
+            .header("Location", srv.url("/LICENSE"));
     });
 
     let mock2 = srv.mock(|when, then| {

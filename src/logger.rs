@@ -65,7 +65,7 @@ pub fn initialize(config: Arc<Configuration>) -> Result<()> {
                 kind: "log".to_string(),
             };
 
-            PROGRESS_PRINTER.println(&log_entry.as_str());
+            PROGRESS_PRINTER.println(log_entry.as_str());
 
             if let Some(buffered_file) = file.clone() {
                 if let Ok(mut unlocked) = buffered_file.write() {
