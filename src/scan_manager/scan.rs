@@ -233,6 +233,14 @@ impl FeroxScan {
         false
     }
 
+    /// small wrapper to inspect ScanStatus and see if it's Cancelled
+    pub fn is_cancelled(&self) -> bool {
+        if let Ok(guard) = self.status.lock() {
+            return matches!(*guard, ScanStatus::Cancelled);
+        }
+        false
+    }
+
     /// await a task's completion, similar to a thread's join; perform necessary bookkeeping
     pub async fn join(&self) {
         log::trace!("enter join({:?})", self);
