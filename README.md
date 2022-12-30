@@ -248,6 +248,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center"><a href="https://github.com/kmanc"><img src="https://avatars.githubusercontent.com/u/14863147?v=4?s=100" width="100px;" alt="kmanc"/><br /><sub><b>kmanc</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Akmanc" title="Bug reports">🐛</a> <a href="https://github.com/epi052/feroxbuster/commits?author=kmanc" title="Code">💻</a></td>
       <td align="center"><a href="https://github.com/hakdogpinas"><img src="https://avatars.githubusercontent.com/u/71529469?v=4?s=100" width="100px;" alt="hakdogpinas"/><br /><sub><b>hakdogpinas</b></sub></a><br /><a href="#ideas-hakdogpinas" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center"><a href="https://github.com/duokebei"><img src="https://avatars.githubusercontent.com/u/75022552?v=4?s=100" width="100px;" alt="多可悲"/><br /><sub><b>多可悲</b></sub></a><br /><a href="#ideas-duokebei" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
   </tbody>
 </table>
