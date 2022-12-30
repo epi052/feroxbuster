@@ -44,9 +44,10 @@ lazy_static! {
     static ref PARALLEL_LIMITER: Semaphore = Semaphore::new(0);
 }
 
-/// Create a HashSet of Strings from the given wordlist then stores it inside an Arc
+/// Create a Vec of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
+    let mut trimmed_word = false;
 
     let file = File::open(path).with_context(|| format!("Could not open {}", path))?;
 
@@ -61,10 +62,19 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
     for line in reader.lines() {
         line.map(|result| {
             if !result.starts_with('#') && !result.is_empty() {
-                words.push(result);
+                if result.starts_with('/') {
+                    words.push(result.trim_start_matches('/').to_string());
+                    trimmed_word = true;
+                } else {
+                    words.push(result);
+                }
             }
         })
         .ok();
+    }
+
+    if trimmed_word {
+        log::warn!("Some words in the wordlist started with a leading forward-slash; those words were trimmed (i.e. /word -> word)");
     }
 
     log::trace!(
@@ -328,7 +338,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
             let new_folder = slugify_filename(&base_name.to_string_lossy(), "", "logs");
 
-            let final_path = output_path.with_file_name(&new_folder);
+            let final_path = output_path.with_file_name(new_folder);
 
             // create the directory or fail silently, assuming the reason for failure is that
             // the path exists already

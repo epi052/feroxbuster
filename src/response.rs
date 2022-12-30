@@ -415,7 +415,18 @@ impl FeroxSerialize for FeroxResponse {
                     .get("Location")
                     .unwrap() // known Some() already
                     .to_str()
-                    .unwrap_or("Unknown");
+                    .unwrap_or("Unknown")
+                    .to_string();
+
+                let loc = if loc.starts_with('/') {
+                    if let Ok(joined) = self.url().join(&loc) {
+                        joined.to_string()
+                    } else {
+                        loc
+                    }
+                } else {
+                    loc
+                };
 
                 // prettify the redirect target
                 let loc = style(loc).yellow();

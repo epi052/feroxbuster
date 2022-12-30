@@ -16,7 +16,7 @@ fn extractor_finds_absolute_url() -> Result<(), Box<dyn std::error::Error>> {
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200)
-            .body(&srv.url("'/homepage/assets/img/icons/handshake.svg'"));
+            .body(srv.url("'/homepage/assets/img/icons/handshake.svg'"));
     });
 
     let mock_two = srv.mock(|when, then| {
@@ -136,13 +136,13 @@ fn extractor_finds_same_relative_url_twice() {
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200)
-            .body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
+            .body(srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
     });
 
     let mock_two = srv.mock(|when, then| {
         when.method(GET).path("/README");
         then.status(200)
-            .body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
+            .body(srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
     });
 
     let mock_three = srv.mock(|when, then| {
@@ -185,7 +185,7 @@ fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> 
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200)
-            .body(&srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
+            .body(srv.url("\"/homepage/assets/img/icons/handshake.svg\""));
     });
 
     let mock_two = srv.mock(|when, then| {
@@ -413,7 +413,7 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
 
     let mock_dir_redir = srv.mock(|when, then| {
         when.method(GET).path("/misc");
-        then.status(301).header("Location", &srv.url("/misc/"));
+        then.status(301).header("Location", srv.url("/misc/"));
     });
     let mock_dir = srv.mock(|when, then| {
         when.method(GET).path("/misc/");
@@ -522,7 +522,7 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
 
     let mock_dir_redir = srv.mock(|when, then| {
         when.method(GET).path("/misc");
-        then.status(301).header("Location", &srv.url("/misc/"));
+        then.status(301).header("Location", srv.url("/misc/"));
     });
     let mock_dir = srv.mock(|when, then| {
         when.method(GET).path("/misc/");
@@ -600,7 +600,7 @@ fn extractor_recurses_into_403_directories() -> Result<(), Box<dyn std::error::E
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200)
-            .body(&srv.url("'/homepage/assets/img/icons/handshake.svg'"));
+            .body(srv.url("'/homepage/assets/img/icons/handshake.svg'"));
     });
 
     let mock_two = srv.mock(|when, then| {

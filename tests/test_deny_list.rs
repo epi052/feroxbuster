@@ -45,7 +45,7 @@ fn deny_list_works_during_extraction() {
     let mock = srv.mock(|when, then| {
         when.method(GET).path("/LICENSE");
         then.status(200)
-            .body(&srv.url("'/homepage/assets/img/icons/handshake.svg'"));
+            .body(srv.url("'/homepage/assets/img/icons/handshake.svg'"));
     });
 
     let mock_two = srv.mock(|when, then| {
@@ -90,17 +90,17 @@ fn deny_list_works_during_recursion() {
 
     let js_mock = srv.mock(|when, then| {
         when.method(GET).path("/js");
-        then.status(301).header("Location", &srv.url("/js/"));
+        then.status(301).header("Location", srv.url("/js/"));
     });
 
     let js_prod_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/prod");
-        then.status(301).header("Location", &srv.url("/js/prod/"));
+        then.status(301).header("Location", srv.url("/js/prod/"));
     });
 
     let js_dev_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/dev");
-        then.status(301).header("Location", &srv.url("/js/dev/"));
+        then.status(301).header("Location", srv.url("/js/dev/"));
     });
 
     let js_dev_file_mock = srv.mock(|when, then| {
@@ -155,7 +155,7 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
 
     let js_mock = srv.mock(|when, then| {
         when.method(GET).path("/js");
-        then.status(301).header("Location", &srv.url("/js/"));
+        then.status(301).header("Location", srv.url("/js/"));
     });
 
     let api_mock = srv.mock(|when, then| {
@@ -165,12 +165,12 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
 
     let js_prod_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/prod");
-        then.status(301).header("Location", &srv.url("/js/prod/"));
+        then.status(301).header("Location", srv.url("/js/prod/"));
     });
 
     let js_dev_mock = srv.mock(|when, then| {
         when.method(GET).path("/js/dev");
-        then.status(301).header("Location", &srv.url("/js/dev/"));
+        then.status(301).header("Location", srv.url("/js/dev/"));
     });
 
     let js_dev_file_mock = srv.mock(|when, then| {
