@@ -31,7 +31,7 @@ dirs = "4.0.0"
 [dependencies]
 scraper = "0.14.0"
 futures = "0.3.21"
-tokio = { version = "1.18.2", features = ["full"] }
+tokio = { version = "1.23.1", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["codec"] }
 log = "0.4.17"
 env_logger = "0.10.0"
