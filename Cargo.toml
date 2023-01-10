@@ -60,7 +60,7 @@ leaky-bucket = "0.12.1"
 [dev-dependencies]
 tempfile = "3.3.0"
 httpmock = "0.6.6"
-assert_cmd = "2.0.4"
+assert_cmd = "2.0.8"
 predicates = "2.1.1"
 
 [profile.release]
