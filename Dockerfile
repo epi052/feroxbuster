@@ -2,8 +2,7 @@
 FROM alpine@sha256:69704ef328d05a9f806b6b8502915e6a0a4faa4d72018dc42343f511490daf8a as build
 LABEL maintainer="wfnintr@null.net"
 
-RUN sed -i -e 's/v[[:digit:]]\..*\//edge\//g' /etc/apk/repositories \
-    && apk upgrade --update-cache --available && apk add --update openssl
+RUN apk upgrade --update-cache --available && apk add --update openssl
 
 
 # Download latest release
