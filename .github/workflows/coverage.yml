@@ -7,18 +7,18 @@ jobs:
     name: LLVM Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install llvm-tools-preview
-        run: rustup toolchain install stable --component llvm-tools-preview
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
-      - name: Generate code coverage
-        run: cargo llvm-cov  nextest  --all-features --no-fail-fast --lcov --output-path lcov.info -- --retries 10
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov and cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov nextest --all-features --no-fail-fast --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
           files: lcov.info
           fail_ci_if_error: true
