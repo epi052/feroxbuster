@@ -486,6 +486,16 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "aidanhall34",
+      "name": "Aidan Hall",
+      "avatar_url": "https://avatars.githubusercontent.com/u/58670593?v=4",
+      "profile": "https://blog.ah34.net/",
+      "contributions": [
+        "code",
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
