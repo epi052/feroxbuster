@@ -294,10 +294,10 @@
       ]
     },
     {
-      "login": "narkopolo",
-      "name": "narkopolo",
+      "login": "n0kovo",
+      "name": "n0kovo",
       "avatar_url": "https://avatars.githubusercontent.com/u/16690056?v=4",
-      "profile": "https://github.com/narkopolo",
+      "profile": "https://github.com/n0kovo",
       "contributions": [
         "ideas"
       ]
@@ -467,6 +467,34 @@
       "contributions": [
         "bug",
         "code"
+      ]
+    },
+    {
+      "login": "hakdogpinas",
+      "name": "hakdogpinas",
+      "avatar_url": "https://avatars.githubusercontent.com/u/71529469?v=4",
+      "profile": "https://github.com/hakdogpinas",
+      "contributions": [
+        "ideas"
+      ]
+    },
+    {
+      "login": "duokebei",
+      "name": "多可悲",
+      "avatar_url": "https://avatars.githubusercontent.com/u/75022552?v=4",
+      "profile": "https://github.com/duokebei",
+      "contributions": [
+        "ideas"
+      ]
+    },
+    {
+      "login": "aidanhall34",
+      "name": "Aidan Hall",
+      "avatar_url": "https://avatars.githubusercontent.com/u/58670593?v=4",
+      "profile": "https://blog.ah34.net/",
+      "contributions": [
+        "code",
+        "infra"
       ]
     }
   ],

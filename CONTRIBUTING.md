@@ -76,35 +76,35 @@ Now that you have a copy of your fork, there is work you will need to do to keep
 
 Do this prior to every time you create a branch for a PR:
 
-1. Make sure you are on the `master` branch
+1. Make sure you are on the `main` branch
 
   > ```sh
   > $ git status
-  > On branch master
-  > Your branch is up-to-date with 'origin/master'.
+  > On branch main
+  > Your branch is up-to-date with 'origin/main'.
   > ```
 
-  > If your aren't on `master`, resolve outstanding files and commits and checkout the `master` branch
+  > If your aren't on `main`, resolve outstanding files and commits and checkout the `main` branch
 
   > ```sh
-  > $ git checkout master
+  > $ git checkout main
   > ```
 
 2. Do a pull with rebase against `upstream`
 
   > ```sh
-  > $ git pull --rebase upstream master
+  > $ git pull --rebase upstream main
   > ```
 
-  > This will pull down all of the changes to the official master branch, without making an additional commit in your local repo.
+  > This will pull down all of the changes to the official main branch, without making an additional commit in your local repo.
 
-3. (_Optional_) Force push your updated master branch to your GitHub fork
+3. (_Optional_) Force push your updated main branch to your GitHub fork
 
   > ```sh
-  > $ git push origin master --force
+  > $ git push origin main --force
   > ```
 
-  > This will overwrite the master branch of your fork.
+  > This will overwrite the main branch of your fork.
 
 ### Creating a branch
 
@@ -214,20 +214,20 @@ GitHub has a good guide on how to contribute to open source [here](https://opens
 
 ##### Editing via your local fork
 
-1.  Perform the maintenance step of rebasing `master`
-2.  Ensure you're on the `master` branch using `git status`:
+1.  Perform the maintenance step of rebasing `main`
+2.  Ensure you're on the `main` branch using `git status`:
 
 ```sh
 $ git status
-On branch master
-Your branch is up-to-date with 'origin/master'.
+On branch main
+Your branch is up-to-date with 'origin/main'.
 
 nothing to commit, working directory clean
 ```
 
-1.  If you're not on master or your working directory is not clean, resolve
-    any outstanding files/commits and checkout master `git checkout master`
-2.  Create a branch off of `master` with git: `git checkout -B
+1.  If you're not on main or your working directory is not clean, resolve
+    any outstanding files/commits and checkout main `git checkout main`
+2.  Create a branch off of `main` with git: `git checkout -B
     branch/name-here`
 3.  Edit your file(s) locally with the editor of your choice
 4.  Check your `git status` to see unstaged files
@@ -239,8 +239,8 @@ nothing to commit, working directory clean
 8.  Push your commits to your GitHub Fork: `git push -u origin branch/name-here`
 9.  Once the edits have been committed, you will be prompted to create a pull
     request on your fork's GitHub page
-10.  By default, all pull requests should be against the `master` branch
-11.  Submit a pull request from your branch to feroxbuster's `master` branch
+10.  By default, all pull requests should be against the `main` branch
+11.  Submit a pull request from your branch to feroxbuster's `main` branch
 12.  The title (also called the subject) of your PR should be descriptive of your
     changes and succinctly indicate what is being fixed
     -   Examples: `Add test cases for Unicode support`; `Correct typo in overview documentation`
