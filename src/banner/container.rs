@@ -307,7 +307,7 @@ impl Banner {
             BannerEntry::new("🤘", "Force Recursion", &config.force_recursion.to_string());
         let replay_proxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
         let auto_tune = BannerEntry::new("🎶", "Auto Tune", &config.auto_tune.to_string());
-        let auto_bail = BannerEntry::new("🪣", "Auto Bail", &config.auto_bail.to_string());
+        let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
