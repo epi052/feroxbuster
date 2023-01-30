@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
+use console::style;
 use lazy_static::lazy_static;
 use leaky_bucket::RateLimiter;
 use tokio::{
@@ -118,6 +119,7 @@ impl Requester {
         atomic_store!(self.policy_data.cooling_down, true, Ordering::SeqCst);
 
         sleep(Duration::from_millis(self.policy_data.wait_time)).await;
+        self.ferox_scan.progress_bar().set_message("");
 
         atomic_store!(self.policy_data.cooling_down, false, Ordering::SeqCst);
     }
@@ -203,18 +205,31 @@ impl Requester {
                 *guard = 0; // reset streak counter to 0
                 if atomic_load!(self.policy_data.errors) != 0 {
                     self.policy_data.adjust_down();
+                    let styled_direction = style("reduced").red();
+                    self.ferox_scan
+                        .progress_bar()
+                        .set_message(&format!("=> 🚦 {styled_direction} scan speed",));
                 }
                 self.policy_data.set_errors(scan_errors);
             } else {
                 // errors can only be incremented, so an else is sufficient
                 *guard += 1;
+
                 self.policy_data.adjust_up(&guard);
+
+                let styled_direction = style("increased").green();
+                self.ferox_scan
+                    .progress_bar()
+                    .set_message(&format!("=> 🚦 {styled_direction} scan speed",));
             }
         }
 
         if atomic_load!(self.policy_data.remove_limit) {
             self.set_rate_limiter(None).await?;
             atomic_store!(self.policy_data.remove_limit, false);
+            self.ferox_scan
+                .progress_bar()
+                .set_message(&format!("=> 🚦 removed rate limiter 🚀"));
         } else if create_limiter {
             // create_limiter is really just used for unit testing situations, it's true anytime
             // during actual execution
@@ -255,6 +270,9 @@ impl Requester {
 
             let new_limit = self.policy_data.get_limit();
             self.set_rate_limiter(Some(new_limit)).await?;
+            self.ferox_scan
+                .progress_bar()
+                .set_message(&format!("=> 🚦 set rate limit ({new_limit}/s)"));
         }
 
         self.adjust_limit(trigger, true).await?;
@@ -290,6 +308,14 @@ impl Requester {
             // figure out how many requests are skipped as a result
             let pb = self.ferox_scan.progress_bar();
             let num_skipped = pb.length().saturating_sub(pb.position()) as usize;
+
+            let styled_trigger = style(format!("{:?}", trigger)).red();
+
+            pb.set_message(&format!(
+                "=> 💀 too many {} ({}) 💀 bailing",
+                styled_trigger,
+                self.ferox_scan.num_errors(trigger),
+            ));
 
             // update the overall scan bar by subtracting the number of skipped requests from
             // the total
