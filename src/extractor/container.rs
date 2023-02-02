@@ -397,7 +397,7 @@ impl<'a> Extractor<'a> {
             .join(link)
             .with_context(|| format!("Could not join {} with {}", old_url, link))?;
 
-        if old_url.domain() != new_url.domain() || old_url.host() != old_url.host() {
+        if old_url.domain() != new_url.domain() || old_url.host() != new_url.host() {
             // domains/ips are not the same, don't scan things that aren't part of the original
             // target url
             log::debug!(
