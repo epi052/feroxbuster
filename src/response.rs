@@ -223,6 +223,18 @@ impl FeroxResponse {
             .with_context(|| "Could not parse body from response")
             .unwrap_or_default();
 
+        // in the event that the content_length was 0, we can try to get the length
+        // of the body we just parsed. At worst, it's still 0; at best we've accounted
+        // for sites that reply without a content-length header and yet still have
+        // contents in the body. 
+        //
+        // thanks to twitter use @f3rn0s for pointing out the possibility
+        let content_length = if content_length == 0 {
+            text.len() as u64
+        } else {
+            content_length
+        };
+
         let line_count = text.lines().count();
         let word_count = text.lines().map(|s| s.split_whitespace().count()).sum();
 
