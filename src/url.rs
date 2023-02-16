@@ -90,7 +90,7 @@ impl FeroxUrl {
             //
             // in order to resolve the issue, we check if the word from the wordlist is a parsable URL
             // and if so, don't do any further processing
-            let message = format!("word ({}) from wordlist is a URL, skipping...", word);
+            let message = format!("word ({word}) from wordlist is a URL, skipping...");
             log::warn!("{}", message);
             log::trace!("exit: format -> Err({})", message);
             bail!(message);
@@ -122,9 +122,9 @@ impl FeroxUrl {
             // We handle the special case of forward slash
             // That allow us to treat it as an extension with a particular format
             if ext == "/" {
-                format!("{}/", word)
+                format!("{word}/")
             } else {
-                format!("{}.{}", word, ext)
+                format!("{word}.{ext}")
             }
         } else {
             String::from(word)
@@ -483,7 +483,7 @@ mod tests {
         let handles = Arc::new(Handles::for_testing(None, None).0);
         let url = FeroxUrl::from_string("http://localhost", handles);
         for ext in ["rocks", "fun"] {
-            let to_check = format!("http://localhost/upload/ferox.{}", ext);
+            let to_check = format!("http://localhost/upload/ferox.{ext}");
             assert_eq!(
                 url.format("//upload/ferox", Some(ext)).unwrap(),
                 reqwest::Url::parse(&to_check[..]).unwrap()

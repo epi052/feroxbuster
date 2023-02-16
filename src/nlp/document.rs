@@ -85,7 +85,7 @@ impl Document {
 
                     // at this point, we have a non-empty Text element with a non-script|style parent;
                     // now we can return the trimmed up string
-                    return Some(format!("{} ", trimmed));
+                    return Some(format!("{trimmed} "));
                 }
 
                 // not an Element node

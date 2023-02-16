@@ -310,12 +310,12 @@ impl HeuristicTests {
                     ) {
                         if e.to_string().contains(":SSL") {
                             ferox_print(
-                                &format!("Could not connect to {} due to SSL errors (run with -k to ignore), skipping...", target_url),
+                                &format!("Could not connect to {target_url} due to SSL errors (run with -k to ignore), skipping..."),
                                 &PROGRESS_PRINTER,
                             );
                         } else {
                             ferox_print(
-                                &format!("Could not connect to {}, skipping...", target_url),
+                                &format!("Could not connect to {target_url}, skipping..."),
                                 &PROGRESS_PRINTER,
                             );
                         }
@@ -343,7 +343,7 @@ impl HeuristicTests {
             // so, instead of `directory_listing("http://localhost") -> None` we get
             // `directory_listing("http://localhost/") -> Some(DirListingResult)` if there is
             // directory listing beyond the redirect
-            format!("{}/", target_url)
+            format!("{target_url}/")
         } else {
             target_url.to_string()
         };

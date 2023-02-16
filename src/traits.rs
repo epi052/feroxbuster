@@ -52,7 +52,7 @@ impl Display for dyn FeroxFilter {
                 style(&filter.original_url).cyan()
             )
         } else {
-            write!(f, "Filter: {:?}", self)
+            write!(f, "Filter: {self:?}")
         }
     }
 }

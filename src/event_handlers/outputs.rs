@@ -274,7 +274,7 @@ impl TermOutHandler {
                     self.tx_file
                         .send(Command::Report(resp.clone()))
                         .with_context(|| {
-                            fmt_err(&format!("Could not send {} to file handler", resp))
+                            fmt_err(&format!("Could not send {resp} to file handler"))
                         })?;
                 }
             }
@@ -394,11 +394,11 @@ impl TermOutHandler {
         if !filename.is_empty() {
             // append rules
             for suffix in ["~", ".bak", ".bak2", ".old", ".1"] {
-                self.add_new_url_to_vec(url, &format!("{}{}", filename, suffix), &mut urls);
+                self.add_new_url_to_vec(url, &format!("{filename}{suffix}"), &mut urls);
             }
 
             // vim swap rule
-            self.add_new_url_to_vec(url, &format!(".{}.swp", filename), &mut urls);
+            self.add_new_url_to_vec(url, &format!(".{filename}.swp"), &mut urls);
 
             // replace original extension rule
             let parts: Vec<_> = filename
@@ -432,7 +432,7 @@ mod tests {
             config,
             receiver: rx,
         };
-        println!("{:?}", foh);
+        println!("{foh:?}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -451,7 +451,7 @@ mod tests {
             handles: Some(handles),
         };
 
-        println!("{:?}", toh);
+        println!("{toh:?}");
         tx.send(Command::Exit).unwrap();
     }
 

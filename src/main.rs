@@ -49,7 +49,7 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
     log::trace!("enter: get_unique_words_from_wordlist({})", path);
     let mut trimmed_word = false;
 
-    let file = File::open(path).with_context(|| format!("Could not open {}", path))?;
+    let file = File::open(path).with_context(|| format!("Could not open {path}"))?;
 
     let reader = BufReader::new(file);
 
@@ -182,7 +182,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
 
         if !target.starts_with("http") && !target.starts_with("https") {
             // --url hackerone.com
-            *target = format!("https://{}", target);
+            *target = format!("https://{target}");
         }
     }
 
@@ -469,7 +469,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         Ok(_) => {}
         Err(e) => {
             clean_up(handles, tasks).await?;
-            bail!(fmt_err(&format!("Failed while scanning: {}", e)));
+            bail!(fmt_err(&format!("Failed while scanning: {e}")));
         }
     }
 
@@ -536,7 +536,7 @@ fn main() -> Result<()> {
     {
         let future = wrapped_main(config.clone());
         if let Err(e) = runtime.block_on(future) {
-            eprintln!("{}", e);
+            eprintln!("{e}");
 
             // the code below is to facilitate testing tests/test_banner entries. Since it's an
             // integration test, normal test detection (cfg!(test), etc...) won't work. So, in

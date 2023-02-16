@@ -41,7 +41,7 @@ pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
         .create(true)
         .append(true)
         .open(filename)
-        .with_context(|| fmt_err(&format!("Could not open {}", filename)))?;
+        .with_context(|| fmt_err(&format!("Could not open {filename}")))?;
 
     let writer = BufWriter::new(file); // std io
 
@@ -104,7 +104,7 @@ pub fn ferox_print(msg: &str, bar: &ProgressBar) {
         bar.println(msg);
     } else {
         let stripped = strip_ansi_codes(msg);
-        println!("{}", stripped);
+        println!("{stripped}");
     }
 }
 
@@ -265,19 +265,17 @@ pub fn create_report_string(
 ) -> String {
     if matches!(output_level, OutputLevel::Silent) {
         // --silent used, just need the url
-        format!("{}\n", url)
+        format!("{url}\n")
     } else {
         // normal printing with status and sizes
         let color_status = status_colorizer(status);
         if status.contains("MSG") {
             format!(
-                "{} {:>8} {:>9} {:>9} {:>9} {}\n",
-                color_status, method, line_count, word_count, content_length, url
+                "{color_status} {method:>8} {line_count:>9} {word_count:>9} {content_length:>9} {url}\n"
             )
         } else {
             format!(
-                "{} {:>8} {:>8}l {:>8}w {:>8}c {}\n",
-                color_status, method, line_count, word_count, content_length, url
+                "{color_status} {method:>8} {line_count:>8}l {word_count:>8}w {content_length:>8}c {url}\n"
             )
         }
     }
@@ -423,7 +421,7 @@ fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) 
         // to a scanned url that is also a parent of the given url
         for ferox_scan in handles.ferox_scans()?.get_active_scans() {
             let scanner = Url::parse(ferox_scan.url().trim_end_matches('/'))
-                .with_context(|| format!("Could not parse {} as a url", ferox_scan))?;
+                .with_context(|| format!("Could not parse {ferox_scan} as a url"))?;
 
             if let Some(scan_host) = scanner.host() {
                 // same domain/ip check we perform on the denier above
@@ -521,14 +519,14 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
         .as_secs();
 
     let altered_prefix = if !prefix.is_empty() {
-        format!("{}-", prefix)
+        format!("{prefix}-")
     } else {
         String::new()
     };
 
     let slug = url.replace("://", "_").replace(['/', '.'], "_");
 
-    let filename = format!("{}{}-{}.{}", altered_prefix, slug, ts, suffix);
+    let filename = format!("{altered_prefix}{slug}-{ts}.{suffix}");
 
     log::trace!("exit: slugify -> {}", filename);
     filename

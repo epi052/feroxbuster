@@ -41,7 +41,7 @@ impl Debug for LimitHeap {
             "LimitHeap {{ original: {}, current: {}, inner: [{}...] }}",
             self.original, self.current, self.inner[0]
         );
-        write!(f, "{}", msg)
+        write!(f, "{msg}")
     }
 }
 

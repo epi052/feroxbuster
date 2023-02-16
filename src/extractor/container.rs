@@ -362,7 +362,7 @@ impl<'a> Extractor<'a> {
                 // this isn't the last index of the parts array
                 // ex: /buried/misc/stupidfile.php
                 // this block skips the file but sees all parent folders
-                possible_path = format!("{}/", possible_path);
+                possible_path = format!("{possible_path}/");
             }
 
             paths.push(possible_path); // good sub-path found
@@ -395,7 +395,7 @@ impl<'a> Extractor<'a> {
 
         let new_url = old_url
             .join(link)
-            .with_context(|| format!("Could not join {} with {}", old_url, link))?;
+            .with_context(|| format!("Could not join {old_url} with {link}"))?;
 
         if old_url.domain() != new_url.domain() || old_url.host() != new_url.host() {
             // domains/ips are not the same, don't scan things that aren't part of the original

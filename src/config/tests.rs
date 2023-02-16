@@ -482,7 +482,7 @@ fn config_report_and_exit_works() {
 fn as_str_returns_string_with_newline() {
     let config = Configuration::new().unwrap();
     let config_str = config.as_str();
-    println!("{}", config_str);
+    println!("{config_str}");
     assert!(config_str.starts_with("Configuration {"));
     assert!(config_str.ends_with("}\n"));
     assert!(config_str.contains("replay_codes:"));

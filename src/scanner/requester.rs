@@ -239,7 +239,7 @@ impl Requester {
             atomic_store!(self.policy_data.remove_limit, false);
             self.ferox_scan
                 .progress_bar()
-                .set_message(&format!("=> 🚦 removed rate limiter 🚀"));
+                .set_message("=> 🚦 removed rate limiter 🚀");
         } else if create_limiter {
             // create_limiter is really just used for unit testing situations, it's true anytime
             // during actual execution
@@ -323,7 +323,7 @@ impl Requester {
             let pb = self.ferox_scan.progress_bar();
             let num_skipped = pb.length().saturating_sub(pb.position()) as usize;
 
-            let styled_trigger = style(format!("{:?}", trigger)).red();
+            let styled_trigger = style(format!("{trigger:?}")).red();
 
             pb.set_message(&format!(
                 "=> 💀 too many {} ({}) 💀 bailing",
@@ -591,7 +591,7 @@ mod tests {
         let scans = handles.ferox_scans().unwrap();
 
         for _ in 0..num_errors {
-            scans.increment_error(format!("{}/", url).as_str());
+            scans.increment_error(format!("{url}/").as_str());
         }
     }
 
@@ -604,7 +604,7 @@ mod tests {
     ) {
         let scans = handles.ferox_scans().unwrap();
         for _ in 0..num_errors {
-            scans.increment_status_code(format!("{}/", url).as_str(), code);
+            scans.increment_status_code(format!("{url}/").as_str(), code);
         }
     }
 
