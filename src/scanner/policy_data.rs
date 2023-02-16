@@ -84,10 +84,6 @@ impl PolicyData {
                     if heap.has_parent() && heap.parent_value() > current {
                         // all nodes except 0th node (root)
                         heap.move_up();
-                    } else if !heap.has_parent() {
-                        // been here enough that we can try resuming the scan to its original
-                        // speed (no limiting at all)
-                        atomic_store!(self.remove_limit, true);
                     }
                 }
             } else if heap.has_children() {
@@ -102,6 +98,12 @@ impl PolicyData {
                 if current > heap.value() {
                     heap.move_up();
                 }
+            }
+
+            if !heap.has_parent() {
+                // been here enough that we can try resuming the scan to its original
+                // speed (no limiting at all)
+                atomic_store!(self.remove_limit, true);
             }
             self.set_limit(heap.value() as usize);
         }
