@@ -1,5 +1,5 @@
 use std::fs::{copy, create_dir_all, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, Write};
 
 use clap_complete::{generate_to, shells};
 
@@ -30,7 +30,7 @@ fn main() {
     let mut bash_file = OpenOptions::new()
         .read(true)
         .write(true)
-        .open(format!("{}/feroxbuster.bash", outdir))
+        .open(format!("{outdir}/feroxbuster.bash"))
         .expect("Couldn't open bash completion script");
 
     bash_file
@@ -40,7 +40,7 @@ fn main() {
     contents = contents.replace("default feroxbuster", "default -o plusdirs feroxbuster");
 
     bash_file
-        .seek(SeekFrom::Start(0))
+        .rewind()
         .expect("Couldn't seek to position 0 in bash completion script");
 
     bash_file
