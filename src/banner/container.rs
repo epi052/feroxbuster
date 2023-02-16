@@ -233,7 +233,7 @@ impl Banner {
             headers.push(BannerEntry::new(
                 "🤯",
                 "Header",
-                &format!("{}: {}", name, value),
+                &format!("{name}: {value}"),
             ));
         }
 
@@ -307,7 +307,7 @@ impl Banner {
             BannerEntry::new("🤘", "Force Recursion", &config.force_recursion.to_string());
         let replay_proxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
         let auto_tune = BannerEntry::new("🎶", "Auto Tune", &config.auto_tune.to_string());
-        let auto_bail = BannerEntry::new("🪣", "Auto Bail", &config.auto_bail.to_string());
+        let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
@@ -441,7 +441,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let top = "───────────────────────────┬──────────────────────";
 
-        format!("{}\n{}", artwork, top)
+        format!("{artwork}\n{top}")
     }
 
     /// get a fancy footer for the banner
@@ -455,7 +455,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
             style("Scan Management Menu").bright().yellow(),
         );
 
-        format!("{}\n{}\n{}", bottom, instructions, addl_section)
+        format!("{bottom}\n{instructions}\n{addl_section}")
     }
 
     /// Makes a request to the given url, expecting to receive a JSON response that contains a field
@@ -508,11 +508,11 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         // begin with always printed items
         for target in &self.targets {
-            writeln!(&mut writer, "{}", target)?;
+            writeln!(&mut writer, "{target}")?;
         }
 
         for denied_url in &self.url_denylist {
-            writeln!(&mut writer, "{}", denied_url)?;
+            writeln!(&mut writer, "{denied_url}")?;
         }
 
         writeln!(&mut writer, "{}", self.threads)?;
@@ -551,27 +551,27 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
 
         for header in &self.headers {
-            writeln!(&mut writer, "{}", header)?;
+            writeln!(&mut writer, "{header}")?;
         }
 
         for filter in &self.filter_size {
-            writeln!(&mut writer, "{}", filter)?;
+            writeln!(&mut writer, "{filter}")?;
         }
 
         for filter in &self.filter_similar {
-            writeln!(&mut writer, "{}", filter)?;
+            writeln!(&mut writer, "{filter}")?;
         }
 
         for filter in &self.filter_word_count {
-            writeln!(&mut writer, "{}", filter)?;
+            writeln!(&mut writer, "{filter}")?;
         }
 
         for filter in &self.filter_line_count {
-            writeln!(&mut writer, "{}", filter)?;
+            writeln!(&mut writer, "{filter}")?;
         }
 
         for filter in &self.filter_regex {
-            writeln!(&mut writer, "{}", filter)?;
+            writeln!(&mut writer, "{filter}")?;
         }
 
         if config.extract_links {
@@ -583,7 +583,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
 
         for query in &self.queries {
-            writeln!(&mut writer, "{}", query)?;
+            writeln!(&mut writer, "{query}")?;
         }
 
         if !config.output.is_empty() {
@@ -675,7 +675,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
                 "New Version Available",
                 "https://github.com/epi052/feroxbuster/releases/latest",
             );
-            writeln!(&mut writer, "{}", update)?;
+            writeln!(&mut writer, "{update}")?;
         }
 
         writeln!(&mut writer, "{}", self.footer())?;

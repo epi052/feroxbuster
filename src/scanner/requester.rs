@@ -1,10 +1,15 @@
 use std::{
     cmp::max,
     collections::HashSet,
-    sync::{self, atomic::Ordering, Arc, Mutex},
+    sync::{
+        self,
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use anyhow::Result;
+use console::style;
 use lazy_static::lazy_static;
 use leaky_bucket::RateLimiter;
 use tokio::{
@@ -64,6 +69,8 @@ pub(super) struct Requester {
     /// seen; this will satisfy the non-mut self constraint (due to us being behind an Arc, and
     /// the need for a counter)
     tuning_lock: Mutex<usize>,
+
+    policy_triggered: AtomicBool,
 }
 
 /// Requester implementation
@@ -91,6 +98,7 @@ impl Requester {
             handles: scanner.handles.clone(),
             target_url: scanner.target_url.to_owned(),
             tuning_lock: Mutex::new(0),
+            policy_triggered: AtomicBool::new(false),
         })
     }
 
@@ -118,6 +126,7 @@ impl Requester {
         atomic_store!(self.policy_data.cooling_down, true, Ordering::SeqCst);
 
         sleep(Duration::from_millis(self.policy_data.wait_time)).await;
+        self.ferox_scan.progress_bar().set_message("");
 
         atomic_store!(self.policy_data.cooling_down, false, Ordering::SeqCst);
     }
@@ -203,18 +212,34 @@ impl Requester {
                 *guard = 0; // reset streak counter to 0
                 if atomic_load!(self.policy_data.errors) != 0 {
                     self.policy_data.adjust_down();
+
+                    let styled_direction = style("reduced").red();
+
+                    self.ferox_scan
+                        .progress_bar()
+                        .set_message(&format!("=> 🚦 {styled_direction} scan speed",));
                 }
                 self.policy_data.set_errors(scan_errors);
             } else {
                 // errors can only be incremented, so an else is sufficient
                 *guard += 1;
+
                 self.policy_data.adjust_up(&guard);
+
+                let styled_direction = style("increased").green();
+
+                self.ferox_scan
+                    .progress_bar()
+                    .set_message(&format!("=> 🚦 {styled_direction} scan speed",));
             }
         }
 
         if atomic_load!(self.policy_data.remove_limit) {
             self.set_rate_limiter(None).await?;
             atomic_store!(self.policy_data.remove_limit, false);
+            self.ferox_scan
+                .progress_bar()
+                .set_message("=> 🚦 removed rate limiter 🚀");
         } else if create_limiter {
             // create_limiter is really just used for unit testing situations, it's true anytime
             // during actual execution
@@ -253,8 +278,15 @@ impl Requester {
             let reqs_sec = self.ferox_scan.requests_per_second() as usize;
             self.policy_data.set_reqs_sec(reqs_sec);
 
+            // set the flag to indicate that we have triggered the rate limiter
+            // at least once
+            atomic_store!(self.policy_triggered, true);
+
             let new_limit = self.policy_data.get_limit();
             self.set_rate_limiter(Some(new_limit)).await?;
+            self.ferox_scan
+                .progress_bar()
+                .set_message(&format!("=> 🚦 set rate limit ({new_limit}/s)"));
         }
 
         self.adjust_limit(trigger, true).await?;
@@ -290,6 +322,14 @@ impl Requester {
             // figure out how many requests are skipped as a result
             let pb = self.ferox_scan.progress_bar();
             let num_skipped = pb.length().saturating_sub(pb.position()) as usize;
+
+            let styled_trigger = style(format!("{trigger:?}")).red();
+
+            pb.set_message(&format!(
+                "=> 💀 too many {} ({}) 💀 bailing",
+                styled_trigger,
+                self.ferox_scan.num_errors(trigger),
+            ));
 
             // update the overall scan bar by subtracting the number of skipped requests from
             // the total
@@ -357,6 +397,9 @@ impl Requester {
                         RequesterPolicy::AutoTune => {
                             if let Some(trigger) = self.should_enforce_policy() {
                                 self.tune(trigger).await?;
+                            } else if atomic_load!(self.policy_triggered) {
+                                self.adjust_limit(PolicyTrigger::TryAdjustUp, true).await?;
+                                self.cool_down().await;
                             }
                         }
                         RequesterPolicy::AutoBail => {
@@ -548,7 +591,7 @@ mod tests {
         let scans = handles.ferox_scans().unwrap();
 
         for _ in 0..num_errors {
-            scans.increment_error(format!("{}/", url).as_str());
+            scans.increment_error(format!("{url}/").as_str());
         }
     }
 
@@ -561,7 +604,7 @@ mod tests {
     ) {
         let scans = handles.ferox_scans().unwrap();
         for _ in 0..num_errors {
-            scans.increment_status_code(format!("{}/", url).as_str(), code);
+            scans.increment_status_code(format!("{url}/").as_str(), code);
         }
     }
 
@@ -627,6 +670,7 @@ mod tests {
             PolicyTrigger::Errors => {
                 increment_scan_errors(handles.clone(), url, num_errors).await;
             }
+            _ => {}
         }
 
         assert_eq!(scan.num_errors(trigger), num_errors);
@@ -647,6 +691,7 @@ mod tests {
             ferox_scan: Arc::new(FeroxScan::default()),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         let ferox_scan = Arc::new(FeroxScan::default());
@@ -675,6 +720,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         increment_errors(requester.handles.clone(), ferox_scan.clone(), 25).await;
@@ -700,6 +746,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         increment_status_codes(
@@ -740,6 +787,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         increment_status_codes(
@@ -795,6 +843,7 @@ mod tests {
             target_url: "http://one/one/stuff.php".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         requester.bail(PolicyTrigger::Errors).await.unwrap();
@@ -829,6 +878,7 @@ mod tests {
             target_url: "http://one/one/stuff.php".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         let result = requester.bail(PolicyTrigger::Status403).await;
@@ -851,6 +901,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: Default::default(),
+            policy_triggered: AtomicBool::new(false),
         };
 
         requester
@@ -874,6 +925,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
+            policy_triggered: AtomicBool::new(false),
         });
 
         let start = Instant::now();
@@ -904,6 +956,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
+            policy_triggered: AtomicBool::new(false),
         };
 
         requester.policy_data.set_reqs_sec(400);
@@ -942,6 +995,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(Some(limiter)),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
+            policy_triggered: AtomicBool::new(false),
         };
 
         requester.policy_data.set_reqs_sec(400);
@@ -979,6 +1033,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
+            policy_triggered: AtomicBool::new(false),
         };
 
         requester.policy_data.set_reqs_sec(400);
@@ -1007,6 +1062,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(None),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
+            policy_triggered: AtomicBool::new(false),
         };
 
         assert!(!requester.too_many_status_errors(PolicyTrigger::Errors));
@@ -1050,6 +1106,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(Some(limiter)),
             policy_data: PolicyData::new(RequesterPolicy::AutoBail, 7),
+            policy_triggered: AtomicBool::new(false),
         };
 
         requester.set_rate_limiter(Some(200)).await.unwrap();
@@ -1093,6 +1150,7 @@ mod tests {
             target_url: "http://localhost".to_string(),
             rate_limiter: RwLock::new(Some(limiter)),
             policy_data: PolicyData::new(RequesterPolicy::AutoTune, 4),
+            policy_triggered: AtomicBool::new(false),
         };
 
         let start = Instant::now();

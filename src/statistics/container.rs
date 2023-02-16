@@ -668,7 +668,7 @@ impl Stats {
     /// This is only ever called when resuming a scan from disk
     pub fn merge_from(&self, filename: &str) -> Result<()> {
         let file = File::open(filename)
-            .with_context(|| fmt_err(&format!("Could not open {}", filename)))?;
+            .with_context(|| fmt_err(&format!("Could not open {filename}")))?;
         let reader = BufReader::new(file);
         let state: serde_json::Value = serde_json::from_reader(reader)?;
 

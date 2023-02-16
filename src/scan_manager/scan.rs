@@ -277,6 +277,7 @@ impl FeroxScan {
             PolicyTrigger::Status403 => self.status_403s(),
             PolicyTrigger::Status429 => self.status_429s(),
             PolicyTrigger::Errors => self.errors(),
+            PolicyTrigger::TryAdjustUp => 0
         }
     }
 

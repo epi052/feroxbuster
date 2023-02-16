@@ -58,7 +58,7 @@ impl FeroxState {
 impl FeroxSerialize for FeroxState {
     /// Simply return debug format of FeroxState to satisfy as_str
     fn as_str(&self) -> String {
-        format!("{:?}", self)
+        format!("{self:?}")
     }
 
     /// Simple call to produce a JSON string using the given FeroxState

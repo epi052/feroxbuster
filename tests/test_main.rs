@@ -127,7 +127,7 @@ fn main_parallel_spawns_children() -> Result<(), Box<dyn std::error::Error>> {
         );
 
     let contents = read_to_string(outfile).unwrap();
-    println!("contents: {}", contents);
+    println!("contents: {contents}");
 
     assert!(contents.contains("parallel branch && wrapped main")); // exits parallel branch
 

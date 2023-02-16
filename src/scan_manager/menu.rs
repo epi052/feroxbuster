@@ -116,8 +116,8 @@ impl Menu {
 
         let padded_name = pad_str(&name, longest, Alignment::Center, None);
 
-        let header = format!("{}\n{}\n{}", border, padded_name, border);
-        let footer = format!("{}\n{}", commands, border);
+        let header = format!("{border}\n{padded_name}\n{border}");
+        let footer = format!("{commands}\n{border}");
 
         Self {
             header,
@@ -174,7 +174,7 @@ impl Menu {
             .to_string()
             .parse::<usize>()
             .unwrap_or_else(|e| {
-                self.println(&format!("Found non-numeric input: {}: {:?}", e, value));
+                self.println(&format!("Found non-numeric input: {e}: {value:?}"));
                 0
             })
     }
@@ -198,7 +198,7 @@ impl Menu {
 
                 if range.len() != 2 {
                     // expecting [1, 4] or similar, if a 0 was used, we'd be left with a vec of size 1
-                    self.println(&format!("Found invalid range of scans: {}", value));
+                    self.println(&format!("Found invalid range of scans: {value}"));
                     continue;
                 }
 
@@ -290,8 +290,7 @@ impl Menu {
     /// Given a url, confirm with user that we should cancel
     pub(super) fn confirm_cancellation(&self, url: &str) -> char {
         self.println(&format!(
-            "You sure you wanna cancel this scan: {}? [Y/n]",
-            url
+            "You sure you wanna cancel this scan: {url}? [Y/n]"
         ));
 
         self.term.read_char().unwrap_or('n')

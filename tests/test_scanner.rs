@@ -454,7 +454,7 @@ fn scanner_single_request_scan_with_debug_logging() {
         .unwrap();
 
     let contents = std::fs::read_to_string(outfile).unwrap();
-    println!("{}", contents);
+    println!("{contents}");
     assert!(contents.starts_with("Configuration {"));
     assert!(contents.contains("TRC"));
     assert!(contents.contains("DBG"));
@@ -492,7 +492,7 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
         .unwrap();
 
     let contents = std::fs::read_to_string(outfile).unwrap();
-    println!("{}", contents);
+    println!("{contents}");
     assert!(contents.starts_with("{\"type\":\"configuration\""));
     assert!(contents.contains("\"level\":\"TRACE\""));
     assert!(contents.contains("\"level\":\"DEBUG\""));
@@ -676,7 +676,7 @@ fn add_discovered_extension_updates_bars_and_stats() {
         .success();
 
     let contents = std::fs::read_to_string(file_path).unwrap();
-    println!("{}", contents);
+    println!("{contents}");
     assert!(contents.contains("discovered new extension: php"));
     assert!(contents.contains("extensions_collected: 1"));
     assert!(contents.contains("expected_per_scan: 6"));
@@ -896,7 +896,7 @@ fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dy
         .unwrap();
 
     let contents = std::fs::read_to_string(outfile)?;
-    println!("{}", contents);
+    println!("{contents}");
 
     assert!(contents.contains("/LICENSE"));
     assert!(contents.contains("301"));

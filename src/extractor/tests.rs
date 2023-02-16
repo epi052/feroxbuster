@@ -312,7 +312,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
     let resp = extractor.make_extract_request("/robots.txt").await?;
 
     assert!(matches!(resp.status(), &StatusCode::OK));
-    println!("{}", resp);
+    println!("{resp}");
     assert_eq!(resp.content_length(), 14);
     assert_eq!(mock.hits(), 1);
     Ok(())

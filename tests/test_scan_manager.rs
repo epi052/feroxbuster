@@ -29,7 +29,7 @@ fn resume_scan_works() {
         srv.url("/js"),
         srv.url("/js")
     );
-    let scans = format!(r#""scans":[{},{}]"#, complete_scan, incomplete_scan);
+    let scans = format!(r#""scans":[{complete_scan},{incomplete_scan}]"#);
 
     let config = format!(
         r#""config": {{"type":"configuration","wordlist":"{}","config":"","proxy":"","replay_proxy":"","target_url":"{}","status_codes":[200,204,301,302,307,308,401,403,405],"replay_codes":[200,204,301,302,307,308,401,403,405],"filter_status":[],"threads":50,"timeout":7,"verbosity":0,"silent":false,"quiet":false,"json":false,"output":"","debug_log":"","user_agent":"feroxbuster/1.9.0","redirects":false,"insecure":false,"extensions":[],"headers":{{}},"queries":[],"no_recursion":false,"extract_links":false,"add_slash":false,"stdin":false,"depth":2,"scan_limit":1,"filter_size":[],"filter_line_count":[],"filter_word_count":[],"filter_regex":[],"dont_filter":false}}"#,
@@ -42,7 +42,7 @@ fn resume_scan_works() {
         r#"{{"type":"response","url":"{}","path":"/js/css","wildcard":true,"status":301,"content_length":173,"line_count":10,"word_count":16,"headers":{{"server":"nginx/1.16.1"}}}}"#,
         srv.url("/js/css")
     );
-    let responses = format!(r#""responses":[{}]"#, response);
+    let responses = format!(r#""responses":[{response}]"#);
 
     // not scanned because /js is not complete, and /js/stuff response is not known
     let not_scanned_yet = srv.mock(|when, then| {
@@ -63,7 +63,7 @@ fn resume_scan_works() {
         then.status(200).body("two words");
     });
 
-    let state_file_contents = format!("{{{},{},{}}}", scans, config, responses);
+    let state_file_contents = format!("{{{scans},{config},{responses}}}");
     let (tmp_dir2, state_file) = setup_tmp_directory(&[state_file_contents], "state-file").unwrap();
 
     Command::cargo_bin("feroxbuster")

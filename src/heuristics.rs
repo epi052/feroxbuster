@@ -74,6 +74,26 @@ pub struct HeuristicTests {
     handles: Arc<Handles>,
 }
 
+/// simple way to pass around a wildcard filter to the internal helper below
+/// in a way that quickly tells us if it's static or dynamic
+enum WildcardType<'a> {
+    Static(&'a WildcardFilter),
+    Dynamic(&'a WildcardFilter),
+}
+
+/// internal helper to stop repeating the same pattern
+fn print_dont_filter_message(wildcard_type: WildcardType, output_level: OutputLevel) {
+    if matches!(output_level, OutputLevel::Default | OutputLevel::Quiet) {
+        let msg = match wildcard_type {
+            WildcardType::Static(wc) => {
+                format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wc.method.as_str(), wc.size)
+            }
+            WildcardType::Dynamic(wc) => format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wc.method.as_str(), wc.dynamic),
+        };
+        ferox_print(&msg, &PROGRESS_PRINTER);
+    }
+}
+
 /// HeuristicTests implementation
 impl HeuristicTests {
     /// create a new HeuristicTests struct
@@ -142,6 +162,10 @@ impl HeuristicTests {
 
             if wc_length == 0 {
                 log::trace!("exit: wildcard_test -> 1");
+                print_dont_filter_message(
+                    WildcardType::Static(&wildcard),
+                    self.handles.config.output_level,
+                );
                 self.send_filter(wildcard)?;
                 return Ok(1);
             }
@@ -163,23 +187,17 @@ impl HeuristicTests {
 
                 wildcard.dynamic = wc_length - url_len;
 
-                if matches!(
+                print_dont_filter_message(
+                    WildcardType::Dynamic(&wildcard),
                     self.handles.config.output_level,
-                    OutputLevel::Default | OutputLevel::Quiet
-                ) {
-                    let msg = format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", method, wildcard.dynamic);
-                    ferox_print(&msg, &PROGRESS_PRINTER);
-                }
+                );
             } else if wc_length == wc2_length {
                 wildcard.size = wc_length;
 
-                if matches!(
+                print_dont_filter_message(
+                    WildcardType::Static(&wildcard),
                     self.handles.config.output_level,
-                    OutputLevel::Default | OutputLevel::Quiet
-                ) {
-                    let msg = format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", method, wildcard.size);
-                    ferox_print(&msg, &PROGRESS_PRINTER);
-                }
+                );
             }
 
             self.send_filter(wildcard)?;
@@ -292,12 +310,12 @@ impl HeuristicTests {
                     ) {
                         if e.to_string().contains(":SSL") {
                             ferox_print(
-                                &format!("Could not connect to {} due to SSL errors (run with -k to ignore), skipping...", target_url),
+                                &format!("Could not connect to {target_url} due to SSL errors (run with -k to ignore), skipping..."),
                                 &PROGRESS_PRINTER,
                             );
                         } else {
                             ferox_print(
-                                &format!("Could not connect to {}, skipping...", target_url),
+                                &format!("Could not connect to {target_url}, skipping..."),
                                 &PROGRESS_PRINTER,
                             );
                         }
@@ -325,7 +343,7 @@ impl HeuristicTests {
             // so, instead of `directory_listing("http://localhost") -> None` we get
             // `directory_listing("http://localhost/") -> Some(DirListingResult)` if there is
             // directory listing beyond the redirect
-            format!("{}/", target_url)
+            format!("{target_url}/")
         } else {
             target_url.to_string()
         };

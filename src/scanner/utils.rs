@@ -9,4 +9,8 @@ pub enum PolicyTrigger {
 
     /// excessive general errors
     Errors,
+
+    /// dummy error for upward rate adjustment
+    TryAdjustUp
+    
 }

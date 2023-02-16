@@ -70,7 +70,8 @@ ifeq (1, $(VENDORED))
 endif
 
 $(TARGET)/$(BIN): extract
-	mkdir -p .cargo
+	mkdir -p .cargo debian
+	touch debian/cargo.config
 	cp debian/cargo.config .cargo/config.toml
 	cargo build $(ARGS)
 

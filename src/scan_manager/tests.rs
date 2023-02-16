@@ -317,7 +317,7 @@ fn ferox_responses_serialize() {
     // responses has a response now
 
     // serialized should be a list of responses
-    let expected = format!("[{}]", json_response);
+    let expected = format!("[{json_response}]");
 
     let serialized = serde_json::to_string(&responses).unwrap();
     assert_eq!(expected, serialized);
@@ -426,11 +426,11 @@ fn feroxstates_feroxserialize_implementation() {
 
     let json_state = ferox_state.as_json().unwrap();
 
-    println!("echo '{}'|jq", json_state); // for debugging, if the test fails, can see what's going on
+    println!("echo '{json_state}'|jq"); // for debugging, if the test fails, can see what's going on
 
     for expected in [
         r#""scans""#,
-        &format!(r#""id":"{}""#, saved_id),
+        &format!(r#""id":"{saved_id}""#),
         r#""url":"https://spiritanimal.com""#,
         r#""scan_type":"Directory""#,
         r#""status":"NotStarted""#,
@@ -456,7 +456,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""json":false"#,
         r#""output":"""#,
         r#""debug_log":"""#,
-        &format!(r#""user_agent":"feroxbuster/{}""#, VERSION),
+        &format!(r#""user_agent":"feroxbuster/{VERSION}""#),
         r#""random_agent":false"#,
         r#""redirects":false"#,
         r#""insecure":false"#,
@@ -570,26 +570,26 @@ fn feroxscan_display() {
         errors: Default::default(),
     };
 
-    let not_started = format!("{}", scan);
+    let not_started = format!("{scan}");
 
     assert!(predicate::str::contains("not started")
         .and(predicate::str::contains("localhost"))
         .eval(&not_started));
 
     scan.set_status(ScanStatus::Complete).unwrap();
-    let complete = format!("{}", scan);
+    let complete = format!("{scan}");
     assert!(predicate::str::contains("complete")
         .and(predicate::str::contains("localhost"))
         .eval(&complete));
 
     scan.set_status(ScanStatus::Cancelled).unwrap();
-    let cancelled = format!("{}", scan);
+    let cancelled = format!("{scan}");
     assert!(predicate::str::contains("cancelled")
         .and(predicate::str::contains("localhost"))
         .eval(&cancelled));
 
     scan.set_status(ScanStatus::Running).unwrap();
-    let running = format!("{}", scan);
+    let running = format!("{scan}");
     assert!(predicate::str::contains("running")
         .and(predicate::str::contains("localhost"))
         .eval(&running));
@@ -637,8 +637,7 @@ fn menu_print_header_and_footer() {
     let menu_cmd_res_1 = MenuCmdResult::Url(String::from("http://localhost"));
     let menu_cmd_res_2 = MenuCmdResult::NumCancelled(2);
     println!(
-        "{:?}{:?}{:?}{:?}",
-        menu_cmd_1, menu_cmd_2, menu_cmd_res_1, menu_cmd_res_2
+        "{menu_cmd_1:?}{menu_cmd_2:?}{menu_cmd_res_1:?}{menu_cmd_res_2:?}"
     );
     menu.clear_screen();
     menu.print_header();
@@ -656,9 +655,9 @@ fn menu_get_command_input_from_user_returns_cancel() {
         let force = idx % 2 == 0;
 
         let full_cmd = if force {
-            format!("{} -f {}\n", cmd, idx)
+            format!("{cmd} -f {idx}\n")
         } else {
-            format!("{} {}\n", cmd, idx)
+            format!("{cmd} {idx}\n")
         };
 
         let result = menu.get_command_input_from_user(&full_cmd).unwrap();
@@ -683,7 +682,7 @@ fn menu_get_command_input_from_user_returns_add() {
 
     for cmd in ["add", "Addd", "a", "A", "None"] {
         let test_url = "http://happyfuntimes.commmm";
-        let full_cmd = format!("{} {}\n", cmd, test_url);
+        let full_cmd = format!("{cmd} {test_url}\n");
 
         if cmd != "None" {
             let result = menu.get_command_input_from_user(&full_cmd).unwrap();

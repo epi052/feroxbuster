@@ -92,7 +92,7 @@ fn auto_bail_cancels_scan_with_timeouts() {
                     .parse::<usize>()
                     .unwrap();
 
-                println!("expected: {}", total_expected);
+                println!("expected: {total_expected}");
                 // without bailing, should be 6180; after bail decreases significantly
                 assert!(total_expected < 5000);
             }
@@ -161,7 +161,7 @@ fn auto_bail_cancels_scan_with_403s() {
             let str_msg = message.as_str().unwrap_or_default().to_string();
 
             if str_msg.starts_with("Stats") {
-                println!("{}", str_msg);
+                println!("{str_msg}");
                 let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
                 let total_expected = re
@@ -171,7 +171,7 @@ fn auto_bail_cancels_scan_with_403s() {
                     .map_or("", |m| m.as_str())
                     .parse::<usize>()
                     .unwrap();
-                println!("total_expected: {}", total_expected);
+                println!("total_expected: {total_expected}");
                 assert!(total_expected < 5000);
             }
         }
@@ -243,7 +243,7 @@ fn auto_bail_cancels_scan_with_429s() {
             let str_msg = message.as_str().unwrap_or_default().to_string();
 
             if str_msg.starts_with("Stats") {
-                println!("{}", str_msg);
+                println!("{str_msg}");
                 let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
                 let total_expected = re
@@ -253,7 +253,7 @@ fn auto_bail_cancels_scan_with_429s() {
                     .map_or("", |m| m.as_str())
                     .parse::<usize>()
                     .unwrap();
-                println!("total_expected: {}", total_expected);
+                println!("total_expected: {total_expected}");
                 assert!(total_expected < 5000);
             }
         }

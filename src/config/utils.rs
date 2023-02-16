@@ -72,7 +72,7 @@ pub(super) fn wordlist() -> String {
 
 /// default user-agent
 pub(super) fn user_agent() -> String {
-    format!("feroxbuster/{}", VERSION)
+    format!("feroxbuster/{VERSION}")
 }
 
 /// default recursion depth

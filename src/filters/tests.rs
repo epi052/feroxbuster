@@ -156,7 +156,7 @@ fn wildcard_should_filter_when_dynamic_wildcard_found() {
         method: "GET".to_owned(),
     };
 
-    println!("resp: {:?}: filter: {:?}", resp, filter);
+    println!("resp: {resp:?}: filter: {filter:?}");
 
     assert!(filter.should_filter_response(&resp));
 }

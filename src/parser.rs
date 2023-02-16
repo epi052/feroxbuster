@@ -637,8 +637,7 @@ fn valid_time_spec(time_spec: &str) -> Result<String, String> {
         true => Ok(time_spec.to_string()),
         false => {
             let msg = format!(
-                "Expected a non-negative, whole number followed by s, m, h, or d (case insensitive); received {}",
-                time_spec
+                "Expected a non-negative, whole number followed by s, m, h, or d (case insensitive); received {time_spec}"
             );
             Err(msg)
         }

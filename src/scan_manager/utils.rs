@@ -41,7 +41,7 @@ pub async fn start_max_time_thread(handles: Arc<Handles>) {
         log::trace!("exit: start_max_time_thread");
 
         #[cfg(test)]
-        panic!("{:?}", handles);
+        panic!("{handles:?}");
         #[cfg(not(test))]
         let _ = TermInputHandler::sigint_handler(handles.clone());
     }
