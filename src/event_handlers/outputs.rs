@@ -265,6 +265,7 @@ impl TermOutHandler {
 
             if should_process_response {
                 // print to stdout
+                log::warn!("{:?}", self.handles.as_ref().unwrap().filters);
                 ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
 
                 send_command!(tx_stats, AddToUsizeField(ResourcesDiscovered, 1));

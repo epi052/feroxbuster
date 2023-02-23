@@ -246,10 +246,6 @@ impl FeroxScanner {
             // heuristics test block
             let test = heuristics::HeuristicTests::new(self.handles.clone());
 
-            if let Ok(num_reqs) = test.wildcard(&self.target_url).await {
-                progress_bar.inc(num_reqs);
-            }
-
             if let Ok(dirlist_result) = test.directory_listing(&self.target_url).await {
                 if dirlist_result.is_some() {
                     let dirlist_result = dirlist_result.unwrap();
@@ -293,9 +289,22 @@ impl FeroxScanner {
 
                     ferox_scan.finish()?;
 
-                    return Ok(());
+                    return Ok(());  // nothing left to do if we found a dir listing
                 }
             }
+
+            // on error, we'll have 0, same for --dont-filter
+            // anything higher than 0 indicates a wildcard was found
+            let num_reqs_made = test.wildcard(&self.target_url).await.unwrap_or_default();
+            
+            progress_bar.inc(num_reqs_made);
+
+            if num_reqs_made == 0 {
+                // no dir listing and no wildcard, go ahead and see if we can
+                // identify their 404
+                test.detect_404_response(&self.target_url).await?;
+            }
+
         }
 
         // Arc clones to be passed around to the various scans
