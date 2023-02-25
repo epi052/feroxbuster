@@ -1,11 +1,11 @@
 use super::*;
 use fuzzyhash::FuzzyHash;
-use gaoya::minhash::{MinHash, MinHasher, MinHasher16};
+use gaoya::minhash::{MinHasher, MinHasher16};
 use gaoya::text::whitespace_split;
 
 /// enum wrapper for two distinct hashing signature types
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) enum HashValueType {
+pub enum HashValueType {
     /// String value for FuzzyHash
     String(String),
 

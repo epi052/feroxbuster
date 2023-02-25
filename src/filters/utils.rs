@@ -45,11 +45,13 @@ pub(crate) async fn create_similarity_filter(
 
     // hash the response body and store the resulting hash in the filter object
     let hash = if fr.content_length() <= MIN_SSDEEP_SIZE {
+        log::debug!("response too small for ssdeep, using minhash for comparison");
         // response too small for ssdeep
         let hasher = MinHasher16::new(256);
         HashValueType::Vec(hasher.create_signature(whitespace_split(fr.text())))
     } else {
         // size over ssdeep's minimum value
+        log::debug!("response large enough to use ssdeep for comparison");
         HashValueType::String(FuzzyHash::new(fr.text()).to_string())
     };
 

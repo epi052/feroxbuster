@@ -46,11 +46,14 @@ pub(super) fn threads() -> usize {
 
 /// default status codes
 pub(super) fn status_codes() -> Vec<u16> {
-    // DEFAULT_STATUS_CODES
-    //     .iter()
-    //     .map(|code| code.as_u16())
-    //     .collect()
-    Vec::new()
+    DEFAULT_STATUS_CODES
+        .iter()
+        .map(|code| code.as_u16())
+        // add experimental codes not found in reqwest
+        // - 103 - EARLY_HINTS
+        // - 425 - TOO_EARLY
+        .chain([103, 425])
+        .collect()
 }
 
 /// default HTTP Method
