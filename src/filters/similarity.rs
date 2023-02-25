@@ -27,7 +27,10 @@ impl FeroxFilter for SimilarityFilter {
         }
 
         // couldn't hash the response, don't filter
-        log::warn!("Could not hash body from {}", response.as_str());
+        log::warn!(
+            "Could not compare similarity of body from {}; returning not-similar",
+            response.url().as_str()
+        );
         false
     }
 

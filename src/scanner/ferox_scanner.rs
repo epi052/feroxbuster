@@ -182,6 +182,7 @@ impl FeroxScanner {
                     Err(e) => {
                         log::warn!("error awaiting a response: {}", e);
                         self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                        std::process::exit(1);
                     }
                 }
             });
@@ -289,22 +290,19 @@ impl FeroxScanner {
 
                     ferox_scan.finish()?;
 
-                    return Ok(());  // nothing left to do if we found a dir listing
+                    return Ok(()); // nothing left to do if we found a dir listing
                 }
             }
 
-            // on error, we'll have 0, same for --dont-filter
-            // anything higher than 0 indicates a wildcard was found
-            let num_reqs_made = test.wildcard(&self.target_url).await.unwrap_or_default();
-            
-            progress_bar.inc(num_reqs_made);
+            let detected = test.detect_404_response(&self.target_url).await?;
+            log::info!("404 response detected: {}", detected);
 
-            if num_reqs_made == 0 {
-                // no dir listing and no wildcard, go ahead and see if we can
-                // identify their 404
-                test.detect_404_response(&self.target_url).await?;
+            if !detected {
+                // on error, we'll have 0, same for --dont-filter
+                // anything higher than 0 indicates a wildcard was found
+                let num_reqs_made = test.wildcard(&self.target_url).await.unwrap_or_default();
+                progress_bar.inc(num_reqs_made);
             }
-
         }
 
         // Arc clones to be passed around to the various scans

@@ -196,6 +196,8 @@ pub async fn make_request(
         request = request.header("User-Agent", user_agent);
     }
 
+    log::warn!("{:?}", url.path());
+
     match request.send().await {
         Err(e) => {
             log::trace!("exit: make_request -> {}", e);
@@ -240,7 +242,7 @@ pub async fn make_request(
             }
 
             log::warn!("Error while making request: {}", e);
-            bail!("{}", e)
+            std::process::exit(1);
         }
         Ok(resp) => {
             log::trace!("exit: make_request -> {:?}", resp);

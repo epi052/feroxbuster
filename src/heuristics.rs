@@ -156,17 +156,6 @@ impl HeuristicTests {
                 .make_wildcard_request(&ferox_url, method.as_str(), data, 1)
                 .await?;
 
-            // use crate::SIMILARITY_THRESHOLD;
-            // use fuzzyhash::FuzzyHash;
-
-            // let filter = SimilarityFilter {
-            //     hash: FuzzyHash::new(ferox_response.text()).to_string(),
-            //     threshold: SIMILARITY_THRESHOLD,
-            //     original_url: target_url.to_string(),
-            // };
-            // self.handles.filters.send(Command::AddFilter(Box::new(filter)))?;
-            // return Ok(1);
-
             // found a wildcard response
             let mut wildcard = WildcardFilter::new(self.handles.config.dont_filter);
 
@@ -197,7 +186,9 @@ impl HeuristicTests {
                 // reflected in the response along with some static content; aka custom 404
                 let url_len = ferox_url.path_length()?;
 
-                wildcard.dynamic = wc_length - url_len;
+                log::warn!("{:?}", dbg!(url_len, wc_length, wc2_length));
+                log::warn!("{:?}", ferox_url);
+                wildcard.dynamic = wc_length - UUID_LENGTH;
 
                 print_dont_filter_message(
                     WildcardType::Dynamic(&wildcard),
@@ -452,18 +443,18 @@ impl HeuristicTests {
 
     /// given a target's base url, attempt to automatically detect its 404 response
     /// pattern, and then set a filter that will exclude all but the first result
-    pub async fn detect_404_response(&self, target_url: &str) -> Result<()> {
+    pub async fn detect_404_response(&self, target_url: &str) -> Result<bool> {
         log::trace!("enter: detect_404_response");
 
         if self.handles.config.dont_filter {
             log::trace!("exit: detect_404_response -> dont_filter is true");
-            return Ok(());
+            return Ok(false);
         }
 
         let mut responses = Vec::with_capacity(3);
 
         for prefix in ["", ".htaccess", "admin"] {
-            let path = format!("/{prefix}{}", self.unique_string(1));
+            let path = format!("{prefix}{}", self.unique_string(1));
             let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
             let request = ferox_url.format(&path, None)?;
             let response =
@@ -490,13 +481,6 @@ impl HeuristicTests {
         let word_count = responses[0].word_count();
         let line_count = responses[0].line_count();
 
-        if responses
-            .iter()
-            .all(|resp| resp.content_length() == content_length)
-        {
-            size_sentry = false;
-        }
-
         for response in &responses[1..] {
             if response.content_length() != content_length {
                 size_sentry = false;
@@ -511,39 +495,21 @@ impl HeuristicTests {
             }
         }
 
-        if size_sentry {
-            self.handles
-                .filters
-                .send(Command::AddFilter(Box::new(SizeFilter { content_length })))?;
-            ferox_print(responses[0].url().as_str(), &PROGRESS_PRINTER);
-            ferox_print(
-                &format!("Detected 404-like response; filtering requests of size {content_length}"),
-                &PROGRESS_PRINTER,
-            );
+        let command = if size_sentry {
+            Command::AddFilter(Box::new(SizeFilter { content_length }))
         } else if word_sentry {
-            self.handles
-                .filters
-                .send(Command::AddFilter(Box::new(WordsFilter { word_count })))?;
-            ferox_print(responses[0].url().as_str(), &PROGRESS_PRINTER);
-
-            ferox_print(
-                &format!("Detected 404-like response; filtering requests with {word_count} words"),
-                &PROGRESS_PRINTER,
-            );
+            Command::AddFilter(Box::new(WordsFilter { word_count }))
         } else if line_sentry {
-            self.handles
-                .filters
-                .send(Command::AddFilter(Box::new(LinesFilter { line_count })))?;
-            ferox_print(responses[0].url().as_str(), &PROGRESS_PRINTER);
+            Command::AddFilter(Box::new(LinesFilter { line_count }))
+        } else {
+            log::trace!("exit: detect_404_response -> no filter added");
+            return Ok(false);
+        };
 
-            ferox_print(
-                &format!("Detected 404-like response; filtering requests with {line_count} lines"),
-                &PROGRESS_PRINTER,
-            );
-        }
+        self.handles.filters.send(command)?;
 
         log::trace!("exit: detect_404_response");
-        Ok(())
+        Ok(size_sentry || word_sentry || line_sentry)
     }
 }
 
