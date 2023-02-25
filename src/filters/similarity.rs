@@ -1,7 +1,4 @@
-use std::hash::BuildHasherDefault;
-
 use super::*;
-use crate::MIN_SSDEEP_SIZE;
 use fuzzyhash::FuzzyHash;
 use gaoya::minhash::{MinHash, MinHasher, MinHasher16};
 use gaoya::text::whitespace_split;
