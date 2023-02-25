@@ -11,7 +11,7 @@ pub(crate) use self::empty::EmptyFilter;
 pub use self::init::initialize;
 pub use self::lines::LinesFilter;
 pub use self::regex::RegexFilter;
-pub use self::similarity::SimilarityFilter;
+pub use self::similarity::{SimilarityFilter, HashValueType};
 pub use self::size::SizeFilter;
 pub use self::status_code::StatusCodeFilter;
 pub(crate) use self::utils::{create_similarity_filter, filter_lookup};

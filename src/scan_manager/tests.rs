@@ -1,7 +1,7 @@
 use super::*;
 use crate::filters::{
     FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-    WordsFilter,
+    WordsFilter,HashValueType
 };
 use crate::{
     config::{Configuration, OutputLevel},
@@ -399,7 +399,7 @@ fn feroxstates_feroxserialize_implementation() {
         .unwrap();
     filters
         .push(Box::new(SimilarityFilter {
-            hash: "3:YKEpn:Yfp".to_string(),
+            hash: HashValueType::String("3:YKEpn:Yfp".to_string()),
             threshold: SIMILARITY_THRESHOLD,
             original_url: "http://localhost:12345/".to_string(),
         }))

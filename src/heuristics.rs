@@ -5,7 +5,6 @@ use console::style;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
-use crate::filters::SimilarityFilter;
 use crate::message::FeroxMessage;
 use crate::{
     config::OutputLevel,

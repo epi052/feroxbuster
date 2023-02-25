@@ -55,6 +55,11 @@ pub const DEFAULT_OPEN_FILE_LIMIT: u64 = 8192;
 /// Default value used to determine near-duplicate web pages (equivalent to 95%)
 pub const SIMILARITY_THRESHOLD: u32 = 95;
 
+/// Minimum size of response body for ssdeep to produce meaningful results
+/// 
+/// ref: https://github.com/glaslos/ssdeep/issues/17
+pub(crate) const MIN_SSDEEP_SIZE: u64 = 4096;
+
 /// Default set of extensions to Ignore when auto-collecting extensions during scans
 pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 38] = [
     "tif", "tiff", "ico", "cur", "bmp", "webp", "svg", "png", "jpg", "jpeg", "jfif", "gif", "avif",

@@ -1,11 +1,14 @@
+use super::similarity::HashValueType;
 use super::FeroxFilter;
 use super::SimilarityFilter;
 use crate::event_handlers::Handles;
 use crate::response::FeroxResponse;
 use crate::utils::logged_request;
-use crate::{DEFAULT_METHOD, SIMILARITY_THRESHOLD};
+use crate::{DEFAULT_METHOD, MIN_SSDEEP_SIZE, SIMILARITY_THRESHOLD};
 use anyhow::Result;
 use fuzzyhash::FuzzyHash;
+use gaoya::minhash::{MinHasher, MinHasher16};
+use gaoya::text::whitespace_split;
 use regex::Regex;
 use reqwest::Url;
 use std::sync::Arc;
@@ -41,7 +44,14 @@ pub(crate) async fn create_similarity_filter(
     }
 
     // hash the response body and store the resulting hash in the filter object
-    let hash = FuzzyHash::new(fr.text()).to_string();
+    let hash = if fr.content_length() <= MIN_SSDEEP_SIZE {
+        // response too small for ssdeep
+        let hasher = MinHasher16::new(256);
+        HashValueType::Vec(hasher.create_signature(whitespace_split(fr.text())))
+    } else {
+        // size over ssdeep's minimum value
+        HashValueType::String(FuzzyHash::new(fr.text()).to_string())
+    };
 
     Ok(SimilarityFilter {
         hash,
@@ -95,7 +105,7 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
         }
         "similarity" => {
             return Some(Box::new(SimilarityFilter {
-                hash: String::new(),
+                hash: HashValueType::String(String::new()),
                 threshold: SIMILARITY_THRESHOLD,
                 original_url: filter_value.to_string(),
             }));
@@ -157,7 +167,7 @@ mod tests {
         assert_eq!(
             filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
             &SimilarityFilter {
-                hash: String::new(),
+                hash: HashValueType::String(String::new()),
                 threshold: SIMILARITY_THRESHOLD,
                 original_url: "http://localhost".to_string()
             }
@@ -195,7 +205,7 @@ mod tests {
         assert_eq!(
             filter,
             SimilarityFilter {
-                hash: "3:YKEpn:Yfp".to_string(),
+                hash: HashValueType::String("3:YKEpn:Yfp".to_string()),
                 threshold: SIMILARITY_THRESHOLD,
                 original_url: srv.url("/")
             }
