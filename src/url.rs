@@ -2,7 +2,7 @@ use crate::{event_handlers::Handles, statistics::StatError::UrlFormat, Command::
 use anyhow::{anyhow, bail, Result};
 use reqwest::Url;
 use std::collections::HashSet;
-use std::{convert::TryInto, fmt, sync::Arc};
+use std::{fmt, sync::Arc};
 
 /// abstraction around target urls; collects all Url related shenanigans in one place
 #[derive(Debug)]
@@ -155,47 +155,6 @@ impl FeroxUrl {
             log::trace!("exit: format_url -> {}", with_params);
             Ok(with_params) // request with params attached
         }
-    }
-
-    /// Gets the length of a url's path
-    pub fn path_length(&self) -> Result<u64> {
-        let parsed = Url::parse(&self.target)?;
-        Ok(FeroxUrl::path_length_of_url(&parsed))
-    }
-
-    /// Gets the length of a url's path
-    ///
-    /// example: http://localhost/stuff -> 5
-    pub fn path_length_of_url(url: &Url) -> u64 {
-        log::trace!("enter: get_path_length({})", url);
-
-        let path = url.path();
-
-        let segments = if let Some(split) = path.strip_prefix('/') {
-            split.split_terminator('/')
-        } else {
-            log::trace!("exit: get_path_length -> 0");
-            return 0;
-        };
-
-        if let Some(last) = segments.last() {
-            // failure on conversion should be very unlikely. While a usize can absolutely overflow a
-            // u64, the generally accepted maximum for the length of a url is ~2000.  so the value we're
-            // putting into the u64 should never realistically be anywhere close to producing an
-            // overflow.
-            // usize max: 18,446,744,073,709,551,615
-            // u64 max:   9,223,372,036,854,775,807
-            let url_len: u64 = last
-                .len()
-                .try_into()
-                .expect("Failed usize -> u64 conversion");
-
-            log::trace!("exit: get_path_length -> {}", url_len);
-            return url_len;
-        }
-
-        log::trace!("exit: get_path_length -> 0");
-        0
     }
 
     /// Simple helper to abstract away adding a forward-slash to a url if not present

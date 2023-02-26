@@ -1,5 +1,4 @@
 use super::*;
-use ::fuzzyhash::FuzzyHash;
 use ::regex::Regex;
 
 
@@ -112,8 +111,7 @@ fn similarity_filter_is_accurate() {
     resp.set_text("sitting");
 
     let mut filter = SimilarityFilter {
-        hash: HashValueType::String(FuzzyHash::new("kitten").to_string()),
-        threshold: 95,
+        hash: 1,
         original_url: "".to_string(),
     };
 
@@ -121,15 +119,13 @@ fn similarity_filter_is_accurate() {
     assert!(!filter.should_filter_response(&resp));
 
     resp.set_text("");
-    filter.hash = HashValueType::String(String::new());
-    filter.threshold = 100;
+    filter.hash = 1;
 
     // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
     assert!(!filter.should_filter_response(&resp));
 
     resp.set_text("some data to hash for the purposes of running a test");
-    filter.hash = HashValueType::String(FuzzyHash::new("some data to hash for the purposes of running a te").to_string());
-    filter.threshold = 17;
+    filter.hash = 1;
 
     assert!(filter.should_filter_response(&resp));
 }
@@ -138,14 +134,12 @@ fn similarity_filter_is_accurate() {
 /// just a simple test to increase code coverage by hitting as_any and the inner value
 fn similarity_filter_as_any() {
     let filter = SimilarityFilter {
-        hash: HashValueType::String(String::from("stuff")),
-        threshold: 95,
+        hash: 1,
         original_url: "".to_string(),
     };
 
     let filter2 = SimilarityFilter {
-        hash: HashValueType::String(String::from("stuff")),
-        threshold: 95,
+        hash: 1,
         original_url: "".to_string(),
     };
 

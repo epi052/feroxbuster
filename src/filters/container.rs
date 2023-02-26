@@ -3,10 +3,7 @@ use std::sync::RwLock;
 use anyhow::Result;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 
-use crate::{
-    event_handlers::Command::AddToUsizeField, response::FeroxResponse,
-    statistics::StatField::WildcardsFiltered, CommandSender,
-};
+use crate::response::FeroxResponse;
 
 use super::{
     FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
@@ -67,11 +64,7 @@ impl FeroxFilters {
 
     /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
     /// to the user or not.
-    pub fn should_filter_response(
-        &self,
-        response: &FeroxResponse,
-        tx_stats: CommandSender,
-    ) -> bool {
+    pub fn should_filter_response(&self, response: &FeroxResponse) -> bool {
         if let Ok(filters) = self.filters.read() {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here

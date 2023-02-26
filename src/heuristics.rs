@@ -20,9 +20,6 @@ use crate::{
     DEFAULT_METHOD,
 };
 
-/// length of a standard UUID, used when determining wildcard responses
-const UUID_LENGTH: u64 = 32;
-
 /// enum representing the different servers that `parse_html` can detect when directory listing is
 /// enabled
 #[derive(Copy, Debug, Clone)]
@@ -288,7 +285,7 @@ impl HeuristicTests {
                 // - http://localhost/.htaccessa005a2131e68449aa26e99029c914c09
                 // - http://localhost/adminf1d2541e73c44dcb9d1fb7d93334b280
                 let response =
-                    logged_request(&nonexistent_url, &method, data, self.handles.clone()).await;
+                    logged_request(&nonexistent_url, method, data, self.handles.clone()).await;
 
                 req_counter += 1;
 
@@ -311,7 +308,7 @@ impl HeuristicTests {
                 let ferox_response = FeroxResponse::from(
                     response,
                     &ferox_url.target,
-                    &method,
+                    method,
                     self.handles.config.output_level,
                 )
                 .await;
@@ -378,7 +375,7 @@ impl HeuristicTests {
 
         log::trace!("exit: detect_404_like_responses");
 
-        return Ok(req_counter);
+        Ok(req_counter)
     }
 
     /// for all responses, examine chars/words/lines

@@ -32,7 +32,7 @@ impl FeroxFilter for SimilarityFilter {
     /// --filter-similar-to
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
         let other = SIM_HASHER.create_signature(preprocess(response.text()).iter());
-        return self.hash.hamming_distance(&other) <= MAX_HAMMING_DISTANCE;
+        self.hash.hamming_distance(&other) <= MAX_HAMMING_DISTANCE
     }
 
     /// Compare one SimilarityFilter to another

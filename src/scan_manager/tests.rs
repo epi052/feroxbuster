@@ -1,7 +1,7 @@
 use super::*;
 use crate::filters::{
-    FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-    WordsFilter,HashValueType
+    FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter,
+    StatusCodeFilter, WordsFilter,
 };
 use crate::{
     config::{Configuration, OutputLevel},
@@ -10,7 +10,7 @@ use crate::{
     scanner::RESPONSES,
     statistics::Stats,
     traits::FeroxSerialize,
-    SIMILARITY_THRESHOLD, SLEEP_DURATION, VERSION,
+    SLEEP_DURATION, VERSION,
 };
 use indicatif::ProgressBar;
 use predicates::prelude::*;
@@ -399,8 +399,7 @@ fn feroxstates_feroxserialize_implementation() {
         .unwrap();
     filters
         .push(Box::new(SimilarityFilter {
-            hash: HashValueType::String("3:YKEpn:Yfp".to_string()),
-            threshold: SIMILARITY_THRESHOLD,
+            hash: 1,
             original_url: "http://localhost:12345/".to_string(),
         }))
         .unwrap();
@@ -499,7 +498,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""collect_extensions":true"#,
         r#""collect_backups":false"#,
         r#""collect_words":false"#,
-        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":"3:YKEpn:Yfp","threshold":95,"original_url":"http://localhost:12345/"}]"#,
+        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":1,"original_url":"http://localhost:12345/"}]"#,
         r#""collected_extensions":["php"]"#,
         r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
     ]
@@ -636,9 +635,7 @@ fn menu_print_header_and_footer() {
     let menu_cmd_2 = MenuCmd::Cancel(vec![0], false);
     let menu_cmd_res_1 = MenuCmdResult::Url(String::from("http://localhost"));
     let menu_cmd_res_2 = MenuCmdResult::NumCancelled(2);
-    println!(
-        "{menu_cmd_1:?}{menu_cmd_2:?}{menu_cmd_res_1:?}{menu_cmd_res_2:?}"
-    );
+    println!("{menu_cmd_1:?}{menu_cmd_2:?}{menu_cmd_res_1:?}{menu_cmd_res_2:?}");
     menu.clear_screen();
     menu.print_header();
     menu.print_footer();

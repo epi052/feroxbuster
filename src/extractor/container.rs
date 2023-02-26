@@ -148,7 +148,7 @@ impl<'a> Extractor<'a> {
                 .handles
                 .filters
                 .data
-                .should_filter_response(&resp, self.handles.stats.tx.clone())
+                .should_filter_response(&resp)
             {
                 continue;
             }

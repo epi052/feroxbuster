@@ -192,7 +192,7 @@ mod tests {
         assert_eq!(
             filter,
             SimilarityFilter {
-                hash: HashValueType::String("3:YKEpn:Yfp".to_string()),
+                hash: 1,
                 original_url: srv.url("/")
             }
         );
