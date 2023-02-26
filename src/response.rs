@@ -378,7 +378,7 @@ impl FeroxResponse {
             }
         } else if self.status().is_success() || matches!(self.status(), &StatusCode::FORBIDDEN) {
             // status code is 2xx or 403, need to check if it ends in /
-
+            
             if self.url().as_str().ends_with('/') {
                 log::debug!("{} is directory suitable for recursion", self.url());
                 log::trace!("exit: is_directory -> true");

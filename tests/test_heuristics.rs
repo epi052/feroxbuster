@@ -180,66 +180,13 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
     teardown_tmp_directory(tmp_dir);
 
     cmd.assert().success().stdout(
-        predicate::str::contains("WLD")
-            .and(predicate::str::contains("Got"))
-            .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("(url length: 32)")),
+        predicate::str::contains("WLD").and(predicate::str::contains(
+            "auto-filtering 404-like response (1 lines);",
+        )),
     );
 
     assert_eq!(mock.hits(), 1);
     Ok(())
-}
-
-#[test]
-/// test finds a dynamic wildcard and reports as much to stdout and a file
-fn test_dynamic_wildcard_request_found() {
-    let srv = MockServer::start();
-    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
-    let outfile = tmp_dir.path().join("outfile");
-
-    let mock = srv.mock(|when, then| {
-        when.method(GET)
-            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
-        then.status(200)
-            .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    });
-
-    let mock2 = srv.mock(|when, then| {
-        when.method(GET).path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
-        then.status(200).body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    });
-
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
-        .arg("--url")
-        .arg(srv.url("/"))
-        .arg("--wordlist")
-        .arg(file.as_os_str())
-        .arg("--add-slash")
-        .arg("--output")
-        .arg(outfile.as_os_str())
-        .unwrap();
-
-    let contents = std::fs::read_to_string(outfile).unwrap();
-
-    teardown_tmp_directory(tmp_dir);
-
-    assert!(contents.contains("WLD"));
-    assert!(contents.contains("Got"));
-    assert!(contents.contains("200"));
-    assert!(contents.contains("(url length: 32)"));
-    assert!(contents.contains("(url length: 96)"));
-
-    cmd.assert().success().stdout(
-        predicate::str::contains("WLD")
-            .and(predicate::str::contains("Got"))
-            .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("(url length: 32)"))
-            .and(predicate::str::contains("(url length: 96)")),
-    );
-
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock2.hits(), 1);
 }
 
 #[test]

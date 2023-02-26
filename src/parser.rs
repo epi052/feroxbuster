@@ -355,7 +355,7 @@ pub fn initialize() -> Command {
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
-                    "Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)",
+                    "Status Codes to include (allow list) (default: All Status Codes)",
                 ),
         );
 

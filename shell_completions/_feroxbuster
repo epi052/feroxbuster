@@ -49,8 +49,8 @@ _feroxbuster() {
 '(-s --status-codes)*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
 '(-s --status-codes)*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
 '*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]:UNWANTED_PAGE:_urls' \
-'*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
-'*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
+'*-s+[Status Codes to include (allow list) (default: All Status Codes)]:STATUS_CODE: ' \
+'*--status-codes=[Status Codes to include (allow list) (default: All Status Codes)]:STATUS_CODE: ' \
 '-T+[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
 '--timeout=[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
 '-t+[Number of concurrent threads (default: 50)]:THREADS: ' \
