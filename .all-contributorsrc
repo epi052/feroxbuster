@@ -496,6 +496,25 @@
         "code",
         "infra"
       ]
+    },
+    {
+      "login": "joaociocca",
+      "name": "João Ciocca",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6473725?v=4",
+      "profile": "https://hachyderm.io/@JohnnyCiocca",
+      "contributions": [
+        "bug",
+        "ideas"
+      ]
+    },
+    {
+      "login": "f3rn0s",
+      "name": "f3rn0s",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1351279?v=4",
+      "profile": "https://github.com/f3rn0s",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
