@@ -192,7 +192,7 @@ mod tests {
         assert_eq!(
             filter,
             SimilarityFilter {
-                hash: 1,
+                hash: 14897447612059286329,
                 original_url: srv.url("/")
             }
         );

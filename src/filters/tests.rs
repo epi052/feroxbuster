@@ -1,6 +1,6 @@
 use super::*;
+use crate::nlp::preprocess;
 use ::regex::Regex;
-
 
 #[test]
 /// just a simple test to increase code coverage by hitting as_any and the inner value
@@ -111,7 +111,7 @@ fn similarity_filter_is_accurate() {
     resp.set_text("sitting");
 
     let mut filter = SimilarityFilter {
-        hash: 1,
+        hash: SIM_HASHER.create_signature(["kitten"].iter()),
         original_url: "".to_string(),
     };
 
@@ -119,13 +119,15 @@ fn similarity_filter_is_accurate() {
     assert!(!filter.should_filter_response(&resp));
 
     resp.set_text("");
-    filter.hash = 1;
+    filter.hash = SIM_HASHER.create_signature([""].iter());
 
-    // two empty strings are the same, however ssdeep doesn't accept empty strings, expect false
+    // two empty strings are the same
     assert!(!filter.should_filter_response(&resp));
 
-    resp.set_text("some data to hash for the purposes of running a test");
-    filter.hash = 1;
+    resp.set_text("some data hash purposes running test");
+    filter.hash = SIM_HASHER.create_signature(
+        preprocess("some data to hash for the purposes of running a test").iter(),
+    );
 
     assert!(filter.should_filter_response(&resp));
 }

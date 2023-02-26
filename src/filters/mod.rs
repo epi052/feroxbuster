@@ -4,7 +4,7 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use crate::response::FeroxResponse;
-use crate::traits::{FeroxFilter};
+use crate::traits::FeroxFilter;
 
 pub use self::container::FeroxFilters;
 pub(crate) use self::empty::EmptyFilter;
