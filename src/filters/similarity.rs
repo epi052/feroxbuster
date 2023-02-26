@@ -1,6 +1,6 @@
 use super::*;
-use gaoya::simhash::{SimHash, SimHashBits, SimSipHasher64};
 use crate::nlp::preprocess;
+use gaoya::simhash::{SimHash, SimHashBits, SimSipHasher64};
 use lazy_static::lazy_static;
 
 lazy_static! {

@@ -1,7 +1,7 @@
 use super::*;
 use crate::filters::{
-    FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter,
-    StatusCodeFilter, WordsFilter,
+    FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
+    WordsFilter,
 };
 use crate::{
     config::{Configuration, OutputLevel},

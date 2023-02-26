@@ -299,7 +299,7 @@ impl FeroxScanner {
             // traditional 404, or a custom response)
             //
             // `detect_404_like_responses` will make the requests that the wildcard test used to
-            // perform pre-2.8 in addition to new detection techniques, superseding the old 
+            // perform pre-2.8 in addition to new detection techniques, superseding the old
             // wildcard test
             let num_reqs_made = test.detect_404_like_responses(&self.target_url).await?;
 

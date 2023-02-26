@@ -1,7 +1,6 @@
 //! collection of all traits used
 use crate::filters::{
-    LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-    WordsFilter,
+    LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
 };
 use crate::response::FeroxResponse;
 use anyhow::Result;

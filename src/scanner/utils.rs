@@ -11,6 +11,5 @@ pub enum PolicyTrigger {
     Errors,
 
     /// dummy error for upward rate adjustment
-    TryAdjustUp
-    
+    TryAdjustUp,
 }
