@@ -298,25 +298,12 @@ impl FeroxScanner {
             // the server is using to respond to resources that don't exist (could be a
             // traditional 404, or a custom response)
             //
-            // `detect_404_response` will make the requests that the wildcard test used to
-            // perform pre-2.8, and then hand those off to `wildcard`, so we're not 
-            // duplicating effort.
-            //
-            // the wildcard test will only add a filter in the event that the filter it
-            // would create isn't already being filtered by the user or by the 
-            // auto-detected 404-like response
-            let num_reqs_made = test.detect_404_response(&self.target_url).await?;
+            // `detect_404_like_responses` will make the requests that the wildcard test used to
+            // perform pre-2.8 in addition to new detection techniques, superseding the old 
+            // wildcard test
+            let num_reqs_made = test.detect_404_like_responses(&self.target_url).await?;
 
-
-            // let num_reqs_made = test.wildcard(detection_responses).await.unwrap_or_default();
             progress_bar.inc(num_reqs_made);
-
-            // if !detected {
-            //     // on error, we'll have 0, same for --dont-filter
-            //     // anything higher than 0 indicates a wildcard was found
-            //     let num_reqs_made = test.wildcard(&self.target_url).await.unwrap_or_default();
-            //     progress_bar.inc(num_reqs_made);
-            // }
         }
 
         // Arc clones to be passed around to the various scans

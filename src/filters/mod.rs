@@ -15,7 +15,6 @@ pub use self::similarity::{SimilarityFilter, SIM_HASHER};
 pub use self::size::SizeFilter;
 pub use self::status_code::StatusCodeFilter;
 pub(crate) use self::utils::{create_similarity_filter, filter_lookup};
-pub use self::wildcard::WildcardFilter;
 pub use self::words::WordsFilter;
 
 mod wildcard;

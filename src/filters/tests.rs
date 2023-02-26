@@ -1,29 +1,7 @@
 use super::*;
 use ::fuzzyhash::FuzzyHash;
 use ::regex::Regex;
-use super::similarity::HashValueType;
 
-#[test]
-/// simply test the default values for wildcardfilter, expect 0, 0
-fn wildcard_filter_default() {
-    let wcf = WildcardFilter::default();
-    assert_eq!(wcf.size, u64::MAX);
-    assert_eq!(wcf.dynamic, u64::MAX);
-}
-
-#[test]
-/// just a simple test to increase code coverage by hitting as_any and the inner value
-fn wildcard_filter_as_any() {
-    let filter = WildcardFilter::default();
-    let filter2 = WildcardFilter::default();
-
-    assert!(filter.box_eq(filter2.as_any()));
-
-    assert_eq!(
-        *filter.as_any().downcast_ref::<WildcardFilter>().unwrap(),
-        filter
-    );
-}
 
 #[test]
 /// just a simple test to increase code coverage by hitting as_any and the inner value
@@ -107,59 +85,6 @@ fn regex_filter_as_any() {
         *filter.as_any().downcast_ref::<RegexFilter>().unwrap(),
         filter
     );
-}
-
-#[test]
-/// test should_filter on WilcardFilter where static logic matches
-fn wildcard_should_filter_when_static_wildcard_found() {
-    let mut resp = FeroxResponse::default();
-    resp.set_wildcard(true);
-    resp.set_url("http://localhost");
-    resp.set_text(
-        "pellentesque diam volutpat commodo sed egestas egestas fringilla phasellus faucibus",
-    );
-
-    let filter = WildcardFilter {
-        size: 83,
-        dynamic: 0,
-        dont_filter: false,
-        method: "GET".to_owned(),
-    };
-
-    assert!(filter.should_filter_response(&resp));
-}
-
-#[test]
-/// test should_filter on WilcardFilter where static logic matches but response length is 0
-fn wildcard_should_filter_when_static_wildcard_len_is_zero() {
-    let mut resp = FeroxResponse::default();
-    resp.set_wildcard(true);
-    resp.set_url("http://localhost");
-
-    // default WildcardFilter is used in the code that executes when response.content_length() == 0
-    let filter = WildcardFilter::new(false);
-
-    assert!(filter.should_filter_response(&resp));
-}
-
-#[test]
-/// test should_filter on WilcardFilter where dynamic logic matches
-fn wildcard_should_filter_when_dynamic_wildcard_found() {
-    let mut resp = FeroxResponse::default();
-    resp.set_wildcard(true);
-    resp.set_url("http://localhost/stuff");
-    resp.set_text("pellentesque diam volutpat commodo sed egestas egestas fringilla");
-
-    let filter = WildcardFilter {
-        size: 0,
-        dynamic: 59, // content-length - 5 (len('stuff'))
-        dont_filter: false,
-        method: "GET".to_owned(),
-    };
-
-    println!("resp: {resp:?}: filter: {filter:?}");
-
-    assert!(filter.should_filter_response(&resp));
 }
 
 #[test]
