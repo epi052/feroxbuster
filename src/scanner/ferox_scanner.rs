@@ -244,7 +244,7 @@ impl FeroxScanner {
         }
 
         {
-            // heuristics test block
+            // heuristics test block:
             let test = heuristics::HeuristicTests::new(self.handles.clone());
 
             if let Ok(dirlist_result) = test.directory_listing(&self.target_url).await {
@@ -294,15 +294,29 @@ impl FeroxScanner {
                 }
             }
 
-            let detected = test.detect_404_response(&self.target_url).await?;
-            log::info!("404 response detected: {}", detected);
+            // now that we haven't found a directory listing, we'll attempt to derive whatever
+            // the server is using to respond to resources that don't exist (could be a
+            // traditional 404, or a custom response)
+            //
+            // `detect_404_response` will make the requests that the wildcard test used to
+            // perform pre-2.8, and then hand those off to `wildcard`, so we're not 
+            // duplicating effort.
+            //
+            // the wildcard test will only add a filter in the event that the filter it
+            // would create isn't already being filtered by the user or by the 
+            // auto-detected 404-like response
+            let num_reqs_made = test.detect_404_response(&self.target_url).await?;
 
-            if !detected {
-                // on error, we'll have 0, same for --dont-filter
-                // anything higher than 0 indicates a wildcard was found
-                let num_reqs_made = test.wildcard(&self.target_url).await.unwrap_or_default();
-                progress_bar.inc(num_reqs_made);
-            }
+
+            // let num_reqs_made = test.wildcard(detection_responses).await.unwrap_or_default();
+            progress_bar.inc(num_reqs_made);
+
+            // if !detected {
+            //     // on error, we'll have 0, same for --dont-filter
+            //     // anything higher than 0 indicates a wildcard was found
+            //     let num_reqs_made = test.wildcard(&self.target_url).await.unwrap_or_default();
+            //     progress_bar.inc(num_reqs_made);
+            // }
         }
 
         // Arc clones to be passed around to the various scans

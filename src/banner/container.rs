@@ -208,7 +208,7 @@ impl Banner {
         let status_codes = if config.status_codes.len() == DEFAULT_STATUS_CODES.len() + 2 {
             let all_str = format!(
                 "{} {} {}{}",
-                style("All").blue(),
+                style("All").cyan(),
                 style("Status").green(),
                 style("Codes").yellow(),
                 style("!").red()

@@ -5,7 +5,9 @@ use console::style;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
+use crate::filters::{SimilarityFilter, SIM_HASHER};
 use crate::message::FeroxMessage;
+use crate::nlp::preprocess;
 use crate::{
     config::OutputLevel,
     event_handlers::{Command, Handles},
@@ -183,10 +185,6 @@ impl HeuristicTests {
             if wc2_length == wc_length + (UUID_LENGTH * 2) {
                 // second length is what we'd expect to see if the requested url is
                 // reflected in the response along with some static content; aka custom 404
-                let url_len = ferox_url.path_length()?;
-
-                log::warn!("{:?}", dbg!(url_len, wc_length, wc2_length));
-                log::warn!("{:?}", ferox_url);
                 wildcard.dynamic = wc_length - UUID_LENGTH;
 
                 print_dont_filter_message(
@@ -442,73 +440,188 @@ impl HeuristicTests {
 
     /// given a target's base url, attempt to automatically detect its 404 response
     /// pattern, and then set a filter that will exclude all but the first result
-    pub async fn detect_404_response(&self, target_url: &str) -> Result<bool> {
-        log::trace!("enter: detect_404_response");
+    pub async fn detect_404_response(&self, target_url: &str) -> Result<u64> {
+        log::trace!("enter: detect_404_response({:?})", target_url);
 
         if self.handles.config.dont_filter {
+            // early return, dont_filter scans don't need tested
             log::trace!("exit: detect_404_response -> dont_filter is true");
-            return Ok(false);
-        }
-
-        let mut responses = Vec::with_capacity(3);
-
-        for prefix in ["", ".htaccess", "admin"] {
-            let path = format!("{prefix}{}", self.unique_string(1));
-            let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
-            let request = ferox_url.format(&path, None)?;
-            let response =
-                logged_request(&request, DEFAULT_METHOD, None, self.handles.clone()).await;
-
-            let response = skip_fail!(response);
-
-            let ferox_response = FeroxResponse::from(
-                response,
-                &ferox_url.target,
-                DEFAULT_METHOD,
-                self.handles.config.output_level,
-            )
-            .await;
-
-            responses.push(ferox_response);
+            return Ok(0);
         }
 
         let mut size_sentry = true;
         let mut word_sentry = true;
         let mut line_sentry = true;
+        let mut req_counter = 0;
 
-        let content_length = responses[0].content_length();
-        let word_count = responses[0].word_count();
-        let line_count = responses[0].line_count();
+        let data = if self.handles.config.data.is_empty() {
+            None
+        } else {
+            Some(self.handles.config.data.as_slice())
+        };
 
-        for response in &responses[1..] {
-            if response.content_length() != content_length {
-                size_sentry = false;
+        // 4 is due to the array in the nested for loop below
+        let mut responses = Vec::with_capacity(4);
+
+        for method in self.handles.config.methods.iter() {
+            for (prefix, length) in [("", 1), ("", 3), (".htaccess", 1), ("admin", 1)] {
+                let path = format!("{prefix}{}", self.unique_string(length));
+
+                // To take care of slash when needed
+                let slash = if self.handles.config.add_slash {
+                    Some("/")
+                } else {
+                    None
+                };
+
+                let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
+
+                let nonexistent_url = ferox_url.format(&path, slash)?;
+
+                let response =
+                    logged_request(&nonexistent_url, &method, data, self.handles.clone()).await;
+
+                req_counter += 1;
+
+                // continue to next on error
+                let response = skip_fail!(response);
+
+                if !self
+                    .handles
+                    .config
+                    .status_codes
+                    .contains(&response.status().as_u16())
+                {
+                    // if the response code isn't one that's accepted via -s values, then skip to the next
+                    //
+                    // the default value for -s is all status codes, so unless the user says otherwise
+                    // this won't fire
+                    continue;
+                }
+
+                let ferox_response = FeroxResponse::from(
+                    response,
+                    &ferox_url.target,
+                    &method,
+                    self.handles.config.output_level,
+                )
+                .await;
+
+                responses.push(ferox_response);
             }
 
-            if response.word_count() != word_count {
-                word_sentry = false;
+            if responses.len() < 2 {
+                // don't have enough responses to make a determination, continue to next method
+                continue;
             }
 
-            if response.line_count() != line_count {
-                line_sentry = false;
+            // examine chars/words/lines for each response
+            // if all responses respetive length match each other, we can assume
+            // that will remain true for subsequent non-existent urls, and create
+            // a filter for it.
+            //
+            // values are examined from most to least specific (content length, word count, line count)
+            let content_length = responses[0].content_length();
+            let word_count = responses[0].word_count();
+            let line_count = responses[0].line_count();
+
+            for response in &responses[1..] {
+                // if any of the responses differ in length, that particular
+                // response length type is no longer a canidate for filtering
+                if response.content_length() != content_length {
+                    size_sentry = false;
+                }
+
+                if response.word_count() != word_count {
+                    word_sentry = false;
+                }
+
+                if response.line_count() != line_count {
+                    line_sentry = false;
+                }
+            }
+
+            // the if/else-if/else nature of the block means that we'll get the most
+            // specific match, if one is to be had
+            //
+            // each block returns the information needed to send the filter away and
+            // display a message to the user
+            let (command, filter_type, filter_length) = if size_sentry {
+                log::info!(
+                "[404-like] {target_url} => filtering future responses with {content_length} bytes"
+            );
+                (
+                    Command::AddFilter(Box::new(SizeFilter { content_length })),
+                    "bytes",
+                    content_length as usize,
+                )
+            } else if word_sentry {
+                log::info!(
+                    "[404-like] {target_url} => filtering future responses with {word_count} words"
+                );
+                (
+                    Command::AddFilter(Box::new(WordsFilter { word_count })),
+                    "words",
+                    word_count,
+                )
+            } else if line_sentry {
+                log::info!(
+                    "[404-like] {target_url} => filtering future responses with {line_count} lines"
+                );
+                (
+                    Command::AddFilter(Box::new(LinesFilter { line_count })),
+                    "lines",
+                    line_count,
+                )
+            } else {
+                log::trace!("exit: detect_404_response -> no filter added");
+                // no match was found; clear the vec and continue to the next
+                responses.clear();
+                continue;
+            };
+
+            match command {
+                Command::AddFilter(ref filter) => {
+                    if let Ok(guard) = self.handles.filters.data.filters.read() {
+                        if guard.contains(filter) {
+                            // match was found, but already known; clear the vec and continue to the next
+                            responses.clear();
+                            continue;
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            // if we're here, we've detected a 404-like response pattern, so we're already filtering for size/word/line
+            // in addition, we'll create a similarity filter as a fallback
+            let hash = SIM_HASHER.create_signature(preprocess(responses[0].text()).iter());
+
+            let sim_filter = SimilarityFilter {
+                hash,
+                original_url: responses[0].url().to_string(),
+            };
+
+            self.handles.filters.send(command)?;
+
+            // reset the responses for the next method, if it exists
+            responses.clear();
+
+            self.handles
+                .filters
+                .send(Command::AddFilter(Box::new(sim_filter)))?;
+            if matches!(
+                self.handles.config.output_level,
+                OutputLevel::Default | OutputLevel::Quiet
+            ) {
+                let msg = format!("{} {:>8} {:>9} {:>9} {:>9} {} => {} {}-like response ({} {}); toggle this behavior by using {}\n", status_colorizer("WLD"), "-", "-", "-", "-", style(target_url).cyan(), style("auto-filtering").bright().green(), style("404").red(), style(filter_length).cyan(), filter_type, style("--dont-filter").yellow());
+                ferox_print(&msg, &PROGRESS_PRINTER);
             }
         }
 
-        let command = if size_sentry {
-            Command::AddFilter(Box::new(SizeFilter { content_length }))
-        } else if word_sentry {
-            Command::AddFilter(Box::new(WordsFilter { word_count }))
-        } else if line_sentry {
-            Command::AddFilter(Box::new(LinesFilter { line_count }))
-        } else {
-            log::trace!("exit: detect_404_response -> no filter added");
-            return Ok(false);
-        };
-
-        self.handles.filters.send(command)?;
-
         log::trace!("exit: detect_404_response");
-        Ok(size_sentry || word_sentry || line_sentry)
+
+        return Ok(req_counter);
     }
 }
 

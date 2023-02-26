@@ -1,14 +1,12 @@
-use super::similarity::HashValueType;
 use super::FeroxFilter;
 use super::SimilarityFilter;
 use crate::event_handlers::Handles;
+use crate::filters::similarity::SIM_HASHER;
+use crate::nlp::preprocess;
 use crate::response::FeroxResponse;
 use crate::utils::logged_request;
-use crate::{DEFAULT_METHOD, MIN_SSDEEP_SIZE, SIMILARITY_THRESHOLD};
+use crate::DEFAULT_METHOD;
 use anyhow::Result;
-use fuzzyhash::FuzzyHash;
-use gaoya::minhash::{MinHasher, MinHasher16};
-use gaoya::text::whitespace_split;
 use regex::Regex;
 use reqwest::Url;
 use std::sync::Arc;
@@ -43,21 +41,10 @@ pub(crate) async fn create_similarity_filter(
         fr.parse_extension(handles.clone())?;
     }
 
-    // hash the response body and store the resulting hash in the filter object
-    let hash = if fr.content_length() <= MIN_SSDEEP_SIZE {
-        log::debug!("response too small for ssdeep, using minhash for comparison");
-        // response too small for ssdeep
-        let hasher = MinHasher16::new(256);
-        HashValueType::Vec(hasher.create_signature(whitespace_split(fr.text())))
-    } else {
-        // size over ssdeep's minimum value
-        log::debug!("response large enough to use ssdeep for comparison");
-        HashValueType::String(FuzzyHash::new(fr.text()).to_string())
-    };
+    let hash = SIM_HASHER.create_signature(preprocess(fr.text()).iter());
 
     Ok(SimilarityFilter {
         hash,
-        threshold: SIMILARITY_THRESHOLD,
         original_url: similarity_filter.to_string(),
     })
 }
@@ -107,8 +94,7 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
         }
         "similarity" => {
             return Some(Box::new(SimilarityFilter {
-                hash: HashValueType::String(String::new()),
-                threshold: SIMILARITY_THRESHOLD,
+                hash: 0,
                 original_url: filter_value.to_string(),
             }));
         }
@@ -169,8 +155,7 @@ mod tests {
         assert_eq!(
             filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
             &SimilarityFilter {
-                hash: HashValueType::String(String::new()),
-                threshold: SIMILARITY_THRESHOLD,
+                hash: 0,
                 original_url: "http://localhost".to_string()
             }
         );
@@ -208,7 +193,6 @@ mod tests {
             filter,
             SimilarityFilter {
                 hash: HashValueType::String("3:YKEpn:Yfp".to_string()),
-                threshold: SIMILARITY_THRESHOLD,
                 original_url: srv.url("/")
             }
         );
