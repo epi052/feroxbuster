@@ -107,10 +107,10 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --quiet 'Hide progress bars and banner (good for tmux windows w/ notifications)'
             cand --json 'Emit JSON logs to --output and --debug-log instead of normal text'
             cand --no-state 'Disable state output file (*.state)'
-            cand -h 'Print help information (use `--help` for more detail)'
-            cand --help 'Print help information (use `--help` for more detail)'
-            cand -V 'Print version information'
-            cand --version 'Print version information'
+            cand -h 'Print help (see more with ''--help'')'
+            cand --help 'Print help (see more with ''--help'')'
+            cand -V 'Print version'
+            cand --version 'Print version'
         }
     ]
     $completions[$command]
