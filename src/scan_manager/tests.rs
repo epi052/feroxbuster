@@ -224,7 +224,7 @@ fn ferox_scan_get_progress_bar_when_none_is_set() {
 /// given a JSON entry representing a FeroxScan, test that it deserializes into the proper type
 /// with the right attributes
 fn ferox_scan_deserialize() {
-    let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","status":"Complete"}"#;
+    let fs_json = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Directory","status":"Complete","requests_made_so_far":500}"#;
     let fs_json_two = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"Cancelled"}"#;
     let fs_json_three = r#"{"id":"057016a14769414aac9a7a62707598cb","url":"https://spiritanimal.com","scan_type":"Not Correct","status":"","num_requests":42}"#;
 
@@ -246,9 +246,23 @@ fn ferox_scan_deserialize() {
         ScanType::File => {}
     }
 
-    match *fs.progress_bar.lock().unwrap() {
-        None => {}
-        Some(_) => {
+    match fs.progress_bar.lock() {
+        Ok(guard) => {
+            match guard.as_ref() {
+                Some(pb) => {
+                    // position based on the requests made so far
+                    //
+                    // note: when this goes through the actual deserialize function, the
+                    // progress bar will be set to the total requests made so far, -10%
+                    // (i.e. 450 in this case)
+                    assert_eq!(pb.position(), 500);
+                }
+                None => {
+                    panic!();
+                }
+            }
+        }
+        Err(_) => {
             panic!();
         }
     }
@@ -277,7 +291,7 @@ fn ferox_scan_serialize() {
         None,
     );
     let fs_json = format!(
-        r#"{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0}}"#,
+        r#"{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0,"requests_made_so_far":0}}"#,
         fs.id
     );
     assert_eq!(fs_json, serde_json::to_string(&*fs).unwrap());
@@ -296,7 +310,7 @@ fn ferox_scans_serialize() {
     );
     let ferox_scans = FeroxScans::default();
     let ferox_scans_json = format!(
-        r#"[{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0}}]"#,
+        r#"[{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0,"requests_made_so_far":0}}]"#,
         ferox_scan.id
     );
     ferox_scans.scans.write().unwrap().push(ferox_scan);

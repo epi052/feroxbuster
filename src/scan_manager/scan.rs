@@ -354,6 +354,7 @@ impl Serialize for FeroxScan {
         state.serialize_field("scan_type", &self.scan_type)?;
         state.serialize_field("status", &self.status)?;
         state.serialize_field("num_requests", &self.num_requests)?;
+        state.serialize_field("requests_made_so_far", &self.requests())?;
 
         state.end()
     }
@@ -367,6 +368,7 @@ impl<'de> Deserialize<'de> for FeroxScan {
         D: Deserializer<'de>,
     {
         let mut scan = Self::default();
+        let mut progress_bar_position = 0;
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
 
@@ -412,9 +414,16 @@ impl<'de> Deserialize<'de> for FeroxScan {
                         scan.num_requests = num_requests;
                     }
                 }
+                "requests_made_so_far" => {
+                    if let Some(requests_made_so_far) = value.as_u64() {
+                        progress_bar_position = requests_made_so_far;
+                    }
+                }
                 _ => {}
             }
         }
+
+        scan.progress_bar().set_position(progress_bar_position);
 
         Ok(scan)
     }
