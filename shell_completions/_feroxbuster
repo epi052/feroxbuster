@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default: feroxbuster/2.7.3)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/2.7.3)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.8.0)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.8.0)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
@@ -49,8 +49,8 @@ _feroxbuster() {
 '(-s --status-codes)*-C+[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
 '(-s --status-codes)*--filter-status=[Filter out status codes (deny list) (ex: -C 200 -C 401)]:STATUS_CODE: ' \
 '*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http://site.xyz/soft404)]:UNWANTED_PAGE:_urls' \
-'*-s+[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
-'*--status-codes=[Status Codes to include (allow list) (default: 200 204 301 302 307 308 401 403 405)]:STATUS_CODE: ' \
+'*-s+[Status Codes to include (allow list) (default: All Status Codes)]:STATUS_CODE: ' \
+'*--status-codes=[Status Codes to include (allow list) (default: All Status Codes)]:STATUS_CODE: ' \
 '-T+[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
 '--timeout=[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
 '-t+[Number of concurrent threads (default: 50)]:THREADS: ' \

@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 /// pre-processing pipeline wrapper that removes punctuation, normalizes word case (utf-8 included)
 /// to lowercase, and remove stop words
-pub(super) fn preprocess(text: &str) -> Vec<String> {
+pub(crate) fn preprocess(text: &str) -> Vec<String> {
     let text = remove_punctuation(text);
     let text = normalize_case(text);
     let text = remove_stop_words(&text);

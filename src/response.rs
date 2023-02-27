@@ -453,7 +453,7 @@ impl FeroxSerialize for FeroxResponse {
 
             // create the base message
             let mut message = format!(
-                "{} {:>8} {:>8}l {:>8}w {:>8}c Got {} for {} (url length: {})\n",
+                "{} {:>8} {:>8}l {:>8}w {:>8}c Got {} for {}\n",
                 wild_status,
                 method,
                 lines,
@@ -461,7 +461,6 @@ impl FeroxSerialize for FeroxResponse {
                 chars,
                 status_colorizer(status),
                 self.url(),
-                FeroxUrl::path_length_of_url(&self.url)
             );
 
             if self.status().is_redirection() {

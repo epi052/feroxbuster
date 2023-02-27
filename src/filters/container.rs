@@ -3,14 +3,11 @@ use std::sync::RwLock;
 use anyhow::Result;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 
-use crate::{
-    event_handlers::Command::AddToUsizeField, response::FeroxResponse,
-    statistics::StatField::WildcardsFiltered, CommandSender,
-};
+use crate::response::FeroxResponse;
 
 use super::{
     FeroxFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-    WildcardFilter, WordsFilter,
+    WordsFilter,
 };
 
 /// Container around a collection of `FeroxFilters`s
@@ -67,20 +64,12 @@ impl FeroxFilters {
 
     /// Simple helper to stay DRY; determines whether or not a given `FeroxResponse` should be reported
     /// to the user or not.
-    pub fn should_filter_response(
-        &self,
-        response: &FeroxResponse,
-        tx_stats: CommandSender,
-    ) -> bool {
+    pub fn should_filter_response(&self, response: &FeroxResponse) -> bool {
         if let Ok(filters) = self.filters.read() {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(response) {
-                    if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
-                        tx_stats
-                            .send(AddToUsizeField(WildcardsFiltered, 1))
-                            .unwrap_or_default();
-                    }
+                    log::debug!("filtering response due to: {:?}", filter);
                     return true;
                 }
             }
@@ -114,10 +103,6 @@ impl Serialize for FeroxFilters {
                     filter.as_any().downcast_ref::<SimilarityFilter>()
                 {
                     seq.serialize_element(similarity_filter).unwrap_or_default();
-                } else if let Some(wildcard_filter) =
-                    filter.as_any().downcast_ref::<WildcardFilter>()
-                {
-                    seq.serialize_element(wildcard_filter).unwrap_or_default();
                 }
             }
             seq.end()

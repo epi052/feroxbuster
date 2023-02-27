@@ -1,11 +1,12 @@
 use super::FeroxFilter;
 use super::SimilarityFilter;
 use crate::event_handlers::Handles;
+use crate::filters::similarity::SIM_HASHER;
+use crate::nlp::preprocess;
 use crate::response::FeroxResponse;
 use crate::utils::logged_request;
-use crate::{DEFAULT_METHOD, SIMILARITY_THRESHOLD};
+use crate::DEFAULT_METHOD;
 use anyhow::Result;
-use fuzzyhash::FuzzyHash;
 use regex::Regex;
 use reqwest::Url;
 use std::sync::Arc;
@@ -40,12 +41,10 @@ pub(crate) async fn create_similarity_filter(
         fr.parse_extension(handles.clone())?;
     }
 
-    // hash the response body and store the resulting hash in the filter object
-    let hash = FuzzyHash::new(fr.text()).to_string();
+    let hash = SIM_HASHER.create_signature(preprocess(fr.text()).iter());
 
     Ok(SimilarityFilter {
         hash,
-        threshold: SIMILARITY_THRESHOLD,
         original_url: similarity_filter.to_string(),
     })
 }
@@ -95,8 +94,7 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
         }
         "similarity" => {
             return Some(Box::new(SimilarityFilter {
-                hash: String::new(),
-                threshold: SIMILARITY_THRESHOLD,
+                hash: 0,
                 original_url: filter_value.to_string(),
             }));
         }
@@ -157,8 +155,7 @@ mod tests {
         assert_eq!(
             filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
             &SimilarityFilter {
-                hash: String::new(),
-                threshold: SIMILARITY_THRESHOLD,
+                hash: 0,
                 original_url: "http://localhost".to_string()
             }
         );
@@ -195,8 +192,7 @@ mod tests {
         assert_eq!(
             filter,
             SimilarityFilter {
-                hash: "3:YKEpn:Yfp".to_string(),
-                threshold: SIMILARITY_THRESHOLD,
+                hash: 14897447612059286329,
                 original_url: srv.url("/")
             }
         );

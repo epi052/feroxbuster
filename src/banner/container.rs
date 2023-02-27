@@ -3,7 +3,7 @@ use crate::{
     config::Configuration,
     event_handlers::Handles,
     utils::{logged_request, status_colorizer},
-    DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, VERSION,
+    DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES, VERSION,
 };
 use anyhow::{bail, Result};
 use console::{style, Emoji};
@@ -204,12 +204,25 @@ impl Banner {
             ));
         }
 
-        let mut codes = vec![];
-        for code in &config.status_codes {
-            codes.push(status_colorizer(&code.to_string()))
-        }
-        let status_codes =
-            BannerEntry::new("👌", "Status Codes", &format!("[{}]", codes.join(", ")));
+        // the +2 is for the 2 experimental status codes we add to the default list manually
+        let status_codes = if config.status_codes.len() == DEFAULT_STATUS_CODES.len() + 2 {
+            let all_str = format!(
+                "{} {} {}{}",
+                style("All").cyan(),
+                style("Status").green(),
+                style("Codes").yellow(),
+                style("!").red()
+            );
+            BannerEntry::new("👌", "Status Codes", &all_str)
+        } else {
+            let mut codes = vec![];
+
+            for code in &config.status_codes {
+                codes.push(status_colorizer(&code.to_string()))
+            }
+
+            BannerEntry::new("👌", "Status Codes", &format!("[{}]", codes.join(", ")))
+        };
 
         for code in &config.filter_status {
             code_filters.push(status_colorizer(&code.to_string()))

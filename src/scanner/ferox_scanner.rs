@@ -182,6 +182,7 @@ impl FeroxScanner {
                     Err(e) => {
                         log::warn!("error awaiting a response: {}", e);
                         self.handles.stats.send(AddError(Other)).unwrap_or_default();
+                        std::process::exit(1);
                     }
                 }
             });
@@ -243,12 +244,8 @@ impl FeroxScanner {
         }
 
         {
-            // heuristics test block
+            // heuristics test block:
             let test = heuristics::HeuristicTests::new(self.handles.clone());
-
-            if let Ok(num_reqs) = test.wildcard(&self.target_url).await {
-                progress_bar.inc(num_reqs);
-            }
 
             if let Ok(dirlist_result) = test.directory_listing(&self.target_url).await {
                 if dirlist_result.is_some() {
@@ -293,9 +290,20 @@ impl FeroxScanner {
 
                     ferox_scan.finish()?;
 
-                    return Ok(());
+                    return Ok(()); // nothing left to do if we found a dir listing
                 }
             }
+
+            // now that we haven't found a directory listing, we'll attempt to derive whatever
+            // the server is using to respond to resources that don't exist (could be a
+            // traditional 404, or a custom response)
+            //
+            // `detect_404_like_responses` will make the requests that the wildcard test used to
+            // perform pre-2.8 in addition to new detection techniques, superseding the old
+            // wildcard test
+            let num_reqs_made = test.detect_404_like_responses(&self.target_url).await?;
+
+            progress_bar.inc(num_reqs_made);
         }
 
         // Arc clones to be passed around to the various scans

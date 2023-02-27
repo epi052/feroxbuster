@@ -5,11 +5,13 @@ use console::style;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
+use crate::filters::{SimilarityFilter, SIM_HASHER};
 use crate::message::FeroxMessage;
+use crate::nlp::preprocess;
 use crate::{
     config::OutputLevel,
     event_handlers::{Command, Handles},
-    filters::WildcardFilter,
+    filters::{LinesFilter, SizeFilter, WordsFilter},
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     skip_fail,
@@ -17,26 +19,6 @@ use crate::{
     utils::{ferox_print, fmt_err, logged_request, status_colorizer},
     DEFAULT_METHOD,
 };
-
-/// length of a standard UUID, used when determining wildcard responses
-const UUID_LENGTH: u64 = 32;
-
-/// wrapper around ugly string formatting
-macro_rules! format_template {
-    ($template:expr, $method:expr, $length:expr) => {
-        format!(
-            $template,
-            status_colorizer("WLD"),
-            $method,
-            "-",
-            "-",
-            "-",
-            style("auto-filtering").yellow(),
-            style($length).cyan(),
-            style("--dont-filter").yellow()
-        )
-    };
-}
 
 /// enum representing the different servers that `parse_html` can detect when directory listing is
 /// enabled
@@ -74,26 +56,6 @@ pub struct HeuristicTests {
     handles: Arc<Handles>,
 }
 
-/// simple way to pass around a wildcard filter to the internal helper below
-/// in a way that quickly tells us if it's static or dynamic
-enum WildcardType<'a> {
-    Static(&'a WildcardFilter),
-    Dynamic(&'a WildcardFilter),
-}
-
-/// internal helper to stop repeating the same pattern
-fn print_dont_filter_message(wildcard_type: WildcardType, output_level: OutputLevel) {
-    if matches!(output_level, OutputLevel::Default | OutputLevel::Quiet) {
-        let msg = match wildcard_type {
-            WildcardType::Static(wc) => {
-                format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is static; {} {} responses; toggle this behavior by using {}\n", wc.method.as_str(), wc.size)
-            }
-            WildcardType::Dynamic(wc) => format_template!("{} {:>8} {:>9} {:>9} {:>9} Wildcard response is dynamic; {} ({} + url length) responses; toggle this behavior by using {}\n", wc.method.as_str(), wc.dynamic),
-        };
-        ferox_print(&msg, &PROGRESS_PRINTER);
-    }
-}
-
 /// HeuristicTests implementation
 impl HeuristicTests {
     /// create a new HeuristicTests struct
@@ -118,169 +80,6 @@ impl HeuristicTests {
 
         log::trace!("exit: unique_string -> {}", unique_id);
         unique_id
-    }
-
-    /// wrapper for sending a filter to the filters event handler
-    fn send_filter(&self, filter: WildcardFilter) -> Result<()> {
-        self.handles
-            .filters
-            .send(Command::AddFilter(Box::new(filter)))
-    }
-
-    /// Tests the given url to see if it issues a wildcard response
-    ///
-    /// In the event that url returns a wildcard response, a
-    /// [WildcardFilter](struct.WildcardFilter.html) is created and sent to the filters event
-    /// handler.
-    ///
-    /// Returns the number of times to increment the caller's progress bar
-    pub async fn wildcard(&self, target_url: &str) -> Result<u64> {
-        log::trace!("enter: wildcard_test({:?})", target_url);
-
-        if self.handles.config.dont_filter {
-            // early return, dont_filter scans don't need tested
-            log::trace!("exit: wildcard_test -> 0");
-            return Ok(0);
-        }
-
-        let data = match self.handles.config.data.is_empty() {
-            true => None,
-            false => Some(self.handles.config.data.as_slice()),
-        };
-
-        let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
-
-        for method in self.handles.config.methods.iter() {
-            let ferox_response = self
-                .make_wildcard_request(&ferox_url, method.as_str(), data, 1)
-                .await?;
-
-            // found a wildcard response
-            let mut wildcard = WildcardFilter::new(self.handles.config.dont_filter);
-
-            let wc_length = ferox_response.content_length();
-
-            if wc_length == 0 {
-                log::trace!("exit: wildcard_test -> 1");
-                print_dont_filter_message(
-                    WildcardType::Static(&wildcard),
-                    self.handles.config.output_level,
-                );
-                self.send_filter(wildcard)?;
-                return Ok(1);
-            }
-
-            // content length of wildcard is non-zero, perform additional tests:
-            //   make a second request, with a known-sized (64) longer request
-            let resp_two = self
-                .make_wildcard_request(&ferox_url, method.as_str(), data, 3)
-                .await?;
-
-            let wc2_length = resp_two.content_length();
-
-            wildcard.method = resp_two.method().as_str().to_owned();
-
-            if wc2_length == wc_length + (UUID_LENGTH * 2) {
-                // second length is what we'd expect to see if the requested url is
-                // reflected in the response along with some static content; aka custom 404
-                let url_len = ferox_url.path_length()?;
-
-                wildcard.dynamic = wc_length - url_len;
-
-                print_dont_filter_message(
-                    WildcardType::Dynamic(&wildcard),
-                    self.handles.config.output_level,
-                );
-            } else if wc_length == wc2_length {
-                wildcard.size = wc_length;
-
-                print_dont_filter_message(
-                    WildcardType::Static(&wildcard),
-                    self.handles.config.output_level,
-                );
-            }
-
-            self.send_filter(wildcard)?;
-        }
-
-        log::trace!("exit: wildcard_test");
-        Ok(2)
-    }
-
-    /// Generates a uuid and appends it to the given target url. The reasoning is that the randomly
-    /// generated unique string should not exist on and be served by the target web server.
-    ///
-    /// Once the unique url is created, the request is sent to the server. If the server responds
-    /// back with a valid status code, the response is considered to be a wildcard response. If that
-    /// wildcard response has a 3xx status code, that redirection location is displayed to the user.
-    async fn make_wildcard_request(
-        &self,
-        target: &FeroxUrl,
-        method: &str,
-        data: Option<&[u8]>,
-        length: usize,
-    ) -> Result<FeroxResponse> {
-        log::trace!("enter: make_wildcard_request({}, {})", target, length);
-
-        let unique_str = self.unique_string(length);
-
-        // To take care of slash when needed
-        let slash = if self.handles.config.add_slash {
-            Some("/")
-        } else {
-            None
-        };
-
-        let nonexistent_url = target.format(&unique_str, slash)?;
-
-        let response = logged_request(
-            &nonexistent_url.to_owned(),
-            method,
-            data,
-            self.handles.clone(),
-        )
-        .await?;
-
-        if self
-            .handles
-            .config
-            .status_codes
-            .contains(&response.status().as_u16())
-        {
-            // found a wildcard response
-
-            let mut ferox_response = FeroxResponse::from(
-                response,
-                &target.target,
-                method,
-                self.handles.config.output_level,
-            )
-            .await;
-            ferox_response.set_wildcard(true);
-
-            if self
-                .handles
-                .filters
-                .data
-                .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
-            {
-                bail!("filtered response")
-            }
-
-            if matches!(
-                self.handles.config.output_level,
-                OutputLevel::Default | OutputLevel::Quiet
-            ) {
-                let boxed = Box::new(ferox_response.clone());
-                self.handles.output.send(Command::Report(boxed))?;
-            }
-
-            log::trace!("exit: make_wildcard_request -> {}", ferox_response);
-            return Ok(ferox_response);
-        }
-
-        log::trace!("exit: make_wildcard_request -> Err");
-        bail!("uninteresting status code")
     }
 
     /// Simply tries to connect to all given sites before starting to scan
@@ -436,6 +235,212 @@ impl HeuristicTests {
 
         log::trace!("exit: detect_directory_listing -> None");
         None
+    }
+
+    /// given a target's base url, attempt to automatically detect its 404 response
+    /// pattern(s), and then set filters that will exclude those patterns from future
+    /// responses
+    pub async fn detect_404_like_responses(&self, target_url: &str) -> Result<u64> {
+        log::trace!("enter: detect_404_like_responses({:?})", target_url);
+
+        if self.handles.config.dont_filter {
+            // early return, dont_filter scans don't need tested
+            log::trace!("exit: detect_404_like_responses -> dont_filter is true");
+            return Ok(0);
+        }
+
+        let mut req_counter = 0;
+
+        let data = if self.handles.config.data.is_empty() {
+            None
+        } else {
+            Some(self.handles.config.data.as_slice())
+        };
+
+        // To take care of slash when needed
+        let slash = if self.handles.config.add_slash {
+            Some("/")
+        } else {
+            None
+        };
+
+        // 4 is due to the array in the nested for loop below
+        let mut responses = Vec::with_capacity(4);
+
+        // for every method, attempt to id its 404 response
+        //
+        // a good example of one where the GET/POST differ is on hackthebox:
+        // - http://prd.m.rendering-api.interface.htb/api
+        for method in self.handles.config.methods.iter() {
+            for (prefix, length) in [("", 1), ("", 3), (".htaccess", 1), ("admin", 1)] {
+                let path = format!("{prefix}{}", self.unique_string(length));
+
+                let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
+
+                let nonexistent_url = ferox_url.format(&path, slash)?;
+
+                // example requests:
+                // - http://localhost/2fc1077836ad43ab98b7a31c2ca28fea
+                // - http://localhost/92969beae6bf4beb855d1622406d87e395c87387a9ad432e8a11245002b709b03cf609d471004154b83bcc1c6ec49f6f
+                // - http://localhost/.htaccessa005a2131e68449aa26e99029c914c09
+                // - http://localhost/adminf1d2541e73c44dcb9d1fb7d93334b280
+                let response =
+                    logged_request(&nonexistent_url, method, data, self.handles.clone()).await;
+
+                req_counter += 1;
+
+                // continue to next on error
+                let response = skip_fail!(response);
+
+                if !self
+                    .handles
+                    .config
+                    .status_codes
+                    .contains(&response.status().as_u16())
+                {
+                    // if the response code isn't one that's accepted via -s values, then skip to the next
+                    //
+                    // the default value for -s is all status codes, so unless the user says otherwise
+                    // this won't fire
+                    continue;
+                }
+
+                let ferox_response = FeroxResponse::from(
+                    response,
+                    &ferox_url.target,
+                    method,
+                    self.handles.config.output_level,
+                )
+                .await;
+
+                responses.push(ferox_response);
+            }
+
+            if responses.len() < 2 {
+                // don't have enough responses to make a determination, continue to next method
+                responses.clear();
+                continue;
+            }
+
+            // Command::AddFilter, &str (bytes/words/lines), usize (i.e. length associated with the type)
+            let Some((command, filter_type, filter_length)) = self.examine_404_like_responses(&responses) else {
+                // no match was found during analysis of responses
+                responses.clear();
+                continue;
+            };
+
+            // check whether we already know about this filter
+            match command {
+                Command::AddFilter(ref filter) => {
+                    if let Ok(guard) = self.handles.filters.data.filters.read() {
+                        if guard.contains(filter) {
+                            // match was found, but already known; clear the vec and continue to the next
+                            responses.clear();
+                            continue;
+                        }
+                    }
+                }
+                _ => unreachable!(),
+            }
+
+            // create the new filter
+            self.handles.filters.send(command)?;
+
+            // if we're here, we've detected a 404-like response pattern, and we're already filtering for size/word/line
+            //
+            // in addition, we'll create a similarity filter as a fallback
+            let hash = SIM_HASHER.create_signature(preprocess(responses[0].text()).iter());
+
+            let sim_filter = SimilarityFilter {
+                hash,
+                original_url: responses[0].url().to_string(),
+            };
+
+            self.handles
+                .filters
+                .send(Command::AddFilter(Box::new(sim_filter)))?;
+
+            // reset the responses for the next method, if it exists
+            responses.clear();
+
+            // report to the user, if appropriate
+            if matches!(
+                self.handles.config.output_level,
+                OutputLevel::Default | OutputLevel::Quiet
+            ) {
+                let msg = format!("{} {:>8} {:>9} {:>9} {:>9} {} => {} {}-like response ({} {}); toggle this behavior by using {}\n", status_colorizer("WLD"), "-", "-", "-", "-", style(target_url).cyan(), style("auto-filtering").bright().green(), style("404").red(), style(filter_length).cyan(), filter_type, style("--dont-filter").yellow());
+                ferox_print(&msg, &PROGRESS_PRINTER);
+            }
+        }
+
+        log::trace!("exit: detect_404_like_responses");
+
+        Ok(req_counter)
+    }
+
+    /// for all responses, examine chars/words/lines
+    /// if all responses respective lengths match each other, we can assume
+    /// that will remain true for subsequent non-existent urls
+    ///
+    /// values are examined from most to least specific (content length, word count, line count)
+    fn examine_404_like_responses(
+        &self,
+        responses: &[FeroxResponse],
+    ) -> Option<(Command, &'static str, usize)> {
+        let mut size_sentry = true;
+        let mut word_sentry = true;
+        let mut line_sentry = true;
+
+        let content_length = responses[0].content_length();
+        let word_count = responses[0].word_count();
+        let line_count = responses[0].line_count();
+
+        for response in &responses[1..] {
+            // if any of the responses differ in length, that particular
+            // response length type is no longer a candidate for filtering
+            if response.content_length() != content_length {
+                size_sentry = false;
+            }
+
+            if response.word_count() != word_count {
+                word_sentry = false;
+            }
+
+            if response.line_count() != line_count {
+                line_sentry = false;
+            }
+        }
+
+        // the if/else-if/else nature of the block means that we'll get the most
+        // specific match, if one is to be had
+        //
+        // each block returns the information needed to send the filter away and
+        // display a message to the user
+        if size_sentry {
+            // - command to send to the filters handler
+            // - the unit-type we're filtering on (bytes/words/lines)
+            // - the value associated with the unit-type on which we're filtering
+            Some((
+                Command::AddFilter(Box::new(SizeFilter { content_length })),
+                "bytes",
+                content_length as usize,
+            ))
+        } else if word_sentry {
+            Some((
+                Command::AddFilter(Box::new(WordsFilter { word_count })),
+                "words",
+                word_count,
+            ))
+        } else if line_sentry {
+            Some((
+                Command::AddFilter(Box::new(LinesFilter { line_count })),
+                "lines",
+                line_count,
+            ))
+        } else {
+            // no match was found; clear the vec and continue to the next
+            None
+        }
     }
 }
 
