@@ -20,12 +20,12 @@ fn resume_scan_works() {
     // localhost:PORT/ <- complete
     // localhost:PORT/js <- will get scanned with /css and /stuff
     let complete_scan = format!(
-        r#"{{"id":"057016a14769414aac9a7a62707598cb","url":"{}","normalized_url":"{}","scan_type":"Directory","status":"Complete"}}"#,
+        r#"{{"id":"057016a14769414aac9a7a62707598cb","url":"{}","normalized_url":"{}","scan_type":"Directory","status":"Complete","num_requests":4174,"requests_made_so_far":0}}"#,
         srv.url("/"),
         srv.url("/"),
     );
     let incomplete_scan = format!(
-        r#"{{"id":"400b2323a16f43468a04ffcbbeba34c6","url":"{}","normalized_url":"{}/","scan_type":"Directory","status":"NotStarted"}}"#,
+        r#"{{"id":"400b2323a16f43468a04ffcbbeba34c6","url":"{}","normalized_url":"{}/","scan_type":"Directory","status":"NotStarted","num_requests":4174,"requests_made_so_far":0}}"#,
         srv.url("/js"),
         srv.url("/js")
     );
@@ -64,10 +64,12 @@ fn resume_scan_works() {
     });
 
     let state_file_contents = format!("{{{scans},{config},{responses}}}");
+
     let (tmp_dir2, state_file) = setup_tmp_directory(&[state_file_contents], "state-file").unwrap();
 
     Command::cargo_bin("feroxbuster")
         .unwrap()
+        .arg("-vvv")
         .arg("--resume-from")
         .arg(state_file.as_os_str())
         .assert()
