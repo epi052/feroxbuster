@@ -254,6 +254,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/f3rn0s"><img src="https://avatars.githubusercontent.com/u/1351279?v=4?s=100" width="100px;" alt="f3rn0s"/><br /><sub><b>f3rn0s</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Af3rn0s" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://sth.sh"><img src="https://avatars.githubusercontent.com/u/2099767?v=4?s=100" width="100px;" alt="LongCat"/><br /><sub><b>LongCat</b></sub></a><br /><a href="#ideas-pich4ya" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/xaeroborg"><img src="https://avatars.githubusercontent.com/u/33274680?v=4?s=100" width="100px;" alt="xaeroborg"/><br /><sub><b>xaeroborg</b></sub></a><br /><a href="#ideas-xaeroborg" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
   </tbody>
 </table>
 
