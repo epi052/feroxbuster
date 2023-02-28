@@ -256,6 +256,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/xaeroborg"><img src="https://avatars.githubusercontent.com/u/33274680?v=4?s=100" width="100px;" alt="xaeroborg"/><br /><sub><b>xaeroborg</b></sub></a><br /><a href="#ideas-xaeroborg" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Luoooio"><img src="https://avatars.githubusercontent.com/u/26653157?v=4?s=100" width="100px;" alt="Luoooio"/><br /><sub><b>Luoooio</b></sub></a><br /><a href="#ideas-Luoooio" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
   </tbody>
 </table>
