@@ -115,8 +115,9 @@ impl StatsHandler {
                     }
                 }
                 Command::AddToF64Field(field, value) => self.stats.update_f64_field(field, value),
-                Command::CreateBar => {
+                Command::CreateBar(offset) => {
                     self.bar = add_bar("", self.stats.total_expected() as u64, BarType::Total);
+                    self.bar.set_position(offset);
                 }
                 Command::LoadStats(filename) => {
                     self.stats.merge_from(&filename)?;

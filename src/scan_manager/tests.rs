@@ -247,21 +247,12 @@ fn ferox_scan_deserialize() {
     }
 
     match fs.progress_bar.lock() {
-        Ok(guard) => {
-            match guard.as_ref() {
-                Some(pb) => {
-                    // position based on the requests made so far
-                    //
-                    // note: when this goes through the actual deserialize function, the
-                    // progress bar will be set to the total requests made so far, -10%
-                    // (i.e. 450 in this case)
-                    assert_eq!(pb.position(), 500);
-                }
-                None => {
-                    panic!();
-                }
+        Ok(guard) => match guard.as_ref() {
+            Some(_) => {
+                panic!();
             }
-        }
+            None => {}
+        },
         Err(_) => {
             panic!();
         }
@@ -573,6 +564,7 @@ fn feroxscan_display() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        requests_made_so_far: 0,
         start_time: Instant::now(),
         output_level: OutputLevel::Default,
         status_403s: Default::default(),
@@ -618,6 +610,7 @@ async fn ferox_scan_abort() {
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
         num_requests: 0,
+        requests_made_so_far: 0,
         start_time: Instant::now(),
         output_level: OutputLevel::Default,
         status_403s: Default::default(),

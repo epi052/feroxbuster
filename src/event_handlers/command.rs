@@ -24,7 +24,9 @@ pub enum Command {
     AddStatus(StatusCode),
 
     /// Create the progress bar (`BarType::Total`) that is updated from the stats thread
-    CreateBar,
+    ///
+    /// the u64 value is the offset at which to start the progress bar (can be 0)
+    CreateBar(u64),
 
     /// Add to a `Stats` field that corresponds to the given `StatField` by the given `usize` value
     AddToUsizeField(StatField, usize),

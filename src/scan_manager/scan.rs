@@ -44,6 +44,12 @@ pub struct FeroxScan {
     /// Number of requests to populate the progress bar with
     pub(super) num_requests: u64,
 
+    /// Number of requests made so far, only used during deserialization
+    ///
+    /// serialization: saves self.requests() to this field
+    /// deserialization: sets self.requests_made_so_far to this field
+    pub(super) requests_made_so_far: u64,
+
     /// Status of this scan
     pub status: Mutex<ScanStatus>,
 
@@ -80,6 +86,7 @@ impl Default for FeroxScan {
             task: sync::Mutex::new(None), // tokio mutex
             status: Mutex::new(ScanStatus::default()),
             num_requests: 0,
+            requests_made_so_far: 0,
             scan_order: ScanOrder::Latest,
             url: String::new(),
             normalized_url: String::new(),
@@ -122,6 +129,11 @@ impl FeroxScan {
         &self.url
     }
 
+    /// getter for number of requests made during previously saved scans (i.e. --resume-from used)
+    pub fn requests_made_so_far(&self) -> u64 {
+        self.requests_made_so_far
+    }
+
     /// small wrapper to set the JoinHandle
     pub async fn set_task(&self, task: JoinHandle<()>) -> Result<()> {
         let mut guard = self.task.lock().await;
@@ -161,6 +173,8 @@ impl FeroxScan {
 
                     let pb = add_bar(&self.url, self.num_requests, bar_type);
                     pb.reset_elapsed();
+
+                    pb.set_position(self.requests_made_so_far);
 
                     let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
 
@@ -368,7 +382,6 @@ impl<'de> Deserialize<'de> for FeroxScan {
         D: Deserializer<'de>,
     {
         let mut scan = Self::default();
-        let mut progress_bar_position = 0;
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
 
@@ -416,14 +429,12 @@ impl<'de> Deserialize<'de> for FeroxScan {
                 }
                 "requests_made_so_far" => {
                     if let Some(requests_made_so_far) = value.as_u64() {
-                        progress_bar_position = requests_made_so_far;
+                        scan.requests_made_so_far = requests_made_so_far;
                     }
                 }
                 _ => {}
             }
         }
-
-        scan.progress_bar().set_position(progress_bar_position);
 
         Ok(scan)
     }
@@ -513,6 +524,7 @@ mod tests {
             scan_type: ScanType::Directory,
             scan_order: ScanOrder::Initial,
             num_requests: 0,
+            requests_made_so_far: 0,
             status: Mutex::new(ScanStatus::Running),
             task: Default::default(),
             progress_bar: Mutex::new(None),

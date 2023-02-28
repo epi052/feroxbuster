@@ -102,8 +102,20 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
     //   having been set, makes it so the progress bar doesn't flash as full before anything has
     //   even happened
     if matches!(handles.config.output_level, OutputLevel::Default) {
+        let mut total_offset = 0;
+
+        if let Ok(guard) = handles.scans.read() {
+            if let Some(handle) = &*guard {
+                if let Ok(scans) = handle.data.scans.read() {
+                    for scan in scans.iter() {
+                        total_offset += scan.requests_made_so_far();
+                    }
+                }
+            }
+        }
+
         // only create the bar if no --silent|--quiet
-        handles.stats.send(CreateBar)?;
+        handles.stats.send(CreateBar(total_offset))?;
 
         // blocks until the bar is created / avoids race condition in first two bars
         handles.stats.sync().await?;
