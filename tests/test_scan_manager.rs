@@ -70,7 +70,6 @@ fn resume_scan_works() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("-vvv")
-        .arg("--burp")
         .arg("--resume-from")
         .arg(state_file.as_os_str())
         .assert()

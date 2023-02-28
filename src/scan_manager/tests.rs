@@ -247,12 +247,11 @@ fn ferox_scan_deserialize() {
     }
 
     match fs.progress_bar.lock() {
-        Ok(guard) => match guard.as_ref() {
-            Some(_) => {
+        Ok(guard) => {
+            if guard.is_some() {
                 panic!();
             }
-            None => {}
-        },
+        }
         Err(_) => {
             panic!();
         }
