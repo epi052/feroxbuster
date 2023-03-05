@@ -13,6 +13,7 @@ use clap::{parser::ValueSource, ArgMatches};
 use regex::Regex;
 use reqwest::{Client, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, RwLock};
 use std::{
     collections::HashMap,
     env::{current_dir, current_exe},
@@ -284,7 +285,7 @@ pub struct Configuration {
 
     /// URLs that should never be scanned/recursed into
     #[serde(default)]
-    pub url_denylist: Vec<Url>,
+    pub url_denylist: Arc<RwLock<Vec<Url>>>,
 
     /// URLs that should never be scanned/recursed into based on a regular expression
     #[serde(with = "serde_regex", default)]
@@ -372,7 +373,7 @@ impl Default for Configuration {
             data: Vec::new(),
             filter_size: Vec::new(),
             filter_regex: Vec::new(),
-            url_denylist: Vec::new(),
+            url_denylist: Arc::new(RwLock::new(Vec::new())),
             regex_denylist: Vec::new(),
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
@@ -668,7 +669,9 @@ impl Configuration {
                 match Url::parse(denier.trim_end_matches('/')) {
                     Ok(absolute) => {
                         // denier is an absolute url and can be parsed as such
-                        config.url_denylist.push(absolute);
+                        if let Ok(mut guard) = config.url_denylist.write() {
+                            guard.push(absolute);
+                        }
                     }
                     Err(err) => {
                         // there are some expected errors that happen when we try to parse a url
@@ -991,7 +994,12 @@ impl Configuration {
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
         update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
-        update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
+        // update_if_not_default!(
+        //     &mut conf.url_denylist,
+        //     new.url_denylist,
+        //     Arc::new(RwLock::new(Vec::<Url>::new()))
+        // );
+        // todo: fix this above
         if !new.regex_denylist.is_empty() {
             // cant use the update_if_not_default macro due to the following error
             //

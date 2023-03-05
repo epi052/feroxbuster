@@ -182,13 +182,15 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
                 );
             }
         }
-        for denier in &handles.config.url_denylist {
-            if denier.as_str().trim_end_matches('/') == target.trim_end_matches('/') {
-                bail!(
-                    "The url '{}' matches {}; the scan will never start",
-                    denier,
-                    target
-                );
+        if let Ok(guard) = handles.config.url_denylist.read() {
+            for denier in guard.iter() {
+                if denier.as_str().trim_end_matches('/') == target.trim_end_matches('/') {
+                    bail!(
+                        "The url '{}' matches {}; the scan will never start",
+                        denier,
+                        target
+                    );
+                }
             }
         }
 

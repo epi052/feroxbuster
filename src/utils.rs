@@ -484,12 +484,14 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
     // the given url and any url to which it's compared
     let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
 
-    for denier in &handles.config.url_denylist {
-        // note to self: it may seem as though we can use regex only for --dont-scan, however, in
-        // doing so, we lose the ability to block a parent directory while scanning a child
-        if let Ok(should_deny) = should_deny_absolute(&normed_url, denier, handles.clone()) {
-            if should_deny {
-                return Ok(true);
+    if let Ok(guard) = handles.config.url_denylist.read() {
+        for denier in guard.iter() {
+            // note to self: it may seem as though we can use regex only for --dont-scan, however, in
+            // doing so, we lose the ability to block a parent directory while scanning a child
+            if let Ok(should_deny) = should_deny_absolute(&normed_url, denier, handles.clone()) {
+                if should_deny {
+                    return Ok(true);
+                }
             }
         }
     }

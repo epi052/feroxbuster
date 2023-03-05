@@ -360,6 +360,21 @@ impl HeuristicTests {
                 .filters
                 .send(Command::AddFilter(Box::new(sim_filter)))?;
 
+            if let Ok(mut guard) = self.handles.config.url_denylist.write() {
+                use reqwest::Url;
+                // todo need to get the parent
+                log::warn!("FOUND 404 LIKE RESPONSE: {:?}", responses[0].url());
+                let derp = responses[0].url().as_str();
+                let mut new_url = Url::parse(derp).unwrap();
+                new_url.path_segments_mut().unwrap().pop();
+                // responses[0].url().set_path(path_segments.as_str());
+                log::warn!(
+                    "ADDING PARENT OF 404 LIKE RESPONSE: {:?}",
+                    new_url
+                );
+                guard.push(new_url);
+            }
+
             // reset the responses for the next method, if it exists
             responses.clear();
 

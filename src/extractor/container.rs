@@ -430,8 +430,13 @@ impl<'a> Extractor<'a> {
             bail!("previously seen url");
         }
 
-        if (!self.handles.config.url_denylist.is_empty()
-            || !self.handles.config.regex_denylist.is_empty())
+        let url_denylist_is_not_empty = if let Ok(guard) = self.handles.config.url_denylist.read() {
+            !guard.is_empty()
+        } else {
+            false
+        };
+
+        if (url_denylist_is_not_empty || !self.handles.config.regex_denylist.is_empty())
             && should_deny_url(&new_url, self.handles.clone())?
         {
             // can't allow a denied url to be requested

@@ -3,6 +3,7 @@ use super::*;
 use crate::{traits::FeroxSerialize, DEFAULT_CONFIG_NAME};
 use regex::Regex;
 use reqwest::Url;
+use std::sync::{Arc, RwLock};
 use std::{collections::HashMap, fs::write};
 use tempfile::TempDir;
 
@@ -109,7 +110,10 @@ fn default_configuration() {
     assert_eq!(config.extensions, Vec::<String>::new());
     assert_eq!(config.methods, vec!["GET"]);
     assert_eq!(config.data, Vec::<u8>::new());
-    assert_eq!(config.url_denylist, Vec::<Url>::new());
+    assert_eq!(
+        config.url_denylist,
+        Arc::new(RwLock::new(Vec::<Url>::new()))
+    );
     assert_eq!(config.dont_collect, ignored_extensions());
     assert_eq!(config.filter_regex, Vec::<String>::new());
     assert_eq!(config.filter_similar, Vec::<String>::new());

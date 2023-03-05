@@ -188,13 +188,13 @@ impl Banner {
             targets.push(BannerEntry::new("🎯", "Target Url", target));
         }
 
-        for denied_url in &config.url_denylist {
-            url_denylist.push(BannerEntry::new(
-                "🚫",
-                "Don't Scan Url",
-                denied_url.as_str(),
-            ));
-        }
+        // for denied_url in &config.url_denylist {
+        //     url_denylist.push(BannerEntry::new(
+        //         "🚫",
+        //         "Don't Scan Url",
+        //         denied_url.as_str(),
+        //     ));
+        // }
 
         for denied_regex in &config.regex_denylist {
             url_denylist.push(BannerEntry::new(

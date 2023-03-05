@@ -353,8 +353,14 @@ impl Requester {
         let urls = FeroxUrl::from_string(&self.target_url, self.handles.clone())
             .formatted_urls(word, collected)?;
 
-        let should_test_deny = !self.handles.config.url_denylist.is_empty()
-            || !self.handles.config.regex_denylist.is_empty();
+        let url_denylist_is_not_empty = if let Ok(guard) = self.handles.config.url_denylist.read() {
+            !guard.is_empty()
+        } else {
+            false
+        };
+
+        let should_test_deny =
+            url_denylist_is_not_empty || !self.handles.config.regex_denylist.is_empty();
 
         for url in urls {
             for method in self.handles.config.methods.iter() {
