@@ -8,7 +8,8 @@ use crate::filters::{
 use crate::traits::FeroxFilter;
 use crate::Command::AddFilter;
 use crate::{
-    config::OutputLevel,
+    banner::Banner,
+    config::{Configuration, OutputLevel},
     progress::PROGRESS_PRINTER,
     progress::{add_bar, BarType},
     scan_manager::{MenuCmd, MenuCmdResult},
@@ -24,7 +25,7 @@ use std::{
     collections::HashSet,
     convert::TryInto,
     fs::File,
-    io::BufReader,
+    io::{BufReader, stderr},
     ops::Index,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -446,6 +447,12 @@ impl FeroxScans {
         };
 
         self.menu.clear_screen();
+        
+        let config = Configuration::new().unwrap();
+        let target = &config.target_url;
+        let banner = Banner::new(&[String::from(target)], &config);
+        banner.print_to(stderr(), Arc::new(config)).unwrap(); 
+
         self.menu.show_progress_bars();
 
         result
