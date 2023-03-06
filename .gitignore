@@ -30,3 +30,6 @@ ferox-*.state
 
 # python stuff cuz reasons
 Pipfile*
+
+# ignore choco_package generated nupkg
+/choco_package/*.nupkg
