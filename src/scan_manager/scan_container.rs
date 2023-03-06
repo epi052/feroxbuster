@@ -25,7 +25,7 @@ use std::{
     collections::HashSet,
     convert::TryInto,
     fs::File,
-    io::{BufReader, stderr},
+    io::{stderr, BufReader},
     ops::Index,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -447,11 +447,11 @@ impl FeroxScans {
         };
 
         self.menu.clear_screen();
-        
+
         let config = Configuration::new().unwrap();
         let target = &config.target_url;
         let banner = Banner::new(&[String::from(target)], &config);
-        banner.print_to(stderr(), Arc::new(config)).unwrap(); 
+        banner.print_to(stderr(), Arc::new(config)).unwrap();
 
         self.menu.show_progress_bars();
 
