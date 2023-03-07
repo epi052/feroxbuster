@@ -180,9 +180,12 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
     teardown_tmp_directory(tmp_dir);
 
     cmd.assert().success().stdout(
-        predicate::str::contains("WLD").and(predicate::str::contains(
-            "auto-filtering 404-like response (1 lines);",
-        )),
+        predicate::str::contains("GET")
+            .and(predicate::str::contains(
+                "Auto-filtering found 404-like response and created new filter",
+            ))
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("1l")),
     );
 
     assert_eq!(mock.hits(), 1);
@@ -273,14 +276,14 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
 
     let mock = srv.mock(|when, then| {
         when.method(GET)
-            .path_matches(Regex::new("/[a-zA-Z0-9]{32}/").unwrap());
+            .path_matches(Regex::new("/.?[a-zA-Z0-9]{32,}").unwrap());
         then.status(200)
             .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     });
 
     let mock2 = srv.mock(|when, then| {
         when.method(GET)
-            .path_matches(Regex::new("/[a-zA-Z0-9]{96}/").unwrap());
+            .path_matches(Regex::new("/LICENSE").unwrap());
         then.status(200)
             .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     });
@@ -291,7 +294,6 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
         .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .arg("--add-slash")
         .arg("--silent")
         .arg("--threads")
         .arg("1")
@@ -299,9 +301,11 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
 
     teardown_tmp_directory(tmp_dir);
 
-    cmd.assert().success().stdout(predicate::str::is_empty());
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains(srv.url("/")));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.hits(), 4);
     assert_eq!(mock2.hits(), 1);
     Ok(())
 }
