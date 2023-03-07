@@ -437,7 +437,7 @@ impl Requester {
                     .handles
                     .filters
                     .data
-                    .should_filter_response(&ferox_response)
+                    .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
                 {
                     continue;
                 }

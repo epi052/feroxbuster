@@ -3,7 +3,7 @@ use super::*;
 use crate::event_handlers::Handles;
 use crate::filters::{
     EmptyFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-    WordsFilter,
+    WildcardFilter, WordsFilter,
 };
 use crate::traits::FeroxFilter;
 use crate::Command::AddFilter;
@@ -180,6 +180,10 @@ impl FeroxScans {
                         Box::new(deserialized)
                     } else if let Ok(deserialized) =
                         serde_json::from_value::<WordsFilter>(filter.clone())
+                    {
+                        Box::new(deserialized)
+                    } else if let Ok(deserialized) =
+                        serde_json::from_value::<WildcardFilter>(filter.clone())
                     {
                         Box::new(deserialized)
                     } else if let Ok(deserialized) =

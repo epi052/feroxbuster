@@ -10,6 +10,7 @@ use lazy_static::lazy_static;
 use tokio::sync::Semaphore;
 
 use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
+use crate::heuristics::WildcardResult;
 use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
@@ -303,7 +304,21 @@ impl FeroxScanner {
             // wildcard test
             let num_reqs_made = test.detect_404_like_responses(&self.target_url).await?;
 
-            progress_bar.inc(num_reqs_made);
+            match num_reqs_made {
+                Some(WildcardResult::WildcardDirectory(num_reqs)) => {
+                    let message = format!(
+                        "=> {} dir! {} recursion",
+                        style("Wildcard").blue().bright(),
+                        style("stopped").red()
+                    );
+                    progress_bar.set_message(&message);
+                    progress_bar.inc(num_reqs as u64);
+                }
+                Some(WildcardResult::FourOhFourLike(num_reqs)) => {
+                    progress_bar.inc(num_reqs as u64);
+                }
+                _ => {}
+            }
         }
 
         // Arc clones to be passed around to the various scans

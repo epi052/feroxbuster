@@ -1,22 +1,21 @@
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
-use console::style;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
-use crate::filters::{SimilarityFilter, SIM_HASHER};
+use crate::filters::{SimilarityFilter, WildcardFilter, SIM_HASHER};
 use crate::message::FeroxMessage;
 use crate::nlp::preprocess;
+use crate::scanner::RESPONSES;
 use crate::{
     config::OutputLevel,
     event_handlers::{Command, Handles},
-    filters::{LinesFilter, SizeFilter, WordsFilter},
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     skip_fail,
     url::FeroxUrl,
-    utils::{ferox_print, fmt_err, logged_request, status_colorizer},
+    utils::{ferox_print, fmt_err, logged_request},
     DEFAULT_METHOD,
 };
 
@@ -48,6 +47,16 @@ pub struct DirListingResult {
 
     /// the `FeroxResponse` generated during detection
     pub response: FeroxResponse,
+}
+
+/// wrapper around the results of running a wildcard detection against a target web page
+#[derive(Copy, Debug, Clone)]
+pub enum WildcardResult {
+    /// variant that represents a wildcard directory
+    WildcardDirectory(usize),
+
+    /// variant that represents the presence of a 404-like response
+    FourOhFourLike(usize),
 }
 
 /// container for heuristics related info
@@ -240,13 +249,16 @@ impl HeuristicTests {
     /// given a target's base url, attempt to automatically detect its 404 response
     /// pattern(s), and then set filters that will exclude those patterns from future
     /// responses
-    pub async fn detect_404_like_responses(&self, target_url: &str) -> Result<u64> {
+    pub async fn detect_404_like_responses(
+        &self,
+        target_url: &str,
+    ) -> Result<Option<WildcardResult>> {
         log::trace!("enter: detect_404_like_responses({:?})", target_url);
 
         if self.handles.config.dont_filter {
             // early return, dont_filter scans don't need tested
             log::trace!("exit: detect_404_like_responses -> dont_filter is true");
-            return Ok(0);
+            return Ok(None);
         }
 
         let mut req_counter = 0;
@@ -323,28 +335,41 @@ impl HeuristicTests {
             }
 
             // Command::AddFilter, &str (bytes/words/lines), usize (i.e. length associated with the type)
-            let Some((command, filter_type, filter_length)) = self.examine_404_like_responses(&responses) else {
+            let Some(filter) = self.examine_404_like_responses(&responses) else {
                 // no match was found during analysis of responses
                 responses.clear();
                 continue;
             };
 
-            // check whether we already know about this filter
-            match command {
-                Command::AddFilter(ref filter) => {
-                    if let Ok(guard) = self.handles.filters.data.filters.read() {
-                        if guard.contains(filter) {
-                            // match was found, but already known; clear the vec and continue to the next
-                            responses.clear();
-                            continue;
+            // report to the user, if appropriate
+            if matches!(
+                self.handles.config.output_level,
+                OutputLevel::Default | OutputLevel::Quiet
+            ) {
+                // sentry value to control whether or not to print the filter
+                // used because we only want to print the same filter once
+                let mut print_sentry = true;
+
+                if let Ok(filters) = self.handles.filters.data.filters.read() {
+                    for other in filters.iter() {
+                        if let Some(other_wildcard) =
+                            other.as_any().downcast_ref::<WildcardFilter>()
+                        {
+                            if &*filter == other_wildcard {
+                                print_sentry = false;
+                                break;
+                            }
                         }
                     }
                 }
-                _ => unreachable!(),
+
+                if print_sentry {
+                    ferox_print(&format!("{}", filter), &PROGRESS_PRINTER);
+                }
             }
 
             // create the new filter
-            self.handles.filters.send(command)?;
+            self.handles.filters.send(Command::AddFilter(filter))?;
 
             // if we're here, we've detected a 404-like response pattern, and we're already filtering for size/word/line
             //
@@ -360,22 +385,35 @@ impl HeuristicTests {
                 .filters
                 .send(Command::AddFilter(Box::new(sim_filter)))?;
 
+            if responses[0].is_directory() {
+                // response is either a 3XX with a Location header that matches url + '/'
+                // or it's a 2XX that ends with a '/'
+                // or it's a 403 that ends with a '/'
+
+                // set the wildcard flag to true, so we can check it when preventing
+                // recursion in event_handlers/scans.rs
+                responses[0].set_wildcard(true);
+
+                // add the response to the global list of responses
+                RESPONSES.insert(responses[0].clone());
+
+                // function-internal magic number, indicates that we've detected a wildcard directory  
+                req_counter += 100;
+            }
+
             // reset the responses for the next method, if it exists
             responses.clear();
-
-            // report to the user, if appropriate
-            if matches!(
-                self.handles.config.output_level,
-                OutputLevel::Default | OutputLevel::Quiet
-            ) {
-                let msg = format!("{} {:>8} {:>9} {:>9} {:>9} {} => {} {}-like response ({} {}); toggle this behavior by using {}\n", status_colorizer("WLD"), "-", "-", "-", "-", style(target_url).cyan(), style("auto-filtering").bright().green(), style("404").red(), style(filter_length).cyan(), filter_type, style("--dont-filter").yellow());
-                ferox_print(&msg, &PROGRESS_PRINTER);
-            }
         }
 
         log::trace!("exit: detect_404_like_responses");
 
-        Ok(req_counter)
+        let retval = if req_counter > 100 {
+            WildcardResult::WildcardDirectory(req_counter)
+        } else {
+            WildcardResult::FourOhFourLike(req_counter)
+        };
+
+        Ok(Some(retval))
     }
 
     /// for all responses, examine chars/words/lines
@@ -386,11 +424,13 @@ impl HeuristicTests {
     fn examine_404_like_responses(
         &self,
         responses: &[FeroxResponse],
-    ) -> Option<(Command, &'static str, usize)> {
+    ) -> Option<Box<WildcardFilter>> {
         let mut size_sentry = true;
         let mut word_sentry = true;
         let mut line_sentry = true;
 
+        let method = responses[0].method();
+        let status_code = responses[0].status();
         let content_length = responses[0].content_length();
         let word_count = responses[0].word_count();
         let line_count = responses[0].line_count();
@@ -411,36 +451,61 @@ impl HeuristicTests {
             }
         }
 
-        // the if/else-if/else nature of the block means that we'll get the most
-        // specific match, if one is to be had
-        //
-        // each block returns the information needed to send the filter away and
-        // display a message to the user
-        if size_sentry {
-            // - command to send to the filters handler
-            // - the unit-type we're filtering on (bytes/words/lines)
-            // - the value associated with the unit-type on which we're filtering
-            Some((
-                Command::AddFilter(Box::new(SizeFilter { content_length })),
-                "bytes",
-                content_length as usize,
-            ))
-        } else if word_sentry {
-            Some((
-                Command::AddFilter(Box::new(WordsFilter { word_count })),
-                "words",
-                word_count,
-            ))
-        } else if line_sentry {
-            Some((
-                Command::AddFilter(Box::new(LinesFilter { line_count })),
-                "lines",
-                line_count,
-            ))
-        } else {
-            // no match was found; clear the vec and continue to the next
-            None
+        if !size_sentry && !word_sentry && !line_sentry {
+            // none of the response lengths match, so we can't filter on any of them
+            return None;
         }
+
+        let mut wildcard = WildcardFilter {
+            content_length: None,
+            line_count: None,
+            word_count: None,
+            method: method.to_string(),
+            status_code: status_code.as_u16(),
+            dont_filter: self.handles.config.dont_filter,
+        };
+
+        match (size_sentry, word_sentry, line_sentry) {
+            (true, true, true) => {
+                // all three types of length match, so we can't filter on any of them
+                wildcard.content_length = Some(content_length);
+                wildcard.word_count = Some(word_count);
+                wildcard.line_count = Some(line_count);
+            }
+            (true, true, false) => {
+                // content length and word count match, so we can filter on either
+                wildcard.content_length = Some(content_length);
+                wildcard.word_count = Some(word_count);
+            }
+            (true, false, true) => {
+                // content length and line count match, so we can filter on either
+                wildcard.content_length = Some(content_length);
+                wildcard.line_count = Some(line_count);
+            }
+            (false, true, true) => {
+                // word count and line count match, so we can filter on either
+                wildcard.word_count = Some(word_count);
+                wildcard.line_count = Some(line_count);
+            }
+            (true, false, false) => {
+                // content length matches, so we can filter on that
+                wildcard.content_length = Some(content_length);
+            }
+            (false, true, false) => {
+                // word count matches, so we can filter on that
+                wildcard.word_count = Some(word_count);
+            }
+            (false, false, true) => {
+                // line count matches, so we can filter on that
+                wildcard.line_count = Some(line_count);
+            }
+            (false, false, false) => {
+                // none of the length types match, so we can't filter on any of them
+                unreachable!("no wildcard size matches; handled by the if statement above");
+            }
+        };
+
+        Some(Box::new(wildcard))
     }
 }
 

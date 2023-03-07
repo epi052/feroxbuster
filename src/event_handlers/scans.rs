@@ -6,7 +6,7 @@ use tokio::sync::{mpsc, Semaphore};
 use crate::{
     response::FeroxResponse,
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
-    scanner::FeroxScanner,
+    scanner::{FeroxScanner, RESPONSES},
     statistics::StatField::TotalScans,
     url::FeroxUrl,
     utils::should_deny_url,
@@ -393,6 +393,58 @@ impl ScanHandler {
         if response.reached_max_depth(base_depth, self.max_depth, self.handles.clone()) {
             // at or past recursion depth
             return Ok(());
+        }
+
+        if let Ok(responses) = RESPONSES.responses.read() {
+            for maybe_wild in responses.iter() {
+                if !maybe_wild.wildcard() || !maybe_wild.is_directory() {
+                    // if the stored response isn't a wildcard, skip it
+                    // if the stored response isn't a directory, skip it
+                    // we're only interested in preventing recursion into wildcard directories
+                    continue;
+                }
+
+                if maybe_wild.method() != response.method() {
+                    // methods don't match, skip it
+                    continue;
+                }
+
+                // methods match and is a directory wildcard
+                // need to check the wildcard's parent directory
+                // for equality with the incoming response's parent directory
+                //
+                // if the parent directories match, we need to prevent recursion
+                // into the wildcard directory
+
+                match (
+                    maybe_wild.url().path_segments(),
+                    response.url().path_segments(),
+                ) {
+                    // both urls must have path segments
+                    (Some(mut maybe_wild_segments), Some(mut response_segments)) => {
+                        match (
+                            maybe_wild_segments.nth_back(1),
+                            response_segments.nth_back(1),
+                        ) {
+                            // both urls must have at least 2 path segments, the next to last being the parent
+                            (Some(maybe_wild_parent), Some(response_parent)) => {
+                                if maybe_wild_parent == response_parent {
+                                    // the parent directories match, so we need to prevent recursion
+                                    return Ok(());
+                                }
+                            }
+                            _ => {
+                                // we couldn't get the parent directory, so we'll skip this
+                                continue;
+                            }
+                        }
+                    }
+                    _ => {
+                        // we couldn't get the path segments, so we'll skip this
+                        continue;
+                    }
+                }
+            }
         }
 
         let targets = vec![response.url().to_string()];

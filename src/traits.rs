@@ -1,6 +1,7 @@
 //! collection of all traits used
 use crate::filters::{
-    LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WordsFilter,
+    LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter, WildcardFilter,
+    WordsFilter,
 };
 use crate::response::FeroxResponse;
 use anyhow::Result;
@@ -36,6 +37,8 @@ impl Display for dyn FeroxFilter {
             write!(f, "Response size: {}", style(filter.content_length).cyan())
         } else if let Some(filter) = self.as_any().downcast_ref::<RegexFilter>() {
             write!(f, "Regex: {}", style(&filter.raw_string).cyan())
+        } else if let Some(filter) = self.as_any().downcast_ref::<WildcardFilter>() {
+            write!(f, "{}", filter) // real Display in the wildcard module
         } else if let Some(filter) = self.as_any().downcast_ref::<StatusCodeFilter>() {
             write!(f, "Status code: {}", style(filter.filter_code).cyan())
         } else if let Some(filter) = self.as_any().downcast_ref::<SimilarityFilter>() {
