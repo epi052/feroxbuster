@@ -144,7 +144,12 @@ impl<'a> Extractor<'a> {
             };
 
             // filter if necessary
-            if self.handles.filters.data.should_filter_response(&resp, self.handles.stats.tx.clone()) {
+            if self
+                .handles
+                .filters
+                .data
+                .should_filter_response(&resp, self.handles.stats.tx.clone())
+            {
                 continue;
             }
 

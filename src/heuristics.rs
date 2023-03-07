@@ -397,7 +397,7 @@ impl HeuristicTests {
                 // add the response to the global list of responses
                 RESPONSES.insert(responses[0].clone());
 
-                // function-internal magic number, indicates that we've detected a wildcard directory  
+                // function-internal magic number, indicates that we've detected a wildcard directory
                 req_counter += 100;
             }
 
