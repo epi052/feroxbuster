@@ -257,6 +257,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/xaeroborg"><img src="https://avatars.githubusercontent.com/u/33274680?v=4?s=100" width="100px;" alt="xaeroborg"/><br /><sub><b>xaeroborg</b></sub></a><br /><a href="#ideas-xaeroborg" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Luoooio"><img src="https://avatars.githubusercontent.com/u/26653157?v=4?s=100" width="100px;" alt="Luoooio"/><br /><sub><b>Luoooio</b></sub></a><br /><a href="#ideas-Luoooio" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://petruknisme.com"><img src="https://avatars.githubusercontent.com/u/6284204?v=4?s=100" width="100px;" alt="Aan"/><br /><sub><b>Aan</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=aancw" title="Code">💻</a> <a href="#infra-aancw" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     </tr>
   </tbody>
 </table>
