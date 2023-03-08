@@ -1,6 +1,40 @@
 use super::*;
 use crate::nlp::preprocess;
+use crate::DEFAULT_METHOD;
 use ::regex::Regex;
+
+#[test]
+/// simply test the default values for wildcardfilter
+fn wildcard_filter_default() {
+    let wcf = WildcardFilter::default();
+    assert_eq!(wcf.content_length, None);
+    assert_eq!(wcf.line_count, None);
+    assert_eq!(wcf.word_count, None);
+    assert_eq!(wcf.method, DEFAULT_METHOD.to_string());
+    assert_eq!(wcf.status_code, 0);
+    assert_eq!(wcf.dont_filter, false);
+}
+
+#[test]
+/// just a simple test to increase code coverage by hitting as_any and the inner value
+fn wildcard_filter_as_any() {
+    let mut filter = WildcardFilter::default();
+    let filter2 = WildcardFilter::default();
+
+    assert!(filter.box_eq(filter2.as_any()));
+
+    assert_eq!(
+        *filter.as_any().downcast_ref::<WildcardFilter>().unwrap(),
+        filter2
+    );
+
+    filter.content_length = Some(1);
+
+    assert_ne!(
+        *filter.as_any().downcast_ref::<WildcardFilter>().unwrap(),
+        filter2
+    );
+}
 
 #[test]
 /// just a simple test to increase code coverage by hitting as_any and the inner value
@@ -86,6 +120,53 @@ fn regex_filter_as_any() {
     );
 }
 
+#[test]
+/// test should_filter on WilcardFilter where static logic matches
+fn wildcard_should_filter_when_static_wildcard_found() {
+    let body =
+        "pellentesque diam volutpat commodo sed egestas egestas fringilla phasellus faucibus";
+
+    let mut resp = FeroxResponse::default();
+    resp.set_wildcard(true);
+    resp.set_url("http://localhost");
+    resp.set_text(body);
+
+    let mut filter = WildcardFilter::default();
+    filter.content_length = Some(body.len() as u64);
+    filter.status_code = 200;
+
+    assert!(filter.should_filter_response(&resp));
+}
+
+#[test]
+/// test should_filter on WilcardFilter where static logic matches but response length is 0
+fn wildcard_should_filter_when_static_wildcard_len_is_zero() {
+    let mut resp = FeroxResponse::default();
+    resp.set_wildcard(true);
+    resp.set_url("http://localhost");
+
+    // default WildcardFilter is used in the code that executes when response.content_length() == 0
+    let mut filter = WildcardFilter::default();
+    filter.content_length = Some(0);
+    filter.status_code = 200;
+
+    assert!(filter.should_filter_response(&resp));
+}
+
+#[test]
+/// test should_filter on WilcardFilter where dynamic logic matches
+fn wildcard_should_filter_when_dynamic_wildcard_found() {
+    let mut resp = FeroxResponse::default();
+    resp.set_wildcard(true);
+    resp.set_url("http://localhost/stuff");
+    resp.set_text("pellentesque diam volutpat commodo sed egestas egestas fringilla");
+
+    let mut filter = WildcardFilter::default();
+    filter.word_count = Some(8);
+    filter.status_code = 200;
+
+    assert!(filter.should_filter_response(&resp));
+}
 #[test]
 /// test should_filter on RegexFilter where regex matches body
 fn regexfilter_should_filter_when_regex_matches_on_response_body() {
