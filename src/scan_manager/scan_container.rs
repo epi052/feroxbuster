@@ -8,6 +8,7 @@ use crate::filters::{
 use crate::traits::FeroxFilter;
 use crate::Command::AddFilter;
 use crate::{
+    banner::Banner,
     config::OutputLevel,
     progress::PROGRESS_PRINTER,
     progress::{add_bar, BarType},
@@ -450,6 +451,12 @@ impl FeroxScans {
         };
 
         self.menu.clear_screen();
+
+        let banner = Banner::new(&[handles.config.target_url.clone()], &handles.config);
+        banner
+            .print_to(&self.menu.term, handles.config.clone())
+            .unwrap_or_default();
+
         self.menu.show_progress_bars();
 
         result

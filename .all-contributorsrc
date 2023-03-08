@@ -542,6 +542,16 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "aancw",
+      "name": "Aan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6284204?v=4",
+      "profile": "https://petruknisme.com",
+      "contributions": [
+        "code",
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
