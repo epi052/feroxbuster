@@ -134,7 +134,7 @@ fn wildcard_should_filter_when_static_wildcard_found() {
     let filter = WildcardFilter {
         content_length: Some(body.len() as u64),
         line_count: Some(1),
-        word_count: Some(8),
+        word_count: Some(10),
         method: DEFAULT_METHOD.to_string(),
         status_code: 200,
         dont_filter: false,
