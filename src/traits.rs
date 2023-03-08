@@ -4,6 +4,7 @@ use crate::filters::{
     WordsFilter,
 };
 use crate::response::FeroxResponse;
+use crate::utils::status_colorizer;
 use anyhow::Result;
 use crossterm::style::{style, Stylize};
 use serde::Serialize;
@@ -38,7 +39,43 @@ impl Display for dyn FeroxFilter {
         } else if let Some(filter) = self.as_any().downcast_ref::<RegexFilter>() {
             write!(f, "Regex: {}", style(&filter.raw_string).cyan())
         } else if let Some(filter) = self.as_any().downcast_ref::<WildcardFilter>() {
-            write!(f, "{}", filter) // real Display in the wildcard module
+            let mut msg = format!(
+                "{} requests with {} responses ",
+                style(&filter.method).cyan(),
+                status_colorizer(&filter.status_code.to_string())
+            );
+
+            match (filter.content_length, filter.word_count, filter.line_count) {
+                (None, None, None) => {
+                    unreachable!("wildcard filter without any filters set");
+                }
+                (None, None, Some(lc)) => {
+                    msg.push_str(&format!("containing {} lines", lc));
+                }
+                (None, Some(wc), None) => {
+                    msg.push_str(&format!("containing {} words", wc));
+                }
+                (None, Some(wc), Some(lc)) => {
+                    msg.push_str(&format!("containing {} words and {} lines", wc, lc));
+                }
+                (Some(cl), None, None) => {
+                    msg.push_str(&format!("containing {} bytes", cl));
+                }
+                (Some(cl), None, Some(lc)) => {
+                    msg.push_str(&format!("containing {} bytes and {} lines", cl, lc));
+                }
+                (Some(cl), Some(wc), None) => {
+                    msg.push_str(&format!("containing {} bytes and {} words", cl, wc));
+                }
+                (Some(cl), Some(wc), Some(lc)) => {
+                    msg.push_str(&format!(
+                        "containing {} bytes, {} words, and {} lines",
+                        cl, wc, lc
+                    ));
+                }
+            }
+
+            write!(f, "{}", msg)
         } else if let Some(filter) = self.as_any().downcast_ref::<StatusCodeFilter>() {
             write!(f, "Status code: {}", style(filter.filter_code).cyan())
         } else if let Some(filter) = self.as_any().downcast_ref::<SimilarityFilter>() {
