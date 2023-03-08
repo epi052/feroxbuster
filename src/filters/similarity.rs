@@ -37,7 +37,9 @@ impl FeroxFilter for SimilarityFilter {
 
     /// Compare one SimilarityFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
-        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+        other
+            .downcast_ref::<Self>()
+            .map_or(false, |a| self.hash == a.hash)
     }
 
     /// Return self as Any for dynamic dispatch purposes

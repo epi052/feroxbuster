@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default: feroxbuster/2.8.0)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/2.8.0)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.9.0)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.9.0)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
@@ -72,8 +72,8 @@ _feroxbuster() {
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http://127.0.0.1:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true]' \
-'--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
-'--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
+'(--rate-limit --auto-bail)--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
+'(--rate-limit --auto-bail)--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
 '-A[Use a random User-Agent]' \
 '--random-agent[Use a random User-Agent]' \
 '-f[Append / to each request'\''s URL]' \
@@ -117,4 +117,8 @@ _feroxbuster_commands() {
     _describe -t commands 'feroxbuster commands' commands "$@"
 }
 
-_feroxbuster "$@"
+if [ "$funcstack[1]" = "_feroxbuster" ]; then
+    _feroxbuster "$@"
+else
+    compdef _feroxbuster feroxbuster
+fi

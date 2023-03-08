@@ -91,12 +91,14 @@ pub fn initialize() -> Command {
                 .long("smart")
                 .num_args(0)
                 .help_heading("Composite settings")
+                .conflicts_with_all(["rate_limit", "auto_bail"])
                 .help("Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true"),
         ).arg(
             Arg::new("thorough")
                 .long("thorough")
                 .num_args(0)
                 .help_heading("Composite settings")
+                .conflicts_with_all(["rate_limit", "auto_bail"])
                 .help("Use the same settings as --smart and set --collect-extensions to true"),
         );
 

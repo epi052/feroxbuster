@@ -248,7 +248,7 @@ impl TermOutHandler {
                 .unwrap()
                 .filters
                 .data
-                .should_filter_response(&resp);
+                .should_filter_response(&resp, tx_stats.clone());
 
             let contains_sentry = if !self.config.filter_status.is_empty() {
                 // -C was used, meaning -s was not and we should ignore the defaults

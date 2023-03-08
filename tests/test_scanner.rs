@@ -573,7 +573,7 @@ fn scanner_recursion_works_with_403_directories() {
     let found_anyway = srv.mock(|when, then| {
         when.method(GET).path("/ignored/LICENSE");
         then.status(200)
-            .body("this is a test\nThat rugf really tied the room together");
+            .body("this is a test\nThat rug really tied the room together");
     });
 
     let cmd = Command::cargo_bin("feroxbuster")
@@ -588,9 +588,10 @@ fn scanner_recursion_works_with_403_directories() {
         predicate::str::contains("/LICENSE")
             .count(2)
             .and(predicate::str::contains("200"))
-            .and(predicate::str::contains("WLD"))
+            .and(predicate::str::contains("404"))
+            .and(predicate::str::contains("53c Auto-filtering"))
             .and(predicate::str::contains(
-                "auto-filtering 404-like response (53 bytes);",
+                "Auto-filtering found 404-like response and created new filter;",
             ))
             .and(predicate::str::contains("14c"))
             .and(predicate::str::contains("0c"))
