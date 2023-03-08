@@ -12,7 +12,7 @@ fn wildcard_filter_default() {
     assert_eq!(wcf.word_count, None);
     assert_eq!(wcf.method, DEFAULT_METHOD.to_string());
     assert_eq!(wcf.status_code, 0);
-    assert_eq!(wcf.dont_filter, false);
+    assert!(!wcf.dont_filter);
 }
 
 #[test]
@@ -131,9 +131,14 @@ fn wildcard_should_filter_when_static_wildcard_found() {
     resp.set_url("http://localhost");
     resp.set_text(body);
 
-    let mut filter = WildcardFilter::default();
-    filter.content_length = Some(body.len() as u64);
-    filter.status_code = 200;
+    let filter = WildcardFilter {
+        content_length: Some(body.len() as u64),
+        line_count: Some(1),
+        word_count: Some(8),
+        method: DEFAULT_METHOD.to_string(),
+        status_code: 200,
+        dont_filter: false,
+    };
 
     assert!(filter.should_filter_response(&resp));
 }
@@ -146,9 +151,14 @@ fn wildcard_should_filter_when_static_wildcard_len_is_zero() {
     resp.set_url("http://localhost");
 
     // default WildcardFilter is used in the code that executes when response.content_length() == 0
-    let mut filter = WildcardFilter::default();
-    filter.content_length = Some(0);
-    filter.status_code = 200;
+    let filter = WildcardFilter {
+        content_length: Some(0),
+        line_count: Some(0),
+        word_count: Some(0),
+        method: DEFAULT_METHOD.to_string(),
+        status_code: 200,
+        dont_filter: false,
+    };
 
     assert!(filter.should_filter_response(&resp));
 }
@@ -161,9 +171,14 @@ fn wildcard_should_filter_when_dynamic_wildcard_found() {
     resp.set_url("http://localhost/stuff");
     resp.set_text("pellentesque diam volutpat commodo sed egestas egestas fringilla");
 
-    let mut filter = WildcardFilter::default();
-    filter.word_count = Some(8);
-    filter.status_code = 200;
+    let filter = WildcardFilter {
+        content_length: None,
+        line_count: None,
+        word_count: Some(8),
+        method: DEFAULT_METHOD.to_string(),
+        status_code: 200,
+        dont_filter: false,
+    };
 
     assert!(filter.should_filter_response(&resp));
 }
