@@ -72,8 +72,8 @@ _feroxbuster() {
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http://127.0.0.1:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true]' \
-'--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
-'--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
+'(--rate-limit --auto-bail)--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
+'(--rate-limit --auto-bail)--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
 '-A[Use a random User-Agent]' \
 '--random-agent[Use a random User-Agent]' \
 '-f[Append / to each request'\''s URL]' \
