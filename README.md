@@ -167,6 +167,12 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
+### Updating feroxbuster (new in v2.10.0)
+
+```
+./feroxbuster --update
+```
+
 ## 🚀 Documentation has **moved** 🚀  
 
 For realsies, there used to be over 1300 lines in this README, but it's all been moved to the [new documentation site](https://epi052.github.io/feroxbuster-docs/docs/). Go check it out! 
