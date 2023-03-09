@@ -40,7 +40,7 @@ pub fn initialize() -> Command {
             Arg::new("url")
                 .short('u')
                 .long("url")
-                .required_unless_present_any(["stdin", "resume_from"])
+                .required_unless_present_any(["stdin", "resume_from", "update_app"])
                 .help_heading("Target selection")
                 .value_name("URL")
                 .use_value_delimiter(true)
@@ -475,6 +475,7 @@ pub fn initialize() -> Command {
             Arg::new("wordlist")
                 .short('w')
                 .long("wordlist")
+                .required_unless_present_any(["update_app"])
                 .value_hint(ValueHint::FilePath)
                 .value_name("FILE")
                 .help("Path to the wordlist")
@@ -608,6 +609,15 @@ pub fn initialize() -> Command {
             ArgGroup::new("output_files")
                 .args(["debug_log", "output"])
                 .multiple(true),
+        )
+        .arg(
+            Arg::new("update_app")
+                .short('U')
+                .long("update")
+                .conflicts_with_all(["url", "wordlist"])
+                .num_args(0)
+                .help_heading("Update settings")
+                .help("Update the app to the latest version"),
         )
         .after_long_help(EPILOGUE);
 

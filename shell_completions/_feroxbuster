@@ -104,6 +104,8 @@ _feroxbuster() {
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
 '--no-state[Disable state output file (*.state)]' \
+'(-u --url -w --wordlist)-U[Update the app to the latest version]' \
+'(-u --url -w --wordlist)--update[Update the app to the latest version]' \
 '-h[Print help (see more with '\''--help'\'')]' \
 '--help[Print help (see more with '\''--help'\'')]' \
 '-V[Print version]' \

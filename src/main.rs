@@ -1,11 +1,14 @@
 use std::io::stdin;
 use std::{
-    env::args,
+    env::{
+        args,
+        consts::{ARCH, OS},
+    },
     fs::{create_dir, remove_file, File},
     io::{stderr, BufRead, BufReader},
     ops::Index,
     path::Path,
-    process::Command,
+    process::{exit, Command},
     sync::{atomic::Ordering, Arc},
 };
 
@@ -38,6 +41,7 @@ use feroxbuster::{
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use lazy_static::lazy_static;
 use regex::Regex;
+use self_update::cargo_crate_version;
 
 lazy_static! {
     /// Limits the number of parallel scans active at any given time when using --parallel
@@ -218,6 +222,30 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         PROGRESS_PRINTER.println("");
         PROGRESS_BAR.join().unwrap();
     });
+
+    // check if update_app is true
+    if config.update_app {
+        let target_os = format!("{}-{}", ARCH, OS);
+        tokio::task::spawn_blocking(move || {
+            let status = self_update::backends::github::Update::configure()
+                .repo_owner("epi052")
+                .repo_name("feroxbuster")
+                .bin_name("feroxbuster")
+                .target(target_os.as_str())
+                .show_download_progress(true)
+                .current_version(cargo_crate_version!())
+                .build()
+                .unwrap()
+                .update()
+                .unwrap();
+
+            println!("Updated version: `{}`!", status.version());
+        })
+        .await
+        .unwrap();
+
+        exit(0);
+    }
 
     // cloning an Arc is cheap (it's basically a pointer into the heap)
     // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
