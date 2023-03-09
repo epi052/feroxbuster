@@ -476,7 +476,7 @@ fn config_default_not_random_agent() {
 /// parse the test config and see that the value parsed is correct
 fn config_update_app() {
     let config = setup_config_test();
-    assert!(config.update_app);
+    assert!(!config.update_app);
 }
 
 #[test]

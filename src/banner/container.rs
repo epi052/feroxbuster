@@ -168,7 +168,7 @@ pub struct Banner {
     force_recursion: BannerEntry,
 
     /// represents Configuration.update_app
-    update_app : BannerEntry,
+    update_app: BannerEntry,
 }
 
 /// implementation of Banner
@@ -669,6 +669,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.force_recursion {
             writeln!(&mut writer, "{}", self.force_recursion)?;
+        }
+
+        if config.update_app {
+            writeln!(&mut writer, "{}", self.update_app)?;
         }
 
         if config.scan_limit > 0 {
