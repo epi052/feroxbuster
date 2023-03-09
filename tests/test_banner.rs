@@ -1420,3 +1420,19 @@ fn banner_prints_force_recursion() {
                 .and(predicate::str::contains("─┴─")),
         );
 }
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + force recursion
+fn banner_prints_update_app() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--update")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Update app"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
