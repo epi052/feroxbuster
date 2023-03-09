@@ -8,13 +8,8 @@
     <title>feroxbuster (Install)</title>
     <authors>epi052</authors>
     <projectUrl>https://github.com/epi052/feroxbuster</projectUrl>
-    <!-- There are a number of CDN Services that can be used for hosting the Icon for a package. More information can be found here: https://docs.chocolatey.org/en-us/create/create-packages#package-icon-guidelines -->
-    <!-- Here is an example using Githack -->
-    <!-- 
-      //TODO: PLEASE CONVERT THE LOGO TO ICON
-      <iconUrl>https://github.com/epi052/feroxbuster/raw/main/img/logo/default-cropped.png</iconUrl>
-    -->
-    <copyright>2023</copyright>
+    <iconUrl>https://rawcdn.githack.com/epi052/feroxbuster/2d381e7e057ce60c580b324dd36c9abaf30c2ec7/img/logo/logo.png</iconUrl>
+    <copyright>2020-2023</copyright>
     <licenseUrl>https://github.com/epi052/feroxbuster/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/epi052/feroxbuster</projectSourceUrl>
