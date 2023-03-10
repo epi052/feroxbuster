@@ -54,7 +54,6 @@
 # queries = [["name","value"], ["rick", "astley"]]
 # save_state = false
 # time_limit = "10m"
-# update_app = false
 
 # headers can be specified on multiple lines or as an inline table
 #

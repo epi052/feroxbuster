@@ -475,7 +475,6 @@ pub fn initialize() -> Command {
             Arg::new("wordlist")
                 .short('w')
                 .long("wordlist")
-                .required_unless_present_any(["update_app"])
                 .value_hint(ValueHint::FilePath)
                 .value_name("FILE")
                 .help("Path to the wordlist")
@@ -614,10 +613,10 @@ pub fn initialize() -> Command {
             Arg::new("update_app")
                 .short('U')
                 .long("update")
-                .conflicts_with_all(["url", "wordlist"])
+                .exclusive(true)
                 .num_args(0)
                 .help_heading("Update settings")
-                .help("Update the app to the latest version"),
+                .help("Update feroxbuster to the latest version"),
         )
         .after_long_help(EPILOGUE);
 

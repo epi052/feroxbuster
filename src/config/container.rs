@@ -311,7 +311,7 @@ pub struct Configuration {
     pub force_recursion: bool,
 
     /// Auto update app feature
-    #[serde(default)]
+    #[serde(skip)]
     pub update_app: bool,
 }
 

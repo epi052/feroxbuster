@@ -166,9 +166,6 @@ pub struct Banner {
 
     /// represents Configuration.collect_words
     force_recursion: BannerEntry,
-
-    /// represents Configuration.update_app
-    update_app: BannerEntry,
 }
 
 /// implementation of Banner
@@ -336,7 +333,6 @@ impl Banner {
         let json = BannerEntry::new("🧔", "JSON Output", &config.json.to_string());
         let output = BannerEntry::new("💾", "Output File", &config.output);
         let debug_log = BannerEntry::new("🪲", "Debugging Log", &config.debug_log);
-        let update_app = BannerEntry::new("🔥", "Update app", &config.update_app.to_string());
         let extensions = BannerEntry::new(
             "💲",
             "Extensions",
@@ -441,7 +437,6 @@ impl Banner {
             config: cfg,
             version: VERSION.to_string(),
             update_status: UpdateStatus::Unknown,
-            update_app,
         }
     }
 
@@ -669,10 +664,6 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if config.force_recursion {
             writeln!(&mut writer, "{}", self.force_recursion)?;
-        }
-
-        if config.update_app {
-            writeln!(&mut writer, "{}", self.update_app)?;
         }
 
         if config.scan_limit > 0 {

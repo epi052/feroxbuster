@@ -1430,9 +1430,5 @@ fn banner_prints_update_app() {
         .arg("--update")
         .assert()
         .success()
-        .stderr(
-            predicate::str::contains("─┬─")
-                .and(predicate::str::contains("Update app"))
-                .and(predicate::str::contains("─┴─")),
-        );
+        .stderr(predicate::str::contains("Checking target-arch..."));
 }

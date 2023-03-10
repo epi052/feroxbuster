@@ -56,7 +56,6 @@ fn setup_config_test() -> Configuration {
             filter_word_count = [994, 992]
             filter_line_count = [34]
             filter_status = [201]
-            update_app = false
         "#;
     let tmp_dir = TempDir::new().unwrap();
     let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -104,7 +103,6 @@ fn default_configuration() {
     assert!(!config.collect_extensions);
     assert!(!config.collect_backups);
     assert!(!config.collect_words);
-    assert!(!config.update_app);
     assert!(config.regex_denylist.is_empty());
     assert_eq!(config.queries, Vec::new());
     assert_eq!(config.filter_size, Vec::<u64>::new());
@@ -470,13 +468,6 @@ fn config_reads_queries() {
 fn config_default_not_random_agent() {
     let config = setup_config_test();
     assert!(!config.random_agent);
-}
-
-#[test]
-/// parse the test config and see that the value parsed is correct
-fn config_update_app() {
-    let config = setup_config_test();
-    assert!(!config.update_app);
 }
 
 #[test]

@@ -101,6 +101,11 @@ sudo apt update && sudo apt install -y feroxbuster
 curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
 ```
 
+### Updating feroxbuster (new in v2.10.0)
+
+```
+./feroxbuster --update
+```
 
 #### Windows x86_64
 
@@ -167,11 +172,7 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
-### Updating feroxbuster (new in v2.10.0)
 
-```
-./feroxbuster --update
-```
 
 ## 🚀 Documentation has **moved** 🚀  
 

@@ -225,25 +225,15 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
     // check if update_app is true
     if config.update_app {
-        let target_os = format!("{}-{}", ARCH, OS);
-        tokio::task::spawn_blocking(move || {
-            let status = self_update::backends::github::Update::configure()
-                .repo_owner("epi052")
-                .repo_name("feroxbuster")
-                .bin_name("feroxbuster")
-                .target(target_os.as_str())
-                .show_download_progress(true)
-                .current_version(cargo_crate_version!())
-                .build()
-                .unwrap()
-                .update()
-                .unwrap();
-
-            println!("Updated version: `{}`!", status.version());
-        })
-        .await
-        .unwrap();
-
+        match update_app().await {
+            Err(e) => eprintln!("\n[ERROR] {}", e),
+            Ok(self_update::Status::UpToDate(version)) => {
+                eprintln!("\nFeroxbuster {} is up to date", version)
+            }
+            Ok(self_update::Status::Updated(version)) => {
+                eprintln!("\nFeroxbuster updated to {} version", version)
+            }
+        }
         exit(0);
     }
 
@@ -552,6 +542,40 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
 
     log::trace!("exit: clean_up");
     Ok(())
+}
+
+async fn update_app() -> Result<self_update::Status, Box<dyn ::std::error::Error>> {
+    // check if update_app is true
+    let target_os = format!("{}-{}", ARCH, OS);
+    let status = tokio::task::spawn_blocking(move || {
+        self_update::backends::github::Update::configure()
+            .repo_owner("epi052")
+            .repo_name("feroxbuster")
+            .bin_name("feroxbuster")
+            .target(target_os.as_str())
+            .show_download_progress(true)
+            .current_version(cargo_crate_version!())
+            .build()?
+            .update()
+    })
+    .await??;
+
+    Ok(status)
+
+    /*     tokio::task::spawn_blocking(move || {
+        let status = self_update::backends::github::Update::configure()
+            .repo_owner("epi052")
+            .repo_name("feroxbuster")
+            .bin_name("feroxbuster")
+            .target(target_os.as_str())
+            .show_download_progress(true)
+            .current_version(cargo_crate_version!())
+            .build()?
+            .update()?;
+        println!("Updated version: `{}`!", status.version());
+        Ok(())
+    })
+    .await; */
 }
 
 fn main() -> Result<()> {
