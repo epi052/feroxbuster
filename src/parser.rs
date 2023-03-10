@@ -40,7 +40,7 @@ pub fn initialize() -> Command {
             Arg::new("url")
                 .short('u')
                 .long("url")
-                .required_unless_present_any(["stdin", "resume_from"])
+                .required_unless_present_any(["stdin", "resume_from", "update_app"])
                 .help_heading("Target selection")
                 .value_name("URL")
                 .use_value_delimiter(true)
@@ -608,6 +608,15 @@ pub fn initialize() -> Command {
             ArgGroup::new("output_files")
                 .args(["debug_log", "output"])
                 .multiple(true),
+        )
+        .arg(
+            Arg::new("update_app")
+                .short('U')
+                .long("update")
+                .exclusive(true)
+                .num_args(0)
+                .help_heading("Update settings")
+                .help("Update feroxbuster to the latest version"),
         )
         .after_long_help(EPILOGUE);
 

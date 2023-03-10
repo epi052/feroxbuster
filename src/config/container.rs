@@ -309,6 +309,10 @@ pub struct Configuration {
     /// override recursion logic to always attempt recursion, still respects --depth
     #[serde(default)]
     pub force_recursion: bool,
+
+    /// Auto update app feature
+    #[serde(skip)]
+    pub update_app: bool,
 }
 
 impl Default for Configuration {
@@ -358,6 +362,7 @@ impl Default for Configuration {
             collect_words: false,
             save_state: true,
             force_recursion: false,
+            update_app: false,
             proxy: String::new(),
             config: String::new(),
             output: String::new(),
@@ -441,6 +446,7 @@ impl Configuration {
     /// - **time_limit**: `None` (no limit on length of scan imposed)
     /// - **replay_proxy**: `None` (no limit on concurrent scans imposed)
     /// - **replay_codes**: [`DEFAULT_RESPONSE_CODES`](constant.DEFAULT_RESPONSE_CODES.html)
+    /// - **update_app**: `false`
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -816,6 +822,10 @@ impl Configuration {
             config.force_recursion = true;
         }
 
+        if came_from_cli!(args, "update_app") {
+            config.update_app = true;
+        }
+
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
@@ -992,6 +1002,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
         update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
+        update_if_not_default!(&mut conf.update_app, new.update_app, false);
         if !new.regex_denylist.is_empty() {
             // cant use the update_if_not_default macro due to the following error
             //
