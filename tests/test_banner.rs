@@ -1430,5 +1430,5 @@ fn banner_prints_update_app() {
         .arg("--update")
         .assert()
         .success()
-        .stderr(predicate::str::contains("Checking target-arch..."));
+        .stdout(predicate::str::contains("Checking target-arch..."));
 }
