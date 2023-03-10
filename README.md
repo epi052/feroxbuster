@@ -101,12 +101,6 @@ sudo apt update && sudo apt install -y feroxbuster
 curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
 ```
 
-### Updating feroxbuster (new in v2.10.0)
-
-```
-./feroxbuster --update
-```
-
 #### Windows x86_64
 
 ```
@@ -118,6 +112,12 @@ Expand-Archive .\feroxbuster.zip
 #### All others 
 
 Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+
+### Updating feroxbuster (new in v2.9.1)
+
+```
+./feroxbuster --update
+```
 
 ## 🧰 Example Usage
 
