@@ -545,7 +545,6 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
 }
 
 async fn update_app() -> Result<self_update::Status, Box<dyn ::std::error::Error>> {
-    // check if update_app is true
     let target_os = format!("{}-{}", ARCH, OS);
     let status = tokio::task::spawn_blocking(move || {
         self_update::backends::github::Update::configure()
@@ -561,21 +560,6 @@ async fn update_app() -> Result<self_update::Status, Box<dyn ::std::error::Error
     .await??;
 
     Ok(status)
-
-    /*     tokio::task::spawn_blocking(move || {
-        let status = self_update::backends::github::Update::configure()
-            .repo_owner("epi052")
-            .repo_name("feroxbuster")
-            .bin_name("feroxbuster")
-            .target(target_os.as_str())
-            .show_download_progress(true)
-            .current_version(cargo_crate_version!())
-            .build()?
-            .update()?;
-        println!("Updated version: `{}`!", status.version());
-        Ok(())
-    })
-    .await; */
 }
 
 fn main() -> Result<()> {
