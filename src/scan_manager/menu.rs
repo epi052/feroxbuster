@@ -190,7 +190,11 @@ impl Menu {
             if value.contains('-') {
                 // range of two values, needs further processing
 
-                let range: Vec<usize> = value.split('-').map(|s| self.str_to_usize(s)).collect();
+                let range: Vec<usize> = value
+                    .split('-')
+                    .map(|s| self.str_to_usize(s))
+                    .filter(|m| *m != 0)
+                    .collect();
 
                 if range.len() != 2 {
                     // expecting [1, 4] or similar, if a 0 was used, we'd be left with a vec of size 1
@@ -206,6 +210,10 @@ impl Menu {
                     }
                 });
             } else {
+                if value.is_empty() {
+                    continue;
+                }
+
                 let value = self.str_to_usize(value);
 
                 if !nums.contains(&value) {

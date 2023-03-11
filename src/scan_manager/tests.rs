@@ -668,11 +668,7 @@ fn menu_get_command_input_from_user_returns_cancel() {
         assert!(matches!(result, MenuCmd::Cancel(_, _)));
 
         if let MenuCmd::Cancel(canx_list, ret_force) = result {
-            if idx == 0 {
-                assert!(canx_list.is_empty());
-            } else {
-                assert_eq!(canx_list, vec![idx]);
-            }
+            assert_eq!(canx_list, vec![idx]);
             assert_eq!(force, ret_force);
         }
     }
