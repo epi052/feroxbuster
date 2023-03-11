@@ -325,10 +325,10 @@ impl FeroxScans {
         let mut printed = 0;
 
         for (i, scan) in scans.iter().enumerate() {
-            if matches!(scan.scan_order, ScanOrder::Initial) || scan.task.try_lock().is_err() {
-                // original target passed in via either -u or --stdin
-                continue;
-            }
+            // if matches!(scan.scan_order, ScanOrder::Initial) || scan.task.try_lock().is_err() {
+            //     // original target passed in via either -u or --stdin
+            //     continue;
+            // }
 
             if matches!(scan.scan_type, ScanType::Directory) {
                 if printed == 0 {
@@ -378,14 +378,14 @@ impl FeroxScans {
 
             if input == 'y' || input == '\n' {
                 self.menu.println(&format!("Stopping {}...", selected.url));
-
                 selected
                     .abort()
                     .await
                     .unwrap_or_else(|e| log::warn!("Could not cancel task: {}", e));
 
                 let pb = selected.progress_bar();
-                num_cancelled += pb.length() as usize - pb.position() as usize
+                num_cancelled += pb.length() as usize - pb.position() as usize;
+                std::fs::write("hi", format!("{} {:?}", num_cancelled, selected)).unwrap();
             } else {
                 self.menu.println("Ok, doing nothing...");
             }
@@ -426,6 +426,8 @@ impl FeroxScans {
         self.display_filters(handles.clone());
         self.menu.print_footer();
 
+        self.menu.println(&format!("{:?}", self.scans));
+
         let menu_cmd = if let Ok(line) = self.menu.term.read_line() {
             self.menu.get_command_input_from_user(&line)
         } else {
@@ -458,6 +460,16 @@ impl FeroxScans {
             .unwrap_or_default();
 
         self.menu.show_progress_bars();
+
+        if let Ok(guard) = self.scans.read() {
+            let has_active_scans = guard.iter().any(|s| s.is_active());
+            if !has_active_scans {
+                self.menu.print_border();
+                self.menu.println("No active scans.");
+                self.menu.print_border();
+                handles.send_scan_command(Command::Exit).unwrap_or_default();
+            }
+        }
 
         result
     }

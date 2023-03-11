@@ -193,7 +193,7 @@ impl Menu {
                 let range: Vec<usize> = value
                     .split('-')
                     .map(|s| self.str_to_usize(s))
-                    .filter(|m| *m != 0)
+                    // .filter(|m| *m != 0)
                     .collect();
 
                 if range.len() != 2 {
@@ -212,7 +212,8 @@ impl Menu {
             } else {
                 let value = self.str_to_usize(value);
 
-                if value != 0 && !nums.contains(&value) {
+                // if value != 0 && !nums.contains(&value) {
+                if !nums.contains(&value) {
                     // the zeroth scan is always skipped, skip already known values
                     nums.push(value);
                 }
