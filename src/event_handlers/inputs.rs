@@ -27,9 +27,6 @@ pub static SCAN_COMPLETE: AtomicBool = AtomicBool::new(false);
 pub struct TermInputHandler {
     /// handles to other handlers
     handles: Arc<Handles>,
-
-    /// message to print when the user presses ctrl+c, or we trigger serialization of state internally
-    ctrl_c_message: Option<String>,
 }
 
 /// implementation of event handler for terminal input
@@ -40,15 +37,7 @@ pub struct TermInputHandler {
 impl TermInputHandler {
     /// Create new event handler
     pub fn new(handles: Arc<Handles>) -> Self {
-        let default_message = format!(
-            "🚨 Caught {} 🚨 saving scan state to {} ...",
-            style("ctrl+c").yellow(),
-            filename
-        );
-        Self {
-            handles,
-            ctrl_c_message: Some(default_message),
-        }
+        Self { handles }
     }
 
     /// Initialize the sigint and enter handlers that are responsible for handling initial user

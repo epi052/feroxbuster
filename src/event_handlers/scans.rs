@@ -144,18 +144,6 @@ impl ScanHandler {
 
         while let Some(command) = self.receiver.recv().await {
             match command {
-                Command::Exit => {
-                    // std::fs::write(
-                    //     "hi",
-                    //     format!("{:?}", self.handles.ferox_scans().unwrap_or_default()),
-                    // )
-                    // .unwrap();
-                    crate::event_handlers::inputs::TermInputHandler::sigint_handler(
-                        self.handles.clone(),
-                    )
-                    .unwrap();
-                    // break;
-                }
                 Command::ScanInitialUrls(targets) => {
                     self.ordered_scan_url(targets, ScanOrder::Initial).await?;
                 }

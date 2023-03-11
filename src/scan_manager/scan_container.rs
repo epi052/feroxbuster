@@ -325,11 +325,6 @@ impl FeroxScans {
         let mut printed = 0;
 
         for (i, scan) in scans.iter().enumerate() {
-            // if matches!(scan.scan_order, ScanOrder::Initial) || scan.task.try_lock().is_err() {
-            //     // original target passed in via either -u or --stdin
-            //     continue;
-            // }
-
             if matches!(scan.scan_type, ScanType::Directory) {
                 if printed == 0 {
                     self.menu
@@ -385,7 +380,6 @@ impl FeroxScans {
 
                 let pb = selected.progress_bar();
                 num_cancelled += pb.length() as usize - pb.position() as usize;
-                std::fs::write("hi", format!("{} {:?}", num_cancelled, selected)).unwrap();
             } else {
                 self.menu.println("Ok, doing nothing...");
             }
@@ -426,8 +420,6 @@ impl FeroxScans {
         self.display_filters(handles.clone());
         self.menu.print_footer();
 
-        self.menu.println(&format!("{:?}", self.scans));
-
         let menu_cmd = if let Ok(line) = self.menu.term.read_line() {
             self.menu.get_command_input_from_user(&line)
         } else {
@@ -461,14 +453,30 @@ impl FeroxScans {
 
         self.menu.show_progress_bars();
 
-        if let Ok(guard) = self.scans.read() {
-            let has_active_scans = guard.iter().any(|s| s.is_active());
-            if !has_active_scans {
-                self.menu.print_border();
-                self.menu.println("No active scans.");
-                self.menu.print_border();
-                handles.send_scan_command(Command::Exit).unwrap_or_default();
-            }
+        let has_active_scans = if let Ok(guard) = self.scans.read() {
+            guard.iter().any(|s| s.is_active())
+        } else {
+            // if we can't tell for sure, we'll let it ride
+            //
+            // i'm not sure which is the better option here:
+            // either return true and let it potentially hang, or
+            // return false and exit, so just going with not
+            // abruptly exiting for maybe no reason
+            true
+        };
+
+        if !has_active_scans {
+            // the last active scan was cancelled, so we can exit
+            self.menu.println(&format!(
+                " 😱 no more active scans... {}",
+                style("exiting").red()
+            ));
+
+            let (tx, rx) = tokio::sync::oneshot::channel::<bool>();
+            handles
+                .send_scan_command(Command::JoinTasks(tx))
+                .unwrap_or_default();
+            rx.await.unwrap_or_default();
         }
 
         result
