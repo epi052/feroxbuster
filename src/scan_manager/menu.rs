@@ -210,10 +210,14 @@ impl Menu {
                     }
                 });
             } else {
+                if value.is_empty() {
+                    continue;
+                }
+
                 let value = self.str_to_usize(value);
 
-                if value != 0 && !nums.contains(&value) {
-                    // the zeroth scan is always skipped, skip already known values
+                if !nums.contains(&value) {
+                    // skip already known values
                     nums.push(value);
                 }
             }

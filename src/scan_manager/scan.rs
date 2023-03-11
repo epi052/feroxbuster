@@ -39,6 +39,7 @@ pub struct FeroxScan {
     pub scan_type: ScanType,
 
     /// The order in which the scan was received
+    #[allow(dead_code)] // not entirely sure this isn't used somewhere
     pub(crate) scan_order: ScanOrder,
 
     /// Number of requests to populate the progress bar with
