@@ -1,3 +1,8 @@
+﻿
+From: https://github.com/epi052/feroxbuster/blob/main/LICENSE
+
+LICENSE
+
 MIT License
 
 Copyright (c) 2020-2023 epi

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>feroxbuster</id>
+    <version>2.8.0</version>
+    <packageSourceUrl>https://github.com/epi052/feroxbuster/releases/</packageSourceUrl>
+    <owners>epi052</owners>
+    <title>feroxbuster (Install)</title>
+    <authors>epi052</authors>
+    <projectUrl>https://github.com/epi052/feroxbuster</projectUrl>
+    <iconUrl>https://rawcdn.githack.com/epi052/feroxbuster/2d381e7e057ce60c580b324dd36c9abaf30c2ec7/img/logo/logo.png</iconUrl>
+    <copyright>2020-2023</copyright>
+    <licenseUrl>https://github.com/epi052/feroxbuster/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/epi052/feroxbuster</projectSourceUrl>
+    <docsUrl>https://epi052.github.io/feroxbuster-docs/docs/</docsUrl>
+    <!--<mailingListUrl></mailingListUrl>-->
+    <bugTrackerUrl>https://github.com/epi052/feroxbuster/issues</bugTrackerUrl>
+    <tags>content-discovery pentesting-tool url-bruteforcer</tags>
+    <summary>A simple, fast, recursive content discovery tool written in Rust</summary>
+    <description>
+    A simple, fast, recursive content discovery tool written in Rust
+[![Feroxbuster](https://github.com/epi052/feroxbuster/raw/main/img/logo/default-cropped.png)](https://github.com/epi052/feroxbuster)
+
+## What the heck is a ferox anyway?
+
+Ferox is short for Ferric Oxide. Ferric Oxide, simply put, is rust. The name rustbuster was taken, so I decided on a
+variation. 
+
+## What's it do tho?
+
+`feroxbuster` is a tool designed to perform [Forced Browsing](https://owasp.org/www-community/attacks/Forced_browsing).
+
+Forced browsing is an attack where the aim is to enumerate and access resources that are not referenced by the web
+application, but are still accessible by an attacker.
+
+`feroxbuster` uses brute force combined with a wordlist to search for unlinked content in target directories. These
+resources may store sensitive information about web applications and operational systems, such as source code,
+credentials, internal network addressing, etc...
+
+This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource
+Enumeration.
+
+## Quick Start
+
+This section will cover the minimum amount of information to get up and running with feroxbuster. Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/), as it's much more comprehensive.
+
+### Installation
+
+There are quite a few other [installation methods](https://epi052.github.io/feroxbuster-docs/docs/installation/), but these snippets should cover the majority of users. 
+
+#### All others Docs
+
+Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+
+## Example Usage
+
+Here are a few brief examples to get you started.  Please note, feroxbuster can do a **lot more** than what's listed below.  As a result, there are **many more** examples, with **demonstration gifs** that highlight specific features, in the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+
+### Multiple Values
+
+Options that take multiple values are very flexible. Consider the following ways of specifying extensions:
+
+```
+./feroxbuster -u http://127.1 -x pdf -x js,html -x php txt json,docx
+```
+
+The command above adds .pdf, .js, .html, .php, .txt, .json, and .docx to each url
+
+All of the methods above (multiple flags, space separated, comma separated, etc...) are valid and interchangeable. The
+same goes for urls, headers, status codes, queries, and size filters.
+</description>
+    <!-- <releaseNotes>__REPLACE_OR_REMOVE__MarkDown_Okay</releaseNotes> -->
+  </metadata>
+  <files>
+    <!-- this section controls what actually gets packaged into the Chocolatey package -->
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

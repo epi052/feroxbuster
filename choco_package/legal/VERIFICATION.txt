@@ -1,0 +1,5 @@
+﻿
+VERIFICATION
+
+checksum -t sha512 -f .\x86-windows-feroxbuster.exe.zip
+checksum -t sha512 -f .\x86_64-windows-feroxbuster.exe.zip
