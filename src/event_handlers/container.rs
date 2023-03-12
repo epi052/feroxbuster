@@ -160,13 +160,17 @@ impl Handles {
     /// number of extensions plus the number of request method types plus any dynamically collected
     /// extensions
     pub fn expected_num_requests_multiplier(&self) -> usize {
-        let multiplier = self.config.extensions.len()
-            + self.config.methods.len()
-            + self.num_collected_extensions();
+        let mut multiplier = self.config.extensions.len().max(1);
 
-        // methods should always have at least 1 member, likely making this .max call unneeded
-        // but leaving it for 'just in case' reasons
-        multiplier.max(1)
+        if multiplier > 1 {
+            // when we have more than one extension, we need to account for the fact that we'll
+            // be making a request for each extension and the base word (e.g. /foo.html and /foo)
+            multiplier += 1;
+        }
+
+        multiplier *= self.config.methods.len().max(1) * self.num_collected_extensions().max(1);
+
+        multiplier
     }
 
     /// Helper to easily get the (locked) underlying FeroxScans object
