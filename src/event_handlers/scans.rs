@@ -294,12 +294,7 @@ impl ScanHandler {
         if let Ok(guard) = self.wordlist.lock().as_ref() {
             if let Some(list) = guard.as_ref() {
                 return if offset > 0 {
-                    // the offset could be off a bit, so we'll adjust it backwards by 10%
-                    // of the overall wordlist size to ensure we don't miss any words
-                    // (hopefully)
-                    let adjusted_offset = offset - ((offset as f64 * 0.10) as usize);
-
-                    Ok(Arc::new(list[adjusted_offset..].to_vec()))
+                    Ok(Arc::new(list[offset..].to_vec()))
                 } else {
                     Ok(list.clone())
                 };
@@ -344,10 +339,10 @@ impl ScanHandler {
                 // number of requests have already been sent, we need to adjust the offset into the
                 // wordlist to ensure we don't index out of bounds
 
-                let adjusted = self.handles.wordlist.len() as f64 / divisor as f64 - 1.0;
+                let adjusted = scan.requests_made_so_far() as f64 / divisor as f64 - 1.0;
                 self.get_wordlist(adjusted as usize)?
             } else {
-                self.get_wordlist(scan.requests() as usize)?
+                self.get_wordlist(scan.requests_made_so_far() as usize)?
             };
 
             log::info!("scan handler received {} - beginning scan", target);
