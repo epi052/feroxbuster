@@ -148,7 +148,12 @@ impl StatsHandler {
         );
 
         self.bar.set_message(&msg);
-        self.bar.inc(1);
+
+        if self.bar.position() < self.stats.total_expected() as u64 {
+            // don't run off the end when we're a few requests over the expected total
+            // due to the heuristics tests
+            self.bar.inc(1);
+        }
     }
 
     /// Initialize new `Stats` object and the sc side of an mpsc channel that is responsible for

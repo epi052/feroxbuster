@@ -154,7 +154,13 @@ impl FeroxScan {
     pub(super) fn stop_progress_bar(&self) {
         if let Ok(guard) = self.progress_bar.lock() {
             if guard.is_some() {
-                (*guard).as_ref().unwrap().finish_at_current_pos()
+                let pb = (*guard).as_ref().unwrap();
+
+                if pb.position() > self.num_requests {
+                    pb.finish()
+                } else {
+                    pb.finish_at_current_pos()
+                }
             }
         }
     }
