@@ -29,6 +29,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anstyle"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6fb9634c05f263239460951c52b14ef354f279b35b9e6dbdafe82174af2aca3"
+
+[[package]]
 name = "anyhow"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -55,13 +61,14 @@ dependencies = [
 
 [[package]]
 name = "assert_cmd"
-version = "2.0.8"
+version = "2.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9834fcc22e0874394a010230586367d4a3e9f11b560f469262678547e1d2575e"
+checksum = "c0dcbed38184f9219183fcf38beb4cdbf5df7163a6d7cd227c6ac89b7966d6fe"
 dependencies = [
+ "anstyle",
  "bstr",
  "doc-comment",
- "predicates",
+ "predicates 3.0.1",
  "predicates-core",
  "predicates-tree",
  "wait-timeout",
@@ -794,7 +801,7 @@ dependencies = [
  "leaky-bucket",
  "log",
  "openssl",
- "predicates",
+ "predicates 2.1.5",
  "regex",
  "reqwest",
  "rlimit",
@@ -1950,10 +1957,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "predicates-core"
-version = "1.0.5"
+name = "predicates"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72f883590242d3c6fc5bf50299011695fa6590c2c70eac95ee1bdb9a733ad1a2"
+checksum = "1ba7d6ead3e3966038f68caa9fc1f860185d95a793180bbcfe0d0da47b3961ed"
+dependencies = [
+ "anstyle",
+ "difflib",
+ "itertools",
+ "predicates-core",
+]
+
+[[package]]
+name = "predicates-core"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b794032607612e7abeb4db69adb4e33590fa6cf1149e95fd7cb00e634b92f174"
 
 [[package]]
 name = "predicates-tree"
