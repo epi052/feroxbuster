@@ -339,7 +339,7 @@ impl ScanHandler {
                 // number of requests have already been sent, we need to adjust the offset into the
                 // wordlist to ensure we don't index out of bounds
 
-                let adjusted = scan.requests_made_so_far() as f64 / divisor as f64 - 1.0;
+                let adjusted = scan.requests_made_so_far() as f64 / (divisor as f64 - 1.0).max(1.0);
                 self.get_wordlist(adjusted as usize)?
             } else {
                 self.get_wordlist(scan.requests_made_so_far() as usize)?
