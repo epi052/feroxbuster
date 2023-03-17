@@ -553,6 +553,15 @@
         "infra",
         "ideas"
       ]
+    },
+    {
+      "login": "imBigo",
+      "name": "Simon",
+      "avatar_url": "https://avatars.githubusercontent.com/u/54672433?v=4",
+      "profile": "https://github.com/imBigo",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
