@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default: feroxbuster/2.9.1)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/2.9.1)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.9.2)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.9.2)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
@@ -85,16 +85,16 @@ _feroxbuster() {
 '-n[Do not scan recursively]' \
 '--no-recursion[Do not scan recursively]' \
 '(-n --no-recursion)--force-recursion[Force recursion attempts on all '\''found'\'' endpoints (still respects recursion depth)]' \
-'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
-'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
+'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)]' \
+'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '-E[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
-'-B[Automatically request likely backup extensions for "found" urls]' \
-'--collect-backups[Automatically request likely backup extensions for "found" urls]' \
+'-B[Automatically request likely backup extensions for "found" urls (default: true)]' \
+'--collect-backups[Automatically request likely backup extensions for "found" urls (default: true)]' \
 '-g[Automatically discover important words from within responses and add them to the wordlist]' \
 '--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \

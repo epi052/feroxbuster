@@ -1,6 +1,7 @@
 use super::utils::{
-    depth, ignored_extensions, methods, report_and_exit, save_state, serialized_type, status_codes,
-    threads, timeout, user_agent, wordlist, OutputLevel, RequesterPolicy,
+    depth, extract_links, ignored_extensions, methods, report_and_exit, save_state, collect_backups,
+    serialized_type, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
+    RequesterPolicy,
 };
 use crate::config::determine_output_level;
 use crate::config::utils::determine_requester_policy;
@@ -214,7 +215,7 @@ pub struct Configuration {
     pub no_recursion: bool,
 
     /// Extract links from html/javscript
-    #[serde(default)]
+    #[serde(default = "extract_links")]
     pub extract_links: bool,
 
     /// Append / to each request
@@ -299,7 +300,7 @@ pub struct Configuration {
     pub dont_collect: Vec<String>,
 
     /// Automatically request likely backup extensions on "found" urls
-    #[serde(default)]
+    #[serde(default = "collect_backups")]
     pub collect_backups: bool,
 
     /// Automatically discover important words from within responses and add them to the wordlist
@@ -328,6 +329,8 @@ impl Default for Configuration {
         let kind = serialized_type();
         let output_level = OutputLevel::Default;
         let requester_policy = RequesterPolicy::Default;
+        let extract_links = extract_links();
+        let collect_backups = collect_backups();
 
         Configuration {
             kind,
@@ -336,7 +339,9 @@ impl Default for Configuration {
             user_agent,
             replay_codes,
             status_codes,
+            extract_links,
             replay_client,
+            collect_backups,
             requester_policy,
             dont_filter: false,
             auto_bail: false,
@@ -355,10 +360,8 @@ impl Default for Configuration {
             insecure: false,
             redirects: false,
             no_recursion: false,
-            extract_links: false,
             random_agent: false,
             collect_extensions: false,
-            collect_backups: false,
             collect_words: false,
             save_state: true,
             force_recursion: false,
@@ -398,7 +401,7 @@ impl Configuration {
     ///
     /// - **timeout**: `5` seconds
     /// - **redirects**: `false`
-    /// - **extract-links**: `false`
+    /// - **extract_links**: `true`
     /// - **wordlist**: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
     /// - **config**: `None`
     /// - **threads**: `50`
@@ -419,7 +422,7 @@ impl Configuration {
     /// - **insecure**: `false` (don't be insecure, i.e. don't allow invalid certs)
     /// - **extensions**: `None`
     /// - **collect_extensions**: `false`
-    /// - **collect_backups**: `false`
+    /// - **collect_backups**: `true`
     /// - **collect_words**: `false`
     /// - **dont_collect**: [`DEFAULT_IGNORED_EXTENSIONS`](constant.DEFAULT_RESPONSE_CODES.html)
     /// - **methods**: [`DEFAULT_METHOD`](constant.DEFAULT_METHOD.html)
@@ -988,7 +991,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
         update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
         update_if_not_default!(&mut conf.collect_extensions, new.collect_extensions, false);
-        update_if_not_default!(&mut conf.collect_backups, new.collect_backups, false);
+        update_if_not_default!(&mut conf.collect_backups, new.collect_backups, collect_backups());
         update_if_not_default!(&mut conf.collect_words, new.collect_words, false);
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
@@ -997,7 +1000,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.force_recursion, new.force_recursion, false);
-        update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
+        update_if_not_default!(&mut conf.extract_links, new.extract_links, extract_links());
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
         update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());

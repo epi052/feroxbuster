@@ -433,7 +433,7 @@ pub fn initialize() -> Command {
                 .long("extract-links")
                 .num_args(0)
                 .help_heading("Scan settings")
-                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings")
+                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)")
         )
         .arg(
             Arg::new("scan_limit")
@@ -514,7 +514,7 @@ pub fn initialize() -> Command {
                 .long("collect-backups")
                 .num_args(0)
                 .help_heading("Dynamic collection settings")
-                .help("Automatically request likely backup extensions for \"found\" urls")
+                .help("Automatically request likely backup extensions for \"found\" urls (default: true)")
         ).arg(
             Arg::new("collect_words")
                 .short('g')
