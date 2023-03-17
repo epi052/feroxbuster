@@ -222,7 +222,7 @@ impl ScanHandler {
         let current_expectation = self.handles.expected_num_requests_per_dir() as u64;
 
         // used in the calculation of bar width down below, see explanation there
-        let divisor = self.handles.expected_num_requests_multiplier() as u64 - 1;
+        let divisor = (self.handles.expected_num_requests_multiplier() as u64 - 1).max(1);
 
         // add another `wordlist.len` to the expected per scan tracker in the statistics handler
         self.handles
