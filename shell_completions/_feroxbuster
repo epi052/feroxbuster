@@ -72,7 +72,7 @@ _feroxbuster() {
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http://127.0.0.1:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true]' \
-'(--rate-limit --auto-bail)--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
+'(--rate-limit --auto-bail)--smart[Set --auto-tune and --collect-words to true]' \
 '(--rate-limit --auto-bail)--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
 '-A[Use a random User-Agent]' \
 '--random-agent[Use a random User-Agent]' \
@@ -87,14 +87,16 @@ _feroxbuster() {
 '(-n --no-recursion)--force-recursion[Force recursion attempts on all '\''found'\'' endpoints (still respects recursion depth)]' \
 '-e[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)]' \
 '--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)]' \
+'--dont-extract-links[Don'\''t extract links from response body (html, javascript, etc...)]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '-D[Don'\''t auto-filter wildcard responses]' \
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '-E[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
-'-B[Automatically request likely backup extensions for "found" urls (default: true)]' \
-'--collect-backups[Automatically request likely backup extensions for "found" urls (default: true)]' \
+'-B[Automatically request likely backup extensions for "found" urls]' \
+'--collect-backups[Automatically request likely backup extensions for "found" urls]' \
+'--dont-collect-backups[Don'\''t automatically request likely backup extensions for "found" urls]' \
 '-g[Automatically discover important words from within responses and add them to the wordlist]' \
 '--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
