@@ -286,12 +286,14 @@ impl FeroxScanner {
                         write!(message, " (add {} to scan)", style("-e").bright().yellow())?;
                     }
 
-                    progress_bar.reset_eta();
-                    progress_bar.finish_with_message(&message);
+                    if !self.handles.config.force_recursion {
+                        progress_bar.reset_eta();
+                        progress_bar.finish_with_message(&message);
 
-                    ferox_scan.finish()?;
+                        ferox_scan.finish()?;
 
-                    return Ok(()); // nothing left to do if we found a dir listing
+                        return Ok(()); // nothing left to do if we found a dir listing
+                    }
                 }
             }
 
