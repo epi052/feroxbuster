@@ -101,12 +101,24 @@ sudo apt update && sudo apt install -y feroxbuster
 curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
 ```
 
+#### MacOS via Homebrew 
+
+```
+brew install feroxbuster
+```
+
 #### Windows x86_64
 
 ```
 Invoke-WebRequest https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-windows-feroxbuster.exe.zip -OutFile feroxbuster.zip
 Expand-Archive .\feroxbuster.zip
 .\feroxbuster\feroxbuster.exe -V
+```
+
+#### Windows via Chocolatey
+
+```
+choco install feroxbuster
 ```
 
 #### All others 
