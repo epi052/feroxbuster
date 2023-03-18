@@ -30,7 +30,7 @@ fn setup_config_test() -> Configuration {
             resume_from = "/some/state/file"
             redirects = true
             insecure = true
-            collect_backups = false
+            collect_backups = true
             collect_extensions = true
             collect_words = true
             extensions = ["html", "php", "js"]
@@ -101,7 +101,7 @@ fn default_configuration() {
     assert!(config.extract_links);
     assert!(!config.insecure);
     assert!(!config.collect_extensions);
-    assert!(config.collect_backups);
+    assert!(!config.collect_backups);
     assert!(!config.collect_words);
     assert!(config.regex_denylist.is_empty());
     assert_eq!(config.queries, Vec::new());
@@ -319,7 +319,7 @@ fn config_reads_collect_extensions() {
 /// parse the test config and see that the value parsed is correct
 fn config_reads_collect_backups() {
     let config = setup_config_test();
-    assert!(!config.collect_backups);
+    assert!(config.collect_backups);
 }
 
 #[test]

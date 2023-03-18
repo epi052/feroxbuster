@@ -500,7 +500,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""headers""#,
         r#""server":"nginx/1.16.1"#,
         r#""collect_extensions":true"#,
-        r#""collect_backups":true"#,
+        r#""collect_backups":false"#,
         r#""collect_words":false"#,
         r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":1,"original_url":"http://localhost:12345/"}]"#,
         r#""collected_extensions":["php"]"#,
