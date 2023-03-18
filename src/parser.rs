@@ -486,7 +486,7 @@ pub fn initialize() -> Command {
                 .long("wordlist")
                 .value_hint(ValueHint::FilePath)
                 .value_name("FILE")
-                .help("Path to the wordlist")
+                .help("Path or URL of the wordlist")
                 .help_heading("Scan settings")
                 .num_args(1),
         ).arg(
