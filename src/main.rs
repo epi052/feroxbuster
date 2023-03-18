@@ -237,19 +237,38 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         exit(0);
     }
 
-    // cloning an Arc is cheap (it's basically a pointer into the heap)
-    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
-    // as well as additional directories found as part of recursion
-    let words = match get_unique_words_from_wordlist(&config.wordlist) {
-        Ok(w) => w,
-        Err(err) => {
-            let secondary = Path::new(SECONDARY_WORDLIST);
+    let words = if config.wordlist.starts_with("http") {
+        let response = config.client.get(&config.wordlist).send().await?;
 
-            if secondary.exists() {
-                eprintln!("Found wordlist in secondary location");
-                get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
-            } else {
-                return Err(err);
+        let Some(path_segments) = response
+            .url()
+            .path_segments() else {
+                bail!("Unable to parse path segments from url: {}", config.wordlist);
+            };
+
+        let Some(filename) = path_segments.last() else {
+            bail!("Unable to parse filename from url: {}", config.wordlist);
+        };
+
+        let filename = filename.to_string();
+
+        let body = response.text().await?;
+
+        std::fs::write(&filename, body)?;
+
+        get_unique_words_from_wordlist(&filename)?
+    } else {
+        match get_unique_words_from_wordlist(&config.wordlist) {
+            Ok(w) => w,
+            Err(err) => {
+                let secondary = Path::new(SECONDARY_WORDLIST);
+
+                if secondary.exists() {
+                    eprintln!("Found wordlist in secondary location");
+                    get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
+                } else {
+                    return Err(err);
+                }
             }
         }
     };
