@@ -1,5 +1,4 @@
 mod utils;
-use anyhow::Result;
 use assert_cmd::Command;
 use httpmock::Method::GET;
 use httpmock::{MockServer, Regex};
