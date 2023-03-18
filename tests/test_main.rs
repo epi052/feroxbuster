@@ -1,4 +1,5 @@
 mod utils;
+use anyhow::Result;
 use assert_cmd::Command;
 use httpmock::Method::GET;
 use httpmock::{MockServer, Regex};
@@ -215,6 +216,49 @@ fn main_parallel_creates_output_directory() -> Result<(), Box<dyn std::error::Er
     teardown_tmp_directory(word_tmp_dir);
     teardown_tmp_directory(tgt_tmp_dir);
     teardown_tmp_directory(output_dir);
+
+    Ok(())
+}
+
+#[test]
+/// download a wordlist from a url
+fn main_download_wordlist_from_url() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+
+    let (tmp_dir, _) = setup_tmp_directory(&["a".to_string()], "wordlist")?;
+
+    let mock1 = srv.mock(|when, then| {
+        when.method(GET).path("/derp");
+        then.status(200).body("stuff\nthings");
+    });
+
+    // serve endpoints stuff and things
+    let mock2 = srv.mock(|when, then| {
+        when.method(GET).path("/stuff");
+        then.status(200);
+    });
+
+    let mock3 = srv.mock(|when, then| {
+        when.method(GET).path("/things");
+        then.status(200);
+    });
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .current_dir(&tmp_dir)
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(srv.url("/derp"))
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(srv.url("/derp")));
+
+    teardown_tmp_directory(tmp_dir);
+
+    assert_eq!(mock1.hits(), 1); // downloaded wordlist
+    assert_eq!(mock2.hits(), 1); // found stuff from wordlist
+    assert_eq!(mock3.hits(), 1); // found things from wordlist
 
     Ok(())
 }

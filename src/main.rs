@@ -238,20 +238,32 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     }
 
     let words = if config.wordlist.starts_with("http") {
+        // found a url scheme, attempt to download the wordlist
         let response = config.client.get(&config.wordlist).send().await?;
 
+        if !response.status().is_success() {
+            // status code isn't a 200, bail
+            bail!(
+                "[{}] Unable to download wordlist from url: {}",
+                response.status().as_str(),
+                config.wordlist
+            );
+        }
+
+        // attempt to get the filename from the url's path
         let Some(path_segments) = response
             .url()
             .path_segments() else {
-                bail!("Unable to parse path segments from url: {}", config.wordlist);
+                bail!("Unable to parse path from url: {}", response.url());
             };
 
         let Some(filename) = path_segments.last() else {
-            bail!("Unable to parse filename from url: {}", config.wordlist);
+            bail!("Unable to parse filename from url's path: {}", response.url().path());
         };
 
         let filename = filename.to_string();
 
+        // read the body and write it to disk, then use existing code to read the wordlist
         let body = response.text().await?;
 
         std::fs::write(&filename, body)?;
