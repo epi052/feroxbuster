@@ -1,6 +1,6 @@
 use super::utils::{
-    depth, extract_links, ignored_extensions, methods, report_and_exit,
-    save_state, serialized_type, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
+    depth, extract_links, ignored_extensions, methods, report_and_exit, save_state,
+    serialized_type, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
     RequesterPolicy,
 };
 use crate::config::determine_output_level;
@@ -987,11 +987,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);
         update_if_not_default!(&mut conf.auto_tune, new.auto_tune, false);
         update_if_not_default!(&mut conf.collect_extensions, new.collect_extensions, false);
-        update_if_not_default!(
-            &mut conf.collect_backups,
-            new.collect_backups,
-            false
-        );
+        update_if_not_default!(&mut conf.collect_backups, new.collect_backups, false);
         update_if_not_default!(&mut conf.collect_words, new.collect_words, false);
         // use updated quiet/silent values to determine output level; same for requester policy
         conf.output_level = determine_output_level(conf.quiet, conf.silent);
