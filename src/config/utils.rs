@@ -84,6 +84,11 @@ pub(super) fn depth() -> usize {
     4
 }
 
+/// default extract links
+pub(super) fn extract_links() -> bool {
+    true
+}
+
 /// enum representing the three possible states for informational output (not logging verbosity)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum OutputLevel {

@@ -45,7 +45,7 @@ fn setup_config_test() -> Configuration {
             add_slash = true
             stdin = true
             dont_filter = true
-            extract_links = true
+            extract_links = false
             json = true
             save_state = false
             depth = 1
@@ -98,7 +98,7 @@ fn default_configuration() {
     assert!(!config.add_slash);
     assert!(!config.force_recursion);
     assert!(!config.redirects);
-    assert!(!config.extract_links);
+    assert!(config.extract_links);
     assert!(!config.insecure);
     assert!(!config.collect_extensions);
     assert!(!config.collect_backups);
@@ -305,7 +305,7 @@ fn config_reads_add_slash() {
 /// parse the test config and see that the value parsed is correct
 fn config_reads_extract_links() {
     let config = setup_config_test();
-    assert!(config.extract_links);
+    assert!(!config.extract_links);
 }
 
 #[test]

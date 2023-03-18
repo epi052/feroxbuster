@@ -92,8 +92,9 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Composite settings")
                 .conflicts_with_all(["rate_limit", "auto_bail"])
-                .help("Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true"),
-        ).arg(
+                .help("Set --auto-tune, --collect-words, and --collect-backups to true"),
+        )
+        .arg(
             Arg::new("thorough")
                 .long("thorough")
                 .num_args(0)
@@ -433,7 +434,15 @@ pub fn initialize() -> Command {
                 .long("extract-links")
                 .num_args(0)
                 .help_heading("Scan settings")
-                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings")
+                .hide(true)
+                .help("Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)")
+        )
+        .arg(
+            Arg::new("dont_extract_links")
+                .long("dont-extract-links")
+                .num_args(0)
+                .help_heading("Scan settings")
+                .help("Don't extract links from response body (html, javascript, etc...)")
         )
         .arg(
             Arg::new("scan_limit")
@@ -477,7 +486,7 @@ pub fn initialize() -> Command {
                 .long("wordlist")
                 .value_hint(ValueHint::FilePath)
                 .value_name("FILE")
-                .help("Path to the wordlist")
+                .help("Path or URL of the wordlist")
                 .help_heading("Scan settings")
                 .num_args(1),
         ).arg(
@@ -515,7 +524,8 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Dynamic collection settings")
                 .help("Automatically request likely backup extensions for \"found\" urls")
-        ).arg(
+        )
+        .arg(
             Arg::new("collect_words")
                 .short('g')
                 .long("collect-words")
@@ -683,9 +693,6 @@ EXAMPLES:
 
     Pass auth token via query parameter
         ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
-
-    Find links in javascript/html and make additional requests based on results
-        ./feroxbuster -u http://127.1 --extract-links
 
     Ludicrous speed... go!
         ./feroxbuster -u http://127.1 --threads 200

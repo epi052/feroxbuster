@@ -1,6 +1,7 @@
 use super::utils::{
-    depth, ignored_extensions, methods, report_and_exit, save_state, serialized_type, status_codes,
-    threads, timeout, user_agent, wordlist, OutputLevel, RequesterPolicy,
+    depth, extract_links, ignored_extensions, methods, report_and_exit, save_state,
+    serialized_type, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
+    RequesterPolicy,
 };
 use crate::config::determine_output_level;
 use crate::config::utils::determine_requester_policy;
@@ -214,7 +215,7 @@ pub struct Configuration {
     pub no_recursion: bool,
 
     /// Extract links from html/javscript
-    #[serde(default)]
+    #[serde(default = "extract_links")]
     pub extract_links: bool,
 
     /// Append / to each request
@@ -328,6 +329,7 @@ impl Default for Configuration {
         let kind = serialized_type();
         let output_level = OutputLevel::Default;
         let requester_policy = RequesterPolicy::Default;
+        let extract_links = extract_links();
 
         Configuration {
             kind,
@@ -336,6 +338,7 @@ impl Default for Configuration {
             user_agent,
             replay_codes,
             status_codes,
+            extract_links,
             replay_client,
             requester_policy,
             dont_filter: false,
@@ -355,7 +358,6 @@ impl Default for Configuration {
             insecure: false,
             redirects: false,
             no_recursion: false,
-            extract_links: false,
             random_agent: false,
             collect_extensions: false,
             collect_backups: false,
@@ -398,7 +400,7 @@ impl Configuration {
     ///
     /// - **timeout**: `5` seconds
     /// - **redirects**: `false`
-    /// - **extract-links**: `false`
+    /// - **extract_links**: `true`
     /// - **wordlist**: [`DEFAULT_WORDLIST`](constant.DEFAULT_WORDLIST.html)
     /// - **config**: `None`
     /// - **threads**: `50`
@@ -807,11 +809,8 @@ impl Configuration {
             config.add_slash = true;
         }
 
-        if came_from_cli!(args, "extract_links")
-            || came_from_cli!(args, "smart")
-            || came_from_cli!(args, "thorough")
-        {
-            config.extract_links = true;
+        if came_from_cli!(args, "dont_extract_links") {
+            config.extract_links = false;
         }
 
         if came_from_cli!(args, "json") {
@@ -997,7 +996,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
         update_if_not_default!(&mut conf.insecure, new.insecure, false);
         update_if_not_default!(&mut conf.force_recursion, new.force_recursion, false);
-        update_if_not_default!(&mut conf.extract_links, new.extract_links, false);
+        update_if_not_default!(&mut conf.extract_links, new.extract_links, extract_links());
         update_if_not_default!(&mut conf.extensions, new.extensions, Vec::<String>::new());
         update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());

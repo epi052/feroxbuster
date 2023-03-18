@@ -469,7 +469,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""headers""#,
         r#""queries":[]"#,
         r#""no_recursion":false"#,
-        r#""extract_links":false"#,
+        r#""extract_links":true"#,
         r#""add_slash":false"#,
         r#""stdin":false"#,
         r#""depth":4"#,

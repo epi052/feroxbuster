@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.9.1"
+version = "2.9.2"
 authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
 edition = "2021"
@@ -62,7 +62,7 @@ self_update = {version = "0.36.0", features = ["archive-tar", "compression-flate
 tempfile = "3.3.0"
 httpmock = "0.6.6"
 assert_cmd = "2.0.4"
-predicates = "2.1.1"
+predicates = "3.0.1"
 
 [profile.release]
 lto = true

@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default: feroxbuster/2.9.1)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default: feroxbuster/2.9.1)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default: feroxbuster/2.9.2)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default: feroxbuster/2.9.2)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex: -x php -x pdf js)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default: GET)]:HTTP_METHODS: ' \
@@ -62,8 +62,8 @@ _feroxbuster() {
 '--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]:PARALLEL_SCANS: ' \
 '(--auto-tune)--rate-limit=[Limit number of requests per second (per directory) (default: 0, i.e. no limit)]:RATE_LIMIT: ' \
 '--time-limit=[Limit total run time of all scans (ex: --time-limit 10m)]:TIME_SPEC: ' \
-'-w+[Path to the wordlist]:FILE:_files' \
-'--wordlist=[Path to the wordlist]:FILE:_files' \
+'-w+[Path or URL of the wordlist]:FILE:_files' \
+'--wordlist=[Path or URL of the wordlist]:FILE:_files' \
 '*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '*--dont-collect=[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
@@ -72,7 +72,7 @@ _feroxbuster() {
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http://127.0.0.1:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true]' \
-'(--rate-limit --auto-bail)--smart[Set --extract-links, --auto-tune, --collect-words, and --collect-backups to true]' \
+'(--rate-limit --auto-bail)--smart[Set --auto-tune, --collect-words, and --collect-backups to true]' \
 '(--rate-limit --auto-bail)--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
 '-A[Use a random User-Agent]' \
 '--random-agent[Use a random User-Agent]' \
@@ -85,8 +85,9 @@ _feroxbuster() {
 '-n[Do not scan recursively]' \
 '--no-recursion[Do not scan recursively]' \
 '(-n --no-recursion)--force-recursion[Force recursion attempts on all '\''found'\'' endpoints (still respects recursion depth)]' \
-'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
-'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings]' \
+'-e[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)]' \
+'--extract-links[Extract links from response body (html, javascript, etc...); make new requests based on findings (default: true)]' \
+'--dont-extract-links[Don'\''t extract links from response body (html, javascript, etc...)]' \
 '(--auto-bail)--auto-tune[Automatically lower scan rate when an excessive amount of errors are encountered]' \
 '--auto-bail[Automatically stop scanning when an excessive amount of errors are encountered]' \
 '-D[Don'\''t auto-filter wildcard responses]' \

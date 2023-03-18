@@ -237,19 +237,50 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         exit(0);
     }
 
-    // cloning an Arc is cheap (it's basically a pointer into the heap)
-    // so that will allow for cheap/safe sharing of a single wordlist across multi-target scans
-    // as well as additional directories found as part of recursion
-    let words = match get_unique_words_from_wordlist(&config.wordlist) {
-        Ok(w) => w,
-        Err(err) => {
-            let secondary = Path::new(SECONDARY_WORDLIST);
+    let words = if config.wordlist.starts_with("http") {
+        // found a url scheme, attempt to download the wordlist
+        let response = config.client.get(&config.wordlist).send().await?;
 
-            if secondary.exists() {
-                eprintln!("Found wordlist in secondary location");
-                get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
-            } else {
-                return Err(err);
+        if !response.status().is_success() {
+            // status code isn't a 200, bail
+            bail!(
+                "[{}] Unable to download wordlist from url: {}",
+                response.status().as_str(),
+                config.wordlist
+            );
+        }
+
+        // attempt to get the filename from the url's path
+        let Some(path_segments) = response
+            .url()
+            .path_segments() else {
+                bail!("Unable to parse path from url: {}", response.url());
+            };
+
+        let Some(filename) = path_segments.last() else {
+            bail!("Unable to parse filename from url's path: {}", response.url().path());
+        };
+
+        let filename = filename.to_string();
+
+        // read the body and write it to disk, then use existing code to read the wordlist
+        let body = response.text().await?;
+
+        std::fs::write(&filename, body)?;
+
+        get_unique_words_from_wordlist(&filename)?
+    } else {
+        match get_unique_words_from_wordlist(&config.wordlist) {
+            Ok(w) => w,
+            Err(err) => {
+                let secondary = Path::new(SECONDARY_WORDLIST);
+
+                if secondary.exists() {
+                    eprintln!("Found wordlist in secondary location");
+                    get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
+                } else {
+                    return Err(err);
+                }
             }
         }
     };
