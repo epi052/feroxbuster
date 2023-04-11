@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use scraper::{Html, Selector};
@@ -280,19 +280,14 @@ impl HeuristicTests {
         // 6 is due to the array in the nested for loop below
         let mut responses = Vec::with_capacity(6);
 
-        let extensions = if self.handles.config.extensions.is_empty() {
-            vec!["".to_string()]
-        } else {
-            let mut exts: Vec<String> = self
-                .handles
-                .config
-                .extensions
-                .iter()
-                .map(|ext| format!(".{}", ext))
-                .collect();
-            exts.push("".to_string());
-            exts
-        };
+        // no matter what, we want an empty extension for the base case
+        let mut extensions = vec!["".to_string()];
+
+        // and then we want to add any extensions that was specified
+        // or has since been added to the running config
+        for ext in &self.handles.config.extensions {
+            extensions.push(format!(".{}", ext));
+        }
 
         // for every method, attempt to id its 404 response
         //
