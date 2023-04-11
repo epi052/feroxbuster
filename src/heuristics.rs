@@ -468,6 +468,7 @@ impl HeuristicTests {
     ///
     /// within a status code grouping, values are examined from most to
     /// least specific (content length, word count, line count)
+    #[allow(clippy::vec_box)] // the box is needed in the caller and i dont feel like changing it
     fn examine_404_like_responses<'a>(
         &self,
         responses: &'a [FeroxResponse],
@@ -506,7 +507,7 @@ impl HeuristicTests {
         // iterate over each grouped response and determine the most specific
         // filter that can be applied to all responses in the group, i.e.
         // start from byte count and work 'out' to line count
-        for (_, response_group) in &grouped_responses {
+        for response_group in grouped_responses.values() {
             if response_group.len() < 2 {
                 // not enough responses to make a determination
                 continue;
