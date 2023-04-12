@@ -283,7 +283,11 @@ impl FeroxScanner {
                     let mut message = format!("=> {}", style("Directory listing").blue().bright());
 
                     if !self.handles.config.extract_links {
-                        write!(message, " (add {} to scan)", style("-e").bright().yellow())?;
+                        write!(
+                            message,
+                            " (remove {} to scan)",
+                            style("--dont-extract-links").bright().yellow()
+                        )?;
                     }
 
                     if !self.handles.config.force_recursion {
