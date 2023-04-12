@@ -1451,9 +1451,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "leaky-bucket"
-version = "0.12.2"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79e0d52231827974ba682f6257fd42a2f79749689f7ca0d763e198a0f7051c91"
+checksum = "9e2b9bd8690190392d38ae7a7094b19013c2fc600256c5883a6828d0bc8c75f4"
 dependencies = [
  "parking_lot",
  "tokio",

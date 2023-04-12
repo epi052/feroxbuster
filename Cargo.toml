@@ -54,7 +54,7 @@ crossterm = "0.26.0"
 rlimit = "0.9.1"
 ctrlc = "3.2.2"
 anyhow = "1.0.69"
-leaky-bucket = "0.12.1"
+leaky-bucket = "0.12.4"
 gaoya = "0.1.2"
 self_update = { version = "0.36.0", features = [
     "archive-tar",
