@@ -22,7 +22,7 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [build-dependencies]
-clap = { version = "4.1.8", features = ["wrap_help", "cargo"] }
+clap = { version = "4.2.2", features = ["wrap_help", "cargo"] }
 clap_complete = "4.1.4"
 regex = "1.5.5"
 lazy_static = "1.4.0"
@@ -39,7 +39,7 @@ reqwest = { version = "0.11.10", features = ["socks"] }
 # uses feature unification to add 'serde' to reqwest::Url
 url = { version = "2.2.2", features = ["serde"] }
 serde_regex = "1.1.0"
-clap = { version = "4.1.8", features = ["wrap_help", "cargo"] }
+clap = { version = "4.2.2", features = ["wrap_help", "cargo"] }
 lazy_static = "1.4.0"
 toml = "0.7.2"
 serde = { version = "1.0.137", features = ["derive", "rc"] }
