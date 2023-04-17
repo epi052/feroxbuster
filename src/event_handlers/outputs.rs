@@ -242,14 +242,6 @@ impl TermOutHandler {
         log::trace!("enter: process_response({:?}, {:?})", resp, call_type);
 
         async move {
-            let should_filter = self
-                .handles
-                .as_ref()
-                .unwrap()
-                .filters
-                .data
-                .should_filter_response(&resp, tx_stats.clone());
-
             let contains_sentry = if !self.config.filter_status.is_empty() {
                 // -C was used, meaning -s was not and we should ignore the defaults
                 // https://github.com/epi052/feroxbuster/issues/535
@@ -261,7 +253,7 @@ impl TermOutHandler {
             };
 
             let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
-            let should_process_response = contains_sentry && unknown_sentry && !should_filter;
+            let should_process_response = contains_sentry && unknown_sentry;
 
             if should_process_response {
                 // print to stdout

@@ -75,7 +75,12 @@ pub(crate) async fn send_try_recursion_command(
     handles: Arc<Handles>,
     response: FeroxResponse,
 ) -> Result<()> {
-    handles.send_scan_command(Command::TryRecursion(Box::new(response.clone())))?;
+    // make the response mutable so we can drop the body before
+    // sending it over the mpsc
+    let mut response = response;
+    response.drop_text();
+
+    handles.send_scan_command(Command::TryRecursion(Box::new(response)))?;
     let (tx, rx) = oneshot::channel::<bool>();
     handles.send_scan_command(Command::Sync(tx))?;
     rx.await?;
