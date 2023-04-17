@@ -147,7 +147,7 @@ impl StatsHandler {
             self.stats.errors(),
         );
 
-        self.bar.set_message(&msg);
+        self.bar.set_message(msg);
 
         if self.bar.position() < self.stats.total_expected() as u64 {
             // don't run off the end when we're a few requests over the expected total

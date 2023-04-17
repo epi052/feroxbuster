@@ -276,7 +276,7 @@ impl FeroxScanner {
 
                         self.handles.stats.send(SubtractFromUsizeField(
                             TotalExpected,
-                            progress_bar.length() as usize,
+                            progress_bar.length().unwrap_or(0) as usize,
                         ))?;
                     }
 
@@ -292,7 +292,7 @@ impl FeroxScanner {
 
                     if !self.handles.config.force_recursion {
                         progress_bar.reset_eta();
-                        progress_bar.finish_with_message(&message);
+                        progress_bar.finish_with_message(message);
 
                         ferox_scan.finish()?;
 
@@ -317,7 +317,7 @@ impl FeroxScanner {
                         style("Wildcard").blue().bright(),
                         style("stopped").red()
                     );
-                    progress_bar.set_message(&message);
+                    progress_bar.set_message(message);
                     progress_bar.inc(num_reqs as u64);
                 }
                 Some(WildcardResult::FourOhFourLike(num_reqs)) => {
@@ -344,7 +344,7 @@ impl FeroxScanner {
             let new_words = TF_IDF.read().unwrap().all_words();
             let new_words_len = new_words.len();
 
-            let cur_length = progress_bar.length();
+            let cur_length = progress_bar.length().unwrap_or(0);
             let new_length = cur_length + new_words_len as u64;
 
             progress_bar.set_length(new_length);

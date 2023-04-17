@@ -31,7 +31,7 @@ use feroxbuster::{
         TermOutHandler, SCAN_COMPLETE,
     },
     filters, heuristics, logger,
-    progress::{PROGRESS_BAR, PROGRESS_PRINTER},
+    progress::PROGRESS_PRINTER,
     scan_manager::{self, ScanType},
     scanner,
     utils::{fmt_err, slugify_filename},
@@ -220,7 +220,6 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         // PROGRESS_PRINTER and PROGRESS_BAR have been used at least once.  This call satisfies
         // that constraint
         PROGRESS_PRINTER.println("");
-        PROGRESS_BAR.join().unwrap();
     });
 
     // check if update_app is true

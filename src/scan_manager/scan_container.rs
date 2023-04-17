@@ -379,7 +379,7 @@ impl FeroxScans {
                     .unwrap_or_else(|e| log::warn!("Could not cancel task: {}", e));
 
                 let pb = selected.progress_bar();
-                num_cancelled += pb.length() as usize - pb.position() as usize;
+                num_cancelled += pb.length().unwrap_or(0) as usize - pb.position() as usize;
             } else {
                 self.menu.println("Ok, doing nothing...");
             }

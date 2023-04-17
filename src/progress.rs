@@ -1,4 +1,6 @@
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
+use std::time::Duration;
+
+use indicatif::{HumanDuration, MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -31,28 +33,68 @@ pub enum BarType {
 /// Add an [indicatif::ProgressBar](https://docs.rs/indicatif/latest/indicatif/struct.ProgressBar.html)
 /// to the global [PROGRESS_BAR](../config/struct.PROGRESS_BAR.html)
 pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
-    let mut style = ProgressStyle::default_bar().progress_chars("#>-");
+    let mut style = ProgressStyle::default_bar()
+        .progress_chars("#>-")
+        .with_key(
+            "smoothed_per_sec",
+            |state: &indicatif::ProgressState, w: &mut dyn std::fmt::Write| match (
+                state.pos(),
+                state.elapsed().as_millis(),
+            ) {
+                // https://github.com/console-rs/indicatif/issues/394#issuecomment-1309971049
+                //
+                // indicatif released a change to how they reported eta/per_sec
+                // and the results looked really weird based on how we use the progress
+                // bars. this fixes that
+                (pos, elapsed_ms) if elapsed_ms > 0 => {
+                    write!(w, "{:.0}/s", pos as f64 * 1000_f64 / elapsed_ms as f64).unwrap()
+                }
+                _ => write!(w, "-").unwrap(),
+            },
+        )
+        .with_key(
+            "smoothed_eta",
+            |state: &indicatif::ProgressState, w: &mut dyn std::fmt::Write| match (
+                state.pos(),
+                state.len(),
+            ) {
+                (pos, Some(len)) => write!(
+                    w,
+                    "{:#}",
+                    HumanDuration(Duration::from_millis(
+                        (state.elapsed().as_millis()
+                            * (len as u128 - pos as u128)
+                                .checked_div(pos as u128)
+                                .unwrap_or(1)) as u64
+                    ))
+                )
+                .unwrap(),
+                _ => write!(w, "-").unwrap(),
+            },
+        );
 
     style = match bar_type {
-        BarType::Hidden => style.template(""),
-        BarType::Default => style.template(
-            "[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {per_sec:7} {prefix} {msg}",
-        ),
-        BarType::Message => style.template(&format!(
+        BarType::Hidden => style.template("").unwrap(),
+        BarType::Default => style
+            .template("[{bar:.cyan/blue}] - {elapsed:<4} {pos:>7}/{len:7} {smoothed_per_sec:7} {prefix} {msg}")
+            .unwrap(),
+        BarType::Message => style
+            .template(&format!(
             "[{{bar:.cyan/blue}}] - {{elapsed:<4}} {{pos:>7}}/{{len:7}} {:7} {{prefix}} {{msg}}",
             "-"
-        )),
-        BarType::Total => {
-            style.template("[{bar:.yellow/blue}] - {elapsed:<4} {pos:>7}/{len:7} {eta:7} {msg}")
-        }
-        BarType::Quiet => style.template("Scanning: {prefix}"),
+        ))
+            .unwrap(),
+        BarType::Total => style
+            .template("[{bar:.yellow/blue}] - {elapsed:<4} {pos:>7}/{len:7} {smoothed_eta:7} {msg}")
+            .unwrap(),
+        BarType::Quiet => style.template("Scanning: {prefix}").unwrap(),
     };
 
-    let progress_bar = PROGRESS_BAR.add(ProgressBar::new(length));
-
-    progress_bar.set_style(style);
-
-    progress_bar.set_prefix(prefix);
+    let progress_bar = PROGRESS_BAR.add(
+        ProgressBar::new(length)
+            .with_style(style)
+            .with_prefix(prefix.to_string()),
+    );
 
     progress_bar
 }
