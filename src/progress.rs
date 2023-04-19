@@ -63,7 +63,7 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
                     "{:#}",
                     HumanDuration(Duration::from_millis(
                         (state.elapsed().as_millis()
-                            * (len as u128 - pos as u128)
+                            * ((len as u128).checked_sub(pos as u128).unwrap_or(1))
                                 .checked_div(pos as u128)
                                 .unwrap_or(1)) as u64
                     ))
@@ -90,13 +90,11 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
         BarType::Quiet => style.template("Scanning: {prefix}").unwrap(),
     };
 
-    let progress_bar = PROGRESS_BAR.add(
+    PROGRESS_BAR.add(
         ProgressBar::new(length)
             .with_style(style)
             .with_prefix(prefix.to_string()),
-    );
-
-    progress_bar
+    )
 }
 
 #[cfg(test)]

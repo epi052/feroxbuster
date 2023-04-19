@@ -490,6 +490,7 @@ impl Requester {
                         .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)
                         .handles(self.handles.clone())
+                        .url(self.ferox_scan.url())
                         .build()?;
 
                     let new_links: HashSet<_>;
@@ -513,7 +514,11 @@ impl Requester {
                     }
 
                     if !new_links.is_empty() {
-                        extractor.request_links(new_links).await?;
+                        let extraction_task = extractor.request_links(new_links).await?;
+
+                        if let Some(task) = extraction_task {
+                            _ = task.await;
+                        }
                     }
                 }
 

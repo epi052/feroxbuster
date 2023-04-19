@@ -354,12 +354,12 @@ impl HeuristicTests {
                             method,
                             self.handles.config.output_level,
                         )
-                        .await
+                        .await,
                     )
                 }))
-                .await  // await gives vector of options containing feroxresponses
+                .await // await gives vector of options containing feroxresponses
                 .into_iter()
-                .filter_map(|f| f)  // strip out the none values
+                .flatten() // strip out the none values
                 .collect::<Vec<_>>();
 
                 if responses.len() < 2 {
