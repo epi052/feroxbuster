@@ -203,6 +203,9 @@ impl FeroxScanner {
         log::info!("Starting scan against: {}", self.target_url);
 
         let mut scan_timer = Instant::now();
+        // every time we extract links we'll need to await the task to make sure
+        // it completes before the scan ends
+        let mut extraction_tasks = Vec::new();
 
         if self.handles.config.extract_links && matches!(self.order, ScanOrder::Initial) {
             // check for robots.txt (cannot be in sub-directories, so limited to Initial)
@@ -213,7 +216,7 @@ impl FeroxScanner {
                 .build()?;
 
             let result = extractor.extract().await?;
-            extractor.request_links(result).await?;
+            extraction_tasks.push(extractor.request_links(result).await?)
         }
 
         let scanned_urls = self.handles.ferox_scans()?;
@@ -265,7 +268,7 @@ impl FeroxScanner {
 
                         let result = extractor.extract_from_dir_listing().await?;
 
-                        extractor.request_links(result).await?;
+                        extraction_tasks.push(extractor.request_links(result).await?);
 
                         log::trace!("exit: scan_url -> Directory listing heuristic");
 
@@ -276,7 +279,7 @@ impl FeroxScanner {
 
                         self.handles.stats.send(SubtractFromUsizeField(
                             TotalExpected,
-                            progress_bar.length() as usize,
+                            progress_bar.length().unwrap_or(0) as usize,
                         ))?;
                     }
 
@@ -291,8 +294,12 @@ impl FeroxScanner {
                     }
 
                     if !self.handles.config.force_recursion {
+                        for handle in extraction_tasks.into_iter().flatten() {
+                            _ = handle.await;
+                        }
+
                         progress_bar.reset_eta();
-                        progress_bar.finish_with_message(&message);
+                        progress_bar.finish_with_message(message);
 
                         ferox_scan.finish()?;
 
@@ -317,7 +324,7 @@ impl FeroxScanner {
                         style("Wildcard").blue().bright(),
                         style("stopped").red()
                     );
-                    progress_bar.set_message(&message);
+                    progress_bar.set_message(message);
                     progress_bar.inc(num_reqs as u64);
                 }
                 Some(WildcardResult::FourOhFourLike(num_reqs)) => {
@@ -344,7 +351,7 @@ impl FeroxScanner {
             let new_words = TF_IDF.read().unwrap().all_words();
             let new_words_len = new_words.len();
 
-            let cur_length = progress_bar.length();
+            let cur_length = progress_bar.length().unwrap_or(0);
             let new_length = cur_length + new_words_len as u64;
 
             progress_bar.set_length(new_length);
@@ -373,6 +380,10 @@ impl FeroxScanner {
             DirScanTimes,
             scan_timer.elapsed().as_secs_f64(),
         ))?;
+
+        for handle in extraction_tasks.into_iter().flatten() {
+            _ = handle.await;
+        }
 
         ferox_scan.finish()?;
 

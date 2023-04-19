@@ -15,12 +15,53 @@ use crate::{
     ExtractionResult, DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
-use reqwest::{Client, StatusCode, Url};
+use futures::StreamExt;
+use reqwest::{Client, Response, StatusCode, Url};
 use scraper::{Html, Selector};
 use std::{borrow::Cow, collections::HashSet};
 
+/// Wrapper around link extraction logic
+///   - create a new Url object based on cli options/args
+///   - check if the new Url has already been seen/scanned -> None
+///   - make a request to the new Url ? -> Some(response) : None
+pub(super) async fn request_link(url: &str, handles: Arc<Handles>) -> Result<Response> {
+    log::trace!("enter: request_link({})", url);
+
+    let ferox_url = FeroxUrl::from_string(url, handles.clone());
+
+    // create a url based on the given command line options
+    let new_url = ferox_url.format("", None)?;
+
+    let scanned_urls = handles.ferox_scans()?;
+
+    if scanned_urls.get_scan_by_url(new_url.as_ref()).is_some() {
+        //we've seen the url before and don't need to scan again
+        log::trace!("exit: request_link -> None");
+        bail!("previously seen url");
+    }
+
+    if (!handles.config.url_denylist.is_empty() || !handles.config.regex_denylist.is_empty())
+        && should_deny_url(&new_url, handles.clone())?
+    {
+        // can't allow a denied url to be requested
+        bail!(
+            "prevented request to {} due to {:?} || {:?}",
+            url,
+            handles.config.url_denylist,
+            handles.config.regex_denylist,
+        );
+    }
+
+    // make the request and store the response
+    let new_response = logged_request(&new_url, DEFAULT_METHOD, None, handles.clone()).await?;
+
+    log::trace!("exit: request_link -> {:?}", new_response);
+
+    Ok(new_response)
+}
+
 /// Whether an active scan is recursive or not
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 enum RecursionStatus {
     /// Scan is recursive
     Recursive,
@@ -121,91 +162,140 @@ impl<'a> Extractor<'a> {
 
     /// given a set of links from a normal http body response, task the request handler to make
     /// the requests
-    pub async fn request_links(&mut self, links: HashSet<String>) -> Result<()> {
+    pub async fn request_links(
+        &mut self,
+        links: HashSet<String>,
+    ) -> Result<Option<tokio::task::JoinHandle<()>>> {
         log::trace!("enter: request_links({:?})", links);
 
         if links.is_empty() {
-            return Ok(());
+            return Ok(None);
         }
 
+        self.update_stats(links.len())?;
+
+        // create clones/remove use of self of/from everything the async move block will need to function
+        let cloned_scanned_urls = self.handles.ferox_scans()?;
+        let cloned_handles = self.handles.clone();
+        let cloned_url = self.url.clone();
+        let threads = self.handles.config.threads;
         let recursive = if self.handles.config.no_recursion {
             RecursionStatus::NotRecursive
         } else {
             RecursionStatus::Recursive
         };
 
-        let scanned_urls = self.handles.ferox_scans()?;
-        self.update_stats(links.len())?;
+        let link_request_task = tokio::spawn(async move {
+            let producers = futures::stream::iter(links.into_iter())
+                .map(|link| {
+                    // another clone to satisfy the async move block
+                    let inner_clone = cloned_handles.clone();
 
-        for link in links {
-            let mut resp = match self.request_link(&link).await {
-                Ok(resp) => resp,
-                Err(_) => continue,
-            };
+                    (
+                        tokio::spawn(async move { request_link(&link, inner_clone).await }),
+                        cloned_handles.clone(),
+                        cloned_scanned_urls.clone(),
+                        recursive,
+                        cloned_url.clone(),
+                    )
+                })
+                .for_each_concurrent(
+                    threads,
+                    |(join_handle, c_handles, c_scanned_urls, c_recursive, og_url)| async move {
+                        match join_handle.await {
+                            Ok(Ok(reqwest_response)) => {
+                                let mut resp = FeroxResponse::from(
+                                    reqwest_response,
+                                    &og_url,
+                                    DEFAULT_METHOD,
+                                    c_handles.config.output_level,
+                                )
+                                .await;
 
-            // filter if necessary
-            if self
-                .handles
-                .filters
-                .data
-                .should_filter_response(&resp, self.handles.stats.tx.clone())
-            {
-                continue;
-            }
+                                // filter if necessary
+                                if c_handles
+                                    .filters
+                                    .data
+                                    .should_filter_response(&resp, c_handles.stats.tx.clone())
+                                {
+                                    return;
+                                }
 
-            // request and report assumed file
-            if resp.is_file() || !resp.is_directory() {
-                log::debug!("Extracted File: {}", resp);
+                                // request and report assumed file
+                                if resp.is_file() || !resp.is_directory() {
+                                    log::debug!("Extracted File: {}", resp);
 
-                scanned_urls.add_file_scan(resp.url().as_str(), ScanOrder::Latest);
+                                    c_scanned_urls
+                                        .add_file_scan(resp.url().as_str(), ScanOrder::Latest);
 
-                if self.handles.config.collect_extensions {
-                    resp.parse_extension(self.handles.clone())?;
-                }
+                                    if c_handles.config.collect_extensions {
+                                        // no real reason this should fail
+                                        resp.parse_extension(c_handles.clone()).unwrap();
+                                    }
 
-                if let Err(e) = resp.send_report(self.handles.output.tx.clone()) {
-                    log::warn!("Could not send FeroxResponse to output handler: {}", e);
-                }
+                                    if let Err(e) = resp.send_report(c_handles.output.tx.clone()) {
+                                        log::warn!(
+                                            "Could not send FeroxResponse to output handler: {}",
+                                            e
+                                        );
+                                    }
 
-                continue;
-            }
+                                    return;
+                                }
 
-            if matches!(recursive, RecursionStatus::Recursive) {
-                log::debug!("Extracted Directory: {}", resp);
+                                if matches!(c_recursive, RecursionStatus::Recursive) {
+                                    log::debug!("Extracted Directory: {}", resp);
 
-                if !resp.url().as_str().ends_with('/')
-                    && (resp.status().is_success()
-                        || matches!(resp.status(), &StatusCode::FORBIDDEN))
-                {
-                    // if the url doesn't end with a /
-                    // and the response code is either a 2xx or 403
+                                    if !resp.url().as_str().ends_with('/')
+                                        && (resp.status().is_success()
+                                            || matches!(resp.status(), &StatusCode::FORBIDDEN))
+                                    {
+                                        // if the url doesn't end with a /
+                                        // and the response code is either a 2xx or 403
 
-                    // since all of these are 2xx or 403, recursion is only attempted if the
-                    // url ends in a /. I am actually ok with adding the slash and not
-                    // adding it, as both have merit.  Leaving it in for now to see how
-                    // things turn out (current as of: v1.1.0)
-                    resp.set_url(&format!("{}/", resp.url()));
-                }
+                                        // since all of these are 2xx or 403, recursion is only attempted if the
+                                        // url ends in a /. I am actually ok with adding the slash and not
+                                        // adding it, as both have merit.  Leaving it in for now to see how
+                                        // things turn out (current as of: v1.1.0)
+                                        resp.set_url(&format!("{}/", resp.url()));
+                                    }
 
-                if self.handles.config.filter_status.is_empty() {
-                    // -C wasn't used, so -s is the only 'filter' left to account for
-                    if self
-                        .handles
-                        .config
-                        .status_codes
-                        .contains(&resp.status().as_u16())
-                    {
-                        send_try_recursion_command(self.handles.clone(), resp).await?;
-                    }
-                } else {
-                    // -C was used, that means the filters above would have removed
-                    // those responses, and anything else should be let through
-                    send_try_recursion_command(self.handles.clone(), resp).await?;
-                }
-            }
-        }
+                                    if c_handles.config.filter_status.is_empty() {
+                                        // -C wasn't used, so -s is the only 'filter' left to account for
+                                        if c_handles
+                                            .config
+                                            .status_codes
+                                            .contains(&resp.status().as_u16())
+                                        {
+                                            send_try_recursion_command(c_handles.clone(), resp)
+                                                .await
+                                                .unwrap_or_default();
+                                        }
+                                    } else {
+                                        // -C was used, that means the filters above would have removed
+                                        // those responses, and anything else should be let through
+                                        send_try_recursion_command(c_handles.clone(), resp)
+                                            .await
+                                            .unwrap_or_default();
+                                    }
+                                }
+                            }
+                            Ok(Err(err)) => {
+                                log::warn!("Error during link extraction: {}", err);
+                            }
+                            Err(err) => {
+                                log::warn!("JoinError during link extraction: {}", err);
+                            }
+                        }
+                    },
+                );
+
+            // wait for the requests to finish
+            producers.await;
+        });
+
         log::trace!("exit: request_links");
-        Ok(())
+        Ok(Some(link_request_task))
     }
 
     /// wrapper around link extraction via html attributes
@@ -413,56 +503,6 @@ impl<'a> Extractor<'a> {
         log::trace!("exit: add_link_to_set_of_links");
 
         Ok(())
-    }
-
-    /// Wrapper around link extraction logic
-    ///   - create a new Url object based on cli options/args
-    ///   - check if the new Url has already been seen/scanned -> None
-    ///   - make a request to the new Url ? -> Some(response) : None
-    pub(super) async fn request_link(&self, url: &str) -> Result<FeroxResponse> {
-        log::trace!("enter: request_link({})", url);
-
-        let ferox_url = FeroxUrl::from_string(url, self.handles.clone());
-
-        // create a url based on the given command line options
-        let new_url = ferox_url.format("", None)?;
-
-        let scanned_urls = self.handles.ferox_scans()?;
-
-        if scanned_urls.get_scan_by_url(new_url.as_ref()).is_some() {
-            //we've seen the url before and don't need to scan again
-            log::trace!("exit: request_link -> None");
-            bail!("previously seen url");
-        }
-
-        if (!self.handles.config.url_denylist.is_empty()
-            || !self.handles.config.regex_denylist.is_empty())
-            && should_deny_url(&new_url, self.handles.clone())?
-        {
-            // can't allow a denied url to be requested
-            bail!(
-                "prevented request to {} due to {:?} || {:?}",
-                url,
-                self.handles.config.url_denylist,
-                self.handles.config.regex_denylist,
-            );
-        }
-
-        // make the request and store the response
-        let new_response =
-            logged_request(&new_url, DEFAULT_METHOD, None, self.handles.clone()).await?;
-
-        let new_ferox_response = FeroxResponse::from(
-            new_response,
-            url,
-            DEFAULT_METHOD,
-            self.handles.config.output_level,
-        )
-        .await;
-
-        log::trace!("exit: request_link -> {:?}", new_ferox_response);
-
-        Ok(new_ferox_response)
     }
 
     /// Entry point to perform link extraction from robots.txt

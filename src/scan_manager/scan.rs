@@ -159,7 +159,7 @@ impl FeroxScan {
                 if pb.position() > self.num_requests {
                     pb.finish()
                 } else {
-                    pb.finish_at_current_pos()
+                    pb.abandon()
                 }
             }
         }

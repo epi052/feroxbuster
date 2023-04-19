@@ -170,7 +170,8 @@ impl FeroxResponse {
 
     /// free the `text` data, reducing memory usage
     pub fn drop_text(&mut self) {
-        self.text = String::new();
+        self.text.clear(); // length is set to 0
+        self.text.shrink_to_fit(); // allocated capacity shrinks to reflect the new size
     }
 
     /// Make a reasonable guess at whether the response is a file or not
@@ -394,7 +395,14 @@ impl FeroxResponse {
     pub fn send_report(self, report_sender: CommandSender) -> Result<()> {
         log::trace!("enter: send_report({:?}", report_sender);
 
-        report_sender.send(Command::Report(Box::new(self)))?;
+        // there's no reason to send the response body across the mpsc
+        //
+        // the only possible reason is for filtering on the body, but both `send_report`
+        // calls are gated behind checks for `should_filter_response`
+        let mut me = self;
+        me.drop_text();
+
+        report_sender.send(Command::Report(Box::new(me)))?;
 
         log::trace!("exit: send_report");
         Ok(())

@@ -217,7 +217,7 @@ impl Requester {
 
                     self.ferox_scan
                         .progress_bar()
-                        .set_message(&format!("=> 🚦 {styled_direction} scan speed",));
+                        .set_message(format!("=> 🚦 {styled_direction} scan speed",));
                 }
                 self.policy_data.set_errors(scan_errors);
             } else {
@@ -230,7 +230,7 @@ impl Requester {
 
                 self.ferox_scan
                     .progress_bar()
-                    .set_message(&format!("=> 🚦 {styled_direction} scan speed",));
+                    .set_message(format!("=> 🚦 {styled_direction} scan speed",));
             }
         }
 
@@ -286,7 +286,7 @@ impl Requester {
             self.set_rate_limiter(Some(new_limit)).await?;
             self.ferox_scan
                 .progress_bar()
-                .set_message(&format!("=> 🚦 set rate limit ({new_limit}/s)"));
+                .set_message(format!("=> 🚦 set rate limit ({new_limit}/s)"));
         }
 
         self.adjust_limit(trigger, true).await?;
@@ -321,11 +321,11 @@ impl Requester {
 
             // figure out how many requests are skipped as a result
             let pb = self.ferox_scan.progress_bar();
-            let num_skipped = pb.length().saturating_sub(pb.position()) as usize;
+            let num_skipped = pb.length().unwrap_or(0).saturating_sub(pb.position()) as usize;
 
             let styled_trigger = style(format!("{trigger:?}")).red();
 
-            pb.set_message(&format!(
+            pb.set_message(format!(
                 "=> 💀 too many {} ({}) 💀 bailing",
                 styled_trigger,
                 self.ferox_scan.num_errors(trigger),
@@ -490,6 +490,7 @@ impl Requester {
                         .target(ExtractionTarget::ResponseBody)
                         .response(&ferox_response)
                         .handles(self.handles.clone())
+                        .url(self.ferox_scan.url())
                         .build()?;
 
                     let new_links: HashSet<_>;
@@ -513,7 +514,11 @@ impl Requester {
                     }
 
                     if !new_links.is_empty() {
-                        extractor.request_links(new_links).await?;
+                        let extraction_task = extractor.request_links(new_links).await?;
+
+                        if let Some(task) = extraction_task {
+                            _ = task.await;
+                        }
                     }
                 }
 

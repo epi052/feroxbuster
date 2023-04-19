@@ -1,4 +1,5 @@
 use super::builder::{LINKFINDER_REGEX, ROBOTS_TXT_REGEX, URL_CHARS_REGEX};
+use super::container::request_link;
 use super::*;
 use crate::config::{Configuration, OutputLevel};
 use crate::scan_manager::ScanOrder;
@@ -360,13 +361,13 @@ async fn request_link_happy_path() -> Result<()> {
         then.status(200).body("this is a test");
     });
 
-    let r_resp = ROBOTS_EXT.request_link(&srv.url("/login.php")).await?;
-    let b_resp = BODY_EXT.request_link(&srv.url("/login.php")).await?;
+    let r_resp = request_link(&srv.url("/login.php"), ROBOTS_EXT.handles.clone()).await?;
+    let b_resp = request_link(&srv.url("/login.php"), BODY_EXT.handles.clone()).await?;
 
-    assert!(matches!(r_resp.status(), &StatusCode::OK));
-    assert!(matches!(b_resp.status(), &StatusCode::OK));
-    assert_eq!(r_resp.content_length(), 14);
-    assert_eq!(b_resp.content_length(), 14);
+    assert!(matches!(r_resp.status(), StatusCode::OK));
+    assert!(matches!(b_resp.status(), StatusCode::OK));
+    assert_eq!(r_resp.content_length().unwrap(), 14);
+    assert_eq!(b_resp.content_length().unwrap(), 14);
     assert_eq!(mock.hits(), 2);
     Ok(())
 }
@@ -390,8 +391,8 @@ async fn request_link_bails_on_seen_url() -> Result<()> {
     let robots = setup_extractor(ExtractionTarget::RobotsTxt, scans.clone());
     let body = setup_extractor(ExtractionTarget::ResponseBody, scans);
 
-    let r_resp = robots.request_link(&served).await;
-    let b_resp = body.request_link(&served).await;
+    let r_resp = request_link(&served, robots.handles.clone()).await;
+    let b_resp = request_link(&served, body.handles.clone()).await;
 
     assert!(r_resp.is_err());
     assert!(b_resp.is_err());

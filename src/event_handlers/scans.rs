@@ -266,7 +266,7 @@ impl ScanHandler {
                         let bar = scan.progress_bar();
 
                         // (4000 - 3000) / 2 => 500 words left to send
-                        let length = bar.length();
+                        let length = bar.length().unwrap_or(1);
                         let num_words_left = (length - bar.position()) / divisor;
 
                         // accumulate each bar's increment value for incrementing the total bar

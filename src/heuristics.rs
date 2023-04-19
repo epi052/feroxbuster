@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
+use futures::future;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
@@ -277,9 +278,6 @@ impl HeuristicTests {
             None
         };
 
-        // 6 is due to the array in the nested for loop below
-        let mut responses = Vec::with_capacity(6);
-
         // no matter what, we want an empty extension for the base case
         let mut extensions = vec!["".to_string()];
 
@@ -302,19 +300,26 @@ impl HeuristicTests {
         // server, so both are considered when building auto-filter rules
         for method in self.handles.config.methods.iter() {
             for extension in extensions.iter() {
-                for (prefix, length) in [
+                // build out the 6 paths we'll use
+                let paths = [
                     ("", 1),
                     ("", 3),
                     (".htaccess", 1),
                     (".htaccess", 3),
                     ("admin", 1),
                     ("admin", 3),
-                ] {
-                    let path = format!("{prefix}{}{extension}", self.unique_string(length));
+                ]
+                .map(|(prefix, length)| {
+                    format!("{prefix}{}{extension}", self.unique_string(length))
+                });
 
+                // allow all 6 requests to fly asynchronously
+                let responses = future::join_all(paths.into_iter().map(|path| async move {
                     let ferox_url = FeroxUrl::from_string(target_url, self.handles.clone());
 
-                    let nonexistent_url = ferox_url.format(&path, slash)?;
+                    let Ok(nonexistent_url) = ferox_url.format(&path, slash) else {
+                        return None;
+                    };
 
                     // example requests:
                     // - http://localhost/2fc1077836ad43ab98b7a31c2ca28fea
@@ -323,13 +328,11 @@ impl HeuristicTests {
                     // - http://localhost/.htaccess92969beae6bf4beb855d1622406d87e395c87387a9ad432e8a11245002b709b03cf609d471004154b83bcc1c6ec49f6f
                     // - http://localhost/adminf1d2541e73c44dcb9d1fb7d93334b280
                     // - http://localhost/admin92969beae6bf4beb855d1622406d87e395c87387a9ad432e8a11245002b709b03cf609d471004154b83bcc1c6ec49f6f
-                    let response =
-                        logged_request(&nonexistent_url, method, data, self.handles.clone()).await;
-
-                    req_counter += 1;
-
-                    // continue to next on error
-                    let response = skip_fail!(response);
+                    let Ok(response) =
+                        logged_request(&nonexistent_url, method, data, self.handles.clone())
+                            .await else {
+                                return None;
+                            };
 
                     if !self
                         .handles
@@ -341,30 +344,33 @@ impl HeuristicTests {
                         //
                         // the default value for -s is all status codes, so unless the user says otherwise
                         // this won't fire
-                        continue;
+                        return None;
                     }
 
-                    let ferox_response = FeroxResponse::from(
-                        response,
-                        &ferox_url.target,
-                        method,
-                        self.handles.config.output_level,
+                    Some(
+                        FeroxResponse::from(
+                            response,
+                            &ferox_url.target,
+                            method,
+                            self.handles.config.output_level,
+                        )
+                        .await,
                     )
-                    .await;
-
-                    responses.push(ferox_response);
-                }
+                }))
+                .await // await gives vector of options containing feroxresponses
+                .into_iter()
+                .flatten() // strip out the none values
+                .collect::<Vec<_>>();
 
                 if responses.len() < 2 {
                     // don't have enough responses to make a determination, continue to next method
-                    responses.clear();
+                    log::debug!("not enough responses to make a determination");
                     continue;
                 }
 
                 // check the responses for similarities on which we can filter, multiple may be returned
                 let Some((wildcard_filters, wildcard_responses)) = self.examine_404_like_responses(&responses) else {
                     // no match was found during analysis of responses
-                    responses.clear();
                     log::warn!("no match found for 404 responses");
                     continue;
                 };
@@ -445,15 +451,12 @@ impl HeuristicTests {
                         req_counter += 100;
                     }
                 }
-
-                // reset the responses for the next method, if it exists
-                responses.clear();
             }
         }
 
         log::trace!("exit: detect_404_like_responses");
 
-        let retval = if req_counter > 100 {
+        let retval = if req_counter >= 100 {
             WildcardResult::WildcardDirectory(req_counter)
         } else {
             WildcardResult::FourOhFourLike(req_counter)

@@ -72,7 +72,7 @@ fn add_url_to_list_of_scanned_urls_with_known_url() {
         url,
         ScanType::Directory,
         ScanOrder::Latest,
-        pb.length(),
+        pb.length().unwrap(),
         OutputLevel::Default,
         Some(pb),
     );
@@ -94,7 +94,7 @@ fn stop_progress_bar_stops_bar() {
         url,
         ScanType::Directory,
         ScanOrder::Latest,
-        pb.length(),
+        pb.length().unwrap(),
         OutputLevel::Default,
         Some(pb),
     );
@@ -152,7 +152,7 @@ async fn call_display_scans() {
         url,
         ScanType::Directory,
         ScanOrder::Latest,
-        pb.length(),
+        pb.length().unwrap(),
         OutputLevel::Default,
         Some(pb),
     );
@@ -160,7 +160,7 @@ async fn call_display_scans() {
         url_two,
         ScanType::Directory,
         ScanOrder::Latest,
-        pb_two.length(),
+        pb_two.length().unwrap(),
         OutputLevel::Default,
         Some(pb_two),
     );
