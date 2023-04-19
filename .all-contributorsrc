@@ -571,6 +571,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "DrorDvash",
+      "name": "DrDv",
+      "avatar_url": "https://avatars.githubusercontent.com/u/8413651?v=4",
+      "profile": "https://github.com/DrorDvash",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
