@@ -97,8 +97,14 @@ sudo apt update && sudo apt install -y feroxbuster
 
 #### Linux (32 and 64-bit) & MacOS
 
+Install to a particular directory
 ```
-curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/master/install-nix.sh | bash
+curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash -s $HOME/.local/bin
+```
+
+Install to current working directory
+```
+curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh | bash
 ```
 
 #### MacOS via Homebrew 
