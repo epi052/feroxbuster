@@ -23,7 +23,7 @@ maintenance = { status = "actively-developed" }
 
 [build-dependencies]
 clap = { version = "4.2", features = ["wrap_help", "cargo"] }
-clap_complete = "4.1"
+clap_complete = "4.2"
 regex = "1.5"
 lazy_static = "1.4"
 dirs = "5.0"
