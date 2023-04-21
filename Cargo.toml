@@ -24,7 +24,7 @@ maintenance = { status = "actively-developed" }
 [build-dependencies]
 clap = { version = "4.2", features = ["wrap_help", "cargo"] }
 clap_complete = "4.1"
-regex = "1.5"
+regex = "1.8"
 lazy_static = "1.4"
 dirs = "5.0"
 
@@ -49,7 +49,7 @@ indicatif = "0.17"
 console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "5.0"
-regex = "1.5"
+regex = "1.8"
 crossterm = "0.26"
 rlimit = "0.9"
 ctrlc = "3.2"
