@@ -541,9 +541,9 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
 ///
 /// It is primarily used to detect url paths that `url::Url::parse` will
 /// silently transform, such as /path/../file.html -> /file.html
-/// 
+///
 /// # Warning
-/// 
+///
 /// In the instance of a url with encoded path traversal strings, such as
 /// /path/%2e%2e/file.html, the underlying `url::Url::parse` will
 /// further encode the %-signs and return /path/%252e%252e/file.html
