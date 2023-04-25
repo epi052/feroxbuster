@@ -16,7 +16,7 @@ use crate::{
 use super::command::Command::AddToUsizeField;
 use super::*;
 use crate::statistics::StatField;
-use reqwest::Url;
+use crate::utils::parse_url_with_raw_path;
 use tokio::time::Duration;
 
 #[derive(Debug)]
@@ -325,7 +325,9 @@ impl ScanHandler {
                 self.data.add_directory_scan(&target, order).1 // add the new target; return FeroxScan
             };
 
-            if should_test_deny && should_deny_url(&Url::parse(&target)?, self.handles.clone())? {
+            if should_test_deny
+                && should_deny_url(&parse_url_with_raw_path(&target)?, self.handles.clone())?
+            {
                 // response was caught by a user-provided deny list
                 // checking this last, since it's most susceptible to longer runtimes due to what
                 // input is received

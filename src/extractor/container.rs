@@ -11,7 +11,10 @@ use crate::{
         StatField::{LinksExtracted, TotalExpected},
     },
     url::FeroxUrl,
-    utils::{logged_request, make_request, send_try_recursion_command, should_deny_url},
+    utils::{
+        logged_request, make_request, parse_url_with_raw_path, send_try_recursion_command,
+        should_deny_url,
+    },
     ExtractionResult, DEFAULT_METHOD,
 };
 use anyhow::{bail, Context, Result};
@@ -122,7 +125,7 @@ impl<'a> Extractor<'a> {
     ) -> Result<()> {
         log::trace!("enter: parse_url_and_add_subpaths({:?})", links);
 
-        match Url::parse(url_to_parse) {
+        match parse_url_with_raw_path(url_to_parse) {
             Ok(absolute) => {
                 if absolute.domain() != original_url.domain()
                     || absolute.host() != original_url.host()
@@ -475,7 +478,7 @@ impl<'a> Extractor<'a> {
             ExtractionTarget::ResponseBody | ExtractionTarget::DirectoryListing => {
                 self.response.unwrap().url().clone()
             }
-            ExtractionTarget::RobotsTxt => match Url::parse(&self.url) {
+            ExtractionTarget::RobotsTxt => match parse_url_with_raw_path(&self.url) {
                 Ok(u) => u,
                 Err(e) => {
                     bail!("Could not parse {}: {}", self.url, e);
@@ -524,7 +527,7 @@ impl<'a> Extractor<'a> {
 
         for capture in self.robots_regex.captures_iter(body) {
             if let Some(new_path) = capture.name("url_path") {
-                let mut new_url = Url::parse(&self.url)?;
+                let mut new_url = parse_url_with_raw_path(&self.url)?;
 
                 new_url.set_path(new_path.as_str());
 
@@ -654,7 +657,7 @@ impl<'a> Extractor<'a> {
             &client
         };
 
-        let mut url = Url::parse(&self.url)?;
+        let mut url = parse_url_with_raw_path(&self.url)?;
         url.set_path(location); // overwrite existing path
 
         // purposefully not using logged_request here due to using the special client

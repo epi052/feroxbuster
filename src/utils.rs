@@ -425,8 +425,13 @@ fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) 
         // current deny-url, now we just need to check to see if this deny-url is a parent
         // to a scanned url that is also a parent of the given url
         for ferox_scan in handles.ferox_scans()?.get_active_scans() {
-            let scanner = Url::parse(ferox_scan.url().trim_end_matches('/'))
+            let scanner = parse_url_with_raw_path(ferox_scan.url().trim_end_matches('/'))
                 .with_context(|| format!("Could not parse {ferox_scan} as a url"))?;
+
+            // by calling the new parse_url_with_raw_path, and reaching this point without an
+            // error, we know we have an authority and therefore a host. leaving the code
+            // below, but we should never hit the else condition. leaving it in so if we find
+            // a case where i'm mistaken, we'll know about it and can address it
 
             if let Some(scan_host) = scanner.host() {
                 // same domain/ip check we perform on the denier above
@@ -436,7 +441,7 @@ fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) 
                 }
             } else {
                 // couldn't process .host from scanner
-                continue;
+                unreachable!("should_deny_absolute: scanner.host() returned None, which shouldn't be possible");
             };
 
             let scan_path = scanner.path();
@@ -487,7 +492,7 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
 
     // normalization for comparison is to remove the trailing / if one exists, this is done for
     // the given url and any url to which it's compared
-    let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
+    let normed_url = parse_url_with_raw_path(url.to_string().trim_end_matches('/'))?;
 
     for denier in &handles.config.url_denylist {
         // note to self: it may seem as though we can use regex only for --dont-scan, however, in
@@ -555,6 +560,7 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
     if !parsed.has_authority() {
         // parsed correctly, but no authority, meaning mailto: or tel: or
         // some other url that we don't care about
+        println!("url to parse has no authority and is therefore invalid");
         bail!("url to parse has no authority and is therefore invalid");
     }
 
@@ -1004,6 +1010,13 @@ mod tests {
     /// provide a denier from which we can't check a host, which results in no comparison, expect false
     /// because the denier is a parent to the tested, even tho the scanned doesn't compare, it
     /// still returns true
+    ///
+    /// note: adding parse_url_with_raw_path changed the behavior of this test, it used to return
+    /// true, now it returns false. see my note in should_deny_absolute and the unreachable!
+    /// call block to see why
+    ///
+    /// leaving this test here to document the behavior change and to catch regressions in the
+    /// new expected behavior
     fn should_deny_url_doesnt_compare_non_domains_in_scanned() {
         let deny_url = "https://testdomain.com/";
         let scan_url = "unix:/run/foo.socket";
@@ -1017,8 +1030,7 @@ mod tests {
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
-
-        assert!(should_deny_url(&tested_url, handles).unwrap());
+        assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
 
     #[test]

@@ -4,11 +4,10 @@ use crate::event_handlers::Handles;
 use crate::filters::similarity::SIM_HASHER;
 use crate::nlp::preprocess;
 use crate::response::FeroxResponse;
-use crate::utils::logged_request;
+use crate::utils::{logged_request, parse_url_with_raw_path};
 use crate::DEFAULT_METHOD;
 use anyhow::Result;
 use regex::Regex;
-use reqwest::Url;
 use std::sync::Arc;
 
 /// wrapper around logic necessary to create a SimilarityFilter
@@ -23,7 +22,7 @@ pub(crate) async fn create_similarity_filter(
     handles: Arc<Handles>,
 ) -> Result<SimilarityFilter> {
     // url as-is based on input, ignores user-specified url manipulation options (add-slash etc)
-    let url = Url::parse(similarity_filter)?;
+    let url = parse_url_with_raw_path(similarity_filter)?;
 
     // attempt to request the given url
     let resp = logged_request(&url, DEFAULT_METHOD, None, handles.clone()).await?;
