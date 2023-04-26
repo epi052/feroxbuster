@@ -542,7 +542,7 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
     filename
 }
 
-/// This function takes a url string and returns a `ParsedUrl` struct
+/// This function takes a url string and returns a `url::Url`
 ///
 /// It is primarily used to detect url paths that `url::Url::parse` will
 /// silently transform, such as /path/../file.html -> /file.html
@@ -560,7 +560,6 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
     if !parsed.has_authority() {
         // parsed correctly, but no authority, meaning mailto: or tel: or
         // some other url that we don't care about
-        println!("url to parse has no authority and is therefore invalid");
         bail!("url to parse has no authority and is therefore invalid");
     }
 
@@ -607,8 +606,8 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
     // after the authority (i.e. the path + query + fragment)
 
     let Some((_, after_authority)) = url.split_once(&farthest_right_authority_part) else {
-        // if we can't split the url string into two parts, then the url is invalid
-        // and we can't do anything with it
+        // if we can't split the url string into two parts, then the url doesn't conform to our
+        // expectations, and we can't continue processing it, so we'll return the parsed url
         return Ok(parsed);
     };
 
