@@ -694,14 +694,16 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
         // platforms, we can safely unwrap. On windows, we need to fix up the path
         #[cfg(target_os = "windows")]
         {
-            Url::from_directory_path(path.replace("/", "\\")).unwrap()
+            let path = format!("\\/IGNOREME{path}");
+            Url::from_directory_path(path).unwrap()
         }
         #[cfg(not(target_os = "windows"))]
         Url::from_directory_path(path).unwrap()
     } else {
         #[cfg(target_os = "windows")]
         {
-            Url::from_file_path(path.replace("/", "\\")).unwrap()
+            let path = format!("\\/IGNOREME{path}");
+            Url::from_file_path(path).unwrap()
         }
         #[cfg(not(target_os = "windows"))]
         Url::from_file_path(path).unwrap()
@@ -851,32 +853,37 @@ mod tests {
         );
     }
 
-    #[test]
-    /// set_open_file_limit with a low requested limit succeeds
-    fn utils_set_open_file_limit_with_low_requested_limit() {
-        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        let lower_limit = hard - 1;
-        assert!(set_open_file_limit(lower_limit));
-    }
+    #[cfg(not(target_os = "windows"))]
+    mod nix_only_tests {
+        use super::*;
 
-    #[test]
-    /// set_open_file_limit with a high requested limit succeeds
-    fn utils_set_open_file_limit_with_high_requested_limit() {
-        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        let higher_limit = hard + 1;
-        // calculate a new soft to ensure soft != hard and hit that logic branch
-        let new_soft = hard - 1;
-        setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
-        assert!(set_open_file_limit(higher_limit));
-    }
+        #[test]
+        /// set_open_file_limit with a low requested limit succeeds
+        fn utils_set_open_file_limit_with_low_requested_limit() {
+            let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+            let lower_limit = hard - 1;
+            assert!(set_open_file_limit(lower_limit));
+        }
 
-    #[test]
-    /// set_open_file_limit should fail when hard == soft
-    fn utils_set_open_file_limit_with_fails_when_both_limits_are_equal() {
-        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        // calculate a new soft to ensure soft == hard and hit the failure logic branch
-        setrlimit(Resource::NOFILE, hard, hard).unwrap();
-        assert!(!set_open_file_limit(hard)); // returns false
+        #[test]
+        /// set_open_file_limit with a high requested limit succeeds
+        fn utils_set_open_file_limit_with_high_requested_limit() {
+            let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+            let higher_limit = hard + 1;
+            // calculate a new soft to ensure soft != hard and hit that logic branch
+            let new_soft = hard - 1;
+            setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
+            assert!(set_open_file_limit(higher_limit));
+        }
+
+        #[test]
+        /// set_open_file_limit should fail when hard == soft
+        fn utils_set_open_file_limit_with_fails_when_both_limits_are_equal() {
+            let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+            // calculate a new soft to ensure soft == hard and hit the failure logic branch
+            setrlimit(Resource::NOFILE, hard, hard).unwrap();
+            assert!(!set_open_file_limit(hard)); // returns false
+        }
     }
 
     #[test]
