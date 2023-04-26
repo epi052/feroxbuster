@@ -425,8 +425,13 @@ fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) 
         // current deny-url, now we just need to check to see if this deny-url is a parent
         // to a scanned url that is also a parent of the given url
         for ferox_scan in handles.ferox_scans()?.get_active_scans() {
-            let scanner = Url::parse(ferox_scan.url().trim_end_matches('/'))
+            let scanner = parse_url_with_raw_path(ferox_scan.url().trim_end_matches('/'))
                 .with_context(|| format!("Could not parse {ferox_scan} as a url"))?;
+
+            // by calling the new parse_url_with_raw_path, and reaching this point without an
+            // error, we know we have an authority and therefore a host. leaving the code
+            // below, but we should never hit the else condition. leaving it in so if we find
+            // a case where i'm mistaken, we'll know about it and can address it
 
             if let Some(scan_host) = scanner.host() {
                 // same domain/ip check we perform on the denier above
@@ -436,7 +441,7 @@ fn should_deny_absolute(url_to_test: &Url, denier: &Url, handles: Arc<Handles>) 
                 }
             } else {
                 // couldn't process .host from scanner
-                continue;
+                unreachable!("should_deny_absolute: scanner.host() returned None, which shouldn't be possible");
             };
 
             let scan_path = scanner.path();
@@ -487,7 +492,7 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
 
     // normalization for comparison is to remove the trailing / if one exists, this is done for
     // the given url and any url to which it's compared
-    let normed_url = Url::parse(url.to_string().trim_end_matches('/'))?;
+    let normed_url = parse_url_with_raw_path(url.to_string().trim_end_matches('/'))?;
 
     for denier in &handles.config.url_denylist {
         // note to self: it may seem as though we can use regex only for --dont-scan, however, in
@@ -537,6 +542,187 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
     filename
 }
 
+/// This function takes a url string and returns a `url::Url`
+///
+/// It is primarily used to detect url paths that `url::Url::parse` will
+/// silently transform, such as /path/../file.html -> /file.html
+///
+/// # Warning
+///
+/// In the instance of a url with encoded path traversal strings, such as
+/// /path/%2e%2e/file.html, the underlying `url::Url::parse` will
+/// further encode the %-signs and return /path/%252e%252e/file.html
+pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
+    log::trace!("enter: parse_url_with_raw_path({})", url);
+
+    let parsed = Url::parse(url)?;
+
+    if !parsed.has_authority() {
+        // parsed correctly, but no authority, meaning mailto: or tel: or
+        // some other url that we don't care about
+        bail!("url to parse has no authority and is therefore invalid");
+    }
+
+    // we have a valid url, the next step is to check the path and see if it's
+    // something that url::Url::parse would silently transform
+    //
+    // i.e. if the path is /path/../file.html, url::Url::parse will transform it
+    // to /file.html, which is not what we want
+
+    let farthest_right_authority_part;
+
+    // we want to find the farthest right authority component, which is the
+    // component that is the furthest right in the url that is part of the
+    // authority
+    //
+    // per RFC 3986, the authority is defined as:
+    // - authority = [ userinfo "@" ] host [ ":" port ]
+    //
+    // so the farthest right authority component is either the port or the host
+    //
+    // i.e. in http://example.com:80/path/file.html, the farthest right authority
+    // component is :80
+    //
+    // in http://example.com/path/file.html, the farthest right authority component
+    // is example.com
+    //
+    // the farthest right authority component is used to split the url into two
+    // parts: the part before the authority and the part after the authority
+    if let Some(port) = parsed.port() {
+        // if the url has a port, then the farthest right authority component is
+        // the port
+        farthest_right_authority_part = format!(":{}", port);
+    } else if parsed.has_host() {
+        // if the url has a host, then the farthest right authority component is
+        // the host
+        farthest_right_authority_part = parsed.host_str().unwrap().to_owned();
+    } else {
+        // if the url has neither a port nor a host, then the url is invalid
+        // and we can't do anything with it, but i don't think this is possible
+        unreachable!("url has an authority, but has neither a port nor a host");
+    }
+
+    // split the original url string into two parts: the part before the authority and the part
+    // after the authority (i.e. the path + query + fragment)
+
+    let Some((_, after_authority)) = url.split_once(&farthest_right_authority_part) else {
+        // if we can't split the url string into two parts, then the url doesn't conform to our
+        // expectations, and we can't continue processing it, so we'll return the parsed url
+        return Ok(parsed);
+    };
+
+    // when there is a port, but it matches the default port for the scheme,
+    // url::Url::parse will mark the port as None, giving us a
+    // `after_authority` that looks something like this:
+    // - :80/path/file.html
+    let after_authority = after_authority
+        .replacen(":80", "", 1)
+        .replacen(":443", "", 1);
+
+    // snippets from rfc-3986:
+    //
+    //          foo://example.com:8042/over/there?name=ferret#nose
+    //          \_/   \______________/\_________/ \_________/ \__/
+    //           |           |            |            |        |
+    //        scheme     authority       path        query   fragment
+    //
+    // The path component is terminated
+    //    by the first question mark ("?") or number sign ("#") character, or
+    //    by the end of the URI.
+    //
+    // The query component is indicated by the first question
+    //    mark ("?") character and terminated by a number sign ("#") character
+    //    or by the end of the URI.
+    let (path, _discarded) = after_authority
+        .split_once('?')
+        // if there isn't a '?', try to remove a fragment
+        .unwrap_or_else(|| {
+            // if there isn't a '#', return (original, empty)
+            after_authority
+                .split_once('#')
+                .unwrap_or((&after_authority, ""))
+        });
+
+    // at this point, we have the path, all by itself
+
+    // each of the following is a string that we can expect url::Url::parse to
+    // transform. The variety is to ensure we cover most common path traversal
+    // encodings
+    let transformation_detectors = vec![
+        // ascii
+        "..",
+        // single url encoded
+        "%2e%2e",
+        // double url encoded
+        "%25%32%65%25%32%65",
+        // utf-8 encoded
+        "%c0%ae%c0%ae",
+        "%e0%40%ae%e0%40%ae",
+        "%c0ae%c0ae",
+        // 16 bit shenanigans
+        "%uff0e%uff0e",
+        "%u002e%u002e",
+    ];
+
+    let parsing_will_transform_path = transformation_detectors
+        .iter()
+        .any(|detector| path.to_lowercase().contains(detector));
+
+    if !parsing_will_transform_path {
+        // there's no string in the path of the url that will trigger a transformation
+        // so, we can return it as-is
+        return Ok(parsed);
+    }
+
+    // if we reach this point, the path contains a string that will trigger a transformation
+    // so we need to manually create a Url that doesn't have the transformation
+    // and return that
+    //
+    // special thanks to github user @lavafroth for this workaround
+
+    let mut hacked_url = if path.ends_with('/') {
+        // from_file_path silently strips trailing slashes, and
+        // from_directory_path adds them, so we'll choose the appropriate
+        // constructor based on the presence of a path's trailing slash
+
+        // according to from_file_path docs:
+        //   from_file_path returns `Err` if the given path is not absolute or,
+        //   on Windows, if the prefix is not a disk prefix (e.g. `C:`) or a UNC prefix (`\\`).
+        //
+        // since we parsed out a valid url path, we know it is absolute, so on non-windows
+        // platforms, we can safely unwrap. On windows, we need to fix up the path
+        #[cfg(target_os = "windows")]
+        {
+            let path = format!("\\/IGNOREME{path}");
+            Url::from_directory_path(path).unwrap()
+        }
+        #[cfg(not(target_os = "windows"))]
+        Url::from_directory_path(path).unwrap()
+    } else {
+        #[cfg(target_os = "windows")]
+        {
+            let path = format!("\\/IGNOREME{path}");
+            Url::from_file_path(path).unwrap()
+        }
+        #[cfg(not(target_os = "windows"))]
+        Url::from_file_path(path).unwrap()
+    };
+
+    // host must be set first, otherwise multiple components may return Err
+    hacked_url.set_host(parsed.host_str())?;
+    // scheme/port/username/password can fail, but in this instance, we know they won't
+    hacked_url.set_scheme(parsed.scheme()).unwrap();
+    hacked_url.set_port(parsed.port()).unwrap();
+    hacked_url.set_username(parsed.username()).unwrap();
+    hacked_url.set_password(parsed.password()).unwrap();
+    // query/fragment can't fail
+    hacked_url.set_query(parsed.query());
+    hacked_url.set_fragment(parsed.fragment());
+
+    log::trace!("exit: parse_url_with_raw_path -> {}", hacked_url);
+    Ok(hacked_url)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -544,31 +730,159 @@ mod tests {
     use crate::scan_manager::{FeroxScans, ScanOrder};
 
     #[test]
-    /// set_open_file_limit with a low requested limit succeeds
-    fn utils_set_open_file_limit_with_low_requested_limit() {
-        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        let lower_limit = hard - 1;
-        assert!(set_open_file_limit(lower_limit));
+    /// multiple tests for parse_url_with_raw_path
+    fn utils_parse_url_with_raw_path() {
+        // ../.. is preserved
+        let url = "https://www.google.com/../../stuff";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.as_str(), url);
+
+        // ../.. is preserved as well as the trailing slash
+        let url = "https://www.google.com/../../stuff/";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.as_str(), url);
+
+        // no trailing slash is preserved
+        let url = "https://www.google.com/stuff";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.as_str(), url);
+
+        // trailing slash is preserved
+        let url = "https://www.google.com/stuff/";
+        let parsed: Url = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.as_str(), url);
+
+        // mailto is an error
+        let url = "mailto:user@example.com";
+        let parsed = parse_url_with_raw_path(url);
+        assert!(parsed.is_err());
+
+        // relative url is an error
+        let url = "../../stuff";
+        let parsed = parse_url_with_raw_path(url);
+        assert!(parsed.is_err());
+
+        // absolute without host is an error
+        let url = "/../../stuff";
+        let parsed = parse_url_with_raw_path(url);
+        assert!(parsed.is_err());
+
+        // default ports are parsed correctly
+        for url in [
+            "http://example.com:80/path/file.html",
+            "https://example.com:443/path/file.html",
+        ] {
+            let parsed = parse_url_with_raw_path(url).unwrap();
+            assert!(parsed.port().is_none());
+            assert_eq!(parsed.host().unwrap().to_string().as_str(), "example.com");
+        }
+
+        // non-default ports are parsed correctly
+        for url in [
+            "http://example.com:8080/path/file.html",
+            "https://example.com:4433/path/file.html",
+        ] {
+            let parsed = parse_url_with_raw_path(url).unwrap();
+            assert!(parsed.port().is_some());
+            assert_eq!(parsed.as_str(), url);
+        }
+
+        // different encodings are respected if found in doubles
+        //
+        // note that the % sign is encoded as %25...
+        let url = "http://user:pass@example.com/%2e%2e/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%252e%252e/stuff.php"
+        );
+
+        let url = "http://user:pass@example.com/%25%32%65%25%32%65/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.username(), "user");
+        assert_eq!(parsed.password().unwrap(), "pass");
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%2525%2532%2565%2525%2532%2565/stuff.php"
+        );
+
+        let url = "http://user:pass@example.com/%c0%ae%c0%ae/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.username(), "user");
+        assert_eq!(parsed.password().unwrap(), "pass");
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%25c0%25ae%25c0%25ae/stuff.php"
+        );
+
+        let url = "http://user:pass@example.com/%e0%40%ae%e0%40%ae/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.username(), "user");
+        assert_eq!(parsed.password().unwrap(), "pass");
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%25e0%2540%25ae%25e0%2540%25ae/stuff.php"
+        );
+
+        let url = "http://user:pass@example.com/%c0ae%c0ae/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.username(), "user");
+        assert_eq!(parsed.password().unwrap(), "pass");
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%25c0ae%25c0ae/stuff.php"
+        );
+
+        let url = "http://user:pass@example.com/%uff0e%uff0e/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.username(), "user");
+        assert_eq!(parsed.password().unwrap(), "pass");
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%25uff0e%25uff0e/stuff.php"
+        );
+
+        let url = "http://user:pass@example.com/%u002e%u002e/stuff.php";
+        let parsed = parse_url_with_raw_path(url).unwrap();
+        assert_eq!(parsed.username(), "user");
+        assert_eq!(parsed.password().unwrap(), "pass");
+        assert_eq!(
+            parsed.as_str(),
+            "http://user:pass@example.com/%25u002e%25u002e/stuff.php"
+        );
     }
 
-    #[test]
-    /// set_open_file_limit with a high requested limit succeeds
-    fn utils_set_open_file_limit_with_high_requested_limit() {
-        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        let higher_limit = hard + 1;
-        // calculate a new soft to ensure soft != hard and hit that logic branch
-        let new_soft = hard - 1;
-        setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
-        assert!(set_open_file_limit(higher_limit));
-    }
+    #[cfg(not(target_os = "windows"))]
+    mod nix_only_tests {
+        use super::*;
 
-    #[test]
-    /// set_open_file_limit should fail when hard == soft
-    fn utils_set_open_file_limit_with_fails_when_both_limits_are_equal() {
-        let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
-        // calculate a new soft to ensure soft == hard and hit the failure logic branch
-        setrlimit(Resource::NOFILE, hard, hard).unwrap();
-        assert!(!set_open_file_limit(hard)); // returns false
+        #[test]
+        /// set_open_file_limit with a low requested limit succeeds
+        fn utils_set_open_file_limit_with_low_requested_limit() {
+            let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+            let lower_limit = hard - 1;
+            assert!(set_open_file_limit(lower_limit));
+        }
+
+        #[test]
+        /// set_open_file_limit with a high requested limit succeeds
+        fn utils_set_open_file_limit_with_high_requested_limit() {
+            let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+            let higher_limit = hard + 1;
+            // calculate a new soft to ensure soft != hard and hit that logic branch
+            let new_soft = hard - 1;
+            setrlimit(Resource::NOFILE, new_soft, hard).unwrap();
+            assert!(set_open_file_limit(higher_limit));
+        }
+
+        #[test]
+        /// set_open_file_limit should fail when hard == soft
+        fn utils_set_open_file_limit_with_fails_when_both_limits_are_equal() {
+            let (_, hard) = getrlimit(Resource::NOFILE).unwrap();
+            // calculate a new soft to ensure soft == hard and hit the failure logic branch
+            setrlimit(Resource::NOFILE, hard, hard).unwrap();
+            assert!(!set_open_file_limit(hard)); // returns false
+        }
     }
 
     #[test]
@@ -702,6 +1016,13 @@ mod tests {
     /// provide a denier from which we can't check a host, which results in no comparison, expect false
     /// because the denier is a parent to the tested, even tho the scanned doesn't compare, it
     /// still returns true
+    ///
+    /// note: adding parse_url_with_raw_path changed the behavior of this test, it used to return
+    /// true, now it returns false. see my note in should_deny_absolute and the unreachable!
+    /// call block to see why
+    ///
+    /// leaving this test here to document the behavior change and to catch regressions in the
+    /// new expected behavior
     fn should_deny_url_doesnt_compare_non_domains_in_scanned() {
         let deny_url = "https://testdomain.com/";
         let scan_url = "unix:/run/foo.socket";
@@ -715,8 +1036,7 @@ mod tests {
         let config = Arc::new(config);
 
         let handles = Arc::new(Handles::for_testing(Some(scans), Some(config)).0);
-
-        assert!(should_deny_url(&tested_url, handles).unwrap());
+        assert!(!should_deny_url(&tested_url, handles).unwrap());
     }
 
     #[test]

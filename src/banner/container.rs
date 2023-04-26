@@ -2,12 +2,11 @@ use super::entry::BannerEntry;
 use crate::{
     config::Configuration,
     event_handlers::Handles,
-    utils::{logged_request, status_colorizer},
+    utils::{logged_request, parse_url_with_raw_path, status_colorizer},
     DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES, VERSION,
 };
 use anyhow::{bail, Result};
 use console::{style, Emoji};
-use reqwest::Url;
 use serde_json::Value;
 use std::{io::Write, sync::Arc};
 
@@ -478,7 +477,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
     pub async fn check_for_updates(&mut self, url: &str, handles: Arc<Handles>) -> Result<()> {
         log::trace!("enter: needs_update({}, {:?})", url, handles);
 
-        let api_url = Url::parse(url)?;
+        let api_url = parse_url_with_raw_path(url)?;
 
         let result = logged_request(&api_url, DEFAULT_METHOD, None, handles.clone()).await?;
         let body = result.text().await?;

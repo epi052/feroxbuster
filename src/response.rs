@@ -21,7 +21,7 @@ use crate::{
     event_handlers::{Command, Handles},
     traits::FeroxSerialize,
     url::FeroxUrl,
-    utils::{self, fmt_err, status_colorizer},
+    utils::{self, fmt_err, parse_url_with_raw_path, status_colorizer},
     CommandSender,
 };
 
@@ -140,7 +140,7 @@ impl FeroxResponse {
 
     /// Set `FeroxResponse`'s `url` attribute, has no affect if an error occurs
     pub fn set_url(&mut self, url: &str) {
-        match Url::parse(url) {
+        match parse_url_with_raw_path(url) {
             Ok(url) => {
                 self.url = url;
             }
@@ -599,7 +599,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             match key.as_str() {
                 "url" => {
                     if let Some(url) = value.as_str() {
-                        if let Ok(parsed) = Url::parse(url) {
+                        if let Ok(parsed) = parse_url_with_raw_path(url) {
                             response.url = parsed;
                         }
                     }

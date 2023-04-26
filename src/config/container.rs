@@ -6,7 +6,10 @@ use super::utils::{
 use crate::config::determine_output_level;
 use crate::config::utils::determine_requester_policy;
 use crate::{
-    client, parser, scan_manager::resume_scan, traits::FeroxSerialize, utils::fmt_err,
+    client, parser,
+    scan_manager::resume_scan,
+    traits::FeroxSerialize,
+    utils::{fmt_err, parse_url_with_raw_path},
     DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
@@ -673,7 +676,7 @@ impl Configuration {
             for denier in arg {
                 // could be an absolute url or a regex, need to determine which and populate the
                 // appropriate vector
-                match Url::parse(denier.trim_end_matches('/')) {
+                match parse_url_with_raw_path(denier.trim_end_matches('/')) {
                     Ok(absolute) => {
                         // denier is an absolute url and can be parsed as such
                         config.url_denylist.push(absolute);

@@ -1,3 +1,4 @@
+use crate::utils::parse_url_with_raw_path;
 use crate::{event_handlers::Handles, statistics::StatError::UrlFormat, Command::AddError};
 use anyhow::{anyhow, bail, Result};
 use reqwest::Url;
@@ -142,19 +143,19 @@ impl FeroxUrl {
             word = word.trim_start_matches('/').to_string();
         };
 
-        let base_url = Url::parse(&url)?;
-        let joined = base_url.join(&word)?;
+        let base_url = parse_url_with_raw_path(&url)?;
+        let mut joined = base_url.join(&word)?;
 
-        if self.handles.config.queries.is_empty() {
-            // no query params to process
-            log::trace!("exit: format -> {}", joined);
-            Ok(joined)
-        } else {
-            let with_params =
-                Url::parse_with_params(joined.as_str(), &self.handles.config.queries)?;
-            log::trace!("exit: format_url -> {}", with_params);
-            Ok(with_params) // request with params attached
+        if !self.handles.config.queries.is_empty() {
+            // if called, this adds a '?' to the url, whether or not there are queries to be added
+            // so we need to check if there are queries to be added before blindly adding the '?'
+            joined
+                .query_pairs_mut()
+                .extend_pairs(self.handles.config.queries.iter());
         }
+
+        log::trace!("exit: format_url -> {}", joined);
+        Ok(joined)
     }
 
     /// Simple helper to abstract away adding a forward-slash to a url if not present
@@ -189,7 +190,7 @@ impl FeroxUrl {
 
         let target = self.normalize();
 
-        let parsed = Url::parse(&target)?;
+        let parsed = parse_url_with_raw_path(&target)?;
         let parts = parsed
             .path_segments()
             .ok_or_else(|| anyhow!("No path segments found"))?;
