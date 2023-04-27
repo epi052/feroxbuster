@@ -589,6 +589,16 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "lavafroth",
+      "name": "Himadri Bhattacharjee",
+      "avatar_url": "https://avatars.githubusercontent.com/u/107522312?v=4",
+      "profile": "http://lavafroth.is-a.dev",
+      "contributions": [
+        "code",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
