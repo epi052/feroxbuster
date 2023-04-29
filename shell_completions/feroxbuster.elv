@@ -56,7 +56,7 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --status-codes 'Status Codes to include (allow list) (default: All Status Codes)'
             cand -T 'Number of seconds before a client''s request times out (default: 7)'
             cand --timeout 'Number of seconds before a client''s request times out (default: 7)'
-            cand --cert 'Add a custom root certificate to connect to servers with a self-signed certificate'
+            cand --certificate 'Add a custom root certificate to connect to servers with a self-signed certificate'
             cand -t 'Number of concurrent threads (default: 50)'
             cand --threads 'Number of concurrent threads (default: 50)'
             cand -d 'Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)'

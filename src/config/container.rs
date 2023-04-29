@@ -104,6 +104,9 @@ pub struct Configuration {
     #[serde(default)]
     pub replay_proxy: String,
 
+    #[serde(default)]
+    pub certificate: String,
+
     /// The target URL
     #[serde(default)]
     pub target_url: String,
@@ -324,8 +327,16 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None)
-            .expect("Could not build client");
+        let client = client::initialize(
+            timeout,
+            &user_agent,
+            false,
+            false,
+            &HashMap::new(),
+            None,
+            None,
+        )
+        .expect("Could not build client");
         let replay_client = None;
         let status_codes = status_codes();
         let replay_codes = status_codes.clone();
@@ -369,6 +380,7 @@ impl Default for Configuration {
             force_recursion: false,
             update_app: false,
             proxy: String::new(),
+            certificate: String::new(),
             config: String::new(),
             output: String::new(),
             debug_log: String::new(),
@@ -832,6 +844,7 @@ impl Configuration {
         // organizational breakpoint; all options below alter the Client configuration
         ////
         update_config_if_present!(&mut config.proxy, args, "proxy", String);
+        update_config_if_present!(&mut config.certificate, args, "certificate", String);
         update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
         update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
         update_config_with_num_type_if_present!(&mut config.timeout, args, "timeout", u64);
@@ -916,32 +929,40 @@ impl Configuration {
             || configuration.insecure
             || !configuration.headers.is_empty()
             || configuration.resumed
+            || !configuration.certificate.is_empty()
         {
-            if configuration.proxy.is_empty() {
-                configuration.client = client::initialize(
-                    configuration.timeout,
-                    &configuration.user_agent,
-                    configuration.redirects,
-                    configuration.insecure,
-                    &configuration.headers,
-                    None,
-                )
-                .expect("Could not rebuild client")
+            let proxy = if configuration.proxy.is_empty() {
+                None
             } else {
-                configuration.client = client::initialize(
-                    configuration.timeout,
-                    &configuration.user_agent,
-                    configuration.redirects,
-                    configuration.insecure,
-                    &configuration.headers,
-                    Some(&configuration.proxy),
-                )
-                .expect("Could not rebuild client")
-            }
+                Some(configuration.proxy.as_str())
+            };
+            let certificate = if configuration.certificate.is_empty() {
+                None
+            } else {
+                Some(configuration.certificate.as_str())
+            };
+
+            configuration.client = client::initialize(
+                configuration.timeout,
+                &configuration.user_agent,
+                configuration.redirects,
+                configuration.insecure,
+                &configuration.headers,
+                proxy,
+                certificate,
+            )
+            .expect("Could not rebuild client");
         }
 
         if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
+
+            let certificate = if configuration.certificate.is_empty() {
+                None
+            } else {
+                Some(configuration.certificate.as_str())
+            };
+
             configuration.replay_client = Some(
                 client::initialize(
                     configuration.timeout,
@@ -950,6 +971,7 @@ impl Configuration {
                     configuration.insecure,
                     &configuration.headers,
                     Some(&configuration.replay_proxy),
+                    certificate,
                 )
                 .expect("Could not rebuild client"),
             );
@@ -984,6 +1006,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.target_url, new.target_url, "");
         update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
+        update_if_not_default!(&mut conf.certificate, new.certificate, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);

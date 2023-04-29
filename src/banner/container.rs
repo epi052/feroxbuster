@@ -58,6 +58,9 @@ pub struct Banner {
     /// represents Configuration.proxy
     proxy: BannerEntry,
 
+    /// represents Configuration.certificate
+    certificate: BannerEntry,
+
     /// represents Configuration.replay_proxy
     replay_proxy: BannerEntry,
 
@@ -322,6 +325,7 @@ impl Banner {
         let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
+        let certificate = BannerEntry::new("🏅", "Certificate", &config.certificate);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
         let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
@@ -401,6 +405,7 @@ impl Banner {
             auto_bail,
             auto_tune,
             proxy,
+            certificate,
             replay_codes,
             replay_proxy,
             headers,
@@ -553,6 +558,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.proxy.is_empty() {
             writeln!(&mut writer, "{}", self.proxy)?;
+        }
+
+        if !config.certificate.is_empty() {
+            writeln!(&mut writer, "{}", self.certificate)?;
         }
 
         if !config.replay_proxy.is_empty() {

@@ -392,9 +392,10 @@ pub fn initialize() -> Command {
                 .help("Disables TLS certificate validation in the client"),
         )
         .arg(
-            Arg::new("cert")
-                .long("cert")
+            Arg::new("certificate")
+                .long("certificate")
                 .value_name("PEM/DER")
+                .value_hint(ValueHint::FilePath)
                 .num_args(1)
                 .help_heading("Client settings")
                 .help(
