@@ -59,6 +59,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--status-codes', 'status-codes', [CompletionResultType]::ParameterName, 'Status Codes to include (allow list) (default: All Status Codes)')
             [CompletionResult]::new('-T', 'T', [CompletionResultType]::ParameterName, 'Number of seconds before a client''s request times out (default: 7)')
             [CompletionResult]::new('--timeout', 'timeout', [CompletionResultType]::ParameterName, 'Number of seconds before a client''s request times out (default: 7)')
+            [CompletionResult]::new('--cert', 'cert', [CompletionResultType]::ParameterName, 'Add a custom root certificate to connect to servers with a self-signed certificate')
             [CompletionResult]::new('-t', 't', [CompletionResultType]::ParameterName, 'Number of concurrent threads (default: 50)')
             [CompletionResult]::new('--threads', 'threads', [CompletionResultType]::ParameterName, 'Number of concurrent threads (default: 50)')
             [CompletionResult]::new('-d', 'd', [CompletionResultType]::ParameterName, 'Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)')

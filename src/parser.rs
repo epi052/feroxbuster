@@ -390,6 +390,16 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Client settings")
                 .help("Disables TLS certificate validation in the client"),
+        )
+        .arg(
+            Arg::new("cert")
+                .long("cert")
+                .value_name("PEM/DER")
+                .num_args(1)
+                .help_heading("Client settings")
+                .help(
+                    "Add a custom root certificate to connect to servers with a self-signed certificate",
+                ),
         );
 
     /////////////////////////////////////////////////////////////////////

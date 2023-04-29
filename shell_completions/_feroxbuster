@@ -53,6 +53,7 @@ _feroxbuster() {
 '*--status-codes=[Status Codes to include (allow list) (default: All Status Codes)]:STATUS_CODE: ' \
 '-T+[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
 '--timeout=[Number of seconds before a client'\''s request times out (default: 7)]:SECONDS: ' \
+'--cert=[Add a custom root certificate to connect to servers with a self-signed certificate]:PEM/DER: ' \
 '-t+[Number of concurrent threads (default: 50)]:THREADS: ' \
 '--threads=[Number of concurrent threads (default: 50)]:THREADS: ' \
 '-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default: 4)]:RECURSION_DEPTH: ' \
