@@ -104,6 +104,7 @@ pub struct Configuration {
     #[serde(default)]
     pub replay_proxy: String,
 
+    /// Path to a custom root certificate for connecting to servers with a self-signed certificate
     #[serde(default)]
     pub certificate: String,
 
