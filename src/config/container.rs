@@ -922,26 +922,31 @@ impl Configuration {
     /// either the config file or command line arguments; if we have, we need to rebuild
     /// the client and store it in the config struct
     fn try_rebuild_clients(configuration: &mut Configuration) {
-        if !configuration.proxy.is_empty()
+        // check if the proxy and certificate fields are empty
+        // and parse them into Some or None variants ahead of time
+        // so we may use the is_some method on them instead of
+        // multiple initializations
+        let proxy = if configuration.proxy.is_empty() {
+            None
+        } else {
+            Some(configuration.proxy.as_str())
+        };
+
+        let certificate = if configuration.certificate.is_empty() {
+            None
+        } else {
+            Some(configuration.certificate.as_str())
+        };
+
+        if proxy.is_some()
             || configuration.timeout != timeout()
             || configuration.user_agent != user_agent()
             || configuration.redirects
             || configuration.insecure
             || !configuration.headers.is_empty()
             || configuration.resumed
-            || !configuration.certificate.is_empty()
+            || certificate.is_some()
         {
-            let proxy = if configuration.proxy.is_empty() {
-                None
-            } else {
-                Some(configuration.proxy.as_str())
-            };
-            let certificate = if configuration.certificate.is_empty() {
-                None
-            } else {
-                Some(configuration.certificate.as_str())
-            };
-
             configuration.client = client::initialize(
                 configuration.timeout,
                 &configuration.user_agent,
@@ -956,13 +961,6 @@ impl Configuration {
 
         if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
-
-            let certificate = if configuration.certificate.is_empty() {
-                None
-            } else {
-                Some(configuration.certificate.as_str())
-            };
-
             configuration.replay_client = Some(
                 client::initialize(
                     configuration.timeout,
