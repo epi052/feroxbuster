@@ -38,6 +38,8 @@ pub fn initialize(
         if !some_proxy.is_empty() {
             // it's not an empty string; set the proxy
             let proxy_obj = Proxy::all(some_proxy)?;
+            // just add the proxy to the client
+            // don't build and return it just yet
             client = client.proxy(proxy_obj);
         }
     }
@@ -45,7 +47,15 @@ pub fn initialize(
     if let Some(cert_path) = certificate {
         let cert_path = Path::new(cert_path);
         let mut buf = Vec::new();
+
+        // if the root certificate path is not empty, open it
+        // and read it into a buffer
         File::open(cert_path)?.read_to_end(&mut buf)?;
+
+        // depending upon the extension of the file, create a
+        // certificate object from it using either the "pem" or "der" parser
+
+        // in either case, add the root certificate to the client
         if let Some(extension) = cert_path.extension() {
             match extension.to_str() {
                 Some("pem") => {
@@ -56,6 +66,8 @@ pub fn initialize(
                     let cert = reqwest::Certificate::from_der(&buf)?;
                     client = client.add_root_certificate(cert);
                 }
+
+                // if we cannot determine the extension, do nothing
                 _ => {}
             }
         }
