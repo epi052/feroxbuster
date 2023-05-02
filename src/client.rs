@@ -87,15 +87,12 @@ pub fn initialize(
 
         // in either case, add the root certificate to the client
         if let Some(extension) = cert_path.extension() {
-            match extension.to_str() {
-                Some("pem") => {
-                    let cert = reqwest::tls::Identity::from_pem(&buf)?;
-                    client = client.identity(cert);
-                }
-
-                // if we cannot determine the extension, do nothing
-                // or perhaps TODO: spew an error
-                _ => {}
+            if "pem" == extension.to_str().unwrap_or_default() {
+                let cert = reqwest::tls::Identity::from_pem(&buf)?;
+                client = client.identity(cert);
+            } else {
+                // if it is not a "pem" file or we cannot determine the extension
+                // TODO: spew an error
             }
         }
     }
