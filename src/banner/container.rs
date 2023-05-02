@@ -58,8 +58,11 @@ pub struct Banner {
     /// represents Configuration.proxy
     proxy: BannerEntry,
 
-    /// represents Configuration.certificate
-    certificate: BannerEntry,
+    /// represents Configuration.client_cert
+    client_cert: BannerEntry,
+
+    /// represents Configuration.server_cert
+    server_cert: BannerEntry,
 
     /// represents Configuration.replay_proxy
     replay_proxy: BannerEntry,
@@ -325,7 +328,8 @@ impl Banner {
         let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
-        let certificate = BannerEntry::new("🏅", "Certificate", &config.certificate);
+        let server_cert = BannerEntry::new("🏅", "Server Certificate", &config.server_cert);
+        let client_cert = BannerEntry::new("🏅", "Client Certificate", &config.client_cert);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
         let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
@@ -405,7 +409,8 @@ impl Banner {
             auto_bail,
             auto_tune,
             proxy,
-            certificate,
+            client_cert,
+            server_cert,
             replay_codes,
             replay_proxy,
             headers,
@@ -560,8 +565,12 @@ by Ben "epi" Risher {}                 ver: {}"#,
             writeln!(&mut writer, "{}", self.proxy)?;
         }
 
-        if !config.certificate.is_empty() {
-            writeln!(&mut writer, "{}", self.certificate)?;
+        if !config.client_cert.is_empty() {
+            writeln!(&mut writer, "{}", self.client_cert)?;
+        }
+
+        if !config.server_cert.is_empty() {
+            writeln!(&mut writer, "{}", self.server_cert)?;
         }
 
         if !config.replay_proxy.is_empty() {

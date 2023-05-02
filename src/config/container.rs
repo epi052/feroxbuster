@@ -106,7 +106,11 @@ pub struct Configuration {
 
     /// Path to a custom root certificate for connecting to servers with a self-signed certificate
     #[serde(default)]
-    pub certificate: String,
+    pub server_cert: String,
+
+    /// Path to a custom client SSL key for mutual authentication with a server
+    #[serde(default)]
+    pub client_cert: String,
 
     /// The target URL
     #[serde(default)]
@@ -336,6 +340,7 @@ impl Default for Configuration {
             &HashMap::new(),
             None,
             None,
+            None,
         )
         .expect("Could not build client");
         let replay_client = None;
@@ -381,7 +386,8 @@ impl Default for Configuration {
             force_recursion: false,
             update_app: false,
             proxy: String::new(),
-            certificate: String::new(),
+            server_cert: String::new(),
+            client_cert: String::new(),
             config: String::new(),
             output: String::new(),
             debug_log: String::new(),
@@ -845,7 +851,8 @@ impl Configuration {
         // organizational breakpoint; all options below alter the Client configuration
         ////
         update_config_if_present!(&mut config.proxy, args, "proxy", String);
-        update_config_if_present!(&mut config.certificate, args, "certificate", String);
+        update_config_if_present!(&mut config.server_cert, args, "server_cert", String);
+        update_config_if_present!(&mut config.client_cert, args, "client_cert", String);
         update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
         update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
         update_config_with_num_type_if_present!(&mut config.timeout, args, "timeout", u64);
@@ -933,10 +940,16 @@ impl Configuration {
             Some(configuration.proxy.as_str())
         };
 
-        let certificate = if configuration.certificate.is_empty() {
+        let server_cert = if configuration.server_cert.is_empty() {
             None
         } else {
-            Some(configuration.certificate.as_str())
+            Some(configuration.server_cert.as_str())
+        };
+
+        let client_cert = if configuration.client_cert.is_empty() {
+            None
+        } else {
+            Some(configuration.client_cert.as_str())
         };
 
         if proxy.is_some()
@@ -946,7 +959,8 @@ impl Configuration {
             || configuration.insecure
             || !configuration.headers.is_empty()
             || configuration.resumed
-            || certificate.is_some()
+            || server_cert.is_some()
+            || client_cert.is_some()
         {
             configuration.client = client::initialize(
                 configuration.timeout,
@@ -955,7 +969,8 @@ impl Configuration {
                 configuration.insecure,
                 &configuration.headers,
                 proxy,
-                certificate,
+                server_cert,
+                client_cert,
             )
             .expect("Could not rebuild client");
         }
@@ -970,7 +985,8 @@ impl Configuration {
                     configuration.insecure,
                     &configuration.headers,
                     Some(&configuration.replay_proxy),
-                    certificate,
+                    server_cert,
+                    client_cert,
                 )
                 .expect("Could not rebuild client"),
             );
@@ -1005,7 +1021,8 @@ impl Configuration {
         update_if_not_default!(&mut conf.target_url, new.target_url, "");
         update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
-        update_if_not_default!(&mut conf.certificate, new.certificate, "");
+        update_if_not_default!(&mut conf.server_cert, new.server_cert, "");
+        update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
