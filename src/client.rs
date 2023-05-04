@@ -3,12 +3,12 @@ use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
 /// Create and return an instance of [reqwest::Client](https://docs.rs/reqwest/latest/reqwest/struct.Client.html)
+/// For now, silence clippy for this one
+#[allow(clippy::too_many_arguments)]
 pub fn initialize(
     timeout: u64,
     user_agent: &str,
@@ -48,57 +48,51 @@ pub fn initialize(
 
     if let Some(cert_path) = server_cert {
         let cert_path = Path::new(cert_path);
-        let mut buf = Vec::new();
 
         // if the root certificate path is not empty, open it
         // and read it into a buffer
-        File::open(cert_path)?.read_to_end(&mut buf)?;
 
-        // depending upon the extension of the file, create a
-        // certificate object from it using either the "pem" or "der" parser
-
-        // in either case, add the root certificate to the client
-        if let Some(extension) = cert_path.extension() {
-            match extension.to_str() {
-                Some("pem") => {
-                    let cert = reqwest::Certificate::from_pem(&buf)?;
-                    client = client.add_root_certificate(cert);
-                }
-                Some("der") => {
-                    let cert = reqwest::Certificate::from_der(&buf)?;
-                    client = client.add_root_certificate(cert);
-                }
-
-                // if we cannot determine the extension, do nothing
-                _ => {}
-            }
-        }
-    }
-
-    if let Some(cert_path) = client_cert {
-        if let Some(key_path) = client_key {
-            let cert_path = Path::new(cert_path);
-
-            // if the root certificate path is not empty, open it
-            // and read it into a buffer
-
+        let buf = std::fs::read(cert_path)?;
+        let cert = match cert_path
+            .extension()
+            .map(|s| s.to_str().unwrap_or_default())
+        {
             // depending upon the extension of the file, create a
             // certificate object from it using either the "pem" or "der" parser
+            Some("pem") => reqwest::Certificate::from_pem(&buf)?,
+            Some("der") => reqwest::Certificate::from_der(&buf)?,
 
-            // in either case, add the root certificate to the client
-            if let Some(extension) = cert_path.extension() {
-                if "pem" == extension.to_str().unwrap_or_default() {
-                    let cert = reqwest::tls::Identity::from_pkcs8_pem(
-                        &std::fs::read(cert_path)?,
-                        &std::fs::read(key_path)?,
-                    )?;
-                    client = client.identity(cert);
-                } else {
-                    // if it is not a "pem" file or we cannot determine the extension
-                    // TODO: spew an error
-                }
+            // if we cannot determine the extension, do nothing
+            _ => {
+                log::warn!(
+                    "unable to determine extension: assuming PEM format for root certificate"
+                );
+                reqwest::Certificate::from_pem(&buf)?
             }
-        }
+        };
+
+        // in either case, add the root certificate to the client
+        client = client.add_root_certificate(cert);
+    }
+
+    if let (Some(cert_path), Some(key_path)) = (client_cert, client_key) {
+        let cert_path = Path::new(cert_path);
+
+        let cert = std::fs::read(cert_path)?;
+        let key = std::fs::read(key_path)?;
+
+        let identity = match cert_path
+            .extension()
+            .map(|s| s.to_str().unwrap_or_default())
+        {
+            Some("pem") => reqwest::Identity::from_pkcs8_pem(&cert, &key)?,
+            _ => {
+                log::warn!("unable to determine extension: assuming PEM format for client key and certificate");
+                reqwest::Identity::from_pkcs8_pem(&cert, &key)?
+            }
+        };
+
+        client = client.identity(identity);
     }
 
     Ok(client.build()?)
