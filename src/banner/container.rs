@@ -58,6 +58,9 @@ pub struct Banner {
     /// represents Configuration.proxy
     proxy: BannerEntry,
 
+    /// represents Configuration.client_key
+    client_key: BannerEntry,
+
     /// represents Configuration.client_cert
     client_cert: BannerEntry,
 
@@ -330,6 +333,7 @@ impl Banner {
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
         let server_cert = BannerEntry::new("🏅", "Server Certificate", &config.server_cert);
         let client_cert = BannerEntry::new("🏅", "Client Certificate", &config.client_cert);
+        let client_key = BannerEntry::new("🔑", "Client Key", &config.client_key);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
         let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
@@ -410,6 +414,7 @@ impl Banner {
             auto_tune,
             proxy,
             client_cert,
+            client_key,
             server_cert,
             replay_codes,
             replay_proxy,
@@ -567,6 +572,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.client_cert.is_empty() {
             writeln!(&mut writer, "{}", self.client_cert)?;
+        }
+
+        if !config.client_key.is_empty() {
+            writeln!(&mut writer, "{}", self.client_key)?;
         }
 
         if !config.server_cert.is_empty() {

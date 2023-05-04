@@ -409,6 +409,16 @@ pub fn initialize() -> Command {
                 .num_args(1)
                 .help_heading("Client settings")
                 .help(
+                    "Use a custom client SSL certificate for mutual authentication",
+                ),
+        ).arg(
+            Arg::new("client_key")
+                .long("client-key")
+                .value_name("PEM")
+                .value_hint(ValueHint::FilePath)
+                .num_args(1)
+                .help_heading("Client settings")
+                .help(
                     "Use a custom client SSL key file for mutual authentication",
                 ),
         );

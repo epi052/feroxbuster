@@ -653,6 +653,12 @@ impl<'a> Extractor<'a> {
                 Some(self.handles.config.client_cert.as_str())
             };
 
+            let client_key = if self.handles.config.client_key.is_empty() {
+                None
+            } else {
+                Some(self.handles.config.client_key.as_str())
+            };
+
             client = client::initialize(
                 self.handles.config.timeout,
                 &self.handles.config.user_agent,
@@ -662,6 +668,7 @@ impl<'a> Extractor<'a> {
                 proxy,
                 server_cert,
                 client_cert,
+                client_key,
             )?;
         }
 

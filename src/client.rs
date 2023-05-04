@@ -18,6 +18,7 @@ pub fn initialize(
     proxy: Option<&str>,
     server_cert: Option<&str>,
     client_cert: Option<&str>,
+    client_key: Option<&str>,
 ) -> Result<Client> {
     let policy = if redirects {
         Policy::limited(10)
@@ -75,24 +76,27 @@ pub fn initialize(
     }
 
     if let Some(cert_path) = client_cert {
-        let cert_path = Path::new(cert_path);
-        let mut buf = Vec::new();
+        if let Some(key_path) = client_key {
+            let cert_path = Path::new(cert_path);
 
-        // if the root certificate path is not empty, open it
-        // and read it into a buffer
-        File::open(cert_path)?.read_to_end(&mut buf)?;
+            // if the root certificate path is not empty, open it
+            // and read it into a buffer
 
-        // depending upon the extension of the file, create a
-        // certificate object from it using either the "pem" or "der" parser
+            // depending upon the extension of the file, create a
+            // certificate object from it using either the "pem" or "der" parser
 
-        // in either case, add the root certificate to the client
-        if let Some(extension) = cert_path.extension() {
-            if "pem" == extension.to_str().unwrap_or_default() {
-                let cert = reqwest::tls::Identity::from_pem(&buf)?;
-                client = client.identity(cert);
-            } else {
-                // if it is not a "pem" file or we cannot determine the extension
-                // TODO: spew an error
+            // in either case, add the root certificate to the client
+            if let Some(extension) = cert_path.extension() {
+                if "pem" == extension.to_str().unwrap_or_default() {
+                    let cert = reqwest::tls::Identity::from_pkcs8_pem(
+                        &std::fs::read(cert_path)?,
+                        &std::fs::read(key_path)?,
+                    )?;
+                    client = client.identity(cert);
+                } else {
+                    // if it is not a "pem" file or we cannot determine the extension
+                    // TODO: spew an error
+                }
             }
         }
     }
@@ -118,6 +122,7 @@ mod tests {
             Some("not a valid proxy"),
             None,
             None,
+            None,
         )
         .unwrap();
     }
@@ -127,6 +132,17 @@ mod tests {
     fn client_with_good_proxy() {
         let headers = HashMap::new();
         let proxy = "http://127.0.0.1:8080";
-        initialize(0, "stuff", true, true, &headers, Some(proxy), None, None).unwrap();
+        initialize(
+            0,
+            "stuff",
+            true,
+            true,
+            &headers,
+            Some(proxy),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
     }
 }

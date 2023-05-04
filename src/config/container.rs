@@ -108,9 +108,13 @@ pub struct Configuration {
     #[serde(default)]
     pub server_cert: String,
 
-    /// Path to a custom client SSL key for mutual authentication with a server
+    /// Path to a custom client SSL certificate mutual authentication with a server
     #[serde(default)]
     pub client_cert: String,
+
+    /// Path to a custom client SSL key for mutual authentication with a server
+    #[serde(default)]
+    pub client_key: String,
 
     /// The target URL
     #[serde(default)]
@@ -341,6 +345,7 @@ impl Default for Configuration {
             None,
             None,
             None,
+            None,
         )
         .expect("Could not build client");
         let replay_client = None;
@@ -388,6 +393,7 @@ impl Default for Configuration {
             proxy: String::new(),
             server_cert: String::new(),
             client_cert: String::new(),
+            client_key: String::new(),
             config: String::new(),
             output: String::new(),
             debug_log: String::new(),
@@ -952,6 +958,12 @@ impl Configuration {
             Some(configuration.client_cert.as_str())
         };
 
+        let client_key = if configuration.client_key.is_empty() {
+            None
+        } else {
+            Some(configuration.client_key.as_str())
+        };
+
         if proxy.is_some()
             || configuration.timeout != timeout()
             || configuration.user_agent != user_agent()
@@ -961,6 +973,7 @@ impl Configuration {
             || configuration.resumed
             || server_cert.is_some()
             || client_cert.is_some()
+            || client_key.is_some()
         {
             configuration.client = client::initialize(
                 configuration.timeout,
@@ -971,6 +984,7 @@ impl Configuration {
                 proxy,
                 server_cert,
                 client_cert,
+                client_key,
             )
             .expect("Could not rebuild client");
         }
@@ -987,6 +1001,7 @@ impl Configuration {
                     Some(&configuration.replay_proxy),
                     server_cert,
                     client_cert,
+                    client_key,
                 )
                 .expect("Could not rebuild client"),
             );

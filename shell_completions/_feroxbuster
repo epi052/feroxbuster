@@ -54,7 +54,8 @@ _feroxbuster() {
 '-T+[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS: ' \
 '--timeout=[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS: ' \
 '--server-cert=[Add a custom root certificate to connect to servers with a self-signed certificate]:PEM/DER:_files' \
-'--client-cert=[Use a custom client SSL key file for mutual authentication]:PEM:_files' \
+'--client-cert=[Use a custom client SSL certificate for mutual authentication]:PEM:_files' \
+'--client-key=[Use a custom client SSL key file for mutual authentication]:PEM:_files' \
 '-t+[Number of concurrent threads (default\: 50)]:THREADS: ' \
 '--threads=[Number of concurrent threads (default\: 50)]:THREADS: ' \
 '-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH: ' \
