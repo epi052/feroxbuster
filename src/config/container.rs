@@ -108,11 +108,11 @@ pub struct Configuration {
     #[serde(default)]
     pub server_cert: String,
 
-    /// Path to a custom client SSL certificate mutual authentication with a server
+    /// Path to a client's PEM encoded X509 certificate(s) used during mutual authentication
     #[serde(default)]
     pub client_cert: String,
 
-    /// Path to a custom client SSL key for mutual authentication with a server
+    /// Path to a client's PEM encoded PKSC #8 private key used during mutual authentication
     #[serde(default)]
     pub client_key: String,
 
@@ -859,6 +859,7 @@ impl Configuration {
         update_config_if_present!(&mut config.proxy, args, "proxy", String);
         update_config_if_present!(&mut config.server_cert, args, "server_cert", String);
         update_config_if_present!(&mut config.client_cert, args, "client_cert", String);
+        update_config_if_present!(&mut config.client_key, args, "client_key", String);
         update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
         update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
         update_config_with_num_type_if_present!(&mut config.timeout, args, "timeout", u64);
@@ -1038,6 +1039,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
         update_if_not_default!(&mut conf.server_cert, new.server_cert, "");
         update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
+        update_if_not_default!(&mut conf.client_key, new.client_key, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
