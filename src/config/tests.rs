@@ -56,6 +56,9 @@ fn setup_config_test() -> Configuration {
             filter_word_count = [994, 992]
             filter_line_count = [34]
             filter_status = [201]
+            server_certs = ["/some/cert.pem", "/some/other/cert.pem"]
+            client_cert = "/some/client/cert.pem"
+            client_key = "/some/client/key.pem"
         "#;
     let tmp_dir = TempDir::new().unwrap();
     let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -117,6 +120,9 @@ fn default_configuration() {
     assert_eq!(config.filter_line_count, Vec::<usize>::new());
     assert_eq!(config.filter_status, Vec::<u16>::new());
     assert_eq!(config.headers, HashMap::new());
+    assert_eq!(config.server_certs, Vec::<String>::new());
+    assert_eq!(config.client_cert, String::new());
+    assert_eq!(config.client_key, String::new());
 }
 
 #[test]
@@ -441,6 +447,30 @@ fn config_reads_time_limit() {
 fn config_reads_resume_from() {
     let config = setup_config_test();
     assert_eq!(config.resume_from, "/some/state/file");
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_server_certs() {
+    let config = setup_config_test();
+    assert_eq!(
+        config.server_certs,
+        ["/some/cert.pem", "/some/other/cert.pem"]
+    );
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_client_cert() {
+    let config = setup_config_test();
+    assert_eq!(config.client_cert, "/some/client/cert.pem");
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_client_key() {
+    let config = setup_config_test();
+    assert_eq!(config.client_key, "/some/client/key.pem");
 }
 
 #[test]

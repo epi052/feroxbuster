@@ -113,7 +113,7 @@ mod tests {
     /// create client with a bad proxy, expect panic
     fn client_with_bad_proxy() {
         let headers = HashMap::new();
-        initialize(
+        initialize::<Vec<String>>(
             0,
             "stuff",
             true,
@@ -132,7 +132,7 @@ mod tests {
     fn client_with_good_proxy() {
         let headers = HashMap::new();
         let proxy = "http://127.0.0.1:8080";
-        initialize(
+        initialize::<Vec<String>>(
             0,
             "stuff",
             true,
