@@ -54,6 +54,9 @@
 # queries = [["name","value"], ["rick", "astley"]]
 # save_state = false
 # time_limit = "10m"
+# server_certs = ["/some/cert.pem", "/some/other/cert.pem"]
+# client_cert = "/some/client/cert.pem"
+# client_key = "/some/client/key.pem"
 
 # headers can be specified on multiple lines or as an inline table
 #
