@@ -106,9 +106,9 @@ pub struct Configuration {
 
     /// Path to a custom root certificate for connecting to servers with a self-signed certificate
     #[serde(default)]
-    pub server_cert: String,
+    pub server_certs: Vec<String>,
 
-    /// Path to a client's PEM encoded X509 certificate(s) used during mutual authentication
+    /// Path to a client's PEM encoded X509 certificate used during mutual authentication
     #[serde(default)]
     pub client_cert: String,
 
@@ -336,7 +336,7 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize(
+        let client = client::initialize::<Vec<String>>(
             timeout,
             &user_agent,
             false,
@@ -391,7 +391,6 @@ impl Default for Configuration {
             force_recursion: false,
             update_app: false,
             proxy: String::new(),
-            server_cert: String::new(),
             client_cert: String::new(),
             client_key: String::new(),
             config: String::new(),
@@ -401,6 +400,7 @@ impl Default for Configuration {
             time_limit: String::new(),
             resume_from: String::new(),
             replay_proxy: String::new(),
+            server_certs: Vec::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
             methods: methods(),
@@ -857,7 +857,6 @@ impl Configuration {
         // organizational breakpoint; all options below alter the Client configuration
         ////
         update_config_if_present!(&mut config.proxy, args, "proxy", String);
-        update_config_if_present!(&mut config.server_cert, args, "server_cert", String);
         update_config_if_present!(&mut config.client_cert, args, "client_cert", String);
         update_config_if_present!(&mut config.client_key, args, "client_key", String);
         update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
@@ -930,6 +929,12 @@ impl Configuration {
             }
         }
 
+        if let Some(certs) = args.get_many::<String>("server_certs") {
+            for val in certs {
+                config.server_certs.push(val.to_string());
+            }
+        }
+
         config
     }
 
@@ -947,10 +952,10 @@ impl Configuration {
             Some(configuration.proxy.as_str())
         };
 
-        let server_cert = if configuration.server_cert.is_empty() {
+        let server_certs = if configuration.server_certs.is_empty() {
             None
         } else {
-            Some(configuration.server_cert.as_str())
+            Some(&configuration.server_certs)
         };
 
         let client_cert = if configuration.client_cert.is_empty() {
@@ -972,7 +977,7 @@ impl Configuration {
             || configuration.insecure
             || !configuration.headers.is_empty()
             || configuration.resumed
-            || server_cert.is_some()
+            || server_certs.is_some()
             || client_cert.is_some()
             || client_key.is_some()
         {
@@ -983,7 +988,7 @@ impl Configuration {
                 configuration.insecure,
                 &configuration.headers,
                 proxy,
-                server_cert,
+                server_certs,
                 client_cert,
                 client_key,
             )
@@ -1000,7 +1005,7 @@ impl Configuration {
                     configuration.insecure,
                     &configuration.headers,
                     Some(&configuration.replay_proxy),
-                    server_cert,
+                    server_certs,
                     client_cert,
                     client_key,
                 )
@@ -1037,7 +1042,11 @@ impl Configuration {
         update_if_not_default!(&mut conf.target_url, new.target_url, "");
         update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
-        update_if_not_default!(&mut conf.server_cert, new.server_cert, "");
+        update_if_not_default!(
+            &mut conf.server_certs,
+            new.server_certs,
+            Vec::<String>::new()
+        );
         update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
         update_if_not_default!(&mut conf.client_key, new.client_key, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);

@@ -53,9 +53,9 @@ _feroxbuster() {
 '*--status-codes=[Status Codes to include (allow list) (default\: All Status Codes)]:STATUS_CODE: ' \
 '-T+[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS: ' \
 '--timeout=[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS: ' \
-'--server-cert=[Add a custom root certificate to connect to servers with a self-signed certificate]:PEM/DER:_files' \
-'--client-cert=[Use a custom client SSL certificate for mutual authentication]:PEM:_files' \
-'--client-key=[Use a custom client SSL key file for mutual authentication]:PEM:_files' \
+'--server-certs=[Add custom root certificate(s) for servers with unknown certificates]:PEM|DER:_files' \
+'--client-cert=[Add a PEM encoded certificate for mutual authentication (mTLS)]:PEM:_files' \
+'--client-key=[Add a PEM encoded private key for mutual authentication (mTLS)]:PEM:_files' \
 '-t+[Number of concurrent threads (default\: 50)]:THREADS: ' \
 '--threads=[Number of concurrent threads (default\: 50)]:THREADS: ' \
 '-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH: ' \

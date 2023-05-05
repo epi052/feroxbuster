@@ -641,10 +641,10 @@ impl<'a> Extractor<'a> {
                 Some(self.handles.config.proxy.as_str())
             };
 
-            let server_cert = if self.handles.config.server_cert.is_empty() {
+            let server_certs = if self.handles.config.server_certs.is_empty() {
                 None
             } else {
-                Some(self.handles.config.server_cert.as_str())
+                Some(&self.handles.config.server_certs)
             };
 
             let client_cert = if self.handles.config.client_cert.is_empty() {
@@ -666,7 +666,7 @@ impl<'a> Extractor<'a> {
                 self.handles.config.insecure,
                 &self.handles.config.headers,
                 proxy,
-                server_cert,
+                server_certs,
                 client_cert,
                 client_key,
             )?;
