@@ -16,7 +16,7 @@ pub fn initialize<I>(
     insecure: bool,
     headers: &HashMap<String, String>,
     proxy: Option<&str>,
-    server_certs: Option<I>,
+    server_certs: I,
     client_cert: Option<&str>,
     client_key: Option<&str>,
 ) -> Result<Client>
@@ -50,35 +50,33 @@ where
         }
     }
 
-    if let Some(cert_paths) = server_certs {
-        for cert_path in cert_paths {
-            let cert_path = Path::new(&cert_path);
+    for cert_path in server_certs {
+        let cert_path = Path::new(&cert_path);
 
-            // if the root certificate path is not empty, open it
-            // and read it into a buffer
+        // if the root certificate path is not empty, open it
+        // and read it into a buffer
 
-            let buf = std::fs::read(cert_path)?;
-            let cert = match cert_path
-                .extension()
-                .map(|s| s.to_str().unwrap_or_default())
-            {
-                // depending upon the extension of the file, create a
-                // certificate object from it using either the "pem" or "der" parser
-                Some("pem") => reqwest::Certificate::from_pem(&buf)?,
-                Some("der") => reqwest::Certificate::from_der(&buf)?,
+        let buf = std::fs::read(cert_path)?;
+        let cert = match cert_path
+            .extension()
+            .map(|s| s.to_str().unwrap_or_default())
+        {
+            // depending upon the extension of the file, create a
+            // certificate object from it using either the "pem" or "der" parser
+            Some("pem") => reqwest::Certificate::from_pem(&buf)?,
+            Some("der") => reqwest::Certificate::from_der(&buf)?,
 
-                // if we cannot determine the extension, do nothing
-                _ => {
-                    log::warn!(
-                        "unable to determine extension: assuming PEM format for root certificate"
-                    );
-                    reqwest::Certificate::from_pem(&buf)?
-                }
-            };
+            // if we cannot determine the extension, do nothing
+            _ => {
+                log::warn!(
+                    "unable to determine extension: assuming PEM format for root certificate"
+                );
+                reqwest::Certificate::from_pem(&buf)?
+            }
+        };
 
-            // in either case, add the root certificate to the client
-            client = client.add_root_certificate(cert);
-        }
+        // in either case, add the root certificate to the client
+        client = client.add_root_certificate(cert);
     }
 
     if let (Some(cert_path), Some(key_path)) = (client_cert, client_key) {
@@ -113,14 +111,14 @@ mod tests {
     /// create client with a bad proxy, expect panic
     fn client_with_bad_proxy() {
         let headers = HashMap::new();
-        initialize::<Vec<String>>(
+        initialize(
             0,
             "stuff",
             true,
             false,
             &headers,
             Some("not a valid proxy"),
-            None,
+            Vec::<String>::new(),
             None,
             None,
         )
@@ -139,7 +137,7 @@ mod tests {
             true,
             &headers,
             Some(proxy),
-            None,
+            Vec::<String>::new(),
             None,
             None,
         )

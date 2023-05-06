@@ -336,14 +336,14 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize::<Vec<String>>(
+        let client = client::initialize(
             timeout,
             &user_agent,
             false,
             false,
             &HashMap::new(),
             None,
-            None,
+            Vec::<String>::new(),
             None,
             None,
         )
@@ -952,11 +952,7 @@ impl Configuration {
             Some(configuration.proxy.as_str())
         };
 
-        let server_certs = if configuration.server_certs.is_empty() {
-            None
-        } else {
-            Some(&configuration.server_certs)
-        };
+        let server_certs = &configuration.server_certs;
 
         let client_cert = if configuration.client_cert.is_empty() {
             None
@@ -977,7 +973,7 @@ impl Configuration {
             || configuration.insecure
             || !configuration.headers.is_empty()
             || configuration.resumed
-            || server_certs.is_some()
+            || !server_certs.is_empty()
             || client_cert.is_some()
             || client_key.is_some()
         {
