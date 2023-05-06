@@ -663,6 +663,70 @@ fn banner_prints_recursion_depth() {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + server certs
+fn banner_prints_server_certs() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--server-certs")
+        .arg("tests/server-test-cert-1.pem")
+        .arg("tests/server-test-cert-2.pem")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Server Certificates"))
+                .and(predicate::str::contains("server-test-cert-1.pem"))
+                .and(predicate::str::contains("server-test-cert-2.pem"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + server certs
+fn banner_prints_client_cert_and_key() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--client-cert")
+        .arg("tests/client-test-cert.pem")
+        .arg("--client-key")
+        .arg("tests/client-test-key.pem")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Client Certificate"))
+                .and(predicate::str::contains("Client Key"))
+                .and(predicate::str::contains("client-test-cert.pem"))
+                .and(predicate::str::contains("client-test-key.pem"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + no recursion
 fn banner_prints_no_recursion() {
     Command::cargo_bin("feroxbuster")
@@ -1366,6 +1430,7 @@ fn banner_prints_all_composite_settings_burp() {
                 .and(predicate::str::contains("─┴─")),
         );
 }
+
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
