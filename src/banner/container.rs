@@ -331,7 +331,11 @@ impl Banner {
         let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
-        let server_certs = BannerEntry::new("🏅", "Server Certificates", &format!("[{}]", config.server_certs.join(", ")));
+        let server_certs = BannerEntry::new(
+            "🏅",
+            "Server Certificates",
+            &format!("[{}]", config.server_certs.join(", ")),
+        );
         let client_cert = BannerEntry::new("🏅", "Client Certificate", &config.client_cert);
         let client_key = BannerEntry::new("🔑", "Client Key", &config.client_key);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
