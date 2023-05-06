@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use reqwest::header::HeaderMap;
 use reqwest::{redirect::Policy, Client, Proxy};
 use std::collections::HashMap;
@@ -22,7 +22,7 @@ pub fn initialize<I>(
 ) -> Result<Client>
 where
     I: IntoIterator,
-    I::Item: AsRef<std::ffi::OsStr>,
+    I::Item: AsRef<Path> + std::fmt::Debug,
 {
     let policy = if redirects {
         Policy::limited(10)
@@ -51,50 +51,31 @@ where
     }
 
     for cert_path in server_certs {
-        let cert_path = Path::new(&cert_path);
+        let buf = std::fs::read(&cert_path)?;
 
-        // if the root certificate path is not empty, open it
-        // and read it into a buffer
-
-        let buf = std::fs::read(cert_path)?;
-        let cert = match cert_path
-            .extension()
-            .map(|s| s.to_str().unwrap_or_default())
-        {
-            // depending upon the extension of the file, create a
-            // certificate object from it using either the "pem" or "der" parser
-            Some("pem") => reqwest::Certificate::from_pem(&buf)?,
-            Some("der") => reqwest::Certificate::from_der(&buf)?,
-
-            // if we cannot determine the extension, do nothing
-            _ => {
-                log::warn!(
-                    "unable to determine extension: assuming PEM format for root certificate"
-                );
-                reqwest::Certificate::from_pem(&buf)?
-            }
+        let cert = match reqwest::Certificate::from_pem(&buf) {
+            Ok(cert) => cert,
+            Err(err) => reqwest::Certificate::from_der(&buf).with_context(|| {
+                format!(
+                    "{:?} does not contain a valid PEM or DER certificate\n{}",
+                    &cert_path, err
+                )
+            })?,
         };
 
-        // in either case, add the root certificate to the client
         client = client.add_root_certificate(cert);
     }
 
     if let (Some(cert_path), Some(key_path)) = (client_cert, client_key) {
-        let cert_path = Path::new(cert_path);
-
         let cert = std::fs::read(cert_path)?;
         let key = std::fs::read(key_path)?;
 
-        let identity = match cert_path
-            .extension()
-            .map(|s| s.to_str().unwrap_or_default())
-        {
-            Some("pem") => reqwest::Identity::from_pkcs8_pem(&cert, &key)?,
-            _ => {
-                log::warn!("unable to determine extension: assuming PEM format for client key and certificate");
-                reqwest::Identity::from_pkcs8_pem(&cert, &key)?
-            }
-        };
+        let identity = reqwest::Identity::from_pkcs8_pem(&cert, &key).with_context(|| {
+            format!(
+                "either {} or {} are invalid; expecting PEM encoded certificate and key",
+                cert_path, key_path
+            )
+        })?;
 
         client = client.identity(identity);
     }
@@ -130,7 +111,7 @@ mod tests {
     fn client_with_good_proxy() {
         let headers = HashMap::new();
         let proxy = "http://127.0.0.1:8080";
-        initialize::<Vec<String>>(
+        initialize(
             0,
             "stuff",
             true,
@@ -138,6 +119,88 @@ mod tests {
             &headers,
             Some(proxy),
             Vec::<String>::new(),
+            None,
+            None,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    /// create client with a server cert in pem format, expect no error
+    fn client_with_valid_server_pem() {
+        let headers = HashMap::new();
+
+        initialize(
+            0,
+            "stuff",
+            true,
+            true,
+            &headers,
+            None,
+            vec!["tests/server-test-cert-1.pem".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    /// create client with a server cert in der format, expect no error
+    fn client_with_valid_server_der() {
+        let headers = HashMap::new();
+
+        initialize(
+            0,
+            "stuff",
+            true,
+            true,
+            &headers,
+            None,
+            vec!["tests/server-test-cert.der".to_string()],
+            None,
+            None,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    /// create client with two server certs (pem and der), expect no error
+    fn client_with_valid_server_pem_and_der() {
+        let headers = HashMap::new();
+
+        println!("{}", std::env::current_dir().unwrap().display());
+
+        initialize(
+            0,
+            "stuff",
+            true,
+            true,
+            &headers,
+            None,
+            vec![
+                "tests/server-test-cert-1.pem".to_string(),
+                "tests/server-test-cert.der".to_string(),
+            ],
+            None,
+            None,
+        )
+        .unwrap();
+    }
+
+    /// create client with invalid certificate, expect panic
+    #[test]
+    #[should_panic]
+    fn client_with_invalid_server_cert() {
+        let headers = HashMap::new();
+
+        initialize(
+            0,
+            "stuff",
+            true,
+            true,
+            &headers,
+            None,
+            vec!["tests/client-test-key.pem".to_string()],
             None,
             None,
         )
