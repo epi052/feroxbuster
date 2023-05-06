@@ -670,8 +670,8 @@ fn banner_prints_server_certs() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--server-certs")
-        .arg("tests/server-test-cert-1.pem")
-        .arg("tests/server-test-cert-2.pem")
+        .arg("tests/mutual-auth/certs/server/server.crt.1")
+        .arg("tests/mutual-auth/certs/server/server.crt.2")
         .arg("--wordlist")
         .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
@@ -686,8 +686,8 @@ fn banner_prints_server_certs() {
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Server Certificates"))
-                .and(predicate::str::contains("server-test-cert-1.pem"))
-                .and(predicate::str::contains("server-test-cert-2.pem"))
+                .and(predicate::str::contains("server.crt.1"))
+                .and(predicate::str::contains("server.crt.2"))
                 .and(predicate::str::contains("─┴─")),
         );
 }
@@ -701,9 +701,9 @@ fn banner_prints_client_cert_and_key() {
         .arg("--url")
         .arg("http://localhost")
         .arg("--client-cert")
-        .arg("tests/client-test-cert.pem")
+        .arg("tests/mutual-auth/certs/client/client.crt")
         .arg("--client-key")
-        .arg("tests/client-test-key.pem")
+        .arg("tests/mutual-auth/certs/client/client.key")
         .arg("--wordlist")
         .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .assert()
@@ -719,8 +719,8 @@ fn banner_prints_client_cert_and_key() {
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Client Certificate"))
                 .and(predicate::str::contains("Client Key"))
-                .and(predicate::str::contains("client-test-cert.pem"))
-                .and(predicate::str::contains("client-test-key.pem"))
+                .and(predicate::str::contains("certs/client/client.crt"))
+                .and(predicate::str::contains("certs/client/client.key"))
                 .and(predicate::str::contains("─┴─")),
         );
 }

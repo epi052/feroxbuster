@@ -137,7 +137,7 @@ mod tests {
             true,
             &headers,
             None,
-            vec!["tests/server-test-cert-1.pem".to_string()],
+            vec!["tests/mutual-auth/certs/server/server.crt.1".to_string()],
             None,
             None,
         )
@@ -156,7 +156,7 @@ mod tests {
             true,
             &headers,
             None,
-            vec!["tests/server-test-cert.der".to_string()],
+            vec!["tests/mutual-auth/certs/server/server.der".to_string()],
             None,
             None,
         )
@@ -178,8 +178,8 @@ mod tests {
             &headers,
             None,
             vec![
-                "tests/server-test-cert-1.pem".to_string(),
-                "tests/server-test-cert.der".to_string(),
+                "tests/mutual-auth/certs/server/server.crt.1".to_string(),
+                "tests/mutual-auth/certs/server/server.der".to_string(),
             ],
             None,
             None,
@@ -200,7 +200,7 @@ mod tests {
             true,
             &headers,
             None,
-            vec!["tests/client-test-key.pem".to_string()],
+            vec!["tests/mutual-auth/certs/client/client.key".to_string()],
             None,
             None,
         )

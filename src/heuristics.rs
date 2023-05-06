@@ -120,13 +120,13 @@ impl HeuristicTests {
                     ) {
                         if e.to_string().contains(":SSL") {
                             ferox_print(
-                                &format!("Could not connect to {target_url} due to SSL errors (run with -k to ignore), skipping...\n  => {}", e.root_cause()),
+                                &format!("Could not connect to {target_url} due to SSL errors (run with -k to ignore), skipping...\n  => {}\n", e.root_cause()),
                                 &PROGRESS_PRINTER,
                             );
                         } else {
                             ferox_print(
                                 &format!(
-                                    "Could not connect to {target_url}, skipping...\n  => {}",
+                                    "Could not connect to {target_url}, skipping...\n  => {}\n",
                                     e.root_cause()
                                 ),
                                 &PROGRESS_PRINTER,
