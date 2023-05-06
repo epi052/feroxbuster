@@ -64,7 +64,7 @@ pub struct Banner {
     /// represents Configuration.client_cert
     client_cert: BannerEntry,
 
-    /// represents Configuration.server_cert
+    /// represents Configuration.server_certs
     server_certs: BannerEntry,
 
     /// represents Configuration.replay_proxy
