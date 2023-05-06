@@ -11,7 +11,7 @@ rm ferox-*.state
 # dependency management
 [tasks.upgrade-deps]
 command = "cargo"
-args = ["upgrade"]
+args = ["upgrade", "--to-lockfile"]
 
 [tasks.update]
 command = "cargo"
