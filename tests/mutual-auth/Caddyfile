@@ -1,0 +1,17 @@
+(mTLS) {
+	tls {
+		client_auth {
+			mode require_and_verify
+			trusted_ca_cert_file certs/server/ca.crt
+		}
+	}
+}
+
+https://localhost:8001 {
+	import mTLS
+	log
+
+	handle / {
+		file_server browse
+	}
+}

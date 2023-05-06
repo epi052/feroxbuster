@@ -58,6 +58,15 @@ pub struct Banner {
     /// represents Configuration.proxy
     proxy: BannerEntry,
 
+    /// represents Configuration.client_key
+    client_key: BannerEntry,
+
+    /// represents Configuration.client_cert
+    client_cert: BannerEntry,
+
+    /// represents Configuration.server_certs
+    server_certs: BannerEntry,
+
     /// represents Configuration.replay_proxy
     replay_proxy: BannerEntry,
 
@@ -322,6 +331,13 @@ impl Banner {
         let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
+        let server_certs = BannerEntry::new(
+            "🏅",
+            "Server Certificates",
+            &format!("[{}]", config.server_certs.join(", ")),
+        );
+        let client_cert = BannerEntry::new("🏅", "Client Certificate", &config.client_cert);
+        let client_key = BannerEntry::new("🔑", "Client Key", &config.client_key);
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
         let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
@@ -401,6 +417,9 @@ impl Banner {
             auto_bail,
             auto_tune,
             proxy,
+            client_cert,
+            client_key,
+            server_certs,
             replay_codes,
             replay_proxy,
             headers,
@@ -553,6 +572,18 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.proxy.is_empty() {
             writeln!(&mut writer, "{}", self.proxy)?;
+        }
+
+        if !config.client_cert.is_empty() {
+            writeln!(&mut writer, "{}", self.client_cert)?;
+        }
+
+        if !config.client_key.is_empty() {
+            writeln!(&mut writer, "{}", self.client_key)?;
+        }
+
+        if !config.server_certs.is_empty() {
+            writeln!(&mut writer, "{}", self.server_certs)?;
         }
 
         if !config.replay_proxy.is_empty() {

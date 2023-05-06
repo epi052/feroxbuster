@@ -104,6 +104,18 @@ pub struct Configuration {
     #[serde(default)]
     pub replay_proxy: String,
 
+    /// Path to a custom root certificate for connecting to servers with a self-signed certificate
+    #[serde(default)]
+    pub server_certs: Vec<String>,
+
+    /// Path to a client's PEM encoded X509 certificate used during mutual authentication
+    #[serde(default)]
+    pub client_cert: String,
+
+    /// Path to a client's PEM encoded PKSC #8 private key used during mutual authentication
+    #[serde(default)]
+    pub client_key: String,
+
     /// The target URL
     #[serde(default)]
     pub target_url: String,
@@ -324,8 +336,18 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize(timeout, &user_agent, false, false, &HashMap::new(), None)
-            .expect("Could not build client");
+        let client = client::initialize(
+            timeout,
+            &user_agent,
+            false,
+            false,
+            &HashMap::new(),
+            None,
+            Vec::<String>::new(),
+            None,
+            None,
+        )
+        .expect("Could not build client");
         let replay_client = None;
         let status_codes = status_codes();
         let replay_codes = status_codes.clone();
@@ -369,6 +391,8 @@ impl Default for Configuration {
             force_recursion: false,
             update_app: false,
             proxy: String::new(),
+            client_cert: String::new(),
+            client_key: String::new(),
             config: String::new(),
             output: String::new(),
             debug_log: String::new(),
@@ -376,6 +400,7 @@ impl Default for Configuration {
             time_limit: String::new(),
             resume_from: String::new(),
             replay_proxy: String::new(),
+            server_certs: Vec::new(),
             queries: Vec::new(),
             extensions: Vec::new(),
             methods: methods(),
@@ -832,6 +857,8 @@ impl Configuration {
         // organizational breakpoint; all options below alter the Client configuration
         ////
         update_config_if_present!(&mut config.proxy, args, "proxy", String);
+        update_config_if_present!(&mut config.client_cert, args, "client_cert", String);
+        update_config_if_present!(&mut config.client_key, args, "client_key", String);
         update_config_if_present!(&mut config.replay_proxy, args, "replay_proxy", String);
         update_config_if_present!(&mut config.user_agent, args, "user_agent", String);
         update_config_with_num_type_if_present!(&mut config.timeout, args, "timeout", u64);
@@ -902,6 +929,12 @@ impl Configuration {
             }
         }
 
+        if let Some(certs) = args.get_many::<String>("server_certs") {
+            for val in certs {
+                config.server_certs.push(val.to_string());
+            }
+        }
+
         config
     }
 
@@ -909,35 +942,53 @@ impl Configuration {
     /// either the config file or command line arguments; if we have, we need to rebuild
     /// the client and store it in the config struct
     fn try_rebuild_clients(configuration: &mut Configuration) {
-        if !configuration.proxy.is_empty()
+        // check if the proxy and certificate fields are empty
+        // and parse them into Some or None variants ahead of time
+        // so we may use the is_some method on them instead of
+        // multiple initializations
+        let proxy = if configuration.proxy.is_empty() {
+            None
+        } else {
+            Some(configuration.proxy.as_str())
+        };
+
+        let server_certs = &configuration.server_certs;
+
+        let client_cert = if configuration.client_cert.is_empty() {
+            None
+        } else {
+            Some(configuration.client_cert.as_str())
+        };
+
+        let client_key = if configuration.client_key.is_empty() {
+            None
+        } else {
+            Some(configuration.client_key.as_str())
+        };
+
+        if proxy.is_some()
             || configuration.timeout != timeout()
             || configuration.user_agent != user_agent()
             || configuration.redirects
             || configuration.insecure
             || !configuration.headers.is_empty()
             || configuration.resumed
+            || !server_certs.is_empty()
+            || client_cert.is_some()
+            || client_key.is_some()
         {
-            if configuration.proxy.is_empty() {
-                configuration.client = client::initialize(
-                    configuration.timeout,
-                    &configuration.user_agent,
-                    configuration.redirects,
-                    configuration.insecure,
-                    &configuration.headers,
-                    None,
-                )
-                .expect("Could not rebuild client")
-            } else {
-                configuration.client = client::initialize(
-                    configuration.timeout,
-                    &configuration.user_agent,
-                    configuration.redirects,
-                    configuration.insecure,
-                    &configuration.headers,
-                    Some(&configuration.proxy),
-                )
-                .expect("Could not rebuild client")
-            }
+            configuration.client = client::initialize(
+                configuration.timeout,
+                &configuration.user_agent,
+                configuration.redirects,
+                configuration.insecure,
+                &configuration.headers,
+                proxy,
+                server_certs,
+                client_cert,
+                client_key,
+            )
+            .expect("Could not rebuild client");
         }
 
         if !configuration.replay_proxy.is_empty() {
@@ -950,6 +1001,9 @@ impl Configuration {
                     configuration.insecure,
                     &configuration.headers,
                     Some(&configuration.replay_proxy),
+                    server_certs,
+                    client_cert,
+                    client_key,
                 )
                 .expect("Could not rebuild client"),
             );
@@ -984,6 +1038,13 @@ impl Configuration {
         update_if_not_default!(&mut conf.target_url, new.target_url, "");
         update_if_not_default!(&mut conf.time_limit, new.time_limit, "");
         update_if_not_default!(&mut conf.proxy, new.proxy, "");
+        update_if_not_default!(
+            &mut conf.server_certs,
+            new.server_certs,
+            Vec::<String>::new()
+        );
+        update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
+        update_if_not_default!(&mut conf.client_key, new.client_key, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);

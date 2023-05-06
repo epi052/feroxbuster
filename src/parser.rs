@@ -390,6 +390,35 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Client settings")
                 .help("Disables TLS certificate validation in the client"),
+        )
+        .arg(
+            Arg::new("server_certs")
+                .long("server-certs")
+                .value_name("PEM|DER")
+                .value_hint(ValueHint::FilePath)
+                .num_args(1..)
+                .help_heading("Client settings")
+                .help("Add custom root certificate(s) for servers with unknown certificates"),
+        )
+        .arg(
+            Arg::new("client_cert")
+                .long("client-cert")
+                .value_name("PEM")
+                .value_hint(ValueHint::FilePath)
+                .num_args(1)
+                .requires("client_key")
+                .help_heading("Client settings")
+                .help("Add a PEM encoded certificate for mutual authentication (mTLS)"),
+        )
+        .arg(
+            Arg::new("client_key")
+                .long("client-key")
+                .value_name("PEM")
+                .value_hint(ValueHint::FilePath)
+                .num_args(1)
+                .requires("client_cert")
+                .help_heading("Client settings")
+                .help("Add a PEM encoded private key for mutual authentication (mTLS)"),
         );
 
     /////////////////////////////////////////////////////////////////////
