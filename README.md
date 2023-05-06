@@ -290,6 +290,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="http://lavafroth.is-a.dev"><img src="https://avatars.githubusercontent.com/u/107522312?v=4?s=100" width="100px;" alt="Himadri Bhattacharjee"/><br /><sub><b>Himadri Bhattacharjee</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=lavafroth" title="Code">💻</a> <a href="#ideas-lavafroth" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/AkechiShiro"><img src="https://avatars.githubusercontent.com/u/14914796?v=4?s=100" width="100px;" alt="Samy Lahfa"/><br /><sub><b>Samy Lahfa</b></sub></a><br /><a href="#ideas-AkechiShiro" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
   </tbody>
 </table>
