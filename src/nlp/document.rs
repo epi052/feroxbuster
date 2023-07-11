@@ -40,15 +40,16 @@ impl Document {
     }
 
     /// create a new `Document` from the given HTML string
-    pub(crate) fn from_html(raw_html: &str) -> Self {
+    pub(crate) fn from_html(raw_html: &str) -> Option<Self> {
         let selector = Selector::parse("body").unwrap();
 
         let html = Html::parse_document(raw_html);
 
-        let text = html
-            .select(&selector)
-            .next()
-            .unwrap()
+        let Some(element) = html.select(&selector).next() else {
+            return None;
+        };
+
+        let text = element
             .descendants()
             .filter_map(|node| {
                 if !node.value().is_text() && !node.value().is_comment() {
@@ -95,7 +96,7 @@ impl Document {
 
         // call `new` to push the parsed html through the pre-processing pipeline and process all
         // the words
-        Self::new(&text)
+        Some(Self::new(&text))
     }
 
     /// Log normalized weighting scheme for term frequency
@@ -146,19 +147,20 @@ mod tests {
     #[test]
     /// `Document::new` should preprocess html and generate a hashmap of `Term, TermMetadata`
     fn nlp_document_creation_from_html() {
-        let empty = Document::from_html("<html></html>");
+        let empty = Document::from_html("<html></html>").unwrap();
         assert_eq!(empty.number_of_terms, 0);
 
-        let other_empty = Document::from_html("<html><body><p></p></body></html>");
+        let other_empty = Document::from_html("<html><body><p></p></body></html>").unwrap();
         assert_eq!(other_empty.number_of_terms, 0);
 
-        let third_empty = Document::from_html("<!DOCTYPE html><html><!DOCTYPE html><p></p></html>");
+        let third_empty =
+            Document::from_html("<!DOCTYPE html><html><!DOCTYPE html><p></p></html>").unwrap();
         assert_eq!(third_empty.number_of_terms, 0);
 
         // p tag for is_text check and comment for is_comment
         let doc = Document::from_html(
             "<html><body><p>The air quality in Singapore.</p><!--got worse on Wednesday--></body></html>",
-        );
+        ).unwrap();
 
         let expected_terms = ["air", "quality", "singapore", "worse", "wednesday"];
 
@@ -209,7 +211,7 @@ mod tests {
     /// ensure words in script/style tags aren't processed
     fn document_creation_skips_script_and_style_tags() {
         let html = "<body><script>The air quality</script><style>in Singapore</style><p>got worse on Wednesday.</p></body>";
-        let doc = Document::from_html(html);
+        let doc = Document::from_html(html).unwrap();
         let keys = doc.terms().keys().map(|key| key.raw()).collect::<Vec<_>>();
 
         let expected = ["worse", "wednesday"];
