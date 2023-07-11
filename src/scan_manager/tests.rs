@@ -202,6 +202,7 @@ fn partial_eq_compares_the_id_field() {
 
     assert!(!scan.eq(&scan_two));
 
+    #[allow(clippy::redundant_clone)]
     let scan_two = scan.clone();
 
     assert!(scan.eq(&scan_two));

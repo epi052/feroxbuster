@@ -330,6 +330,13 @@ impl FeroxScans {
                     self.menu
                         .println(&format!("{}:", style("Scans").bright().blue()));
                 }
+
+                if let Ok(guard) = scan.status.lock() {
+                    if matches!(*guard, ScanStatus::Cancelled) {
+                        continue;
+                    }
+                }
+
                 // we're only interested in displaying directory scans, as those are
                 // the only ones that make sense to be stopped
                 let scan_msg = format!("{i:3}: {scan}");
@@ -360,7 +367,14 @@ impl FeroxScans {
                         sleep(menu_pause_duration);
                         continue;
                     }
-                    u_scans.index(num).clone()
+
+                    let selected = u_scans.index(num);
+
+                    if matches!(selected.scan_type, ScanType::File) {
+                        continue;
+                    }
+
+                    selected.clone()
                 }
                 Err(..) => continue,
             };
