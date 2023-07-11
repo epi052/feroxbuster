@@ -110,7 +110,7 @@ impl FeroxScan {
 
         match self.task.try_lock() {
             Ok(mut guard) => {
-                if let Some(task) = std::mem::replace(&mut *guard, None) {
+                if let Some(task) = guard.take() {
                     log::trace!("aborting {:?}", self);
                     task.abort();
                     self.set_status(ScanStatus::Cancelled)?;
@@ -268,7 +268,7 @@ impl FeroxScan {
         let mut guard = self.task.lock().await;
 
         if guard.is_some() {
-            if let Some(task) = std::mem::replace(&mut *guard, None) {
+            if let Some(task) = guard.take() {
                 task.await.unwrap();
                 self.set_status(ScanStatus::Complete)
                     .unwrap_or_else(|e| log::warn!("Could not mark scan complete: {}", e))
