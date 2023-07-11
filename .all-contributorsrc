@@ -618,6 +618,15 @@
         "bug",
         "ideas"
       ]
+    },
+    {
+      "login": "ktecv2000",
+      "name": "ktecv2000",
+      "avatar_url": "https://avatars.githubusercontent.com/u/19836003?v=4",
+      "profile": "https://medium.com/@b3rm1nG",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
