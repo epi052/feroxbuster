@@ -360,7 +360,14 @@ impl FeroxScans {
                         sleep(menu_pause_duration);
                         continue;
                     }
-                    u_scans.index(num).clone()
+
+                    let selected = u_scans.index(num);
+
+                    if matches!(selected.scan_type, ScanType::File) {
+                        continue;
+                    }
+
+                    selected.clone()
                 }
                 Err(..) => continue,
             };
