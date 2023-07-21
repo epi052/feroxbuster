@@ -69,7 +69,7 @@ self_update = { version = "0.36", features = [
 ] }
 
 [dev-dependencies]
-tempfile = "3.6"
+tempfile = "3.7"
 httpmock = "0.6"
 assert_cmd = "2.0"
 predicates = "3.0"
