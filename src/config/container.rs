@@ -655,9 +655,18 @@ impl Configuration {
         }
 
         if let Some(arg) = args.get_many::<String>("extensions") {
-            config.extensions = arg
-                .map(|val| val.trim_start_matches('.').to_string())
-                .collect();
+            let mut extensions = Vec::<String>::new();
+            for ext in arg {
+                if let Some(stripped) = ext.strip_prefix('@') {
+                    let extensions_utf8 = std::fs::read(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                    let extensions_string = String::from_utf8(extensions_utf8).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                    extensions.extend(extensions_string.split('\n').map(|s| s.trim_start_matches('.').trim().to_string()));
+                    extensions = extensions.into_iter().filter(|s| !s.is_empty()).collect();
+                } else {
+                    extensions.push(ext.trim_start_matches('.').to_string());
+                }
+            }
+            config.extensions = extensions;
         }
 
         if let Some(arg) = args.get_many::<String>("dont_collect") {
