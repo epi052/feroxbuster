@@ -671,7 +671,7 @@ impl Configuration {
                     
                     extensions.extend(exts_from_file);
                 } else {
-                    extensions.push(ext.trim_start_matches('.').to_string());
+                    extensions.push(ext.trim().trim_start_matches('.').to_string());
                 }
             }
             config.extensions = extensions;
