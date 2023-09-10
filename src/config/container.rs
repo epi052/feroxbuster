@@ -658,8 +658,7 @@ impl Configuration {
             let mut extensions = Vec::<String>::new();
             for ext in arg {
                 if let Some(stripped) = ext.strip_prefix('@') {
-                    let extensions_utf8 = std::fs::read(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
-                    let extensions_string = String::from_utf8(extensions_utf8).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                      let contents = read_to_string(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
                     extensions.extend(extensions_string.split('\n').map(|s| s.trim_start_matches('.').trim().to_string()));
                     extensions = extensions.into_iter().filter(|s| !s.is_empty()).collect();
                 } else {
