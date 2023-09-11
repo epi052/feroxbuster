@@ -1030,7 +1030,7 @@ impl Configuration {
 
     /// Given a configuration file's location and an instance of `Configuration`, read in
     /// the config file if found and update the current settings with the settings found therein
-    fn parse_and_merge_config(config_file: PathBuf, mut config: &mut Self) -> Result<()> {
+    fn parse_and_merge_config(config_file: PathBuf, config: &mut Self) -> Result<()> {
         if config_file.exists() {
             // save off a string version of the path before it goes out of scope
             let conf_str = config_file.to_str().unwrap_or("").to_string();

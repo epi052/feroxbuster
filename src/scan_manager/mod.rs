@@ -8,7 +8,7 @@ mod state;
 #[cfg(test)]
 mod tests;
 
-pub(self) use menu::Menu;
+use menu::Menu;
 pub use menu::{MenuCmd, MenuCmdResult};
 pub use order::ScanOrder;
 pub use response_container::FeroxResponses;

@@ -693,7 +693,7 @@ fn collect_backups_makes_appropriate_requests() {
     let srv = MockServer::start();
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE.txt".to_string()], "wordlist").unwrap();
 
-    let valid_paths = vec![
+    let valid_paths = [
         "/LICENSE.txt",
         "/LICENSE.txt~",
         "/LICENSE.txt.bak",

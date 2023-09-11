@@ -55,7 +55,7 @@ fn save_writes_stats_object_to_disk() {
     stats.add_status_code(StatusCode::OK);
     stats.add_status_code(StatusCode::OK);
     let outfile = NamedTempFile::new().unwrap();
-    if stats.save(174.33, outfile.path().to_str().unwrap()).is_ok() {}
+    assert!(stats.save(174.33, outfile.path().to_str().unwrap()).is_ok());
 
     assert!(stats.as_json().unwrap().contains("statistics"));
     assert!(stats.as_json().unwrap().contains("11")); // requests made

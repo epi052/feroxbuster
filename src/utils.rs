@@ -648,7 +648,7 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
     // each of the following is a string that we can expect url::Url::parse to
     // transform. The variety is to ensure we cover most common path traversal
     // encodings
-    let transformation_detectors = vec![
+    let transformation_detectors = [
         // ascii
         "..",
         // single url encoded
