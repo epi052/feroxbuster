@@ -250,14 +250,15 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         }
 
         // attempt to get the filename from the url's path
-        let Some(path_segments) = response
-            .url()
-            .path_segments() else {
-                bail!("Unable to parse path from url: {}", response.url());
-            };
+        let Some(path_segments) = response.url().path_segments() else {
+            bail!("Unable to parse path from url: {}", response.url());
+        };
 
         let Some(filename) = path_segments.last() else {
-            bail!("Unable to parse filename from url's path: {}", response.url().path());
+            bail!(
+                "Unable to parse filename from url's path: {}",
+                response.url().path()
+            );
         };
 
         let filename = filename.to_string();

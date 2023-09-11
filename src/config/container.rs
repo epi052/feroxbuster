@@ -658,7 +658,8 @@ impl Configuration {
             let mut extensions = Vec::<String>::new();
             for ext in arg {
                 if let Some(stripped) = ext.strip_prefix('@') {
-                      let contents = read_to_string(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                    let contents = read_to_string(stripped)
+                        .unwrap_or_else(|e| report_and_exit(&e.to_string()));
                     let exts_from_file = contents.split('\n').filter_map(|s| {
                         let trimmed = s.trim().trim_start_matches('.');
 
@@ -668,7 +669,7 @@ impl Configuration {
                             Some(trimmed.to_string())
                         }
                     });
-                    
+
                     extensions.extend(exts_from_file);
                 } else {
                     extensions.push(ext.trim().trim_start_matches('.').to_string());

@@ -332,10 +332,10 @@ impl HeuristicTests {
                     // - http://localhost/adminf1d2541e73c44dcb9d1fb7d93334b280
                     // - http://localhost/admin92969beae6bf4beb855d1622406d87e395c87387a9ad432e8a11245002b709b03cf609d471004154b83bcc1c6ec49f6f
                     let Ok(response) =
-                        logged_request(&nonexistent_url, method, data, self.handles.clone())
-                            .await else {
-                                return None;
-                            };
+                        logged_request(&nonexistent_url, method, data, self.handles.clone()).await
+                    else {
+                        return None;
+                    };
 
                     if !self
                         .handles
@@ -372,7 +372,9 @@ impl HeuristicTests {
                 }
 
                 // check the responses for similarities on which we can filter, multiple may be returned
-                let Some((wildcard_filters, wildcard_responses)) = self.examine_404_like_responses(&responses) else {
+                let Some((wildcard_filters, wildcard_responses)) =
+                    self.examine_404_like_responses(&responses)
+                else {
                     // no match was found during analysis of responses
                     log::warn!("no match found for 404 responses");
                     continue;
