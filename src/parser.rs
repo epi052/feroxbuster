@@ -177,7 +177,7 @@ pub fn initialize() -> Command {
                 .use_value_delimiter(true)
                 .help_heading("Request settings")
                 .help(
-                    "File extension(s) to search for (ex: -x php -x pdf js)",
+                    "File extension(s) to search for (ex: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex: @ext.txt)",
                 ),
         )
         .arg(

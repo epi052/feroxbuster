@@ -655,9 +655,26 @@ impl Configuration {
         }
 
         if let Some(arg) = args.get_many::<String>("extensions") {
-            config.extensions = arg
-                .map(|val| val.trim_start_matches('.').to_string())
-                .collect();
+            let mut extensions = Vec::<String>::new();
+            for ext in arg {
+                if let Some(stripped) = ext.strip_prefix('@') {
+                      let contents = read_to_string(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
+                    let exts_from_file = contents.split('\n').filter_map(|s| {
+                        let trimmed = s.trim().trim_start_matches('.');
+
+                        if trimmed.is_empty() || trimmed.starts_with('#') {
+                            None
+                        } else {
+                            Some(trimmed.to_string())
+                        }
+                    });
+                    
+                    extensions.extend(exts_from_file);
+                } else {
+                    extensions.push(ext.trim().trim_start_matches('.').to_string());
+                }
+            }
+            config.extensions = extensions;
         }
 
         if let Some(arg) = args.get_many::<String>("dont_collect") {
