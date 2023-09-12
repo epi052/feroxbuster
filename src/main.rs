@@ -238,7 +238,15 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
     let words = if config.wordlist.starts_with("http") {
         // found a url scheme, attempt to download the wordlist
-        let response = config.client.get(&config.wordlist).send().await?;
+        let response = config
+            .client
+            .get(&config.wordlist)
+            .send()
+            .await
+            .context(format!(
+                "Unable to download wordlist from remote url: {}",
+                config.wordlist
+            ))?;
 
         if !response.status().is_success() {
             // status code isn't a 200, bail
