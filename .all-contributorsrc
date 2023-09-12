@@ -636,6 +636,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "sawmj",
+      "name": "sawmj",
+      "avatar_url": "https://avatars.githubusercontent.com/u/30024085?v=4",
+      "profile": "https://github.com/sawmj",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
