@@ -99,6 +99,7 @@ async fn check_for_user_input(
                     .send(AddFilter(filter))
                     .unwrap_or_else(|e| log::warn!("Could not add new filter: {}", e));
             }
+            Some(MenuCmdResult::ScanLimit(_)) => (),
             _ => {}
         }
     }

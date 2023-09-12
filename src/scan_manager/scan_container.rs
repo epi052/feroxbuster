@@ -455,6 +455,12 @@ impl FeroxScans {
                     .unwrap_or_default();
                 None
             }
+            Some(MenuCmd::ModifyScanLimit(limit)) => {
+                handles
+                    .send_scan_command(Command::ModifyScanLimit(limit))
+                    .unwrap_or_default();
+                Some(MenuCmdResult::ScanLimit(limit))
+            }
             None => None,
         };
 

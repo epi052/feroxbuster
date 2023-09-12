@@ -19,6 +19,9 @@ pub enum MenuCmd {
 
     /// user wants to remove one or more active filters
     RemoveFilter(Vec<usize>),
+
+    /// user wants to modify the scan limit
+    ModifyScanLimit(usize),
 }
 
 /// Data container for a command result to be used internally by the ferox_scanner
@@ -32,6 +35,9 @@ pub enum MenuCmdResult {
 
     /// Filter to be added to current list of `FeroxFilters`
     Filter(Box<dyn FeroxFilter>),
+
+    /// New scan limit
+    ScanLimit(usize),
 }
 
 /// Interactive scan cancellation menu
@@ -96,11 +102,18 @@ impl Menu {
         );
 
         let rm_filter_cmd = format!(
-            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)",
+            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)\n",
             style("r").red(),
             style("m-filter").red(),
             style("rm-filter").red(),
             style("r").red(),
+        );
+
+        let modify_scan_limit_cmd = format!(
+            "  {}[{}] NEW_SCAN_LIMIT (ex: {} 1, 2, 3, 4, 5)",
+            style("m").yellow(),
+            style("odify-scan-limit").yellow(),
+            style("modify-scan-limit").yellow(),
         );
 
         let mut commands = format!("{}:\n", style("Commands").bright().blue());
@@ -109,6 +122,7 @@ impl Menu {
         commands.push_str(&new_filter_cmd);
         commands.push_str(&valid_filters);
         commands.push_str(&rm_filter_cmd);
+        commands.push_str(&modify_scan_limit_cmd);
 
         let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name));
 
@@ -283,6 +297,18 @@ impl Menu {
                 let indices = self.split_to_nums(&line);
 
                 Some(MenuCmd::RemoveFilter(indices))
+            }
+            'm' => {
+                // modify scan limit command
+
+                // remove m[modify-scan-limit] from the command so it can be passed to the number
+                // splitter
+                let re = Regex::new(r"^[mM][odifyscanlimitOdifySCANLIMIT-]*").unwrap();
+                let line = re.replace(line, "").to_string();
+
+                let limit = self.str_to_usize(&line);
+
+                Some(MenuCmd::ModifyScanLimit(limit))
             }
             _ => {
                 // invalid input

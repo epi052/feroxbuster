@@ -49,6 +49,9 @@ pub enum Command {
     /// Remove a set of `FeroxFilter` implementors from `FeroxFilters` by index
     RemoveFilters(Vec<usize>),
 
+    /// Change number of allowed concurrent scans
+    ModifyScanLimit(usize),
+
     /// Send a `FeroxResponse` to the output handler for reporting
     Report(Box<FeroxResponse>),
 

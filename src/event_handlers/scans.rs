@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::cmp::Ordering;
 
 use anyhow::{bail, Result};
 use tokio::sync::{mpsc, Semaphore};
@@ -66,7 +67,7 @@ pub struct ScanHandler {
 
     /// depths associated with the initial targets provided by the user
     depths: Vec<(String, usize)>,
-
+    
     /// Bounded semaphore used as a barrier to limit concurrent scans
     limiter: Arc<Semaphore>,
 }
@@ -155,6 +156,24 @@ impl ScanHandler {
                     // from -u | --stdin
                     self.ordered_scan_url(vec![target], ScanOrder::Initial)
                         .await?;
+                }
+                Command::ModifyScanLimit(limit) => {
+
+                    let available = self.limiter.available_permits();
+                    
+                    match limit.cmp(&available){
+                        Ordering::Greater => {
+                            self.limiter.add_permits((limit - available) as usize)
+                        }
+                        Ordering::Less => {
+                            self.limiter.acquire_many((available - limit) as u32).await?.forget();
+                        }
+                        Ordering::Equal => ()
+                    }
+
+                    for scan in self.data.get_active_scans() {
+                        scan.reacquire_permit(self.limiter.clone()).await?;
+                    }
                 }
                 Command::UpdateWordlist(wordlist) => {
                     self.wordlist(wordlist);

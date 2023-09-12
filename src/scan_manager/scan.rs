@@ -17,7 +17,7 @@ use std::{
 };
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tokio::{sync, task::JoinHandle};
+use tokio::{sync, sync::Semaphore, task::JoinHandle};
 use uuid::Uuid;
 
 /// Struct to hold scan-related state
@@ -119,6 +119,24 @@ impl FeroxScan {
             }
             Err(e) => {
                 log::warn!("Could not acquire lock to abort scan (we're already waiting for its results): {:?} {}", self, e);
+            }
+        }
+        log::trace!("exit: abort");
+        Ok(())
+    }
+
+    pub async fn reacquire_permit(&self, limiter: Arc<Semaphore>) -> Result<()> {
+        log::trace!("enter: reaquire_permit");
+
+        match self.task.try_lock() {
+            Ok(mut guard) => {
+                if let Some(_task) = guard.take() {
+                    log::trace!("reaquiring permit {:?}", self);
+                    let _permit = limiter.acquire().await?;
+                }
+            }
+            Err(e) => {
+                log::warn!("Could not acquire lock to reaquire permit (we're already waiting for its results): {:?} {}", self, e);
             }
         }
         log::trace!("exit: abort");
