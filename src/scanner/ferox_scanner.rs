@@ -217,6 +217,18 @@ impl FeroxScanner {
 
             let result = extractor.extract().await?;
             extraction_tasks.push(extractor.request_links(result).await?)
+
+
+            // check for sitemap.xml (assuming it also cannot be in sub-directories, so limited to Initial)
+            let mut sitemap_extractor = ExtractorBuilder::default()
+            .target(ExtractionTarget::SitemapXml)  // Use the SitemapXml variant here
+            .url(&self.target_url)
+            .handles(self.handles.clone())
+            .build()?;
+
+            let sitemap_result = sitemap_extractor.extract().await?;
+            extraction_tasks.push(sitemap_extractor.request_links(sitemap_result).await?);
+
         }
 
         let scanned_urls = self.handles.ferox_scans()?;

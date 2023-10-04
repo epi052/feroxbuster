@@ -29,6 +29,9 @@ pub enum ExtractionTarget {
 
     /// Extract all <a> tags from a page
     DirectoryListing,
+
+    /// Examine sitemap.xml (specifically) and extract links
+    SitemapXml,
 }
 
 /// responsible for building an `Extractor`

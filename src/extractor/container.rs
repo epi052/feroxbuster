@@ -110,6 +110,7 @@ impl<'a> Extractor<'a> {
             ExtractionTarget::ResponseBody => Ok(self.extract_from_body().await?),
             ExtractionTarget::RobotsTxt => Ok(self.extract_from_robots().await?),
             ExtractionTarget::DirectoryListing => Ok(self.extract_from_dir_listing().await?),
+            ExtractionTarget::SitemapXml => Ok(self.extract_from_sitemap().await?),
         }
     }
 
@@ -540,6 +541,31 @@ impl<'a> Extractor<'a> {
         log::trace!("exit: extract_robots_txt -> {:?}", result);
         Ok(result)
     }
+
+    pub(super) async fn extract_from_sitemap(&self) -> Result<ExtractionResult> {
+        log::trace!("enter: extract_from_sitemap");
+    
+        let mut result: HashSet<_> = ExtractionResult::new();
+    
+        // request
+        let response = self.make_extract_request("/sitemap.xml").await?;
+        let body = response.text();
+    
+        // Parse XML and extract URLs
+        let parsed_sitemap = roxmltree::Document::parse(body).unwrap();
+        for node in parsed_sitemap.descendants() {
+            if node.has_tag_name("loc") {
+                let url = node.text().unwrap();
+                
+                if self.add_all_sub_paths(url, &mut result).is_err() {
+                    log::warn!("could not add sub-paths from {} to {:?}", url, result);
+                }
+            }
+        }
+    
+        log::trace!("exit: extract_from_sitemap -> {:?}", result);
+        Ok(result)
+    }    
 
     /// outer-most wrapper for parsing html response bodies in search of additional content.
     /// performs the following high-level steps:
