@@ -113,7 +113,6 @@ impl TermInputHandler {
                 );
                 PROGRESS_PRINTER.println(error);
 
-                //
                 let temp_filename = temp_dir().join(&filename);
 
                 let Ok(mut state_file) = open_file(&temp_filename.to_string_lossy()) else {
@@ -126,6 +125,9 @@ impl TermInputHandler {
                 };
 
                 write_to(&state, &mut state_file, true)?;
+
+                let msg = format!("✅ Saved scan state to {:?}", temp_filename);
+                PROGRESS_PRINTER.println(msg);
 
                 log::trace!("exit: sigint_handler (saved to temp folder)");
                 std::process::exit(1);
