@@ -12,6 +12,7 @@ use anyhow::Result;
 use console::style;
 use crossterm::event::{self, Event, KeyCode};
 use std::{
+    env::temp_dir,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -103,10 +104,34 @@ impl TermInputHandler {
 
         // User didn't set the --no-state flag (so saved_state is still the default true)
         if handles.config.save_state {
-            let state_file = open_file(&filename);
+            let Ok(mut state_file) = open_file(&filename) else {
+                // couldn't open the file, let the user know we're going to try again
+                let error = format!(
+                    "❌ Could not save {}, falling back to {}",
+                    filename,
+                    temp_dir().to_string_lossy()
+                );
+                PROGRESS_PRINTER.println(error);
 
-            let mut buffered_file = state_file?;
-            write_to(&state, &mut buffered_file, true)?;
+                //
+                let temp_filename = temp_dir().join(&filename);
+
+                let Ok(mut state_file) = open_file(&temp_filename.to_string_lossy()) else {
+                    // couldn't open the fallback file, let the user know
+                    let error = format!("❌❌ Could not save {:?}, giving up...", temp_filename);
+                    PROGRESS_PRINTER.println(error);
+
+                    log::trace!("exit: sigint_handler (failed to write)");
+                    std::process::exit(1);
+                };
+
+                write_to(&state, &mut state_file, true)?;
+
+                log::trace!("exit: sigint_handler (saved to temp folder)");
+                std::process::exit(1);
+            };
+
+            write_to(&state, &mut state_file, true)?;
         }
 
         log::trace!("exit: sigint_handler (end of program)");
