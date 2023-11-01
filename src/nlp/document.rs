@@ -35,7 +35,7 @@ impl Document {
     fn add_term(&mut self, word: &str) {
         let term = Term::new(word);
 
-        let metadata = self.terms.entry(term).or_insert_with(TermMetaData::new);
+        let metadata = self.terms.entry(term).or_default();
         *metadata.count_mut() += 1;
     }
 
