@@ -640,3 +640,73 @@ fn extractor_recurses_into_403_directories() -> Result<(), Box<dyn std::error::E
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
+
+#[test]
+/// robots.txt requests shouldn't fire when --dont-extract-links is used
+fn robots_text_extraction_doesnt_run_with_dont_extract_links() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("im a little teapot"); // 18
+    });
+
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/robots.txt");
+        then.status(200).body(
+            r#"
+            User-agent: *
+            Crawl-delay: 10
+            # CSS, JS, Images
+            Allow: /misc/*.css$
+            Disallow: /misc/stupidfile.php
+               Disallow: /disallowed-subdir/
+            "#,
+        );
+    });
+
+    let mock_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/stupidfile.php");
+        then.status(200).body("im a little teapot too"); // 22
+    });
+
+    let mock_scanned_file = srv.mock(|when, then| {
+        when.method(GET).path("/misc/LICENSE");
+        then.status(200).body("i too, am a container for tea"); // 29
+    });
+
+    let mock_dir = srv.mock(|when, _| {
+        when.method(GET).path("/misc/");
+    });
+
+    let mock_disallowed = srv.mock(|when, then| {
+        when.method(GET).path("/disallowed-subdir");
+        then.status(404);
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--dont-extract-links")
+        .arg("--no-recursion")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("18c"))
+            .and(predicate::str::contains("/misc/stupidfile.php"))
+            .not(),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_dir.hits(), 0);
+    assert_eq!(mock_two.hits(), 0);
+    assert_eq!(mock_file.hits(), 0);
+    assert_eq!(mock_disallowed.hits(), 0);
+    assert_eq!(mock_scanned_file.hits(), 0);
+    teardown_tmp_directory(tmp_dir);
+}
