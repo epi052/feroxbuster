@@ -35,11 +35,6 @@ pub(super) struct TermMetaData {
 }
 
 impl TermMetaData {
-    /// create a new metadata container
-    pub(super) fn new() -> Self {
-        Self::default()
-    }
-
     /// number of times a `Term` has appeared in any `Document` within the corpus
     pub(super) fn document_frequency(&self) -> usize {
         self.term_frequencies().len()
@@ -90,7 +85,7 @@ mod tests {
     #[test]
     /// test accessors for correctness
     fn nlp_term_metadata_accessor_test() {
-        let mut metadata = TermMetaData::new();
+        let mut metadata = TermMetaData::default();
 
         *metadata.count_mut() += 1;
         assert_eq!(metadata.count(), 1);

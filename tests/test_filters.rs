@@ -247,3 +247,46 @@ fn filters_similar_should_filter_response() {
     assert_eq!(not_similar.hits(), 1);
     teardown_tmp_directory(tmp_dir);
 }
+
+#[test]
+/// when using --collect-backups, should only see results in output
+/// when the response shouldn't be otherwise filtered
+fn collect_backups_should_be_filtered() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist").unwrap();
+
+    let mock = srv.mock(|when: httpmock::When, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("this is a test");
+    });
+
+    let mock_two = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE.bak");
+        then.status(201)
+            .body("im a backup file, but filtered out because im not 200");
+    });
+
+    let cmd = Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--status-codes")
+        .arg("200")
+        .arg("--collect-backups")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("200"))
+            .and(predicate::str::contains("/LICENSE.bak"))
+            .not()
+            .and(predicate::str::contains("201"))
+            .not(),
+    );
+
+    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock_two.hits(), 1);
+    teardown_tmp_directory(tmp_dir);
+}

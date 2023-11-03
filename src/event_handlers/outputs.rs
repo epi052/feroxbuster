@@ -328,6 +328,21 @@ impl TermOutHandler {
                     )
                     .await;
 
+                    let Some(handles) = self.handles.as_ref() else {
+                        // shouldn't ever happen, but we'll log and return early if it does
+                        log::error!("handles were unexpectedly None, this shouldn't happen");
+                        return Ok(());
+                    };
+
+                    if handles
+                        .filters
+                        .data
+                        .should_filter_response(&ferox_response, tx_stats.clone())
+                    {
+                        // response was filtered for one reason or another, don't process it
+                        continue;
+                    }
+
                     self.process_response(
                         tx_stats.clone(),
                         Box::new(ferox_response),

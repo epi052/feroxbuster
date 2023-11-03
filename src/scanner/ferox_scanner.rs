@@ -251,60 +251,57 @@ impl FeroxScanner {
             // heuristics test block:
             let test = heuristics::HeuristicTests::new(self.handles.clone());
 
-            if let Ok(dirlist_result) = test.directory_listing(&self.target_url).await {
-                if dirlist_result.is_some() {
-                    let dirlist_result = dirlist_result.unwrap();
-                    // at this point, we have a DirListingType, and it's not the None variant
-                    // which means we found directory listing based on the heuristic; now we need
-                    // to process the links that are available if --extract-links was used
+            if let Ok(Some(dirlist_result)) = test.directory_listing(&self.target_url).await {
+                // at this point, we have a DirListingType, and it's not the None variant
+                // which means we found directory listing based on the heuristic; now we need
+                // to process the links that are available if --extract-links was used
 
-                    if self.handles.config.extract_links {
-                        let mut extractor = ExtractorBuilder::default()
-                            .response(&dirlist_result.response)
-                            .target(ExtractionTarget::DirectoryListing)
-                            .url(&self.target_url)
-                            .handles(self.handles.clone())
-                            .build()?;
+                if self.handles.config.extract_links {
+                    let mut extractor = ExtractorBuilder::default()
+                        .response(&dirlist_result.response)
+                        .target(ExtractionTarget::DirectoryListing)
+                        .url(&self.target_url)
+                        .handles(self.handles.clone())
+                        .build()?;
 
-                        let result = extractor.extract_from_dir_listing().await?;
+                    let result = extractor.extract_from_dir_listing().await?;
 
-                        extraction_tasks.push(extractor.request_links(result).await?);
+                    extraction_tasks.push(extractor.request_links(result).await?);
 
-                        log::trace!("exit: scan_url -> Directory listing heuristic");
+                    log::trace!("exit: scan_url -> Directory listing heuristic");
 
-                        self.handles.stats.send(AddToF64Field(
-                            DirScanTimes,
-                            scan_timer.elapsed().as_secs_f64(),
-                        ))?;
+                    self.handles.stats.send(AddToF64Field(
+                        DirScanTimes,
+                        scan_timer.elapsed().as_secs_f64(),
+                    ))?;
 
-                        self.handles.stats.send(SubtractFromUsizeField(
-                            TotalExpected,
-                            progress_bar.length().unwrap_or(0) as usize,
-                        ))?;
+                    self.handles.stats.send(SubtractFromUsizeField(
+                        TotalExpected,
+                        progress_bar.length().unwrap_or(0) as usize,
+                    ))?;
+                }
+
+                let mut message = format!("=> {}", style("Directory listing").blue().bright());
+
+                if !self.handles.config.extract_links {
+                    write!(
+                        message,
+                        " (remove {} to scan)",
+                        style("--dont-extract-links").bright().yellow()
+                    )?;
+                }
+
+                if !self.handles.config.force_recursion {
+                    for handle in extraction_tasks.into_iter().flatten() {
+                        _ = handle.await;
                     }
 
-                    let mut message = format!("=> {}", style("Directory listing").blue().bright());
+                    progress_bar.reset_eta();
+                    progress_bar.finish_with_message(message);
 
-                    if !self.handles.config.extract_links {
-                        write!(
-                            message,
-                            " (remove {} to scan)",
-                            style("--dont-extract-links").bright().yellow()
-                        )?;
-                    }
+                    ferox_scan.finish()?;
 
-                    if !self.handles.config.force_recursion {
-                        for handle in extraction_tasks.into_iter().flatten() {
-                            _ = handle.await;
-                        }
-
-                        progress_bar.reset_eta();
-                        progress_bar.finish_with_message(message);
-
-                        ferox_scan.finish()?;
-
-                        return Ok(()); // nothing left to do if we found a dir listing
-                    }
+                    return Ok(()); // nothing left to do if we found a dir listing
                 }
             }
 
