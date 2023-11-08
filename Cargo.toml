@@ -29,7 +29,7 @@ lazy_static = "1.4"
 dirs = "5.0"
 
 [dependencies]
-scraper = "0.17"
+scraper = "0.18"
 futures = "0.3"
 tokio = { version = "1.29", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec"] }
@@ -41,7 +41,7 @@ url = { version = "2.4", features = ["serde"] }
 serde_regex = "1.1"
 clap = { version = "4.3", features = ["wrap_help", "cargo"] }
 lazy_static = "1.4"
-toml = "0.7"
+toml = "0.8"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 uuid = { version = "1.4", features = ["v4"] }
@@ -52,7 +52,7 @@ console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "5.0"
 regex = "1.9"
-crossterm = "0.26"
+crossterm = "0.27"
 rlimit = "0.10"
 ctrlc = "3.4"
 anyhow = "1.0"
