@@ -106,7 +106,7 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --collect-words 'Automatically discover important words from within responses and add them to the wordlist'
             cand -v 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)'
             cand --verbosity 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)'
-            cand --silent 'Only print URLs + turn off logging (good for piping a list of urls to other commands)'
+            cand --silent 'Only print URLs (or JSON w/ --json) + turn off logging (good for piping a list of urls to other commands)'
             cand -q 'Hide progress bars and banner (good for tmux windows w/ notifications)'
             cand --quiet 'Hide progress bars and banner (good for tmux windows w/ notifications)'
             cand --json 'Emit JSON logs to --output and --debug-log instead of normal text'

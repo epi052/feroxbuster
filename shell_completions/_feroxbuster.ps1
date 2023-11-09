@@ -109,7 +109,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--collect-words', 'collect-words', [CompletionResultType]::ParameterName, 'Automatically discover important words from within responses and add them to the wordlist')
             [CompletionResult]::new('-v', 'v', [CompletionResultType]::ParameterName, 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)')
             [CompletionResult]::new('--verbosity', 'verbosity', [CompletionResultType]::ParameterName, 'Increase verbosity level (use -vv or more for greater effect. [CAUTION] 4 -v''s is probably too much)')
-            [CompletionResult]::new('--silent', 'silent', [CompletionResultType]::ParameterName, 'Only print URLs + turn off logging (good for piping a list of urls to other commands)')
+            [CompletionResult]::new('--silent', 'silent', [CompletionResultType]::ParameterName, 'Only print URLs (or JSON w/ --json) + turn off logging (good for piping a list of urls to other commands)')
             [CompletionResult]::new('-q', 'q', [CompletionResultType]::ParameterName, 'Hide progress bars and banner (good for tmux windows w/ notifications)')
             [CompletionResult]::new('--quiet', 'quiet', [CompletionResultType]::ParameterName, 'Hide progress bars and banner (good for tmux windows w/ notifications)')
             [CompletionResult]::new('--json', 'json', [CompletionResultType]::ParameterName, 'Emit JSON logs to --output and --debug-log instead of normal text')
