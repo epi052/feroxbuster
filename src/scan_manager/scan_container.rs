@@ -516,7 +516,7 @@ impl FeroxScans {
         let bar_type = match self.output_level {
             OutputLevel::Default => BarType::Message,
             OutputLevel::Quiet => BarType::Quiet,
-            OutputLevel::Silent => return Ok(()), // fast exit when --silent was used
+            OutputLevel::Silent | OutputLevel::SilentJSON => return Ok(()), // fast exit when --silent was used
         };
 
         if let Ok(scans) = self.scans.read() {
@@ -609,7 +609,7 @@ impl FeroxScans {
                 let bar_type = match self.output_level {
                     OutputLevel::Default => BarType::Default,
                     OutputLevel::Quiet => BarType::Quiet,
-                    OutputLevel::Silent => BarType::Hidden,
+                    OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
                 };
 
                 let progress_bar = add_bar(url, bar_length, bar_type);
