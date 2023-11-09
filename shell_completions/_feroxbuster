@@ -103,7 +103,7 @@ _feroxbuster() {
 '--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(--silent)*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
-'(-q --quiet)--silent[Only print URLs + turn off logging (good for piping a list of urls to other commands)]' \
+'(-q --quiet)--silent[Only print URLs (or JSON w/ --json) + turn off logging (good for piping a list of urls to other commands)]' \
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \

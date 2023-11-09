@@ -175,7 +175,7 @@ impl FeroxScan {
                     let bar_type = match self.output_level {
                         OutputLevel::Default => BarType::Default,
                         OutputLevel::Quiet => BarType::Quiet,
-                        OutputLevel::Silent => BarType::Hidden,
+                        OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
                     };
 
                     let pb = add_bar(&self.url, self.num_requests, bar_type);
@@ -194,7 +194,7 @@ impl FeroxScan {
                 let bar_type = match self.output_level {
                     OutputLevel::Default => BarType::Default,
                     OutputLevel::Quiet => BarType::Quiet,
-                    OutputLevel::Silent => BarType::Hidden,
+                    OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
                 };
 
                 let pb = add_bar(&self.url, self.num_requests, bar_type);

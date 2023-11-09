@@ -594,7 +594,7 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .conflicts_with("quiet")
                 .help_heading("Output settings")
-                .help("Only print URLs + turn off logging (good for piping a list of urls to other commands)")
+                .help("Only print URLs (or JSON w/ --json) + turn off logging (good for piping a list of urls to other commands)")
         )
         .arg(
             Arg::new("quiet")
@@ -645,7 +645,7 @@ pub fn initialize() -> Command {
     let mut app = app
         .group(
             ArgGroup::new("output_files")
-                .args(["debug_log", "output"])
+                .args(["debug_log", "output", "silent"])
                 .multiple(true),
         )
         .arg(

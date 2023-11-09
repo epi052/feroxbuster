@@ -485,15 +485,19 @@ impl FeroxSerialize for FeroxResponse {
             message
         } else {
             // not a wildcard, just create a normal entry
-            utils::create_report_string(
-                self.status.as_str(),
-                method,
-                &lines,
-                &words,
-                &chars,
-                &url_with_redirect,
-                self.output_level,
-            )
+            if matches!(self.output_level, OutputLevel::SilentJSON) {
+                self.as_json().unwrap_or_default()
+            } else {
+                utils::create_report_string(
+                    self.status.as_str(),
+                    method,
+                    &lines,
+                    &words,
+                    &chars,
+                    &url_with_redirect,
+                    self.output_level,
+                )
+            }
         }
     }
 
