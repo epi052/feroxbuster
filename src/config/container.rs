@@ -794,7 +794,11 @@ impl Configuration {
             // if the line below is outside of the if, we'd overwrite true with
             // false if no --silent is used on the command line
             config.silent = true;
-            config.output_level = OutputLevel::Silent;
+            config.output_level = if config.json {
+                OutputLevel::SilentJSON
+            } else {
+                OutputLevel::Silent
+            };
         }
 
         if came_from_cli!(args, "quiet") {
@@ -1061,6 +1065,7 @@ impl Configuration {
             new.server_certs,
             Vec::<String>::new()
         );
+        update_if_not_default!(&mut conf.json, new.json, false);
         update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
         update_if_not_default!(&mut conf.client_key, new.client_key, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
@@ -1072,7 +1077,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.collect_backups, new.collect_backups, false);
         update_if_not_default!(&mut conf.collect_words, new.collect_words, false);
         // use updated quiet/silent values to determine output level; same for requester policy
-        conf.output_level = determine_output_level(conf.quiet, conf.silent);
+        conf.output_level = determine_output_level(conf.quiet, conf.silent, conf.json);
         conf.requester_policy = determine_requester_policy(conf.auto_tune, conf.auto_bail);
         update_if_not_default!(&mut conf.output, new.output, "");
         update_if_not_default!(&mut conf.redirects, new.redirects, false);
@@ -1130,7 +1135,6 @@ impl Configuration {
         update_if_not_default!(&mut conf.replay_proxy, new.replay_proxy, "");
         update_if_not_default!(&mut conf.debug_log, new.debug_log, "");
         update_if_not_default!(&mut conf.resume_from, new.resume_from, "");
-        update_if_not_default!(&mut conf.json, new.json, false);
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
