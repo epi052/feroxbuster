@@ -655,6 +655,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "ocervell",
+      "name": "Olivier Cervello",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9629314?v=4",
+      "profile": "https://github.com/ocervell",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
