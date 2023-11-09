@@ -295,6 +295,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://medium.com/@b3rm1nG"><img src="https://avatars.githubusercontent.com/u/19836003?v=4?s=100" width="100px;" alt="ktecv2000"/><br /><sub><b>ktecv2000</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Aktecv2000" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://untrue.me"><img src="https://avatars.githubusercontent.com/u/56048157?v=4?s=100" width="100px;" alt="Andrea De Murtas"/><br /><sub><b>Andrea De Murtas</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=andreademurtas" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/sawmj"><img src="https://avatars.githubusercontent.com/u/30024085?v=4?s=100" width="100px;" alt="sawmj"/><br /><sub><b>sawmj</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asawmj" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/devx00"><img src="https://avatars.githubusercontent.com/u/6897405?v=4?s=100" width="100px;" alt="Zach Hanson"/><br /><sub><b>Zach Hanson</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Adevx00" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
