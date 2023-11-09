@@ -100,6 +100,9 @@ pub enum OutputLevel {
 
     /// silent scan, only print urls (used to be --quiet in versions 1.x.x)
     Silent,
+
+    /// silent scan, but with JSON output
+    SilentJSON,
 }
 
 /// implement a default for OutputLevel
@@ -111,14 +114,22 @@ impl Default for OutputLevel {
 }
 
 /// given the current settings for quiet and silent, determine output_level (DRY helper)
-pub fn determine_output_level(quiet: bool, silent: bool) -> OutputLevel {
+pub fn determine_output_level(quiet: bool, silent: bool, json: bool) -> OutputLevel {
     if quiet && silent {
         // user COULD have both as true in config file, take the more quiet of the two
-        OutputLevel::Silent
+        if json {
+            OutputLevel::SilentJSON
+        } else {
+            OutputLevel::Silent
+        }
     } else if quiet {
         OutputLevel::Quiet
     } else if silent {
-        OutputLevel::Silent
+        if json {
+            OutputLevel::SilentJSON
+        } else {
+            OutputLevel::Silent
+        }
     } else {
         OutputLevel::Default
     }
@@ -166,16 +177,28 @@ mod tests {
     #[test]
     /// test determine_output_level returns higher of the two levels if both given values are true
     fn determine_output_level_returns_correct_results() {
-        let mut level = determine_output_level(true, true);
+        let mut level = determine_output_level(true, true, false);
         assert_eq!(level, OutputLevel::Silent);
 
-        level = determine_output_level(false, true);
+        level = determine_output_level(false, true, false);
         assert_eq!(level, OutputLevel::Silent);
 
-        level = determine_output_level(false, false);
+        let mut level = determine_output_level(true, true, true);
+        assert_eq!(level, OutputLevel::SilentJSON);
+
+        level = determine_output_level(false, true, true);
+        assert_eq!(level, OutputLevel::SilentJSON);
+
+        level = determine_output_level(false, false, false);
         assert_eq!(level, OutputLevel::Default);
 
-        level = determine_output_level(true, false);
+        level = determine_output_level(true, false, false);
+        assert_eq!(level, OutputLevel::Quiet);
+
+        level = determine_output_level(false, false, true);
+        assert_eq!(level, OutputLevel::Default);
+
+        level = determine_output_level(true, false, true);
         assert_eq!(level, OutputLevel::Quiet);
     }
 
