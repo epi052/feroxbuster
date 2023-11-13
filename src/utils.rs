@@ -563,6 +563,13 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
         bail!("url to parse has no authority and is therefore invalid");
     }
 
+    // thanks to @devx00: the possibility exists for Url to return true for
+    // has_authority, but not have a host/port, so we'll check for that
+    // and bail if it's the case
+    if parsed.host().is_none() {
+        bail!("url to parse doesn't have a host");
+    }
+
     // we have a valid url, the next step is to check the path and see if it's
     // something that url::Url::parse would silently transform
     //
@@ -728,6 +735,18 @@ mod tests {
     use super::*;
     use crate::config::Configuration;
     use crate::scan_manager::{FeroxScans, ScanOrder};
+
+    #[test]
+    /// parse_url_with_raw_path with javascript:// should not throw an unimplemented! error
+    fn utils_parse_url_with_raw_path_javascript() {
+        let url = "javascript://";
+        let parsed = parse_url_with_raw_path(url);
+        assert!(parsed.is_err());
+        assert!(parsed
+            .unwrap_err()
+            .to_string()
+            .contains("url to parse doesn't have a host"));
+    }
 
     #[test]
     /// multiple tests for parse_url_with_raw_path
