@@ -300,6 +300,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ocervell"><img src="https://avatars.githubusercontent.com/u/9629314?v=4?s=100" width="100px;" alt="Olivier Cervello"/><br /><sub><b>Olivier Cervello</b></sub></a><br /><a href="#ideas-ocervell" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/RavySena"><img src="https://avatars.githubusercontent.com/u/67729597?v=4?s=100" width="100px;" alt="RavySena"/><br /><sub><b>RavySena</b></sub></a><br /><a href="#ideas-RavySena" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/stuhlmann"><img src="https://avatars.githubusercontent.com/u/11061864?v=4?s=100" width="100px;" alt="Florian Stuhlmann"/><br /><sub><b>Florian Stuhlmann</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Astuhlmann" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

@@ -673,6 +673,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "stuhlmann",
+      "name": "Florian Stuhlmann",
+      "avatar_url": "https://avatars.githubusercontent.com/u/11061864?v=4",
+      "profile": "https://github.com/stuhlmann",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
