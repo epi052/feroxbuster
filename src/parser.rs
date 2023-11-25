@@ -550,9 +550,9 @@ pub fn initialize() -> Command {
             Arg::new("collect_backups")
                 .short('B')
                 .long("collect-backups")
-                .num_args(0)
+                .num_args(0..)
                 .help_heading("Dynamic collection settings")
-                .help("Automatically request likely backup extensions for \"found\" urls")
+                .help("Automatically request likely backup extensions for \"found\" urls (default: ~, .bak, .bak2, .old, .1)")
         )
         .arg(
             Arg::new("collect_words")

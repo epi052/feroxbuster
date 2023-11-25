@@ -67,6 +67,8 @@ _feroxbuster() {
 '--time-limit=[Limit total run time of all scans (ex\: --time-limit 10m)]:TIME_SPEC: ' \
 '-w+[Path or URL of the wordlist]:FILE:_files' \
 '--wordlist=[Path or URL of the wordlist]:FILE:_files' \
+'-B+[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
+'--collect-backups=[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
 '*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '*--dont-collect=[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
@@ -97,8 +99,6 @@ _feroxbuster() {
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '-E[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
-'-B[Automatically request likely backup extensions for "found" urls]' \
-'--collect-backups[Automatically request likely backup extensions for "found" urls]' \
 '-g[Automatically discover important words from within responses and add them to the wordlist]' \
 '--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
