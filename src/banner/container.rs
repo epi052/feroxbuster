@@ -1,13 +1,15 @@
 use super::entry::BannerEntry;
 use crate::{
+    client,
     config::Configuration,
     event_handlers::Handles,
-    utils::{logged_request, parse_url_with_raw_path, status_colorizer},
+    utils::{make_request, parse_url_with_raw_path, status_colorizer},
     DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES, VERSION,
 };
 use anyhow::{bail, Result};
 use console::{style, Emoji};
 use serde_json::Value;
+use std::collections::HashMap;
 use std::{io::Write, sync::Arc};
 
 /// Url used to query github's api; specifically used to look for the latest tagged release name
@@ -498,7 +500,34 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         let api_url = parse_url_with_raw_path(url)?;
 
-        let result = logged_request(&api_url, DEFAULT_METHOD, None, handles.clone()).await?;
+        // we don't want to leak sensitive header info / include auth headers
+        // with the github api request, so we'll build a client specifically
+        // for this task. thanks to @stuhlmann for the suggestion!
+        let client = client::initialize(
+            handles.config.timeout,
+            "feroxbuster-update-check",
+            handles.config.redirects,
+            handles.config.insecure,
+            &HashMap::new(),
+            Some(&handles.config.proxy),
+            &handles.config.server_certs,
+            Some(&handles.config.client_cert),
+            Some(&handles.config.client_key),
+        )?;
+        let level = handles.config.output_level;
+        let tx_stats = handles.stats.tx.clone();
+
+        let result = make_request(
+            &client,
+            &api_url,
+            DEFAULT_METHOD,
+            None,
+            level,
+            &handles.config,
+            tx_stats,
+        )
+        .await?;
+
         let body = result.text().await?;
 
         let json_response: Value = serde_json::from_str(&body)?;
