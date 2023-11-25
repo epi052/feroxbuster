@@ -1,6 +1,7 @@
 use crate::{
     utils::{module_colorizer, status_colorizer},
     DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES, DEFAULT_WORDLIST, VERSION,
+    DEFAULT_BACKUP_EXTENSIONS
 };
 #[cfg(not(test))]
 use std::process::exit;
@@ -64,6 +65,14 @@ pub(super) fn methods() -> Vec<String> {
 /// default extensions to ignore while auto-collecting
 pub(super) fn ignored_extensions() -> Vec<String> {
     DEFAULT_IGNORED_EXTENSIONS
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// default backup extensions to collect
+pub(super) fn backup_extensions() -> Vec<String> {
+    DEFAULT_BACKUP_EXTENSIONS
         .iter()
         .map(|s| s.to_string())
         .collect()

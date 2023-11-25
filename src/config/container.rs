@@ -1,6 +1,6 @@
 use super::utils::{
-    depth, extract_links, ignored_extensions, methods, report_and_exit, save_state,
-    serialized_type, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
+    backup_extensions, depth, extract_links, ignored_extensions, methods, report_and_exit,
+    save_state, serialized_type, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
     RequesterPolicy,
 };
 use crate::config::determine_output_level;
@@ -318,6 +318,9 @@ pub struct Configuration {
     #[serde(default)]
     pub collect_backups: bool,
 
+    #[serde(default = "backup_extensions")]
+    pub backup_extensions: Vec<String>,
+
     /// Automatically discover important words from within responses and add them to the wordlist
     #[serde(default)]
     pub collect_words: bool,
@@ -418,6 +421,7 @@ impl Default for Configuration {
             threads: threads(),
             wordlist: wordlist(),
             dont_collect: ignored_extensions(),
+            backup_extensions: backup_extensions(),
         }
     }
 }
@@ -450,6 +454,7 @@ impl Configuration {
     /// - **extensions**: `None`
     /// - **collect_extensions**: `false`
     /// - **collect_backups**: `false`
+    /// - **backup_extensions**: [`DEFAULT_BACKUP_EXTENSIONS`](constant.DEFAULT_BACKUP_EXTENSIONS.html)
     /// - **collect_words**: `false`
     /// - **dont_collect**: [`DEFAULT_IGNORED_EXTENSIONS`](constant.DEFAULT_RESPONSE_CODES.html)
     /// - **methods**: [`DEFAULT_METHOD`](constant.DEFAULT_METHOD.html)
@@ -836,6 +841,37 @@ impl Configuration {
             || came_from_cli!(args, "thorough")
         {
             config.collect_backups = true;
+
+            println!("{:?}", came_from_cli!(args, "collect_backups"));
+
+            if came_from_cli!(args, "collect_backups") {
+                if let Some(arg) = args.get_many::<String>("collect_backups") {
+                    let mut backup_exts = Vec::<String>::new();
+
+                    for ext in arg {
+                        println!("pushing {} to backup_extensions (was {})", ext.trim(), ext);
+                        backup_exts.push(ext.trim().to_string());
+                    }
+
+                    if backup_exts.is_empty() {
+                        config.backup_extensions = backup_extensions();
+                        println!(
+                            "no backup extensions specified, using defaults: {:?}",
+                            backup_extensions()
+                        );
+                    } else {
+                        config.backup_extensions = backup_exts;
+                    }
+                } else {
+                    config.backup_extensions = backup_extensions();
+                    println!(
+                        "no backup extensions specified, using defaults: {:?}",
+                        backup_extensions()
+                    );
+                }
+            } else {
+                config.backup_extensions = backup_extensions();
+            }
         }
 
         if came_from_cli!(args, "collect_words")
@@ -1138,6 +1174,11 @@ impl Configuration {
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
+        update_if_not_default!(
+            &mut conf.backup_extensions,
+            new.backup_extensions,
+            backup_extensions()
+        );
         update_if_not_default!(&mut conf.random_agent, new.random_agent, false);
         update_if_not_default!(&mut conf.threads, new.threads, threads());
         update_if_not_default!(&mut conf.depth, new.depth, depth());
