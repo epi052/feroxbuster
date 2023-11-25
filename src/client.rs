@@ -67,17 +67,19 @@ where
     }
 
     if let (Some(cert_path), Some(key_path)) = (client_cert, client_key) {
-        let cert = std::fs::read(cert_path)?;
-        let key = std::fs::read(key_path)?;
+        if !cert_path.is_empty() && !key_path.is_empty() {
+            let cert = std::fs::read(cert_path)?;
+            let key = std::fs::read(key_path)?;
 
-        let identity = reqwest::Identity::from_pkcs8_pem(&cert, &key).with_context(|| {
-            format!(
-                "either {} or {} are invalid; expecting PEM encoded certificate and key",
-                cert_path, key_path
-            )
-        })?;
+            let identity = reqwest::Identity::from_pkcs8_pem(&cert, &key).with_context(|| {
+                format!(
+                    "either {} or {} are invalid; expecting PEM encoded certificate and key",
+                    cert_path, key_path
+                )
+            })?;
 
-        client = client.identity(identity);
+            client = client.identity(identity);
+        }
     }
 
     Ok(client.build()?)
