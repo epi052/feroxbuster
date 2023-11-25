@@ -233,6 +233,14 @@ _feroxbuster() {
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
+                --collect-backups)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -B)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 --dont-collect)
                     COMPREPLY=($(compgen -f "${cur}"))
                     return 0

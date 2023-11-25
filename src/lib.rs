@@ -59,6 +59,9 @@ pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 38] = [
     "webm", "ogv", "oga", "flac", "aac", "3gp", "css", "zip", "xls", "xml", "gz", "tgz",
 ];
 
+/// Default set of extensions to search for when auto-collecting backups during scans
+pub(crate) const DEFAULT_BACKUP_EXTENSIONS: [&str; 5] = ["~", ".bak", ".bak2", ".old", ".1"];
+
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
 ///

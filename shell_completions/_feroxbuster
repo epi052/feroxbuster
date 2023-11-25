@@ -24,8 +24,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default\: feroxbuster/2.10.1)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.10.1)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default\: feroxbuster/2.10.2)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.10.2)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS: ' \
@@ -67,6 +67,8 @@ _feroxbuster() {
 '--time-limit=[Limit total run time of all scans (ex\: --time-limit 10m)]:TIME_SPEC: ' \
 '-w+[Path or URL of the wordlist]:FILE:_files' \
 '--wordlist=[Path or URL of the wordlist]:FILE:_files' \
+'-B+[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
+'--collect-backups=[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
 '*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '*--dont-collect=[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
@@ -97,8 +99,6 @@ _feroxbuster() {
 '--dont-filter[Don'\''t auto-filter wildcard responses]' \
 '-E[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
-'-B[Automatically request likely backup extensions for "found" urls]' \
-'--collect-backups[Automatically request likely backup extensions for "found" urls]' \
 '-g[Automatically discover important words from within responses and add them to the wordlist]' \
 '--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \

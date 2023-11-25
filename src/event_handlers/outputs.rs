@@ -209,8 +209,12 @@ impl TermOutHandler {
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::Report(resp) => {
-                    self.process_response(tx_stats.clone(), resp, ProcessResponseCall::Recursive)
-                        .await?;
+                    if let Err(err) = self
+                        .process_response(tx_stats.clone(), resp, ProcessResponseCall::Recursive)
+                        .await
+                    {
+                        log::warn!("{}", err);
+                    }
                 }
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
@@ -400,7 +404,7 @@ impl TermOutHandler {
 
         if !filename.is_empty() {
             // append rules
-            for suffix in ["~", ".bak", ".bak2", ".old", ".1"] {
+            for suffix in &self.config.backup_extensions {
                 self.add_new_url_to_vec(url, &format!("{filename}{suffix}"), &mut urls);
             }
 
