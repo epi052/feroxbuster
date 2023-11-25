@@ -841,36 +841,19 @@ impl Configuration {
             || came_from_cli!(args, "thorough")
         {
             config.collect_backups = true;
-
-            println!("{:?}", came_from_cli!(args, "collect_backups"));
+            config.backup_extensions = backup_extensions();
 
             if came_from_cli!(args, "collect_backups") {
                 if let Some(arg) = args.get_many::<String>("collect_backups") {
-                    let mut backup_exts = Vec::<String>::new();
+                    let backup_exts = arg
+                        .map(|ext| ext.trim().to_string())
+                        .collect::<Vec<String>>();
 
-                    for ext in arg {
-                        println!("pushing {} to backup_extensions (was {})", ext.trim(), ext);
-                        backup_exts.push(ext.trim().to_string());
-                    }
-
-                    if backup_exts.is_empty() {
-                        config.backup_extensions = backup_extensions();
-                        println!(
-                            "no backup extensions specified, using defaults: {:?}",
-                            backup_extensions()
-                        );
-                    } else {
+                    if !backup_exts.is_empty() {
+                        // have at least one cli backup, override the defaults
                         config.backup_extensions = backup_exts;
                     }
-                } else {
-                    config.backup_extensions = backup_extensions();
-                    println!(
-                        "no backup extensions specified, using defaults: {:?}",
-                        backup_extensions()
-                    );
                 }
-            } else {
-                config.backup_extensions = backup_extensions();
             }
         }
 
