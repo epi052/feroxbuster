@@ -691,6 +691,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "manugramm",
+      "name": "manugramm",
+      "avatar_url": "https://avatars.githubusercontent.com/u/145961515?v=4",
+      "profile": "https://github.com/manugramm",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,

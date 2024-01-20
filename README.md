@@ -302,6 +302,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/RavySena"><img src="https://avatars.githubusercontent.com/u/67729597?v=4?s=100" width="100px;" alt="RavySena"/><br /><sub><b>RavySena</b></sub></a><br /><a href="#ideas-RavySena" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/stuhlmann"><img src="https://avatars.githubusercontent.com/u/11061864?v=4?s=100" width="100px;" alt="Florian Stuhlmann"/><br /><sub><b>Florian Stuhlmann</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Astuhlmann" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Mister7F"><img src="https://avatars.githubusercontent.com/u/35213773?v=4?s=100" width="100px;" alt="Mister7F"/><br /><sub><b>Mister7F</b></sub></a><br /><a href="#ideas-Mister7F" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/manugramm"><img src="https://avatars.githubusercontent.com/u/145961515?v=4?s=100" width="100px;" alt="manugramm"/><br /><sub><b>manugramm</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Amanugramm" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
