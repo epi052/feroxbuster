@@ -211,7 +211,6 @@ pub fn initialize() -> Command {
                 .num_args(1..)
                 .action(ArgAction::Append)
                 .help_heading("Request settings")
-                .use_value_delimiter(true)
                 .help(
                     "Specify HTTP headers to be used in each request (ex: -H Header:val -H 'stuff: things')",
                 ),
