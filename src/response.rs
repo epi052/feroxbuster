@@ -423,8 +423,12 @@ impl FeroxSerialize for FeroxResponse {
         let mut url_with_redirect = match (
             self.status().is_redirection(),
             self.headers().get("Location").is_some(),
+            matches!(
+                self.output_level,
+                OutputLevel::Silent | OutputLevel::SilentJSON
+            ),
         ) {
-            (true, true) => {
+            (true, true, false) => {
                 // redirect with Location header, show where it goes if possible
                 let loc = self
                     .headers()
