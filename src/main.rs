@@ -325,9 +325,15 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     // create new Tasks object, each of these handles is one that will be joined on later
     let tasks = Tasks::new(out_task, stats_task, filters_task, scan_task);
 
-    if !config.time_limit.is_empty() {
+    if !config.time_limit.is_empty() && config.parallel == 0 {
         // --time-limit value not an empty string, need to kick off the thread that enforces
         // the limit
+        //
+        // if --parallel is used, this branch won't execute in the main process, but will in the
+        // children. This is because --parallel is stripped from the children's command line
+        // arguments, so, when spawned, they won't have --parallel, the parallel value will be set
+        // to the default of 0, and will hit this branch. This makes it so that the time limit
+        // is enforced on each individual child process, instead of the main process
         let time_handles = handles.clone();
         tokio::spawn(async move { scan_manager::start_max_time_thread(time_handles).await });
     }
