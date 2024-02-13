@@ -8,7 +8,7 @@ use std::{
     io::{stderr, BufRead, BufReader},
     ops::Index,
     path::Path,
-    process::{exit, Command},
+    process::{exit, Command, Stdio},
     sync::{atomic::Ordering, Arc},
 };
 
@@ -376,16 +376,13 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
         let invocation = args();
 
-        let para_regex =
-            Regex::new("--stdin|-q|--quiet|--silent|--verbosity|-v|-vv|-vvv|-vvvv").unwrap();
+        let para_regex = Regex::new("--stdin").unwrap();
 
         // remove stdin since only the original process will process targets
         // remove quiet and silent so we can force silent later to normalize output
         let mut original = invocation
             .filter(|s| !para_regex.is_match(s))
             .collect::<Vec<String>>();
-
-        original.push("--silent".to_string()); // only output modifier allowed
 
         // we need remove --parallel from command line so we don't hit this branch over and over
         // but we must remove --parallel N manually; the filter above never sees --parallel and the
@@ -461,16 +458,32 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
             log::debug!("parallel exec: {} {}", bin, args.join(" "));
 
-            tokio::task::spawn_blocking(move || {
-                let result = Command::new(bin)
+            tokio::task::spawn(async move {
+                let mut output = Command::new(bin)
                     .args(&args)
+                    .stdout(Stdio::piped())
                     .spawn()
-                    .expect("failed to spawn a child process")
-                    .wait()
-                    .expect("child process errored during execution");
+                    .expect("failed to spawn a child process");
 
+                let stdout = output.stdout.take().unwrap();
+
+                let mut bufread = BufReader::new(stdout);
+                // output for a single line is a minimum of 51 bytes, so we'll start with that
+                // + a little wiggle room, and grow as needed
+                let mut buf: String = String::with_capacity(128);
+
+                while let Ok(n) = bufread.read_line(&mut buf) {
+                    if n > 0 {
+                        let trimmed = buf.trim();
+                        if !trimmed.is_empty() {
+                            println!("{}", trimmed);
+                        }
+                        buf.clear();
+                    } else {
+                        break;
+                    }
+                }
                 drop(permit);
-                result
             });
         }
 

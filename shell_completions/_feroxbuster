@@ -62,7 +62,7 @@ _feroxbuster() {
 '--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH: ' \
 '-L+[Limit total number of concurrent scans (default\: 0, i.e. no limit)]:SCAN_LIMIT: ' \
 '--scan-limit=[Limit total number of concurrent scans (default\: 0, i.e. no limit)]:SCAN_LIMIT: ' \
-'--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]:PARALLEL_SCANS: ' \
+'(-v --verbosity)--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]:PARALLEL_SCANS: ' \
 '(--auto-tune)--rate-limit=[Limit number of requests per second (per directory) (default\: 0, i.e. no limit)]:RATE_LIMIT: ' \
 '--time-limit=[Limit total run time of all scans (ex\: --time-limit 10m)]:TIME_SPEC: ' \
 '-w+[Path or URL of the wordlist]:FILE:_files' \
