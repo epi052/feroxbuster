@@ -214,9 +214,9 @@ impl FeroxScanner {
                 .url(&self.target_url)
                 .handles(self.handles.clone())
                 .build()?;
-
-            let result = extractor.extract().await?;
-            extraction_tasks.push(extractor.request_links(result).await?)
+            if let Ok(result) = extractor.extract().await {
+                extraction_tasks.push(extractor.request_links(result).await?)
+            }
         }
 
         let scanned_urls = self.handles.ferox_scans()?;
