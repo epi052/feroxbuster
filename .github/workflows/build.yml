@@ -105,6 +105,8 @@ jobs:
   build-deb:
     needs: [build-nix]
     runs-on: ubuntu-latest
+    env:
+      IN_PIPELINE: true
     steps:
       - uses: actions/checkout@master
       - name: Install cargo-deb
