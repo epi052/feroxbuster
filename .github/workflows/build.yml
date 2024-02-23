@@ -102,22 +102,22 @@ jobs:
           name: x86_64-linux-debug-feroxbuster
           path: target/x86_64-unknown-linux-musl/debug/feroxbuster
 
-  # build-deb:
-  #   needs: [build-nix]
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@master
-  #     - name: Install cargo-deb
-  #       run: cargo install -f cargo-deb
-  #     - name: Install musl toolchain
-  #       run: rustup target add x86_64-unknown-linux-musl
-  #     - name: Deb Build
-  #       run: cargo deb --target=x86_64-unknown-linux-musl
-  #     - name: Upload Deb Artifact
-  #       uses: actions/upload-artifact@v2
-  #       with:
-  #         name: feroxbuster_amd64.deb
-  #         path: ./target/x86_64-unknown-linux-musl/debian/*
+  build-deb:
+    needs: [build-nix]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install cargo-deb
+        run: cargo install -f cargo-deb
+      - name: Install musl toolchain
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Deb Build
+        run: cargo deb --target=x86_64-unknown-linux-musl
+      - name: Upload Deb Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: feroxbuster_amd64.deb
+          path: ./target/x86_64-unknown-linux-musl/debian/*
 
   build-macos:
     env:
