@@ -665,7 +665,7 @@ fn main() -> Result<()> {
                 // print the banner to stderr
                 let std_stderr = stderr(); // std::io::stderr
                 let banner = Banner::new(&targets, &config);
-                if !config.quiet && !config.silent {
+                if (!config.quiet && !config.silent) || config.parallel != 0 {
                     banner.print_to(std_stderr, config).unwrap();
                 }
             }

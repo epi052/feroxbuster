@@ -11,7 +11,7 @@ rm ferox-*.state
 # dependency management
 [tasks.upgrade-deps]
 command = "cargo"
-args = ["upgrade", "--to-lockfile", "--exclude", "indicatif", "self_update"]
+args = ["upgrade", "--exclude", "indicatif, self_update"]
 
 [tasks.update]
 command = "cargo"
@@ -28,5 +28,5 @@ cargo clippy --all-targets --all-features -- -D warnings
 [tasks.test]
 clear = true
 script = """
-cargo nextest run --all-features --all-targets --retries 10
+cargo nextest run --all-features --all-targets
 """
