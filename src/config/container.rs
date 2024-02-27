@@ -21,7 +21,7 @@ use std::{
     collections::HashMap,
     env::{current_dir, current_exe},
     fs::read_to_string,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 /// macro helper to abstract away repetitive configuration updates
@@ -576,9 +576,7 @@ impl Configuration {
         //   - current directory
 
         // merge a config found at /etc/feroxbuster/ferox-config.toml
-        let config_file = PathBuf::new()
-            .join("/etc/feroxbuster")
-            .join(DEFAULT_CONFIG_NAME);
+        let config_file = Path::new("/etc/feroxbuster").join(DEFAULT_CONFIG_NAME);
         Self::parse_and_merge_config(config_file, config)?;
 
         // merge a config found at ~/.config/feroxbuster/ferox-config.toml
