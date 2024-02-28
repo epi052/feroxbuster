@@ -308,6 +308,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/dirhamgithub"><img src="https://avatars.githubusercontent.com/u/115349974?v=4?s=100" width="100px;" alt="dirhamgithub"/><br /><sub><b>dirhamgithub</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Adirhamgithub" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/FieldOfRice"><img src="https://avatars.githubusercontent.com/u/85353?v=4?s=100" width="100px;" alt="FieldOfRice"/><br /><sub><b>FieldOfRice</b></sub></a><br /><a href="#infra-FieldOfRice" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
     </tr>
   </tbody>
 </table>

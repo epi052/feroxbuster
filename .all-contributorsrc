@@ -728,6 +728,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "FieldOfRice",
+      "name": "FieldOfRice",
+      "avatar_url": "https://avatars.githubusercontent.com/u/85353?v=4",
+      "profile": "https://github.com/FieldOfRice",
+      "contributions": [
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
