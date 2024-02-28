@@ -44,7 +44,7 @@ elif [[ "$(expr substr $(uname -s) 1 5)" == "Linux" ]]; then
     rm "$LIN64_ZIP"
   fi
 
-  if [[ -e ~/.fonts/NotoColorEmoji.ttf ]]; then
+  if [[ "$(fc-list NotoColorEmoji | wc -l)" -gt 0 ]]; then
     echo "[=] Found Noto Emoji Font, skipping install"
   else
     echo "[=] Installing Noto Emoji Font"
