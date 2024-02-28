@@ -306,6 +306,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ArthurMuraro"><img src="https://avatars.githubusercontent.com/u/73059809?v=4?s=100" width="100px;" alt="ArthurMuraro"/><br /><sub><b>ArthurMuraro</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AArthurMuraro" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/amiremami"><img src="https://avatars.githubusercontent.com/u/15929497?v=4?s=100" width="100px;" alt="Shadow"/><br /><sub><b>Shadow</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Aamiremami" title="Bug reports">🐛</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/dirhamgithub"><img src="https://avatars.githubusercontent.com/u/115349974?v=4?s=100" width="100px;" alt="dirhamgithub"/><br /><sub><b>dirhamgithub</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Adirhamgithub" title="Bug reports">🐛</a></td>
+    </tr>
   </tbody>
 </table>
 
