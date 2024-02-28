@@ -311,6 +311,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/FieldOfRice"><img src="https://avatars.githubusercontent.com/u/85353?v=4?s=100" width="100px;" alt="FieldOfRice"/><br /><sub><b>FieldOfRice</b></sub></a><br /><a href="#infra-FieldOfRice" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/NotoriousRebel"><img src="https://avatars.githubusercontent.com/u/36310667?v=4?s=100" width="100px;" alt="Matt"/><br /><sub><b>Matt</b></sub></a><br /><a href="#ideas-NotoriousRebel" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/tritoke"><img src="https://avatars.githubusercontent.com/u/34941249?v=4?s=100" width="100px;" alt="Sam Leonard"/><br /><sub><b>Sam Leonard</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=tritoke" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/rew1nter"><img src="https://avatars.githubusercontent.com/u/64508791?v=4?s=100" width="100px;" alt="Rewinter"/><br /><sub><b>Rewinter</b></sub></a><br /><a href="#ideas-rew1nter" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
   </tbody>
 </table>
