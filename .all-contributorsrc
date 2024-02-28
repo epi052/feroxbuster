@@ -710,6 +710,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "amiremami",
+      "name": "Shadow",
+      "avatar_url": "https://avatars.githubusercontent.com/u/15929497?v=4",
+      "profile": "https://github.com/amiremami",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
