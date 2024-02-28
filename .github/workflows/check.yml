@@ -23,7 +23,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: nextest
-          args: run --all-features --all-targets --retries 10
+          args: run --all-features --all-targets
 
   fmt:
     name: Rust fmt

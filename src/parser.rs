@@ -485,8 +485,10 @@ pub fn initialize() -> Command {
             Arg::new("parallel")
                 .long("parallel")
                 .value_name("PARALLEL_SCANS")
+                .conflicts_with("verbosity")
                 .num_args(1)
                 .requires("stdin")
+                .requires("output_limiters")
                 .help_heading("Scan settings")
                 .help("Run parallel feroxbuster instances (one child process per url passed via stdin)")
         )
@@ -646,6 +648,11 @@ pub fn initialize() -> Command {
             ArgGroup::new("output_files")
                 .args(["debug_log", "output", "silent"])
                 .multiple(true),
+        )
+        .group(
+            ArgGroup::new("output_limiters")
+                .args(["quiet", "silent"])
+                .multiple(false),
         )
         .arg(
             Arg::new("update_app")

@@ -1146,6 +1146,7 @@ fn banner_prints_parallel() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--stdin")
+        .arg("--quiet")
         .arg("--parallel")
         .arg("4316")
         .arg("--wordlist")

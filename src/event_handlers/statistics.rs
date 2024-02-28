@@ -132,7 +132,7 @@ impl StatsHandler {
 
         self.bar.finish();
 
-        log::debug!("{:#?}", *self.stats);
+        log::info!("{:#?}", *self.stats);
         log::trace!("exit: start");
         Ok(())
     }

@@ -34,7 +34,18 @@ _feroxbuster() {
                     return 0
                     ;;
                 --resume-from)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --proxy)
@@ -178,15 +189,48 @@ _feroxbuster() {
                     return 0
                     ;;
                 --server-certs)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --client-cert)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --client-key)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --threads)
@@ -226,11 +270,33 @@ _feroxbuster() {
                     return 0
                     ;;
                 --wordlist)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 -w)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --collect-backups)
@@ -250,15 +316,48 @@ _feroxbuster() {
                     return 0
                     ;;
                 --output)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 -o)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 --debug-log)
+                    local oldifs
+                    if [[ -v IFS ]]; then
+                        oldifs="$IFS"
+                    fi
+                    IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
+                    if [[ -v oldifs ]]; then
+                        IFS="$oldifs"
+                    fi
+                    if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
+                        compopt -o filenames
+                    fi
                     return 0
                     ;;
                 *)
@@ -271,4 +370,8 @@ _feroxbuster() {
     esac
 }
 
-complete -F _feroxbuster -o bashdefault -o default -o plusdirs feroxbuster
+if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
+    complete -F _feroxbuster -o nosort -o bashdefault -o default -o plusdirs feroxbuster
+else
+    complete -F _feroxbuster -o bashdefault -o default -o plusdirs feroxbuster
+fi
