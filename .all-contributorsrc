@@ -746,6 +746,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "tritoke",
+      "name": "Sam Leonard",
+      "avatar_url": "https://avatars.githubusercontent.com/u/34941249?v=4",
+      "profile": "https://github.com/tritoke",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
