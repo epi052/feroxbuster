@@ -737,6 +737,15 @@
       "contributions": [
         "infra"
       ]
+    },
+    {
+      "login": "NotoriousRebel",
+      "name": "Matt",
+      "avatar_url": "https://avatars.githubusercontent.com/u/36310667?v=4",
+      "profile": "https://github.com/NotoriousRebel",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
