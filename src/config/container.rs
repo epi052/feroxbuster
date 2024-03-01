@@ -791,7 +791,12 @@ impl Configuration {
                 .collect();
         }
 
-        if came_from_cli!(args, "silent") {
+        if came_from_cli!(args, "quiet") {
+            config.quiet = true;
+            config.output_level = OutputLevel::Quiet;
+        }
+
+        if came_from_cli!(args, "silent") || (config.parallel > 0 && !config.quiet) {
             // the reason this is protected by an if statement:
             // consider a user specifying silent = true in ferox-config.toml
             // if the line below is outside of the if, we'd overwrite true with
@@ -802,11 +807,6 @@ impl Configuration {
             } else {
                 OutputLevel::Silent
             };
-        }
-
-        if came_from_cli!(args, "quiet") {
-            config.quiet = true;
-            config.output_level = OutputLevel::Quiet;
         }
 
         if came_from_cli!(args, "auto_tune")

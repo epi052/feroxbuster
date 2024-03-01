@@ -488,7 +488,6 @@ pub fn initialize() -> Command {
                 .conflicts_with("verbosity")
                 .num_args(1)
                 .requires("stdin")
-                .requires("output_limiters")
                 .help_heading("Scan settings")
                 .help("Run parallel feroxbuster instances (one child process per url passed via stdin)")
         )
