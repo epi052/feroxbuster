@@ -132,6 +132,9 @@ pub struct Stats {
 
     /// tracker for whether to use json during serialization or not
     json: bool,
+
+    /// tracker for the initial targets that were passed in to the scan
+    targets: Mutex<Vec<String>>,
 }
 
 /// FeroxSerialize implementation for Stats
@@ -196,6 +199,7 @@ impl Serialize for Stats {
         state.serialize_field("request_errors", &atomic_load!(self.request_errors))?;
         state.serialize_field("directory_scan_times", &self.directory_scan_times)?;
         state.serialize_field("total_runtime", &self.total_runtime)?;
+        state.serialize_field("targets", &self.targets)?;
 
         state.end()
     }
@@ -446,6 +450,17 @@ impl<'a> Deserialize<'a> for Stats {
                         }
                     }
                 }
+                "targets" => {
+                    if let Some(arr) = value.as_array() {
+                        for val in arr {
+                            if let Some(parsed) = val.as_str() {
+                                if let Ok(mut guard) = stats.targets.lock() {
+                                    guard.push(parsed.to_string())
+                                }
+                            }
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -511,6 +526,13 @@ impl Stats {
     fn update_runtime(&self, seconds: f64) {
         if let Ok(mut runtime) = self.total_runtime.lock() {
             runtime[0] = seconds;
+        }
+    }
+
+    /// update targets with the given vector of strings
+    pub fn update_targets(&self, targets: Vec<String>) {
+        if let Ok(mut locked_targets) = self.targets.lock() {
+            *locked_targets = targets;
         }
     }
 

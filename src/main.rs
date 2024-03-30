@@ -25,7 +25,8 @@ use feroxbuster::{
     config::{Configuration, OutputLevel},
     event_handlers::{
         Command::{
-            AddHandles, CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateWordlist,
+            AddHandles, CreateBar, Exit, JoinTasks, LoadStats, ScanInitialUrls, UpdateTargets,
+            UpdateWordlist,
         },
         FiltersHandler, Handles, ScanHandler, StatsHandler, Tasks, TermInputHandler,
         TermOutHandler, SCAN_COMPLETE,
@@ -506,6 +507,14 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         log::trace!("exit: parallel branch && wrapped main");
         return Ok(());
     }
+
+    // in order for the Stats object to know about which targets are being scanned, we need to
+    // wait until the parallel branch has been handled before sending the UpdateTargets command
+    // this ensures that only the targets being scanned are sent to the Stats object
+    //
+    // if sent before the parallel branch is handled, the Stats object will have duplicate
+    // targets
+    handles.stats.send(UpdateTargets(targets.clone()))?;
 
     if matches!(config.output_level, OutputLevel::Default) {
         // only print banner if output level is default (no banner on --quiet|--silent)
