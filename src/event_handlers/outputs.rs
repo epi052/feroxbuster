@@ -98,6 +98,8 @@ impl FileOutHandler {
 
         log::info!("Writing scan results to {}", self.config.output);
 
+        write_to(&*self.config, &mut file, self.config.json)?;
+
         while let Some(command) = self.receiver.recv().await {
             match command {
                 Command::Report(response) => {
