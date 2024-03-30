@@ -68,6 +68,20 @@ pub fn fmt_err(msg: &str) -> String {
     format!("{}: {}", status_colorizer("ERROR"), msg)
 }
 
+/// simple wrapper to get the current system time as
+/// time elapsed from unix epoch
+pub fn timestamp() -> f64 {
+    let since_the_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| Duration::from_secs(0));
+
+    let secs = since_the_epoch.as_secs() as f64;
+    let nanos = since_the_epoch.subsec_nanos() as f64;
+
+    // Convert nanoseconds to fractional seconds and add to secs
+    secs + (nanos / 1_000_000_000.0)
+}
+
 /// given a FeroxResponse, send a TryRecursion command
 ///
 /// moved to utils to allow for calls from extractor and scanner

@@ -21,7 +21,7 @@ use crate::{
     event_handlers::{Command, Handles},
     traits::FeroxSerialize,
     url::FeroxUrl,
-    utils::{self, fmt_err, parse_url_with_raw_path, status_colorizer},
+    utils::{self, fmt_err, parse_url_with_raw_path, status_colorizer, timestamp},
     CommandSender,
 };
 
@@ -63,6 +63,9 @@ pub struct FeroxResponse {
 
     /// Url's file extension, if one exists
     pub(crate) extension: Option<String>,
+
+    /// Timestamp of when this response was received
+    timestamp: f64,
 }
 
 /// implement Default trait for FeroxResponse
@@ -82,6 +85,7 @@ impl Default for FeroxResponse {
             wildcard: false,
             output_level: Default::default(),
             extension: None,
+            timestamp: timestamp(),
         }
     }
 }
@@ -136,6 +140,11 @@ impl FeroxResponse {
     /// Get the content-length of this response, if known
     pub fn content_length(&self) -> u64 {
         self.content_length
+    }
+
+    /// Get the timestamp of this response
+    pub fn timestamp(&self) -> f64 {
+        self.timestamp
     }
 
     /// Set `FeroxResponse`'s `url` attribute, has no affect if an error occurs
@@ -216,6 +225,7 @@ impl FeroxResponse {
         let status = response.status();
         let headers = response.headers().clone();
         let content_length = response.content_length().unwrap_or(0);
+        let timestamp = timestamp();
 
         // .text() consumes the response, must be called last
         let text = response
@@ -248,6 +258,7 @@ impl FeroxResponse {
             output_level,
             wildcard: false,
             extension: None,
+            timestamp,
         }
     }
 
@@ -574,6 +585,7 @@ impl Serialize for FeroxResponse {
             "extension",
             self.extension.as_ref().unwrap_or(&String::new()),
         )?;
+        state.serialize_field("timestamp", &self.timestamp)?;
 
         state.end()
     }
@@ -599,6 +611,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             line_count: 0,
             word_count: 0,
             extension: None,
+            timestamp: timestamp(),
         };
 
         let map: HashMap<String, Value> = HashMap::deserialize(deserializer)?;
@@ -670,6 +683,11 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                 "extension" => {
                     if let Some(result) = value.as_str() {
                         response.extension = Some(result.to_string());
+                    }
+                }
+                "timestamp" => {
+                    if let Some(result) = value.as_f64() {
+                        response.timestamp = result;
                     }
                 }
                 _ => {}
