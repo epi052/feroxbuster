@@ -704,6 +704,11 @@ impl Configuration {
             } else {
                 config.data = arg.as_bytes().to_vec();
             }
+
+            if config.methods == methods() {
+                // if the user didn't specify a method, we're going to assume they meant to use POST
+                config.methods = vec![Method::POST.as_str().to_string()];
+            }
         }
 
         if came_from_cli!(args, "stdin") {
