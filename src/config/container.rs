@@ -940,7 +940,15 @@ impl Configuration {
                 // all other items in the iterator returned by split, when combined with the
                 // original split deliminator (:), make up the header's final value
                 let value = split_val.collect::<Vec<&str>>().join(":");
-                config.headers.insert(name.to_string(), value.to_string());
+
+                if value.starts_with(' ') && !value.starts_with("  ") {
+                    // first character is a space and the second character isn't
+                    // we can trim the leading space
+                    let trimmed = value.trim_start();
+                    config.headers.insert(name.to_string(), trimmed.to_string());
+                } else {
+                    config.headers.insert(name.to_string(), value.to_string());
+                }
             }
         }
 
