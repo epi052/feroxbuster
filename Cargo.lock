@@ -944,7 +944,7 @@ checksum = "658bd65b1cf4c852a3cc96f18a8ce7b5640f6b703f905c7d74532294c2a63984"
 
 [[package]]
 name = "feroxbuster"
-version = "2.10.2"
+version = "2.10.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
