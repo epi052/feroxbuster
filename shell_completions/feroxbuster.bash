@@ -35,12 +35,12 @@ _feroxbuster() {
                     ;;
                 --resume-from)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -190,12 +190,12 @@ _feroxbuster() {
                     ;;
                 --server-certs)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -205,12 +205,12 @@ _feroxbuster() {
                     ;;
                 --client-cert)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -220,12 +220,12 @@ _feroxbuster() {
                     ;;
                 --client-key)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -271,12 +271,12 @@ _feroxbuster() {
                     ;;
                 --wordlist)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -286,12 +286,12 @@ _feroxbuster() {
                     ;;
                 -w)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -317,12 +317,12 @@ _feroxbuster() {
                     ;;
                 --output)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -332,12 +332,12 @@ _feroxbuster() {
                     ;;
                 -o)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -347,12 +347,12 @@ _feroxbuster() {
                     ;;
                 --debug-log)
                     local oldifs
-                    if [[ -v IFS ]]; then
+                    if [ -n "${IFS+x}" ]; then
                         oldifs="$IFS"
                     fi
                     IFS=$'\n'
                     COMPREPLY=($(compgen -f "${cur}"))
-                    if [[ -v oldifs ]]; then
+                    if [ -n "${oldifs+x}" ]; then
                         IFS="$oldifs"
                     fi
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
