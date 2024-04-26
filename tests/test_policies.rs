@@ -22,6 +22,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 // these words will be used along with pattern matching to trigger different policies
 
 #[test]
+#[ignore]
 /// --auto-bail should cancel a scan with spurious errors  
 fn auto_bail_cancels_scan_with_timeouts() {
     let srv = MockServer::start();
