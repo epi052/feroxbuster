@@ -271,7 +271,7 @@ fn remove_function_works_as_expected() {
 
     assert_eq!(data.filters.read().unwrap().len(), 5);
 
-    let expected = vec![
+    let expected = [
         WordsFilter { word_count: 1 },
         WordsFilter { word_count: 3 },
         WordsFilter { word_count: 5 },

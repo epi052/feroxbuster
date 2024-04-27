@@ -45,9 +45,7 @@ impl Document {
 
         let html = Html::parse_document(raw_html);
 
-        let Some(element) = html.select(&selector).next() else {
-            return None;
-        };
+        let element = html.select(&selector).next()?;
 
         let text = element
             .descendants()

@@ -2,6 +2,9 @@
 [tasks.upgrade]
 dependencies = ["upgrade-deps", "update"]
 
+[tasks.check]
+dependencies = ["fmt", "clippy", "test"]
+
 # cleaning
 [tasks.clean-state]
 script = """
@@ -22,6 +25,12 @@ args = ["update"]
 clear = true
 script = """
 cargo clippy --all-targets --all-features -- -D warnings
+"""
+
+[tasks.fmt]
+clear = true
+script = """
+cargo fmt --all
 """
 
 # tests

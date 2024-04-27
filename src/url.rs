@@ -270,7 +270,7 @@ mod tests {
         let pdf = Url::parse("http://localhost/turbo.pdf").unwrap();
         let tar = Url::parse("http://localhost/turbo.tar.gz").unwrap();
 
-        let expected = vec![
+        let expected = [
             vec![base.clone(), js.clone()],
             vec![base.clone(), js.clone(), php.clone()],
             vec![base.clone(), js.clone(), php.clone(), pdf.clone()],

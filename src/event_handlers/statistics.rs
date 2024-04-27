@@ -125,6 +125,9 @@ impl StatsHandler {
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
                 }
+                Command::UpdateTargets(targets) => {
+                    self.stats.update_targets(targets);
+                }
                 Command::Exit => break,
                 _ => {} // no more commands needed
             }
