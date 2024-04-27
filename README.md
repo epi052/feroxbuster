@@ -315,6 +315,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/deadloot"><img src="https://avatars.githubusercontent.com/u/92878901?v=4?s=100" width="100px;" alt="deadloot"/><br /><sub><b>deadloot</b></sub></a><br /><a href="#ideas-deadloot" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Spidle"><img src="https://avatars.githubusercontent.com/u/90011249?v=4?s=100" width="100px;" alt="Spidle"/><br /><sub><b>Spidle</b></sub></a><br /><a href="#ideas-Spidle" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/JulianGR"><img src="https://avatars.githubusercontent.com/u/53094530?v=4?s=100" width="100px;" alt="Julián Gómez"/><br /><sub><b>Julián Gómez</b></sub></a><br /><a href="#ideas-JulianGR" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
   </tbody>
 </table>
 
