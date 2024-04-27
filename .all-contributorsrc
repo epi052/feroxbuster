@@ -791,6 +791,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "soutzis",
+      "name": "Petros",
+      "avatar_url": "https://avatars.githubusercontent.com/u/25797286?v=4",
+      "profile": "https://github.com/soutzis",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
