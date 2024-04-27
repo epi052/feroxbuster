@@ -317,6 +317,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/JulianGR"><img src="https://avatars.githubusercontent.com/u/53094530?v=4?s=100" width="100px;" alt="Julián Gómez"/><br /><sub><b>Julián Gómez</b></sub></a><br /><a href="#ideas-JulianGR" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/soutzis"><img src="https://avatars.githubusercontent.com/u/25797286?v=4?s=100" width="100px;" alt="Petros"/><br /><sub><b>Petros</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asoutzis" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
