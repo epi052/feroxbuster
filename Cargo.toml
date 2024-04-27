@@ -35,7 +35,7 @@ tokio = { version = "1.37", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 log = "0.4"
 env_logger = "0.10"
-reqwest = { version = "0.11", features = ["socks", "native-tls-alpn"] }
+reqwest = { version = "0.12", features = ["socks", "native-tls-alpn"] }
 # uses feature unification to add 'serde' to reqwest::Url
 url = { version = "2.5", features = ["serde"] }
 serde_regex = "1.1"
