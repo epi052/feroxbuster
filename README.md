@@ -121,6 +121,12 @@ Expand-Archive .\feroxbuster.zip
 .\feroxbuster\feroxbuster.exe -V
 ```
 
+#### Windows via Winget
+
+```
+winget install epi052.feroxbuster
+```
+
 #### Windows via Chocolatey
 
 ```
