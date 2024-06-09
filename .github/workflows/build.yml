@@ -156,6 +156,38 @@ jobs:
         with:
           name: x86_64-macos-feroxbuster.tar.gz
           path: x86_64-macos-feroxbuster.tar.gz
+  
+  build-macos-aarch64:
+    env:
+      IN_PIPELINE: true
+    runs-on: macos-latest
+    # if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-apple-darwin
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target=aarch64-apple-darwin
+      - name: Strip symbols from binary
+        run: |
+          strip -u -r target/aarch64-apple-darwin/release/feroxbuster
+      - name: Build tar.gz for homebrew installs
+        run: |
+          tar czf aarch64-macos-feroxbuster.tar.gz -C target/aarch64-apple-darwin/release feroxbuster
+      - uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-macos-feroxbuster
+          path: target/aarch64-apple-darwin/release/feroxbuster
+      - uses: actions/upload-artifact@v2
+        with:
+          name: aarch64-macos-feroxbuster.tar.gz
+          path: aarch64-macos-feroxbuster.tar.gz
 
   build-windows:
     env:
