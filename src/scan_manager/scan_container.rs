@@ -33,6 +33,7 @@ use std::{
     },
     thread::sleep,
 };
+use tokio::sync::oneshot;
 use tokio::time::{self, Duration};
 
 /// Single atomic number that gets incremented once, used to track first thread to interact with
@@ -430,6 +431,13 @@ impl FeroxScans {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
+        let (tx, rx) = oneshot::channel::<Duration>();
+        if handles.stats.send(Command::QueryOverallBarEta(tx)).is_ok() {
+            if let Ok(y) = rx.await {
+                self.menu.print_eta(y);
+            }
+        }
+
         self.display_scans().await;
         self.display_filters(handles.clone());
         self.menu.print_footer();

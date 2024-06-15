@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use reqwest::StatusCode;
 use tokio::sync::oneshot::Sender;
@@ -88,4 +89,7 @@ pub enum Command {
 
     /// inform the Stats object about which targets are being scanned
     UpdateTargets(Vec<String>),
+
+    /// query the Stats handler about the position of the overall progress bar
+    QueryOverallBarEta(Sender<Duration>),
 }

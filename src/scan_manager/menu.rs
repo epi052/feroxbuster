@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use crate::filters::filter_lookup;
 use crate::progress::PROGRESS_BAR;
 use crate::traits::FeroxFilter;
 use console::{measure_text_width, pad_str, style, Alignment, Term};
-use indicatif::ProgressDrawTarget;
+use indicatif::{HumanDuration, ProgressDrawTarget};
 use regex::Regex;
 
 /// Data container for a command entered by the user interactively
@@ -42,6 +44,9 @@ pub(super) struct Menu {
 
     /// footer: instructions surrounded by separators
     footer: String,
+
+    /// length of longest displayed line (suitable for ascii/unicode)
+    longest: usize,
 
     /// unicode line border, matched to longest displayed line
     border: String,
@@ -110,7 +115,7 @@ impl Menu {
         commands.push_str(&valid_filters);
         commands.push_str(&rm_filter_cmd);
 
-        let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name));
+        let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name)) + 1;
 
         let border = separator.repeat(longest);
 
@@ -123,6 +128,7 @@ impl Menu {
             header,
             footer,
             border,
+            longest,
             term: Term::stderr(),
         }
     }
@@ -140,6 +146,13 @@ impl Menu {
     /// print menu footer
     pub(super) fn print_footer(&self) {
         self.println(&self.footer);
+    }
+
+    /// print menu footer
+    pub(super) fn print_eta(&self, eta: Duration) {
+        let inner = format!("⏳ {} remaining ⏳", HumanDuration(eta));
+        let padded_eta = pad_str(&inner, self.longest, Alignment::Center, None);
+        self.println(&format!("{padded_eta}\n{}", self.border));
     }
 
     /// set PROGRESS_BAR bar target to hidden
