@@ -13,3 +13,4 @@ jobs:
           identifier: epi052.feroxbuster
           installers-regex: '-windows-feroxbuster\.exe\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
+          version: "2.10.4"
