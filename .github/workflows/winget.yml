@@ -1,0 +1,14 @@
+name: Publish to Winget
+on:
+  release:
+    types: [released]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: epi052.feroxbuster
+          installers-regex: '-windows-feroxbuster\.exe\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
