@@ -812,6 +812,16 @@
         "infra",
         "doc"
       ]
+    },
+    {
+      "login": "wikamp-collaborator",
+      "name": "wikamp-collaborator",
+      "avatar_url": "https://avatars.githubusercontent.com/u/147445097?v=4",
+      "profile": "https://github.com/wikamp-collaborator",
+      "contributions": [
+        "ideas",
+        "infra"
+      ]
     }
   ],
   "contributorsPerLine": 7,
