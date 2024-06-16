@@ -291,7 +291,7 @@ pub fn initialize() -> Command {
                 .use_value_delimiter(true)
                 .help_heading("Response filters")
                 .help(
-                    "Filter out messages via regular expression matching on the response's body (ex: -X '^ignore me$')",
+                    "Filter out messages via regular expression matching on the response's body/headers (ex: -X '^ignore me$')",
                 ),
         )
         .arg(

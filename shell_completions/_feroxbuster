@@ -40,8 +40,8 @@ _feroxbuster() {
 '*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]:URL: ' \
 '*-S+[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE: ' \
 '*--filter-size=[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE: ' \
-'*-X+[Filter out messages via regular expression matching on the response'\''s body (ex\: -X '\''^ignore me\$'\'')]:REGEX: ' \
-'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body (ex\: -X '\''^ignore me\$'\'')]:REGEX: ' \
+'*-X+[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX: ' \
+'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX: ' \
 '*-W+[Filter out messages of a particular word count (ex\: -W 312 -W 91,82)]:WORDS: ' \
 '*--filter-words=[Filter out messages of a particular word count (ex\: -W 312 -W 91,82)]:WORDS: ' \
 '*-N+[Filter out messages of a particular line count (ex\: -N 20 -N 31,30)]:LINES: ' \
