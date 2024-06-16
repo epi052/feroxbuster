@@ -30,10 +30,13 @@ impl FeroxFilter for RegexFilter {
         log::trace!("enter: should_filter_response({:?} {})", self, response);
 
         let result = self.compiled.is_match(response.text());
+        let other = response.headers().iter().any(|(k, v)| {
+            self.compiled.is_match(k.as_str()) || self.compiled.is_match(v.to_str().unwrap_or(""))
+        });
 
-        log::trace!("exit: should_filter_response -> {}", result);
+        log::trace!("exit: should_filter_response -> {}", result || other);
 
-        result
+        result || other
     }
 
     /// Compare one SizeFilter to another

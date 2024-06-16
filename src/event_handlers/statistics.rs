@@ -125,6 +125,9 @@ impl StatsHandler {
                 Command::Sync(sender) => {
                     sender.send(true).unwrap_or_default();
                 }
+                Command::QueryOverallBarEta(sender) => {
+                    sender.send(self.bar.eta()).unwrap_or_default();
+                }
                 Command::UpdateTargets(targets) => {
                     self.stats.update_targets(targets);
                 }

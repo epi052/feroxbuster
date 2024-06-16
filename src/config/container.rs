@@ -620,7 +620,7 @@ impl Configuration {
         update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
 
         if let Ok(Some(inner)) = args.try_get_one::<String>("time_limit") {
-            config.time_limit = inner.to_owned();
+            inner.clone_into(&mut config.time_limit);
         }
 
         if let Some(arg) = args.get_many::<String>("status_codes") {
@@ -644,7 +644,7 @@ impl Configuration {
                 .collect();
         } else {
             // not passed in by the user, use whatever value is held in status_codes
-            config.replay_codes = config.status_codes.clone();
+            config.replay_codes.clone_from(&config.status_codes);
         }
 
         if let Some(arg) = args.get_many::<String>("filter_status") {
@@ -956,15 +956,27 @@ impl Configuration {
             config.headers.insert(
                 // we know the header name is always "cookie"
                 "Cookie".to_string(),
-                // on splitting, there should be only two elements,
-                // a key and a value
                 cookies
-                    .map(|cookie| cookie.split('=').collect::<Vec<&str>>()[..].to_owned())
-                    .filter(|parts| parts.len() == 2)
-                    .map(|parts| format!("{}={}", parts[0].trim(), parts[1].trim()))
-                    // trim the spaces, join with an equals sign
+                    .flat_map(|cookie| {
+                        cookie.split(';').filter_map(|part| {
+                            // trim the spaces
+                            let trimmed = part.trim();
+                            if trimmed.is_empty() {
+                                None
+                            } else {
+                                // join with an equals sign
+                                let parts = trimmed.split('=').collect::<Vec<&str>>();
+                                Some(format!(
+                                    "{}={}",
+                                    parts[0].trim(),
+                                    parts[1..].join("").trim()
+                                ))
+                            }
+                        })
+                    })
                     .collect::<Vec<String>>()
-                    .join("; "), // join all the cookies with semicolons for the final header
+                    // join all the cookies with semicolons for the final header
+                    .join("; "),
             );
         }
 

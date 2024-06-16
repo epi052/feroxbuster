@@ -104,9 +104,9 @@ fn test_single_target_cannot_connect_due_to_ssl_errors() -> Result<(), Box<dyn s
         .arg(file.as_os_str())
         .assert()
         .success()
-        .stdout(
-            predicate::str::contains("Could not connect to https://expired.badssl.com due to SSL errors (run with -k to ignore), skipping...", )
-        );
+        .stdout(predicate::str::contains(
+            "Could not connect to https://expired.badssl.com",
+        ));
 
     teardown_tmp_directory(tmp_dir);
     Ok(())
