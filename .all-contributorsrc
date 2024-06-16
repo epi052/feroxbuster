@@ -789,7 +789,9 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/53094530?v=4",
       "profile": "https://github.com/JulianGR",
       "contributions": [
-        "ideas"
+        "ideas",
+        "infra",
+        "doc"
       ]
     },
     {
@@ -799,6 +801,44 @@
       "profile": "https://github.com/soutzis",
       "contributions": [
         "bug"
+      ]
+    },
+    {
+      "login": "sitiom",
+      "name": "Ryan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/56180050?v=4",
+      "profile": "https://github.com/sitiom",
+      "contributions": [
+        "infra",
+        "doc"
+      ]
+    },
+    {
+      "login": "wikamp-collaborator",
+      "name": "wikamp-collaborator",
+      "avatar_url": "https://avatars.githubusercontent.com/u/147445097?v=4",
+      "profile": "https://github.com/wikamp-collaborator",
+      "contributions": [
+        "ideas",
+        "infra"
+      ]
+    },
+    {
+      "login": "L1-0",
+      "name": "Lino",
+      "avatar_url": "https://avatars.githubusercontent.com/u/123986259?v=4",
+      "profile": "http://lino.codes",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "sa7mon",
+      "name": "Dan Salmon",
+      "avatar_url": "https://avatars.githubusercontent.com/u/3712226?v=4",
+      "profile": "https://danthesalmon.com",
+      "contributions": [
+        "ideas"
       ]
     }
   ],
