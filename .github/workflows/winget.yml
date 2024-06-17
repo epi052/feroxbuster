@@ -3,6 +3,11 @@ on:
   release:
     types: [released]
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name of release'
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -13,4 +18,4 @@ jobs:
           identifier: epi052.feroxbuster
           installers-regex: '-windows-feroxbuster\.exe\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
-          version: "2.10.4"
+          release-tag: ${{ inputs.tag_name || github.event.release.tag_name || github.ref_name }}
