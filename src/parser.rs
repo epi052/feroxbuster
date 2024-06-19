@@ -486,6 +486,7 @@ pub fn initialize() -> Command {
                 .long("parallel")
                 .value_name("PARALLEL_SCANS")
                 .conflicts_with("verbosity")
+                .conflicts_with("url")
                 .num_args(1)
                 .requires("stdin")
                 .help_heading("Scan settings")
