@@ -61,7 +61,7 @@ gaoya = "0.2"
 # 0.37+ relies on the broken version of indicatif and forces
 # the broken version to be used regardless of the version
 # specified above 
-self_update = { version = "0.40", features = [
+self_update = { version = "0.41", features = [
     "archive-tar",
     "compression-flate2",
     "archive-zip",
