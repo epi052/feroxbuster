@@ -2,6 +2,7 @@
 
 mod container;
 mod utils;
+mod raw_request;
 #[cfg(test)]
 mod tests;
 

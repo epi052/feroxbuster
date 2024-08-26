@@ -197,9 +197,9 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
             }
         }
 
-        if !target.starts_with("http") && !target.starts_with("https") {
+        if !target.starts_with("http") {
             // --url hackerone.com
-            *target = format!("https://{target}");
+            *target = format!("{}://{target}", handles.config.protocol);
         }
     }
 

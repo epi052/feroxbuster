@@ -507,6 +507,8 @@ fn feroxstates_feroxserialize_implementation() {
         r#""collect_extensions":true"#,
         r#""collect_backups":false"#,
         r#""collect_words":false"#,
+        r#""scan_dir_listings":false"#,
+        r#""protocol":"https""#,
         r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":1,"original_url":"http://localhost:12345/"}]"#,
         r#""collected_extensions":["php"]"#,
         r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,

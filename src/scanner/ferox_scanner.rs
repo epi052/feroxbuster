@@ -283,6 +283,16 @@ impl FeroxScanner {
 
                 let mut message = format!("=> {}", style("Directory listing").blue().bright());
 
+                if !self.handles.config.scan_dir_listings {
+                    write!(
+                        message,
+                        " (add {} to scan)",
+                        style("--scan-dir-listings").bright().yellow()
+                    )?;
+                } else {
+                    // todo: need to not skip them
+                }
+
                 if !self.handles.config.extract_links {
                     write!(
                         message,
@@ -291,7 +301,7 @@ impl FeroxScanner {
                     )?;
                 }
 
-                if !self.handles.config.force_recursion {
+                if !self.handles.config.force_recursion && !self.handles.config.scan_dir_listings {
                     for handle in extraction_tasks.into_iter().flatten() {
                         _ = handle.await;
                     }

@@ -176,6 +176,12 @@ pub struct Banner {
 
     /// represents Configuration.collect_words
     force_recursion: BannerEntry,
+
+    /// represents Configuration.protocol
+    protocol: BannerEntry,
+
+    /// represents Configuration.scan_dir_listings
+    scan_dir_listings: BannerEntry,
 }
 
 /// implementation of Banner
@@ -320,6 +326,12 @@ impl Banner {
             BannerEntry::new("🚫", "Do Not Recurse", &config.no_recursion.to_string())
         };
 
+        let protocol = if config.protocol.to_lowercase() == "http" {
+            BannerEntry::new("🔓", "Default Protocol", &config.protocol)
+        } else {
+            BannerEntry::new("🔒", "Default Protocol", &config.protocol)
+        };
+
         let scan_limit = BannerEntry::new(
             "🦥",
             "Concurrent Scan Limit",
@@ -331,6 +343,11 @@ impl Banner {
         let replay_proxy = BannerEntry::new("🎥", "Replay Proxy", &config.replay_proxy);
         let auto_tune = BannerEntry::new("🎶", "Auto Tune", &config.auto_tune.to_string());
         let auto_bail = BannerEntry::new("🙅", "Auto Bail", &config.auto_bail.to_string());
+        let scan_dir_listings = BannerEntry::new(
+            "📂",
+            "Scan Dir Listings",
+            &config.scan_dir_listings.to_string(),
+        );
         let cfg = BannerEntry::new("💉", "Config File", &config.config);
         let proxy = BannerEntry::new("💎", "Proxy", &config.proxy);
         let server_certs = BannerEntry::new(
@@ -455,6 +472,8 @@ impl Banner {
             collect_words,
             dont_collect,
             config: cfg,
+            scan_dir_listings,
+            protocol,
             version: VERSION.to_string(),
             update_status: UpdateStatus::Unknown,
         }
@@ -595,6 +614,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
 
         // followed by the maybe printed or variably displayed values
+        if !config.request_file.is_empty() || !config.target_url.starts_with("http") {
+            writeln!(&mut writer, "{}", self.protocol)?;
+        }
+
         if !config.config.is_empty() {
             writeln!(&mut writer, "{}", self.config)?;
         }
@@ -660,6 +683,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.output.is_empty() {
             writeln!(&mut writer, "{}", self.output)?;
+        }
+
+        if config.scan_dir_listings {
+            writeln!(&mut writer, "{}", self.scan_dir_listings)?;
         }
 
         if !config.debug_log.is_empty() {
