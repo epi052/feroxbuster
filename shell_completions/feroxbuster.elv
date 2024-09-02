@@ -79,6 +79,7 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand -o 'Output file to write results to (use w/ --json for JSON entries)'
             cand --output 'Output file to write results to (use w/ --json for JSON entries)'
             cand --debug-log 'Output file to write log entries (use w/ --json for JSON entries)'
+            cand --limit-bars 'Number of directory scan bars to show at any given time (default: no limit)'
             cand --stdin 'Read url(s) from STDIN'
             cand --burp 'Set --proxy to http://127.0.0.1:8080 and set --insecure to true'
             cand --burp-replay 'Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true'

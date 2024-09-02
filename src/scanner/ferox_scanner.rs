@@ -11,7 +11,7 @@ use tokio::sync::Semaphore;
 
 use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
 use crate::heuristics::WildcardResult;
-use crate::Command::AddFilter;
+ use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
         Command::{AddError, AddToF64Field, AddToUsizeField, SubtractFromUsizeField},
@@ -309,7 +309,14 @@ impl FeroxScanner {
                     progress_bar.reset_eta();
                     progress_bar.finish_with_message(message);
 
-                    ferox_scan.finish()?;
+                    if self.handles.config.limit_bars > 0 {
+                        let scans = self.handles.ferox_scans()?;
+                        let num_bars = scans.number_of_bars();
+                        ferox_scan.finish(num_bars)?;
+                        scans.make_visible();
+                    } else {
+                        ferox_scan.finish(0)?;
+                    }
 
                     return Ok(()); // nothing left to do if we found a dir listing
                 }
@@ -392,7 +399,14 @@ impl FeroxScanner {
             _ = handle.await;
         }
 
-        ferox_scan.finish()?;
+        if self.handles.config.limit_bars > 0 {
+            let scans = self.handles.ferox_scans()?;
+            let num_bars = scans.number_of_bars();
+            ferox_scan.finish(num_bars)?;
+            scans.make_visible();
+        } else {
+            ferox_scan.finish(0)?;
+        }
 
         log::trace!("exit: scan_url");
 

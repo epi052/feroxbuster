@@ -344,6 +344,10 @@ pub struct Configuration {
     /// default request protocol
     #[serde(default = "request_protocol")]
     pub protocol: String,
+
+    /// number of directory scan bars to show at any given time, 0 is no limit
+    #[serde(default)]
+    pub limit_bars: usize,
 }
 
 impl Default for Configuration {
@@ -395,6 +399,7 @@ impl Default for Configuration {
             scan_limit: 0,
             parallel: 0,
             rate_limit: 0,
+            limit_bars: 0,
             add_slash: false,
             insecure: false,
             redirects: false,
@@ -491,6 +496,7 @@ impl Configuration {
     /// - **depth**: `4` (maximum recursion depth)
     /// - **force_recursion**: `false` (still respects recursion depth)
     /// - **scan_limit**: `0` (no limit on concurrent scans imposed)
+    /// - **limit_bars**: `0` (no limit on number of directory scan bars shown)
     /// - **parallel**: `0` (no limit on parallel scans imposed)
     /// - **rate_limit**: `0` (no limit on requests per second imposed)
     /// - **time_limit**: `None` (no limit on length of scan imposed)
@@ -644,6 +650,7 @@ impl Configuration {
         update_config_with_num_type_if_present!(&mut config.depth, args, "depth", usize);
         update_config_with_num_type_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
         update_config_with_num_type_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
+        update_config_with_num_type_if_present!(&mut config.limit_bars, args, "limit_bars", usize);
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
@@ -1132,6 +1139,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
         update_if_not_default!(&mut conf.client_key, new.client_key, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);
+        update_if_not_default!(&mut conf.limit_bars, new.limit_bars, 0);
         update_if_not_default!(&mut conf.silent, new.silent, false);
         update_if_not_default!(&mut conf.quiet, new.quiet, false);
         update_if_not_default!(&mut conf.auto_bail, new.auto_bail, false);

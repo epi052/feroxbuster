@@ -45,8 +45,6 @@ toml = "0.8"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 uuid = { version = "1.10", features = ["v4"] }
-# last known working version of indicatif; 0.17.5 has a bug that causes the 
-# scan menu to fail spectacularly 
 indicatif = { version = "0.17.8" }
 console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }

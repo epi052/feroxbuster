@@ -82,6 +82,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('-o', '-o', [CompletionResultType]::ParameterName, 'Output file to write results to (use w/ --json for JSON entries)')
             [CompletionResult]::new('--output', '--output', [CompletionResultType]::ParameterName, 'Output file to write results to (use w/ --json for JSON entries)')
             [CompletionResult]::new('--debug-log', '--debug-log', [CompletionResultType]::ParameterName, 'Output file to write log entries (use w/ --json for JSON entries)')
+            [CompletionResult]::new('--limit-bars', '--limit-bars', [CompletionResultType]::ParameterName, 'Number of directory scan bars to show at any given time (default: no limit)')
             [CompletionResult]::new('--stdin', '--stdin', [CompletionResultType]::ParameterName, 'Read url(s) from STDIN')
             [CompletionResult]::new('--burp', '--burp', [CompletionResultType]::ParameterName, 'Set --proxy to http://127.0.0.1:8080 and set --insecure to true')
             [CompletionResult]::new('--burp-replay', '--burp-replay', [CompletionResultType]::ParameterName, 'Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true')

@@ -20,6 +20,7 @@ use crate::{
 use anyhow::Result;
 use console::style;
 use reqwest::StatusCode;
+use scan::Visibility;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
     collections::HashSet,
@@ -61,6 +62,9 @@ pub struct FeroxScans {
 
     /// vector of extensions discovered and collected during scans
     pub(crate) collected_extensions: RwLock<HashSet<String>>,
+
+    /// stored value for Configuration.limit_bars
+    bar_limit: usize,
 }
 
 /// Serialize implementation for FeroxScans
@@ -93,9 +97,10 @@ impl Serialize for FeroxScans {
 /// Implementation of `FeroxScans`
 impl FeroxScans {
     /// given an OutputLevel, create a new FeroxScans object
-    pub fn new(output_level: OutputLevel) -> Self {
+    pub fn new(output_level: OutputLevel, bar_limit: usize) -> Self {
         Self {
             output_level,
+            bar_limit,
             ..Default::default()
         }
     }
@@ -531,6 +536,8 @@ impl FeroxScans {
             for scan in scans.iter() {
                 if scan.is_complete() {
                     // these scans are complete, and just need to be shown to the user
+                    // todo: this may change if i get the limited view working
+                    // todo: add-bar check for limit/current
                     let pb = add_bar(
                         &scan.url,
                         bar_length.try_into().unwrap_or_default(),
@@ -595,6 +602,31 @@ impl FeroxScans {
         }
     }
 
+    /// determine the type of progress bar to display
+    /// takes both --limit-bars and output-level (--quiet|--silent|etc)
+    /// into account to arrive at a `BarType`
+    fn determine_bar_type(&self) -> BarType {
+        let visibility = if self.bar_limit == 0 {
+            // no limit from cli, just set the value to visible
+            // this protects us from a mutex unlock in number_of_bars
+            // in the normal case
+            Visibility::Visible
+        } else if self.bar_limit < self.number_of_bars() {
+            // active bars exceed limit; hidden
+            Visibility::Hidden
+        } else {
+            Visibility::Visible
+        };
+
+        match (self.output_level, visibility) {
+            (OutputLevel::Default, Visibility::Visible) => BarType::Default,
+            (OutputLevel::Quiet, Visibility::Visible) => BarType::Quiet,
+            (OutputLevel::Default, Visibility::Hidden) => BarType::Hidden,
+            (OutputLevel::Quiet, Visibility::Hidden) => BarType::Hidden,
+            (OutputLevel::Silent | OutputLevel::SilentJSON, _) => BarType::Hidden,
+        }
+    }
+
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans`
     ///
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
@@ -612,14 +644,10 @@ impl FeroxScans {
             0
         };
 
+        let bar_type = self.determine_bar_type();
+
         let bar = match scan_type {
             ScanType::Directory => {
-                let bar_type = match self.output_level {
-                    OutputLevel::Default => BarType::Default,
-                    OutputLevel::Quiet => BarType::Quiet,
-                    OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
-                };
-
                 let progress_bar = add_bar(url, bar_length, bar_type);
 
                 progress_bar.reset_elapsed();
@@ -629,6 +657,8 @@ impl FeroxScans {
             ScanType::File => None,
         };
 
+        let is_visible = !matches!(bar_type, BarType::Hidden);
+
         let ferox_scan = FeroxScan::new(
             url,
             scan_type,
@@ -636,6 +666,8 @@ impl FeroxScans {
             bar_length,
             self.output_level,
             bar,
+            is_visible,
+            self.bar_limit,
         );
 
         // If the set did not contain the scan, true is returned.
@@ -662,6 +694,58 @@ impl FeroxScans {
     /// Also return a reference to the new `FeroxScan`
     pub fn add_file_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
         self.add_scan(url, ScanType::File, scan_order)
+    }
+
+    /// returns the number of active AND visible scans; supports --limit-bars functionality
+    pub fn number_of_bars(&self) -> usize {
+        let Ok(scans) = self.scans.read() else {
+            return 0;
+        };
+
+        let mut count = 0;
+
+        for scan in &*scans {
+            if scan.is_active() && scan.visible() {
+                count += 1;
+            }
+        }
+
+        count
+    }
+
+    /// make one hidden bar visible; supports --limit-bars functionality
+    pub fn make_visible(&self) {
+        if let Ok(guard) = self.scans.read() {
+            // when swapping visibility, we'll prefer an actively running scan
+            // if none are found, we'll
+            let mut queued = None;
+
+            for scan in &*guard {
+                if !matches!(scan.scan_type, ScanType::Directory) {
+                    // visibility only makes sense for directory scans
+                    continue;
+                }
+
+                if scan.visible() {
+                    continue;
+                }
+
+                if scan.is_running() {
+                    let bar_type = self.determine_bar_type();
+                    scan.swap_visibility(bar_type);
+                    return;
+                }
+
+                if queued.is_none() && scan.is_not_started() {
+                    queued = Some(scan.clone());
+                }
+            }
+
+            if let Some(scan) = queued {
+                let bar_type = self.determine_bar_type();
+                scan.swap_visibility(bar_type);
+            }
+        }
     }
 
     /// small helper to determine whether any scans are active or not
@@ -726,7 +810,7 @@ mod tests {
     #[test]
     /// unknown extension should be added to collected_extensions
     fn unknown_extension_is_added_to_collected_extensions() {
-        let scans = FeroxScans::new(OutputLevel::Default);
+        let scans = FeroxScans::new(OutputLevel::Default, 0);
 
         assert_eq!(0, scans.collected_extensions.read().unwrap().len());
 
@@ -739,7 +823,7 @@ mod tests {
     #[test]
     /// known extension should not be added to collected_extensions
     fn known_extension_is_added_to_collected_extensions() {
-        let scans = FeroxScans::new(OutputLevel::Default);
+        let scans = FeroxScans::new(OutputLevel::Default, 0);
         scans
             .collected_extensions
             .write()

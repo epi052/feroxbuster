@@ -660,6 +660,13 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Output settings")
                 .help("Disable state output file (*.state)")
+        ).arg(
+            Arg::new("limit_bars")
+                .long("limit-bars")
+                .value_name("NUM_BARS_TO_SHOW")
+                .num_args(1)
+                .help_heading("Output settings")
+                .help("Number of directory scan bars to show at any given time (default: no limit)"),
         );
 
     /////////////////////////////////////////////////////////////////////

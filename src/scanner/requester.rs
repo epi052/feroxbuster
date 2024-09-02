@@ -646,6 +646,8 @@ mod tests {
             1000,
             OutputLevel::Default,
             None,
+            true,
+            0,
         );
 
         scan.set_status(ScanStatus::Running).unwrap();
@@ -1144,6 +1146,8 @@ mod tests {
             1000,
             OutputLevel::Default,
             None,
+            true,
+            0,
         );
         scan.set_status(ScanStatus::Running).unwrap();
         scan.add_429();
@@ -1177,7 +1181,7 @@ mod tests {
             200
         );
 
-        scan.finish().unwrap();
+        scan.finish(0).unwrap();
         assert!(start.elapsed().as_millis() >= 2000);
     }
 }

@@ -14,7 +14,7 @@ rm ferox-*.state
 # dependency management
 [tasks.upgrade-deps]
 command = "cargo"
-args = ["upgrade", "--exclude", "indicatif, self_update"]
+args = ["upgrade", "--exclude", "self_update"]
 
 [tasks.update]
 command = "cargo"

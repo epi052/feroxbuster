@@ -15,6 +15,7 @@ use crate::{
 use indicatif::ProgressBar;
 use predicates::prelude::*;
 use regex::Regex;
+use std::sync::atomic::AtomicBool;
 use std::sync::{atomic::Ordering, Arc};
 use std::thread::sleep;
 use std::time::Instant;
@@ -75,6 +76,8 @@ fn add_url_to_list_of_scanned_urls_with_known_url() {
         pb.length().unwrap(),
         OutputLevel::Default,
         Some(pb),
+        true,
+        0,
     );
 
     assert!(urls.insert(scan));
@@ -97,6 +100,8 @@ fn stop_progress_bar_stops_bar() {
         pb.length().unwrap(),
         OutputLevel::Default,
         Some(pb),
+        true,
+        0,
     );
 
     assert!(!scan
@@ -107,7 +112,7 @@ fn stop_progress_bar_stops_bar() {
         .unwrap()
         .is_finished());
 
-    scan.stop_progress_bar();
+    scan.stop_progress_bar(0);
 
     assert!(scan
         .progress_bar
@@ -131,6 +136,8 @@ fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         0,
         OutputLevel::Default,
         None,
+        true,
+        0,
     );
 
     assert!(urls.insert(scan));
@@ -155,6 +162,8 @@ async fn call_display_scans() {
         pb.length().unwrap(),
         OutputLevel::Default,
         Some(pb),
+        true,
+        0,
     );
     let scan_two = FeroxScan::new(
         url_two,
@@ -163,9 +172,11 @@ async fn call_display_scans() {
         pb_two.length().unwrap(),
         OutputLevel::Default,
         Some(pb_two),
+        true,
+        0,
     );
 
-    scan_two.finish().unwrap(); // one complete, one incomplete
+    scan_two.finish(0).unwrap(); // one complete, one incomplete
     scan_two
         .set_task(tokio::spawn(async move {
             sleep(Duration::from_millis(SLEEP_DURATION));
@@ -190,6 +201,8 @@ fn partial_eq_compares_the_id_field() {
         0,
         OutputLevel::Default,
         None,
+        true,
+        0,
     );
     let scan_two = FeroxScan::new(
         url,
@@ -198,6 +211,8 @@ fn partial_eq_compares_the_id_field() {
         0,
         OutputLevel::Default,
         None,
+        true,
+        0,
     );
 
     assert!(!scan.eq(&scan_two));
@@ -280,6 +295,8 @@ fn ferox_scan_serialize() {
         0,
         OutputLevel::Default,
         None,
+        true,
+        0,
     );
     let fs_json = format!(
         r#"{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0,"requests_made_so_far":0}}"#,
@@ -298,6 +315,8 @@ fn ferox_scans_serialize() {
         0,
         OutputLevel::Default,
         None,
+        true,
+        0,
     );
     let ferox_scans = FeroxScans::default();
     let ferox_scans_json = format!(
@@ -360,6 +379,8 @@ fn feroxstates_feroxserialize_implementation() {
         0,
         OutputLevel::Default,
         None,
+        true,
+        0,
     );
     let ferox_scans = FeroxScans::default();
     let saved_id = ferox_scan.id.clone();
@@ -501,6 +522,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""method":"GET""#,
         r#""content_length":173"#,
         r#""line_count":10"#,
+        r#""limit_bars":0"#,
         r#""word_count":16"#,
         r#""headers""#,
         r#""server":"nginx/1.16.1"#,
@@ -569,8 +591,10 @@ fn feroxscan_display() {
         normalized_url: String::from("http://localhost/"),
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
+        bar_limit: 0,
         num_requests: 0,
         requests_made_so_far: 0,
+        visible: AtomicBool::new(true),
         start_time: Instant::now(),
         output_level: OutputLevel::Default,
         status_403s: Default::default(),
@@ -615,10 +639,12 @@ async fn ferox_scan_abort() {
         normalized_url: String::from("http://localhost/"),
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
+        bar_limit: 0,
         num_requests: 0,
         requests_made_so_far: 0,
         start_time: Instant::now(),
         output_level: OutputLevel::Default,
+        visible: AtomicBool::new(true),
         status_403s: Default::default(),
         status_429s: Default::default(),
         status: std::sync::Mutex::new(ScanStatus::Running),

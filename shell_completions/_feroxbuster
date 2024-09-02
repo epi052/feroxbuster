@@ -76,6 +76,7 @@ _feroxbuster() {
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--output=[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]:FILE:_files' \
+'--limit-bars=[Number of directory scan bars to show at any given time (default\: no limit)]:NUM_BARS_TO_SHOW: ' \
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http\://127.0.0.1\:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http\://127.0.0.1\:8080 and set --insecure to true]' \

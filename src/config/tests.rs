@@ -49,6 +49,7 @@ fn setup_config_test() -> Configuration {
             json = true
             save_state = false
             depth = 1
+            limit_bars = 3
             protocol = "http"
             request_file = "/some/request/file"
             scan_dir_listings = true
@@ -90,6 +91,7 @@ fn default_configuration() {
     assert_eq!(config.timeout, timeout());
     assert_eq!(config.verbosity, 0);
     assert_eq!(config.scan_limit, 0);
+    assert_eq!(config.limit_bars, 0);
     assert!(!config.silent);
     assert!(!config.quiet);
     assert_eq!(config.output_level, OutputLevel::Default);
@@ -264,6 +266,13 @@ fn config_reads_auto_tune() {
 fn config_reads_verbosity() {
     let config = setup_config_test();
     assert_eq!(config.verbosity, 1);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_limit_bars() {
+    let config = setup_config_test();
+    assert_eq!(config.limit_bars, 3);
 }
 
 #[test]

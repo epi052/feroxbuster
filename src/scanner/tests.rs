@@ -15,7 +15,7 @@ use super::*;
 /// try to hit struct field coverage of FileOutHandler
 async fn get_scan_by_url_bails_on_unfound_url() {
     let sem = Semaphore::new(10);
-    let urls = FeroxScans::new(OutputLevel::Default);
+    let urls = FeroxScans::new(OutputLevel::Default, 0);
 
     let scanner = FeroxScanner::new(
         "http://localhost",
