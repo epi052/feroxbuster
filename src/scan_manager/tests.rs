@@ -655,7 +655,7 @@ async fn ferox_scan_abort() {
         errors: Default::default(),
     };
 
-    scan.abort().await.unwrap();
+    scan.abort(0).await.unwrap();
 
     assert!(matches!(
         *scan.status.lock().unwrap(),

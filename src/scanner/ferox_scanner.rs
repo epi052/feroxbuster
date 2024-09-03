@@ -11,7 +11,7 @@ use tokio::sync::Semaphore;
 
 use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
 use crate::heuristics::WildcardResult;
- use crate::Command::AddFilter;
+use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
         Command::{AddError, AddToF64Field, AddToUsizeField, SubtractFromUsizeField},
@@ -289,8 +289,6 @@ impl FeroxScanner {
                         " (add {} to scan)",
                         style("--scan-dir-listings").bright().yellow()
                     )?;
-                } else {
-                    // todo: need to not skip them
                 }
 
                 if !self.handles.config.extract_links {

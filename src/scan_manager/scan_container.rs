@@ -12,6 +12,7 @@ use crate::{
     config::OutputLevel,
     progress::PROGRESS_PRINTER,
     progress::{add_bar, BarType},
+    scan_manager::utils::determine_bar_type,
     scan_manager::{MenuCmd, MenuCmdResult},
     scanner::RESPONSES,
     traits::FeroxSerialize,
@@ -20,7 +21,6 @@ use crate::{
 use anyhow::Result;
 use console::style;
 use reqwest::StatusCode;
-use scan::Visibility;
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::{
     collections::HashSet,
@@ -393,8 +393,9 @@ impl FeroxScans {
 
             if input == 'y' || input == '\n' {
                 self.menu.println(&format!("Stopping {}...", selected.url));
+                let active_bars = self.number_of_bars();
                 selected
-                    .abort()
+                    .abort(active_bars)
                     .await
                     .unwrap_or_else(|e| log::warn!("Could not cancel task: {}", e));
 
@@ -526,18 +527,24 @@ impl FeroxScans {
 
     /// if a resumed scan is already complete, display a completed progress bar to the user
     pub fn print_completed_bars(&self, bar_length: usize) -> Result<()> {
-        let bar_type = match self.output_level {
-            OutputLevel::Default => BarType::Message,
-            OutputLevel::Quiet => BarType::Quiet,
-            OutputLevel::Silent | OutputLevel::SilentJSON => return Ok(()), // fast exit when --silent was used
-        };
+        if self.output_level == OutputLevel::SilentJSON || self.output_level == OutputLevel::Silent
+        {
+            // fast exit when --silent was used
+            return Ok(());
+        }
+
+        let bar_type: BarType =
+            determine_bar_type(self.bar_limit, self.number_of_bars(), self.output_level);
 
         if let Ok(scans) = self.scans.read() {
             for scan in scans.iter() {
+                if matches!(bar_type, BarType::Hidden) {
+                    // no need to show hidden bars
+                    continue;
+                }
+
                 if scan.is_complete() {
                     // these scans are complete, and just need to be shown to the user
-                    // todo: this may change if i get the limited view working
-                    // todo: add-bar check for limit/current
                     let pb = add_bar(
                         &scan.url,
                         bar_length.try_into().unwrap_or_default(),
@@ -602,31 +609,6 @@ impl FeroxScans {
         }
     }
 
-    /// determine the type of progress bar to display
-    /// takes both --limit-bars and output-level (--quiet|--silent|etc)
-    /// into account to arrive at a `BarType`
-    fn determine_bar_type(&self) -> BarType {
-        let visibility = if self.bar_limit == 0 {
-            // no limit from cli, just set the value to visible
-            // this protects us from a mutex unlock in number_of_bars
-            // in the normal case
-            Visibility::Visible
-        } else if self.bar_limit < self.number_of_bars() {
-            // active bars exceed limit; hidden
-            Visibility::Hidden
-        } else {
-            Visibility::Visible
-        };
-
-        match (self.output_level, visibility) {
-            (OutputLevel::Default, Visibility::Visible) => BarType::Default,
-            (OutputLevel::Quiet, Visibility::Visible) => BarType::Quiet,
-            (OutputLevel::Default, Visibility::Hidden) => BarType::Hidden,
-            (OutputLevel::Quiet, Visibility::Hidden) => BarType::Hidden,
-            (OutputLevel::Silent | OutputLevel::SilentJSON, _) => BarType::Hidden,
-        }
-    }
-
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans`
     ///
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
@@ -637,6 +619,7 @@ impl FeroxScans {
         url: &str,
         scan_type: ScanType,
         scan_order: ScanOrder,
+        handles: Arc<Handles>,
     ) -> (bool, Arc<FeroxScan>) {
         let bar_length = if let Ok(guard) = self.bar_length.lock() {
             *guard
@@ -644,7 +627,8 @@ impl FeroxScans {
             0
         };
 
-        let bar_type = self.determine_bar_type();
+        let active_bars = self.number_of_bars();
+        let bar_type = determine_bar_type(self.bar_limit, active_bars, self.output_level);
 
         let bar = match scan_type {
             ScanType::Directory => {
@@ -667,7 +651,7 @@ impl FeroxScans {
             self.output_level,
             bar,
             is_visible,
-            self.bar_limit,
+            handles,
         );
 
         // If the set did not contain the scan, true is returned.
@@ -682,9 +666,14 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_directory_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
+    pub fn add_directory_scan(
+        &self,
+        url: &str,
+        scan_order: ScanOrder,
+        handles: Arc<Handles>,
+    ) -> (bool, Arc<FeroxScan>) {
         let normalized = format!("{}/", url.trim_end_matches('/'));
-        self.add_scan(&normalized, ScanType::Directory, scan_order)
+        self.add_scan(&normalized, ScanType::Directory, scan_order, handles)
     }
 
     /// Given a url, create a new `FeroxScan` and add it to `FeroxScans` as a File Scan
@@ -692,8 +681,13 @@ impl FeroxScans {
     /// If `FeroxScans` did not already contain the scan, return true; otherwise return false
     ///
     /// Also return a reference to the new `FeroxScan`
-    pub fn add_file_scan(&self, url: &str, scan_order: ScanOrder) -> (bool, Arc<FeroxScan>) {
-        self.add_scan(url, ScanType::File, scan_order)
+    pub fn add_file_scan(
+        &self,
+        url: &str,
+        scan_order: ScanOrder,
+        handles: Arc<Handles>,
+    ) -> (bool, Arc<FeroxScan>) {
+        self.add_scan(url, ScanType::File, scan_order, handles)
     }
 
     /// returns the number of active AND visible scans; supports --limit-bars functionality
@@ -702,7 +696,9 @@ impl FeroxScans {
             return 0;
         };
 
-        let mut count = 0;
+        // starting at one ensures we don't have an extra bar
+        // due to counting up from 0 when there's actually 1 bar
+        let mut count = 1;
 
         for scan in &*scans {
             if scan.is_active() && scan.visible() {
@@ -731,8 +727,7 @@ impl FeroxScans {
                 }
 
                 if scan.is_running() {
-                    let bar_type = self.determine_bar_type();
-                    scan.swap_visibility(bar_type);
+                    scan.swap_visibility();
                     return;
                 }
 
@@ -742,8 +737,7 @@ impl FeroxScans {
             }
 
             if let Some(scan) = queued {
-                let bar_type = self.determine_bar_type();
-                scan.swap_visibility(bar_type);
+                scan.swap_visibility();
             }
         }
     }

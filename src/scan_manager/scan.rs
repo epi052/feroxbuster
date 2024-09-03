@@ -1,8 +1,10 @@
 use super::*;
 use crate::{
     config::OutputLevel,
+    event_handlers::Handles,
     progress::update_style,
     progress::{add_bar, BarType},
+    scan_manager::utils::determine_bar_type,
     scanner::PolicyTrigger,
 };
 use anyhow::Result;
@@ -69,7 +71,7 @@ pub struct FeroxScan {
     pub(super) task: sync::Mutex<Option<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
-    pub(super) progress_bar: Mutex<Option<ProgressBar>>,
+    pub progress_bar: Mutex<Option<ProgressBar>>,
 
     /// whether or not the user passed --silent|--quiet on the command line
     pub(super) output_level: OutputLevel,
@@ -89,8 +91,8 @@ pub struct FeroxScan {
     /// whether the progress bar is currently visible or hidden
     pub(super) visible: AtomicBool,
 
-    /// stored value for Configuration.limit_bars
-    pub(super) bar_limit: usize,
+    /// handles object pointer
+    pub(super) handles: Option<Arc<Handles>>,
 }
 
 /// Default implementation for FeroxScan
@@ -103,7 +105,7 @@ impl Default for FeroxScan {
             id: new_id,
             task: sync::Mutex::new(None), // tokio mutex
             status: Mutex::new(ScanStatus::default()),
-            bar_limit: 0,
+            handles: None,
             num_requests: 0,
             requests_made_so_far: 0,
             scan_order: ScanOrder::Latest,
@@ -128,29 +130,37 @@ impl FeroxScan {
         self.visible.load(Ordering::Relaxed)
     }
 
-    /// return the visibility of the scan as a boolean
-    pub fn running(&self) -> bool {
-        self.visible.load(Ordering::Relaxed)
-    }
-
-    pub fn swap_visibility(&self, bar_type: BarType) {
+    pub fn swap_visibility(&self) {
         // fetch_xor toggles the boolean to its opposite and returns the previous value
         let visible = self.visible.fetch_xor(true, Ordering::Relaxed);
 
-        if !visible {
+        let Ok(bar) = self.progress_bar.lock() else {
+            log::warn!("couldn't unlock progress bar for {}", self.url);
+            return;
+        };
+
+        let Some(handles) = self.handles.as_ref() else {
+            log::warn!("couldn't access handles pointer for {}", self.url);
+            return;
+        };
+
+        let bar_type = if !visible {
             // visibility was false before we xor'd the value
+            match handles.config.output_level {
+                OutputLevel::Default => BarType::Default,
+                OutputLevel::Quiet => BarType::Quiet,
+                OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
+            }
+        } else {
+            // visibility was true before we xor'd the value
+            BarType::Hidden
+        };
 
-            let Ok(bar) = self.progress_bar.lock() else {
-                log::warn!("couldn't unlock progress bar for {}", self.url);
-                return;
-            };
-
-            update_style(bar.as_ref().unwrap(), bar_type);
-        }
+        update_style(bar.as_ref().unwrap(), bar_type);
     }
 
     /// Stop a currently running scan
-    pub async fn abort(&self) -> Result<()> {
+    pub async fn abort(&self, active_bars: usize) -> Result<()> {
         log::trace!("enter: abort");
 
         match self.task.try_lock() {
@@ -159,8 +169,7 @@ impl FeroxScan {
                     log::trace!("aborting {:?}", self);
                     task.abort();
                     self.set_status(ScanStatus::Cancelled)?;
-                    // todo: is this right? check it
-                    self.stop_progress_bar(0);
+                    self.stop_progress_bar(active_bars);
                 }
             }
             Err(e) => {
@@ -202,7 +211,13 @@ impl FeroxScan {
             if guard.is_some() {
                 let pb = (*guard).as_ref().unwrap();
 
-                if self.bar_limit > 0 && self.bar_limit < active_bars + 1 {
+                let bar_limit = if let Some(handles) = self.handles.as_ref() {
+                    handles.config.limit_bars
+                } else {
+                    0
+                };
+
+                if bar_limit > 0 && bar_limit < active_bars {
                     pb.finish_and_clear();
                     return;
                 }
@@ -223,12 +238,18 @@ impl FeroxScan {
                 if guard.is_some() {
                     (*guard).as_ref().unwrap().clone()
                 } else {
-                    let bar_type = match self.output_level {
-                        OutputLevel::Default => BarType::Default,
-                        OutputLevel::Quiet => BarType::Quiet,
-                        OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
+                    let (active_bars, bar_limit) = if let Some(handles) = self.handles.as_ref() {
+                        if let Ok(scans) = handles.ferox_scans() {
+                            (scans.number_of_bars(), handles.config.limit_bars)
+                        } else {
+                            (0, handles.config.limit_bars)
+                        }
+                    } else {
+                        (0, 0)
                     };
-                    // todo: add-bar check for limit/current
+
+                    let bar_type = determine_bar_type(bar_limit, active_bars, self.output_level);
+
                     let pb = add_bar(&self.url, self.num_requests, bar_type);
                     pb.reset_elapsed();
 
@@ -242,12 +263,18 @@ impl FeroxScan {
             Err(_) => {
                 log::warn!("Could not unlock progress bar on {:?}", self);
 
-                let bar_type = match self.output_level {
-                    OutputLevel::Default => BarType::Default,
-                    OutputLevel::Quiet => BarType::Quiet,
-                    OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
+                let (active_bars, bar_limit) = if let Some(handles) = self.handles.as_ref() {
+                    if let Ok(scans) = handles.ferox_scans() {
+                        (scans.number_of_bars(), handles.config.limit_bars)
+                    } else {
+                        (0, handles.config.limit_bars)
+                    }
+                } else {
+                    (0, 0)
                 };
-                // todo: add-bar check for limit/current
+
+                let bar_type = determine_bar_type(bar_limit, active_bars, self.output_level);
+
                 let pb = add_bar(&self.url, self.num_requests, bar_type);
                 pb.reset_elapsed();
 
@@ -266,7 +293,7 @@ impl FeroxScan {
         output_level: OutputLevel,
         pb: Option<ProgressBar>,
         visibility: bool,
-        bar_limit: usize,
+        handles: Arc<Handles>,
     ) -> Arc<Self> {
         Arc::new(Self {
             url: url.to_string(),
@@ -275,17 +302,17 @@ impl FeroxScan {
             scan_order,
             num_requests,
             output_level,
-            bar_limit,
             progress_bar: Mutex::new(pb),
             visible: AtomicBool::new(visibility),
+            handles: Some(handles),
             ..Default::default()
         })
     }
 
     /// Mark the scan as complete and stop the scan's progress bar
-    pub fn finish(&self, n: usize) -> Result<()> {
+    pub fn finish(&self, active_bars: usize) -> Result<()> {
         self.set_status(ScanStatus::Complete)?;
-        self.stop_progress_bar(n);
+        self.stop_progress_bar(active_bars);
         Ok(())
     }
 
@@ -604,7 +631,6 @@ mod tests {
             normalized_url: String::from("/"),
             scan_type: ScanType::Directory,
             scan_order: ScanOrder::Initial,
-            bar_limit: 0,
             num_requests: 0,
             requests_made_so_far: 0,
             visible: AtomicBool::new(true),
@@ -629,5 +655,33 @@ mod tests {
 
         scan.finish(0).unwrap();
         assert_eq!(scan.requests_per_second(), 0);
+    }
+
+    #[test]
+    fn test_swap_visibility() {
+        let scan = FeroxScan::new(
+            "http://localhost",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            1000,
+            OutputLevel::Default,
+            None,
+            true,
+            0,
+        );
+
+        assert!(scan.visible());
+
+        scan.swap_visibility();
+        assert!(scan.visible());
+
+        scan.swap_visibility();
+        assert!(!scan.visible());
+
+        scan.swap_visibility();
+        assert!(!scan.visible());
+
+        scan.swap_visibility();
+        assert!(scan.visible());
     }
 }

@@ -313,9 +313,12 @@ impl Requester {
                 .set_status(ScanStatus::Cancelled)
                 .unwrap_or_else(|e| log::warn!("Could not set scan status: {}", e));
 
+            let scans = self.handles.ferox_scans()?;
+            let active_bars = scans.number_of_bars();
+
             // kill the scan
             self.ferox_scan
-                .abort()
+                .abort(active_bars)
                 .await
                 .unwrap_or_else(|e| log::warn!("Could not bail on scan: {}", e));
 

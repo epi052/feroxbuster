@@ -228,8 +228,11 @@ impl<'a> Extractor<'a> {
                                 if resp.is_file() || !resp.is_directory() {
                                     log::debug!("Extracted File: {}", resp);
 
-                                    c_scanned_urls
-                                        .add_file_scan(resp.url().as_str(), ScanOrder::Latest);
+                                    c_scanned_urls.add_file_scan(
+                                        resp.url().as_str(),
+                                        ScanOrder::Latest,
+                                        c_handles.clone(),
+                                    );
 
                                     if c_handles.config.collect_extensions {
                                         // no real reason this should fail
