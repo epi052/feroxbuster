@@ -1544,6 +1544,34 @@ fn banner_prints_protocol() {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + protocol
+fn banner_prints_limit_dirs() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("localhost")
+        .arg("--limit-bars")
+        .arg("3")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("Limit Dir Scan Bars"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + force recursion
 fn banner_prints_update_app() {
     Command::cargo_bin("feroxbuster")
