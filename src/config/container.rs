@@ -927,10 +927,9 @@ impl Configuration {
             // overflow until I get time to investigate the root cause
             if config.verbosity > 3 {
                 eprintln!(
-                    "{} {}: {}",
+                    "{} {}: Trace level logging is disabled; setting log level to debug",
                     status_colorizer("WRN"),
                     module_colorizer("Configuration::parse_cli_args"),
-                    "Trace level logging is disabled; setting log level to debug"
                 );
 
                 config.verbosity = 3;
