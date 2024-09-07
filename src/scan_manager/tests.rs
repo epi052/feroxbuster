@@ -58,7 +58,12 @@ async fn scanner_pause_scan_with_finished_spinner() {
 fn add_url_to_list_of_scanned_urls_with_unknown_url() {
     let urls = FeroxScans::default();
     let url = "http://unknown_url";
-    let (result, _scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    let (result, _scan) = urls.add_scan(
+        url,
+        ScanType::Directory,
+        ScanOrder::Latest,
+        Arc::new(Handles::for_testing(None, None).0),
+    );
     assert!(result);
 }
 
@@ -77,12 +82,17 @@ fn add_url_to_list_of_scanned_urls_with_known_url() {
         OutputLevel::Default,
         Some(pb),
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
 
     assert!(urls.insert(scan));
 
-    let (result, _scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    let (result, _scan) = urls.add_scan(
+        url,
+        ScanType::Directory,
+        ScanOrder::Latest,
+        Arc::new(Handles::for_testing(None, None).0),
+    );
 
     assert!(!result);
 }
@@ -101,7 +111,7 @@ fn stop_progress_bar_stops_bar() {
         OutputLevel::Default,
         Some(pb),
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
 
     assert!(!scan
@@ -129,7 +139,7 @@ fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
     let urls = FeroxScans::default();
     let url = "http://unknown_url";
 
-    let scan = FeroxScan::new(
+    let scan: Arc<FeroxScan> = FeroxScan::new(
         url,
         ScanType::File,
         ScanOrder::Latest,
@@ -137,12 +147,17 @@ fn add_url_to_list_of_scanned_urls_with_known_url_without_slash() {
         OutputLevel::Default,
         None,
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
 
     assert!(urls.insert(scan));
 
-    let (result, _scan) = urls.add_scan(url, ScanType::File, ScanOrder::Latest);
+    let (result, _scan) = urls.add_scan(
+        url,
+        ScanType::File,
+        ScanOrder::Latest,
+        Arc::new(Handles::for_testing(None, None).0),
+    );
 
     assert!(!result);
 }
@@ -163,7 +178,7 @@ async fn call_display_scans() {
         OutputLevel::Default,
         Some(pb),
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
     let scan_two = FeroxScan::new(
         url_two,
@@ -173,7 +188,7 @@ async fn call_display_scans() {
         OutputLevel::Default,
         Some(pb_two),
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
 
     scan_two.finish(0).unwrap(); // one complete, one incomplete
@@ -202,7 +217,7 @@ fn partial_eq_compares_the_id_field() {
         OutputLevel::Default,
         None,
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
     let scan_two = FeroxScan::new(
         url,
@@ -212,7 +227,7 @@ fn partial_eq_compares_the_id_field() {
         OutputLevel::Default,
         None,
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
 
     assert!(!scan.eq(&scan_two));
@@ -296,7 +311,7 @@ fn ferox_scan_serialize() {
         OutputLevel::Default,
         None,
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
     let fs_json = format!(
         r#"{{"id":"{}","url":"https://spiritanimal.com","normalized_url":"https://spiritanimal.com/","scan_type":"Directory","status":"NotStarted","num_requests":0,"requests_made_so_far":0}}"#,
@@ -316,7 +331,7 @@ fn ferox_scans_serialize() {
         OutputLevel::Default,
         None,
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
     let ferox_scans = FeroxScans::default();
     let ferox_scans_json = format!(
@@ -380,7 +395,7 @@ fn feroxstates_feroxserialize_implementation() {
         OutputLevel::Default,
         None,
         true,
-        0,
+        Arc::new(Handles::for_testing(None, None).0),
     );
     let ferox_scans = FeroxScans::default();
     let saved_id = ferox_scan.id.clone();
@@ -591,7 +606,7 @@ fn feroxscan_display() {
         normalized_url: String::from("http://localhost/"),
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
-        bar_limit: 0,
+        handles: Some(Arc::new(Handles::for_testing(None, None).0)),
         num_requests: 0,
         requests_made_so_far: 0,
         visible: AtomicBool::new(true),
@@ -639,7 +654,6 @@ async fn ferox_scan_abort() {
         normalized_url: String::from("http://localhost/"),
         scan_order: ScanOrder::Latest,
         scan_type: Default::default(),
-        bar_limit: 0,
         num_requests: 0,
         requests_made_so_far: 0,
         start_time: Instant::now(),
@@ -653,6 +667,7 @@ async fn ferox_scan_abort() {
         }))),
         progress_bar: std::sync::Mutex::new(None),
         errors: Default::default(),
+        handles: Some(Arc::new(Handles::for_testing(None, None).0)),
     };
 
     scan.abort(0).await.unwrap();
@@ -746,15 +761,26 @@ fn split_to_nums_is_correct() {
 #[test]
 /// given a deep url, find the correct scan
 fn get_base_scan_by_url_finds_correct_scan() {
+    let handles = Arc::new(Handles::for_testing(None, None).0);
     let urls = FeroxScans::default();
     let url = "http://localhost";
     let url1 = "http://localhost/stuff";
     let url2 = "http://shlocalhost/stuff/things";
     let url3 = "http://shlocalhost/stuff/things/mostuff";
-    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
-    let (_, scan1) = urls.add_scan(url1, ScanType::Directory, ScanOrder::Latest);
-    let (_, scan2) = urls.add_scan(url2, ScanType::Directory, ScanOrder::Latest);
-    let (_, scan3) = urls.add_scan(url3, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest, handles.clone());
+    let (_, scan1) = urls.add_scan(
+        url1,
+        ScanType::Directory,
+        ScanOrder::Latest,
+        handles.clone(),
+    );
+    let (_, scan2) = urls.add_scan(
+        url2,
+        ScanType::Directory,
+        ScanOrder::Latest,
+        handles.clone(),
+    );
+    let (_, scan3) = urls.add_scan(url3, ScanType::Directory, ScanOrder::Latest, handles);
 
     assert_eq!(
         urls.get_base_scan_by_url("http://localhost/things.php")
@@ -787,7 +813,12 @@ fn get_base_scan_by_url_finds_correct_scan() {
 fn get_base_scan_by_url_finds_correct_scan_without_trailing_slash() {
     let urls = FeroxScans::default();
     let url = "http://localhost";
-    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan) = urls.add_scan(
+        url,
+        ScanType::Directory,
+        ScanOrder::Latest,
+        Arc::new(Handles::for_testing(None, None).0),
+    );
     assert_eq!(
         urls.get_base_scan_by_url("http://localhost/BKPMiherrortBPKcw")
             .unwrap()
@@ -801,7 +832,12 @@ fn get_base_scan_by_url_finds_correct_scan_without_trailing_slash() {
 fn get_base_scan_by_url_finds_correct_scan_with_trailing_slash() {
     let urls = FeroxScans::default();
     let url = "http://127.0.0.1:41971/";
-    let (_, scan) = urls.add_scan(url, ScanType::Directory, ScanOrder::Latest);
+    let (_, scan) = urls.add_scan(
+        url,
+        ScanType::Directory,
+        ScanOrder::Latest,
+        Arc::new(Handles::for_testing(None, None).0),
+    );
     assert_eq!(
         urls.get_base_scan_by_url("http://127.0.0.1:41971/BKPMiherrortBPKcw")
             .unwrap()

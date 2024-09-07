@@ -139,6 +139,11 @@ impl FeroxScan {
             return;
         };
 
+        if bar.is_none() {
+            log::warn!("there is no progress bar for {}", self.url);
+            return;
+        }
+
         let Some(handles) = self.handles.as_ref() else {
             log::warn!("couldn't access handles pointer for {}", self.url);
             return;
@@ -607,7 +612,7 @@ mod tests {
             OutputLevel::Default,
             None,
             true,
-            0,
+            Arc::new(Handles::for_testing(None, None).0),
         );
 
         scan.add_error();
@@ -642,6 +647,7 @@ mod tests {
             status_429s: Default::default(),
             errors: Default::default(),
             start_time: Instant::now(),
+            handles: None,
         };
 
         let pb = scan.progress_bar();
@@ -667,21 +673,48 @@ mod tests {
             OutputLevel::Default,
             None,
             true,
-            0,
+            Arc::new(Handles::for_testing(None, None).0),
         );
 
         assert!(scan.visible());
 
         scan.swap_visibility();
+        assert!(!scan.visible());
+
+        scan.swap_visibility();
         assert!(scan.visible());
 
         scan.swap_visibility();
         assert!(!scan.visible());
 
         scan.swap_visibility();
-        assert!(!scan.visible());
-
-        scan.swap_visibility();
         assert!(scan.visible());
+    }
+
+    #[test]
+    /// test for is_running method
+    fn test_is_running() {
+        let scan = FeroxScan::new(
+            "http://localhost",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            1000,
+            OutputLevel::Default,
+            None,
+            true,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
+
+        assert!(scan.is_not_started());
+        assert!(!scan.is_running());
+        assert!(!scan.is_complete());
+        assert!(!scan.is_cancelled());
+
+        *scan.status.lock().unwrap() = ScanStatus::Running;
+
+        assert!(!scan.is_not_started());
+        assert!(scan.is_running());
+        assert!(!scan.is_complete());
+        assert!(!scan.is_cancelled());
     }
 }

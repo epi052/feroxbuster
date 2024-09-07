@@ -124,3 +124,50 @@ pub fn determine_bar_type(
         (OutputLevel::Silent | OutputLevel::SilentJSON, _) => BarType::Hidden,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_no_limit_visible() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::Default);
+        assert!(matches!(bar_type, BarType::Default));
+    }
+
+    #[test]
+    fn test_limit_exceeded_hidden() {
+        let bar_type = determine_bar_type(1, 2, OutputLevel::Default);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+
+    #[test]
+    fn test_limit_not_exceeded_visible() {
+        let bar_type = determine_bar_type(2, 1, OutputLevel::Default);
+        assert!(matches!(bar_type, BarType::Default));
+    }
+
+    #[test]
+    fn test_quiet_visible() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::Quiet);
+        assert!(matches!(bar_type, BarType::Quiet));
+    }
+
+    #[test]
+    fn test_quiet_hidden() {
+        let bar_type = determine_bar_type(1, 2, OutputLevel::Quiet);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+
+    #[test]
+    fn test_silent_hidden() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::Silent);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+
+    #[test]
+    fn test_silent_json_hidden() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::SilentJSON);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+}

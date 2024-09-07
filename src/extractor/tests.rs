@@ -4,8 +4,8 @@ use super::*;
 use crate::config::{Configuration, OutputLevel};
 use crate::scan_manager::ScanOrder;
 use crate::{
-    event_handlers::Handles, event_handlers::Handles, scan_manager::FeroxScans,
-    utils::make_request, Command, FeroxChannel, DEFAULT_METHOD,
+    event_handlers::Handles, scan_manager::FeroxScans, utils::make_request, Command, FeroxChannel,
+    DEFAULT_METHOD,
 };
 use anyhow::Result;
 use httpmock::{Method::GET, MockServer};
@@ -389,7 +389,7 @@ async fn request_link_bails_on_seen_url() -> Result<()> {
     scans.add_file_scan(
         &served,
         ScanOrder::Latest,
-        Arc::new(Handles::for_testing(None, None)),
+        Arc::new(Handles::for_testing(None, None).0),
     );
 
     let robots = setup_extractor(ExtractionTarget::RobotsTxt, scans.clone());

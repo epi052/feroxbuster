@@ -650,7 +650,7 @@ mod tests {
             OutputLevel::Default,
             None,
             true,
-            0,
+            handles.clone(),
         );
 
         scan.set_status(ScanStatus::Running).unwrap();
@@ -1150,7 +1150,7 @@ mod tests {
             OutputLevel::Default,
             None,
             true,
-            0,
+            Arc::new(Handles::for_testing(None, None).0),
         );
         scan.set_status(ScanStatus::Running).unwrap();
         scan.add_429();

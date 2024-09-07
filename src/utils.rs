@@ -975,7 +975,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -994,7 +998,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1013,7 +1021,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1034,7 +1046,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1062,7 +1078,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1080,7 +1100,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/api/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1099,7 +1123,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/not-denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1118,7 +1146,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/stuff/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1137,7 +1169,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/api/not-denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.url_denylist = vec![Url::parse(deny_url).unwrap()];
@@ -1157,7 +1193,11 @@ mod tests {
         let tested_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.regex_denylist = vec![Regex::new(deny_pattern).unwrap()];
@@ -1178,7 +1218,11 @@ mod tests {
         let tested_https_url = Url::parse("https://testdomain.com/denied/").unwrap();
 
         let scans = Arc::new(FeroxScans::default());
-        scans.add_directory_scan(scan_url, ScanOrder::Initial);
+        scans.add_directory_scan(
+            scan_url,
+            ScanOrder::Initial,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
 
         let mut config = Configuration::new().unwrap();
         config.regex_denylist = vec![Regex::new(deny_pattern).unwrap()];
