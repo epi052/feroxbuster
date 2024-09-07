@@ -1,15 +1,16 @@
 use super::utils::{
-    backup_extensions, depth, extract_links, ignored_extensions, methods, parse_request_file,
-    report_and_exit, request_protocol, save_state, serialized_type, split_header, split_query,
-    status_codes, threads, timeout, user_agent, wordlist, OutputLevel, RequesterPolicy,
+    backup_extensions, depth, determine_requester_policy, extract_links, ignored_extensions,
+    methods, parse_request_file, report_and_exit, request_protocol, save_state, serialized_type,
+    split_header, split_query, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
+    RequesterPolicy,
 };
+
 use crate::config::determine_output_level;
-use crate::config::utils::determine_requester_policy;
 use crate::{
     client, parser,
     scan_manager::resume_scan,
     traits::FeroxSerialize,
-    utils::{fmt_err, parse_url_with_raw_path},
+    utils::{fmt_err, module_colorizer, parse_url_with_raw_path, status_colorizer},
     DEFAULT_CONFIG_NAME,
 };
 use anyhow::{anyhow, Context, Result};
@@ -914,6 +915,26 @@ impl Configuration {
             // occurrences_of returns 0 if none are found; this is protected in
             // an if block for the same reason as the quiet option
             config.verbosity = args.get_count("verbosity");
+
+            // todo: starting on 2.11.0 (907-dont-skip-dir-listings), trace-level
+            //   logging started causing the following error:
+            //
+            // thread 'tokio-runtime-worker' has overflowed its stack
+            // fatal runtime error: stack overflow
+            // Aborted (core dumped)
+            //
+            // as a temporary fix, we'll disable trace logging to prevent the stack
+            // overflow until I get time to investigate the root cause
+            if config.verbosity > 3 {
+                eprintln!(
+                    "{} {}: {}",
+                    status_colorizer("WRN"),
+                    module_colorizer("Configuration::parse_cli_args"),
+                    "Trace level logging is disabled; setting log level to debug"
+                );
+
+                config.verbosity = 3;
+            }
         }
 
         if came_from_cli!(args, "no_recursion") {

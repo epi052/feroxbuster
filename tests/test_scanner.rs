@@ -430,6 +430,7 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
 }
 
 #[test]
+#[should_panic] // added in 2.11.0 for panicking trace-level logging
 /// send a single valid request, get a response, and write the logging messages to disk
 fn scanner_single_request_scan_with_debug_logging() {
     let srv = MockServer::start();
@@ -467,6 +468,7 @@ fn scanner_single_request_scan_with_debug_logging() {
 }
 
 #[test]
+#[should_panic] // added in 2.11.0 for panicking trace-level logging
 /// send a single valid request, get a response, and write the logging messages to disk as NDJSON
 fn scanner_single_request_scan_with_debug_logging_as_json() {
     let srv = MockServer::start();
