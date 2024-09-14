@@ -332,6 +332,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/libklein"><img src="https://avatars.githubusercontent.com/u/42714034?v=4?s=100" width="100px;" alt="Patrick Klein"/><br /><sub><b>Patrick Klein</b></sub></a><br /><a href="#ideas-libklein" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Raymond-JV"><img src="https://avatars.githubusercontent.com/u/23642921?v=4?s=100" width="100px;" alt="Raymond"/><br /><sub><b>Raymond</b></sub></a><br /><a href="#ideas-Raymond-JV" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
   </tbody>
 </table>
