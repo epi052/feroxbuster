@@ -40,12 +40,12 @@ pub fn initialize() -> Command {
             Arg::new("url")
                 .short('u')
                 .long("url")
-                .required_unless_present_any(["stdin", "resume_from", "update_app"])
+                .required_unless_present_any(["stdin", "resume_from", "update_app", "request_file"])
                 .help_heading("Target selection")
                 .value_name("URL")
                 .use_value_delimiter(true)
                 .value_hint(ValueHint::Url)
-                .help("The target URL (required, unless [--stdin || --resume-from] used)"),
+                .help("The target URL (required, unless [--stdin || --resume-from || --request-file] used)"),
         )
         .arg(
             Arg::new("stdin")
@@ -64,6 +64,15 @@ pub fn initialize() -> Command {
                 .help("State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)")
                 .conflicts_with("url")
                 .num_args(1),
+        ).arg(
+            Arg::new("request_file")
+                .long("request-file")
+                .help_heading("Target selection")
+                .value_hint(ValueHint::FilePath)
+                .conflicts_with("url")
+                .num_args(1)
+                .value_name("REQUEST_FILE")
+                .help("Raw HTTP request file to use as a template for all requests"),
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -100,7 +109,7 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Composite settings")
                 .conflicts_with_all(["rate_limit", "auto_bail"])
-                .help("Use the same settings as --smart and set --collect-extensions to true"),
+                .help("Use the same settings as --smart and set --collect-extensions and --scan-dir-listings to true"),
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -248,6 +257,13 @@ pub fn initialize() -> Command {
                 .help_heading("Request settings")
                 .num_args(0)
                 .help("Append / to each request's URL")
+        ).arg(
+            Arg::new("protocol")
+                .long("protocol")
+                .value_name("PROTOCOL")
+                .num_args(1)
+                .help_heading("Request settings")
+                .help("Specify the protocol to use when targeting via --request-file or --url with domain only (default: https)"),
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -574,6 +590,12 @@ pub fn initialize() -> Command {
                 .help(
                     "File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)",
                 ),
+        ).arg(
+            Arg::new("scan_dir_listings")
+                .long("scan-dir-listings")
+                .num_args(0)
+                .help_heading("Scan settings")
+                .help("Force scans to recurse into directory listings")
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -638,6 +660,13 @@ pub fn initialize() -> Command {
                 .num_args(0)
                 .help_heading("Output settings")
                 .help("Disable state output file (*.state)")
+        ).arg(
+            Arg::new("limit_bars")
+                .long("limit-bars")
+                .value_name("NUM_BARS_TO_SHOW")
+                .num_args(1)
+                .help_heading("Output settings")
+                .help("Number of directory scan bars to show at any given time (default: no limit)"),
         );
 
     /////////////////////////////////////////////////////////////////////

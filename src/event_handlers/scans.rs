@@ -120,7 +120,10 @@ impl ScanHandler {
     pub fn initialize(handles: Arc<Handles>) -> (Joiner, ScanHandle) {
         log::trace!("enter: initialize");
 
-        let data = Arc::new(FeroxScans::new(handles.config.output_level));
+        let data = Arc::new(FeroxScans::new(
+            handles.config.output_level,
+            handles.config.limit_bars,
+        ));
         let (tx, rx): FeroxChannel<Command> = mpsc::unbounded_channel();
 
         let max_depth = handles.config.depth;
@@ -322,7 +325,9 @@ impl ScanHandler {
             let scan = if let Some(ferox_scan) = self.data.get_scan_by_url(&target) {
                 ferox_scan // scan already known
             } else {
-                self.data.add_directory_scan(&target, order).1 // add the new target; return FeroxScan
+                self.data
+                    .add_directory_scan(&target, order, self.handles.clone())
+                    .1 // add the new target; return FeroxScan
             };
 
             if should_test_deny

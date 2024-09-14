@@ -313,9 +313,12 @@ impl Requester {
                 .set_status(ScanStatus::Cancelled)
                 .unwrap_or_else(|e| log::warn!("Could not set scan status: {}", e));
 
+            let scans = self.handles.ferox_scans()?;
+            let active_bars = scans.number_of_bars();
+
             // kill the scan
             self.ferox_scan
-                .abort()
+                .abort(active_bars)
                 .await
                 .unwrap_or_else(|e| log::warn!("Could not bail on scan: {}", e));
 
@@ -646,6 +649,8 @@ mod tests {
             1000,
             OutputLevel::Default,
             None,
+            true,
+            handles.clone(),
         );
 
         scan.set_status(ScanStatus::Running).unwrap();
@@ -1144,6 +1149,8 @@ mod tests {
             1000,
             OutputLevel::Default,
             None,
+            true,
+            Arc::new(Handles::for_testing(None, None).0),
         );
         scan.set_status(ScanStatus::Running).unwrap();
         scan.add_429();
@@ -1177,7 +1184,7 @@ mod tests {
             200
         );
 
-        scan.finish().unwrap();
+        scan.finish(0).unwrap();
         assert!(start.elapsed().as_millis() >= 2000);
     }
 }

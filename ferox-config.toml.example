@@ -45,6 +45,7 @@
 # dont_filter = true
 # extract_links = true
 # depth = 1
+# limit_bars = 3
 # force_recursion = true
 # filter_size = [5174]
 # filter_regex = ["^ignore me$"]
@@ -57,6 +58,9 @@
 # server_certs = ["/some/cert.pem", "/some/other/cert.pem"]
 # client_cert = "/some/client/cert.pem"
 # client_key = "/some/client/key.pem"
+# request_file = "/some/raw/request/file"
+# protocol = "http"
+# scan_dir_listings = true
 
 # headers can be specified on multiple lines or as an inline table
 #

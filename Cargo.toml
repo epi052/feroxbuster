@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.10.4"
+version = "2.11.0"
 authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
 edition = "2021"
@@ -25,13 +25,13 @@ maintenance = { status = "actively-developed" }
 clap = { version = "4.5", features = ["wrap_help", "cargo"] }
 clap_complete = "4.5"
 regex = "1.10"
-lazy_static = "1.4"
+lazy_static = "1.5"
 dirs = "5.0"
 
 [dependencies]
 scraper = "0.19"
 futures = "0.3"
-tokio = { version = "1.38", features = ["full"] }
+tokio = { version = "1.39", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 log = "0.4"
 env_logger = "0.11"
@@ -40,13 +40,11 @@ reqwest = { version = "0.12", features = ["socks", "native-tls-alpn"] }
 url = { version = "2.5", features = ["serde"] }
 serde_regex = "1.1"
 clap = { version = "4.5", features = ["wrap_help", "cargo"] }
-lazy_static = "1.4"
+lazy_static = "1.5"
 toml = "0.8"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
-uuid = { version = "1.8", features = ["v4"] }
-# last known working version of indicatif; 0.17.5 has a bug that causes the 
-# scan menu to fail spectacularly 
+uuid = { version = "1.10", features = ["v4"] }
 indicatif = { version = "0.17.8" }
 console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }
@@ -69,7 +67,7 @@ self_update = { version = "0.40", features = [
 ] }
 
 [dev-dependencies]
-tempfile = "3.10"
+tempfile = "3.12"
 httpmock = "0.7"
 assert_cmd = "2.0"
 predicates = "3.1"

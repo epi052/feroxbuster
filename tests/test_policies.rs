@@ -58,7 +58,7 @@ fn auto_bail_cancels_scan_with_timeouts() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--url")
-        .arg(&srv.url("/"))
+        .arg(srv.url("/"))
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--auto-bail")

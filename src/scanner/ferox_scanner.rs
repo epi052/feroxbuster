@@ -283,6 +283,14 @@ impl FeroxScanner {
 
                 let mut message = format!("=> {}", style("Directory listing").blue().bright());
 
+                if !self.handles.config.scan_dir_listings {
+                    write!(
+                        message,
+                        " (add {} to scan)",
+                        style("--scan-dir-listings").bright().yellow()
+                    )?;
+                }
+
                 if !self.handles.config.extract_links {
                     write!(
                         message,
@@ -291,7 +299,7 @@ impl FeroxScanner {
                     )?;
                 }
 
-                if !self.handles.config.force_recursion {
+                if !self.handles.config.force_recursion && !self.handles.config.scan_dir_listings {
                     for handle in extraction_tasks.into_iter().flatten() {
                         _ = handle.await;
                     }
@@ -299,7 +307,14 @@ impl FeroxScanner {
                     progress_bar.reset_eta();
                     progress_bar.finish_with_message(message);
 
-                    ferox_scan.finish()?;
+                    if self.handles.config.limit_bars > 0 {
+                        let scans = self.handles.ferox_scans()?;
+                        let num_bars = scans.number_of_bars();
+                        ferox_scan.finish(num_bars)?;
+                        scans.make_visible();
+                    } else {
+                        ferox_scan.finish(0)?;
+                    }
 
                     return Ok(()); // nothing left to do if we found a dir listing
                 }
@@ -382,7 +397,14 @@ impl FeroxScanner {
             _ = handle.await;
         }
 
-        ferox_scan.finish()?;
+        if self.handles.config.limit_bars > 0 {
+            let scans = self.handles.ferox_scans()?;
+            let num_bars = scans.number_of_bars();
+            ferox_scan.finish(num_bars)?;
+            scans.make_visible();
+        } else {
+            ferox_scan.finish(0)?;
+        }
 
         log::trace!("exit: scan_url");
 

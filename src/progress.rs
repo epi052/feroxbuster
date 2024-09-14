@@ -31,6 +31,15 @@ pub enum BarType {
 /// Add an [indicatif::ProgressBar](https://docs.rs/indicatif/latest/indicatif/struct.ProgressBar.html)
 /// to the global [PROGRESS_BAR](../config/struct.PROGRESS_BAR.html)
 pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
+    let pb = ProgressBar::new(length).with_prefix(prefix.to_string());
+
+    update_style(&pb, bar_type);
+
+    PROGRESS_BAR.add(pb)
+}
+
+/// Update the style of a progress bar based on the `BarType`
+pub fn update_style(bar: &ProgressBar, bar_type: BarType) {
     let mut style = ProgressStyle::default_bar().progress_chars("#>-").with_key(
         "smoothed_per_sec",
         |state: &indicatif::ProgressState, w: &mut dyn std::fmt::Write| match (
@@ -66,11 +75,7 @@ pub fn add_bar(prefix: &str, length: u64, bar_type: BarType) -> ProgressBar {
         BarType::Quiet => style.template("Scanning: {prefix}").unwrap(),
     };
 
-    PROGRESS_BAR.add(
-        ProgressBar::new(length)
-            .with_style(style)
-            .with_prefix(prefix.to_string()),
-    )
+    bar.set_style(style);
 }
 
 #[cfg(test)]

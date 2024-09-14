@@ -386,7 +386,11 @@ async fn request_link_bails_on_seen_url() -> Result<()> {
     });
 
     let scans = Arc::new(FeroxScans::default());
-    scans.add_file_scan(&served, ScanOrder::Latest);
+    scans.add_file_scan(
+        &served,
+        ScanOrder::Latest,
+        Arc::new(Handles::for_testing(None, None).0),
+    );
 
     let robots = setup_extractor(ExtractionTarget::RobotsTxt, scans.clone());
     let body = setup_extractor(ExtractionTarget::ResponseBody, scans);

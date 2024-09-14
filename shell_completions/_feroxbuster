@@ -15,17 +15,18 @@ _feroxbuster() {
 
     local context curcontext="$curcontext" state line
     _arguments "${_arguments_options[@]}" : \
-'-u+[The target URL (required, unless \[--stdin || --resume-from\] used)]:URL:_urls' \
-'--url=[The target URL (required, unless \[--stdin || --resume-from\] used)]:URL:_urls' \
+'-u+[The target URL (required, unless \[--stdin || --resume-from || --request-file\] used)]:URL:_urls' \
+'--url=[The target URL (required, unless \[--stdin || --resume-from || --request-file\] used)]:URL:_urls' \
 '(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]:STATE_FILE:_files' \
+'(-u --url)--request-file=[Raw HTTP request file to use as a template for all requests]:REQUEST_FILE:_files' \
 '-p+[Proxy to use for requests (ex\: http(s)\://host\:port, socks5(h)\://host\:port)]:PROXY:_urls' \
 '--proxy=[Proxy to use for requests (ex\: http(s)\://host\:port, socks5(h)\://host\:port)]:PROXY:_urls' \
 '-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE: ' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default\: feroxbuster/2.10.4)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.10.4)]:USER_AGENT: ' \
+'-a+[Sets the User-Agent (default\: feroxbuster/2.11.0)]:USER_AGENT: ' \
+'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.11.0)]:USER_AGENT: ' \
 '*-x+[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION: ' \
 '*--extensions=[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION: ' \
 '*-m+[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS: ' \
@@ -37,6 +38,7 @@ _feroxbuster() {
 '*--cookies=[Specify HTTP cookies to be used in each request (ex\: -b stuff=things)]:COOKIE: ' \
 '*-Q+[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY: ' \
 '*--query=[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY: ' \
+'--protocol=[Specify the protocol to use when targeting via --request-file or --url with domain only (default\: https)]:PROTOCOL: ' \
 '*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]:URL: ' \
 '*-S+[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE: ' \
 '*--filter-size=[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE: ' \
@@ -74,11 +76,12 @@ _feroxbuster() {
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--output=[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]:FILE:_files' \
+'--limit-bars=[Number of directory scan bars to show at any given time (default\: no limit)]:NUM_BARS_TO_SHOW: ' \
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http\://127.0.0.1\:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http\://127.0.0.1\:8080 and set --insecure to true]' \
 '(--rate-limit --auto-bail)--smart[Set --auto-tune, --collect-words, and --collect-backups to true]' \
-'(--rate-limit --auto-bail)--thorough[Use the same settings as --smart and set --collect-extensions to true]' \
+'(--rate-limit --auto-bail)--thorough[Use the same settings as --smart and set --collect-extensions and --scan-dir-listings to true]' \
 '-A[Use a random User-Agent]' \
 '--random-agent[Use a random User-Agent]' \
 '-f[Append / to each request'\''s URL]' \
@@ -101,6 +104,7 @@ _feroxbuster() {
 '--collect-extensions[Automatically discover extensions and add them to --extensions (unless they'\''re in --dont-collect)]' \
 '-g[Automatically discover important words from within responses and add them to the wordlist]' \
 '--collect-words[Automatically discover important words from within responses and add them to the wordlist]' \
+'--scan-dir-listings[Force scans to recurse into directory listings]' \
 '(--silent)*-v[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(--silent)*--verbosity[Increase verbosity level (use -vv or more for greater effect. \[CAUTION\] 4 -v'\''s is probably too much)]' \
 '(-q --quiet)--silent[Only print URLs (or JSON w/ --json) + turn off logging (good for piping a list of urls to other commands)]' \

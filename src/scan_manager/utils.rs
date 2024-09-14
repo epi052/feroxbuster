@@ -1,7 +1,12 @@
 #[cfg(not(test))]
 use crate::event_handlers::TermInputHandler;
 use crate::{
-    config::Configuration, event_handlers::Handles, parser::TIMESPEC_REGEX, scanner::RESPONSES,
+    config::{Configuration, OutputLevel},
+    event_handlers::Handles,
+    parser::TIMESPEC_REGEX,
+    progress::BarType,
+    scan_manager::scan::Visibility,
+    scanner::RESPONSES,
 };
 
 use std::{fs::File, io::BufReader, sync::Arc};
@@ -89,4 +94,80 @@ pub fn resume_scan(filename: &str) -> Configuration {
 
     log::trace!("exit: resume_scan -> {:?}", config);
     config
+}
+
+/// determine the type of progress bar to display
+/// takes both --limit-bars and output-level (--quiet|--silent|etc)
+/// into account to arrive at a `BarType`
+pub fn determine_bar_type(
+    bar_limit: usize,
+    number_of_bars: usize,
+    output_level: OutputLevel,
+) -> BarType {
+    let visibility = if bar_limit == 0 {
+        // no limit from cli, just set the value to visible
+        // this protects us from a mutex unlock in number_of_bars
+        // in the normal case
+        Visibility::Visible
+    } else if bar_limit < number_of_bars {
+        // active bars exceed limit; hidden
+        Visibility::Hidden
+    } else {
+        Visibility::Visible
+    };
+
+    match (output_level, visibility) {
+        (OutputLevel::Default, Visibility::Visible) => BarType::Default,
+        (OutputLevel::Quiet, Visibility::Visible) => BarType::Quiet,
+        (OutputLevel::Default, Visibility::Hidden) => BarType::Hidden,
+        (OutputLevel::Quiet, Visibility::Hidden) => BarType::Hidden,
+        (OutputLevel::Silent | OutputLevel::SilentJSON, _) => BarType::Hidden,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_no_limit_visible() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::Default);
+        assert!(matches!(bar_type, BarType::Default));
+    }
+
+    #[test]
+    fn test_limit_exceeded_hidden() {
+        let bar_type = determine_bar_type(1, 2, OutputLevel::Default);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+
+    #[test]
+    fn test_limit_not_exceeded_visible() {
+        let bar_type = determine_bar_type(2, 1, OutputLevel::Default);
+        assert!(matches!(bar_type, BarType::Default));
+    }
+
+    #[test]
+    fn test_quiet_visible() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::Quiet);
+        assert!(matches!(bar_type, BarType::Quiet));
+    }
+
+    #[test]
+    fn test_quiet_hidden() {
+        let bar_type = determine_bar_type(1, 2, OutputLevel::Quiet);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+
+    #[test]
+    fn test_silent_hidden() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::Silent);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
+
+    #[test]
+    fn test_silent_json_hidden() {
+        let bar_type = determine_bar_type(0, 1, OutputLevel::SilentJSON);
+        assert!(matches!(bar_type, BarType::Hidden));
+    }
 }

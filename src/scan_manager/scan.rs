@@ -1,7 +1,10 @@
 use super::*;
 use crate::{
     config::OutputLevel,
+    event_handlers::Handles,
+    progress::update_style,
     progress::{add_bar, BarType},
+    scan_manager::utils::determine_bar_type,
     scanner::PolicyTrigger,
 };
 use anyhow::Result;
@@ -16,9 +19,19 @@ use std::{
     time::Instant,
 };
 
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use tokio::{sync, task::JoinHandle};
 use uuid::Uuid;
+
+#[derive(Debug, Default, Copy, Clone)]
+pub enum Visibility {
+    /// whether a FeroxScan's progress bar is currently shown
+    #[default]
+    Visible,
+
+    /// whether a FeroxScan's progress bar is currently hidden
+    Hidden,
+}
 
 /// Struct to hold scan-related state
 ///
@@ -58,7 +71,7 @@ pub struct FeroxScan {
     pub(super) task: sync::Mutex<Option<JoinHandle<()>>>,
 
     /// The progress bar associated with this scan
-    pub(super) progress_bar: Mutex<Option<ProgressBar>>,
+    pub progress_bar: Mutex<Option<ProgressBar>>,
 
     /// whether or not the user passed --silent|--quiet on the command line
     pub(super) output_level: OutputLevel,
@@ -74,6 +87,12 @@ pub struct FeroxScan {
 
     /// tracker for the time at which this scan was started
     pub(super) start_time: Instant,
+
+    /// whether the progress bar is currently visible or hidden
+    pub(super) visible: AtomicBool,
+
+    /// handles object pointer
+    pub(super) handles: Option<Arc<Handles>>,
 }
 
 /// Default implementation for FeroxScan
@@ -86,6 +105,7 @@ impl Default for FeroxScan {
             id: new_id,
             task: sync::Mutex::new(None), // tokio mutex
             status: Mutex::new(ScanStatus::default()),
+            handles: None,
             num_requests: 0,
             requests_made_so_far: 0,
             scan_order: ScanOrder::Latest,
@@ -98,14 +118,54 @@ impl Default for FeroxScan {
             status_429s: Default::default(),
             status_403s: Default::default(),
             start_time: Instant::now(),
+            visible: AtomicBool::new(true),
         }
     }
 }
 
 /// Implementation of FeroxScan
 impl FeroxScan {
+    /// return the visibility of the scan as a boolean
+    pub fn visible(&self) -> bool {
+        self.visible.load(Ordering::Relaxed)
+    }
+
+    pub fn swap_visibility(&self) {
+        // fetch_xor toggles the boolean to its opposite and returns the previous value
+        let visible = self.visible.fetch_xor(true, Ordering::Relaxed);
+
+        let Ok(bar) = self.progress_bar.lock() else {
+            log::warn!("couldn't unlock progress bar for {}", self.url);
+            return;
+        };
+
+        if bar.is_none() {
+            log::warn!("there is no progress bar for {}", self.url);
+            return;
+        }
+
+        let Some(handles) = self.handles.as_ref() else {
+            log::warn!("couldn't access handles pointer for {}", self.url);
+            return;
+        };
+
+        let bar_type = if !visible {
+            // visibility was false before we xor'd the value
+            match handles.config.output_level {
+                OutputLevel::Default => BarType::Default,
+                OutputLevel::Quiet => BarType::Quiet,
+                OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
+            }
+        } else {
+            // visibility was true before we xor'd the value
+            BarType::Hidden
+        };
+
+        update_style(bar.as_ref().unwrap(), bar_type);
+    }
+
     /// Stop a currently running scan
-    pub async fn abort(&self) -> Result<()> {
+    pub async fn abort(&self, active_bars: usize) -> Result<()> {
         log::trace!("enter: abort");
 
         match self.task.try_lock() {
@@ -114,7 +174,7 @@ impl FeroxScan {
                     log::trace!("aborting {:?}", self);
                     task.abort();
                     self.set_status(ScanStatus::Cancelled)?;
-                    self.stop_progress_bar();
+                    self.stop_progress_bar(active_bars);
                 }
             }
             Err(e) => {
@@ -151,15 +211,26 @@ impl FeroxScan {
     }
 
     /// Simple helper to call .finish on the scan's progress bar
-    pub(super) fn stop_progress_bar(&self) {
+    pub(super) fn stop_progress_bar(&self, active_bars: usize) {
         if let Ok(guard) = self.progress_bar.lock() {
             if guard.is_some() {
                 let pb = (*guard).as_ref().unwrap();
 
-                if pb.position() > self.num_requests {
-                    pb.finish()
+                let bar_limit = if let Some(handles) = self.handles.as_ref() {
+                    handles.config.limit_bars
                 } else {
-                    pb.abandon()
+                    0
+                };
+
+                if bar_limit > 0 && bar_limit < active_bars {
+                    pb.finish_and_clear();
+                    return;
+                }
+
+                if pb.position() > self.num_requests {
+                    pb.finish();
+                } else {
+                    pb.abandon();
                 }
             }
         }
@@ -172,11 +243,17 @@ impl FeroxScan {
                 if guard.is_some() {
                     (*guard).as_ref().unwrap().clone()
                 } else {
-                    let bar_type = match self.output_level {
-                        OutputLevel::Default => BarType::Default,
-                        OutputLevel::Quiet => BarType::Quiet,
-                        OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
+                    let (active_bars, bar_limit) = if let Some(handles) = self.handles.as_ref() {
+                        if let Ok(scans) = handles.ferox_scans() {
+                            (scans.number_of_bars(), handles.config.limit_bars)
+                        } else {
+                            (0, handles.config.limit_bars)
+                        }
+                    } else {
+                        (0, 0)
                     };
+
+                    let bar_type = determine_bar_type(bar_limit, active_bars, self.output_level);
 
                     let pb = add_bar(&self.url, self.num_requests, bar_type);
                     pb.reset_elapsed();
@@ -191,11 +268,17 @@ impl FeroxScan {
             Err(_) => {
                 log::warn!("Could not unlock progress bar on {:?}", self);
 
-                let bar_type = match self.output_level {
-                    OutputLevel::Default => BarType::Default,
-                    OutputLevel::Quiet => BarType::Quiet,
-                    OutputLevel::Silent | OutputLevel::SilentJSON => BarType::Hidden,
+                let (active_bars, bar_limit) = if let Some(handles) = self.handles.as_ref() {
+                    if let Ok(scans) = handles.ferox_scans() {
+                        (scans.number_of_bars(), handles.config.limit_bars)
+                    } else {
+                        (0, handles.config.limit_bars)
+                    }
+                } else {
+                    (0, 0)
                 };
+
+                let bar_type = determine_bar_type(bar_limit, active_bars, self.output_level);
 
                 let pb = add_bar(&self.url, self.num_requests, bar_type);
                 pb.reset_elapsed();
@@ -206,6 +289,7 @@ impl FeroxScan {
     }
 
     /// Given a URL and ProgressBar, create a new FeroxScan, wrap it in an Arc and return it
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         url: &str,
         scan_type: ScanType,
@@ -213,6 +297,8 @@ impl FeroxScan {
         num_requests: u64,
         output_level: OutputLevel,
         pb: Option<ProgressBar>,
+        visibility: bool,
+        handles: Arc<Handles>,
     ) -> Arc<Self> {
         Arc::new(Self {
             url: url.to_string(),
@@ -222,14 +308,16 @@ impl FeroxScan {
             num_requests,
             output_level,
             progress_bar: Mutex::new(pb),
+            visible: AtomicBool::new(visibility),
+            handles: Some(handles),
             ..Default::default()
         })
     }
 
     /// Mark the scan as complete and stop the scan's progress bar
-    pub fn finish(&self) -> Result<()> {
+    pub fn finish(&self, active_bars: usize) -> Result<()> {
         self.set_status(ScanStatus::Complete)?;
-        self.stop_progress_bar();
+        self.stop_progress_bar(active_bars);
         Ok(())
     }
 
@@ -258,6 +346,22 @@ impl FeroxScan {
     pub fn is_cancelled(&self) -> bool {
         if let Ok(guard) = self.status.lock() {
             return matches!(*guard, ScanStatus::Cancelled);
+        }
+        false
+    }
+
+    /// small wrapper to inspect ScanStatus and see if it's Running
+    pub fn is_running(&self) -> bool {
+        if let Ok(guard) = self.status.lock() {
+            return matches!(*guard, ScanStatus::Running);
+        }
+        false
+    }
+
+    /// small wrapper to inspect ScanStatus and see if it's NotStarted
+    pub fn is_not_started(&self) -> bool {
+        if let Ok(guard) = self.status.lock() {
+            return matches!(*guard, ScanStatus::NotStarted);
         }
         false
     }
@@ -507,6 +611,8 @@ mod tests {
             1000,
             OutputLevel::Default,
             None,
+            true,
+            Arc::new(Handles::for_testing(None, None).0),
         );
 
         scan.add_error();
@@ -532,6 +638,7 @@ mod tests {
             scan_order: ScanOrder::Initial,
             num_requests: 0,
             requests_made_so_far: 0,
+            visible: AtomicBool::new(true),
             status: Mutex::new(ScanStatus::Running),
             task: Default::default(),
             progress_bar: Mutex::new(None),
@@ -540,6 +647,7 @@ mod tests {
             status_429s: Default::default(),
             errors: Default::default(),
             start_time: Instant::now(),
+            handles: None,
         };
 
         let pb = scan.progress_bar();
@@ -551,7 +659,62 @@ mod tests {
 
         assert_eq!(req_sec, 100);
 
-        scan.finish().unwrap();
+        scan.finish(0).unwrap();
         assert_eq!(scan.requests_per_second(), 0);
+    }
+
+    #[test]
+    fn test_swap_visibility() {
+        let scan = FeroxScan::new(
+            "http://localhost",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            1000,
+            OutputLevel::Default,
+            None,
+            true,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
+
+        assert!(scan.visible());
+
+        scan.swap_visibility();
+        assert!(!scan.visible());
+
+        scan.swap_visibility();
+        assert!(scan.visible());
+
+        scan.swap_visibility();
+        assert!(!scan.visible());
+
+        scan.swap_visibility();
+        assert!(scan.visible());
+    }
+
+    #[test]
+    /// test for is_running method
+    fn test_is_running() {
+        let scan = FeroxScan::new(
+            "http://localhost",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            1000,
+            OutputLevel::Default,
+            None,
+            true,
+            Arc::new(Handles::for_testing(None, None).0),
+        );
+
+        assert!(scan.is_not_started());
+        assert!(!scan.is_running());
+        assert!(!scan.is_complete());
+        assert!(!scan.is_cancelled());
+
+        *scan.status.lock().unwrap() = ScanStatus::Running;
+
+        assert!(!scan.is_not_started());
+        assert!(scan.is_running());
+        assert!(!scan.is_complete());
+        assert!(!scan.is_cancelled());
     }
 }
