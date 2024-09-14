@@ -37,7 +37,7 @@ jobs:
             path: target/aarch64-unknown-linux-gnu/release/feroxbuster
             pkg_config_path: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install System Dependencies
         run: |
           env
@@ -78,7 +78,7 @@ jobs:
       IN_PIPELINE: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install System Dependencies
         run: |
           env
@@ -131,7 +131,7 @@ jobs:
     runs-on: macos-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -163,7 +163,7 @@ jobs:
     runs-on: macos-latest
     # if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -209,7 +209,7 @@ jobs:
             name: x86-windows-feroxbuster.exe
             path: target\i686-pc-windows-msvc\release\feroxbuster.exe
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
