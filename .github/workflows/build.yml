@@ -79,16 +79,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install System Dependencies
         run: |
           env
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libssl-dev pkg-config
       - name: Set up Rust toolchain
-        uses: actions/rust-toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          components: rustfmt, clippy
           target: x86_64-unknown-linux-musl
 
       - name: Build the project
