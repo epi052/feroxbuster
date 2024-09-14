@@ -7,7 +7,7 @@ jobs:
     env:
       IN_PIPELINE: true
     runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86, armv7, aarch64]
@@ -42,20 +42,18 @@ jobs:
         run: |
           env
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
-      - uses: actions-rs/toolchain@v1
+          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
           target: ${{ matrix.target }}
-          override: true
-      - uses: actions-rs/cargo@v1
+
+      - name: Build the project
         env:
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
           OPENSSL_DIR: /usr/lib/ssl
-        with:
-          use-cross: true
-          command: build
-          args: --release --target=${{ matrix.target }}
+        run: cargo build --release --target=${{ matrix.target }}
       - name: Strip symbols from binary
         run: |
           strip -s ${{ matrix.path }} || arm-linux-gnueabihf-strip -s ${{ matrix.path }} || aarch64-linux-gnu-strip -s ${{ matrix.path }}
@@ -95,7 +93,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig
           OPENSSL_DIR: /usr/lib/ssl
-        run: cargo build --release --target=x86_64-unknown-linux-musl
+        run: cargo build --target=x86_64-unknown-linux-musl
       - uses: actions/upload-artifact@v4
         with:
           name: x86_64-linux-debug-feroxbuster
@@ -107,7 +105,7 @@ jobs:
     env:
       IN_PIPELINE: true
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
       - name: Install cargo-deb
         run: cargo install -f cargo-deb
       - uses: awalsh128/cache-apt-pkgs-action@v1
