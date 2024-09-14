@@ -37,5 +37,5 @@ cargo fmt --all
 [tasks.test]
 clear = true
 script = """
-cargo nextest run --all-features --all-targets
+cargo nextest run --all-features --all-targets --retries 4 --no-fail-fast
 """

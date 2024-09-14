@@ -20,7 +20,6 @@ Long form explanations of most of the items below can be found in the [CONTRIBUT
   - [ ] update [example config file section](https://epi052.github.io/feroxbuster-docs/docs/configuration/ferox-config-toml/)
   - [ ] update [help output section](https://epi052.github.io/feroxbuster-docs/docs/configuration/command-line/)
   - [ ] add an [example](https://epi052.github.io/feroxbuster-docs/docs/examples/)
-  - [ ] update [comparison table](https://epi052.github.io/feroxbuster-docs/docs/compare/)
 
 ## Additional Tests
 - [ ] New code is unit tested
