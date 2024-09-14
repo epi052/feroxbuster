@@ -42,7 +42,8 @@ jobs:
         run: |
           env
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools gcc-multilib
+          # sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools gcc-multilib
+          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config musl-tools gcc-multilib
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
