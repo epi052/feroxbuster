@@ -850,6 +850,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "libklein",
+      "name": "Patrick Klein",
+      "avatar_url": "https://avatars.githubusercontent.com/u/42714034?v=4",
+      "profile": "https://github.com/libklein",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
