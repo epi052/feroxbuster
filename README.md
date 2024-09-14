@@ -330,6 +330,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://danthesalmon.com"><img src="https://avatars.githubusercontent.com/u/3712226?v=4?s=100" width="100px;" alt="Dan Salmon"/><br /><sub><b>Dan Salmon</b></sub></a><br /><a href="#ideas-sa7mon" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/swordfish0x0"><img src="https://avatars.githubusercontent.com/u/21209130?v=4?s=100" width="100px;" alt="swordfish0x0"/><br /><sub><b>swordfish0x0</b></sub></a><br /><a href="#ideas-swordfish0x0" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/libklein"><img src="https://avatars.githubusercontent.com/u/42714034?v=4?s=100" width="100px;" alt="Patrick Klein"/><br /><sub><b>Patrick Klein</b></sub></a><br /><a href="#ideas-libklein" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
   </tbody>
 </table>
 
