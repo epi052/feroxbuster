@@ -4,7 +4,6 @@ on: [push]
 
 jobs:
   build-nix:
-    name: Release - ${{ matrix.os }}
     env:
       IN_PIPELINE: true
     runs-on: ${{ matrix.os }}

@@ -16,9 +16,9 @@ jobs:
         with:
           tool: cargo-nextest,cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov nextest --all-features --no-fail-fast --lcov --output-path lcov.info
+        run: cargo llvm-cov nextest --all-features --no-fail-fast --lcov --retries 4 --output-path lcov.info
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: lcov.info
           fail_ci_if_error: true
