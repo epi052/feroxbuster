@@ -42,19 +42,18 @@ jobs:
         run: |
           env
           sudo apt-get update
-          # sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools gcc-multilib
-          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config musl-tools gcc-multilib
+          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-
-      - name: Build the project
         env:
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
           OPENSSL_DIR: /usr/lib/ssl
-        run: cargo build --release --target=${{ matrix.target }}
+        with:
+          toolchain: stable
+          run: \
+            cargo install cross --git https://github.com/cross-rs/cross
+            cross build --target ${{ matrix.target }} --release
+
       - name: Strip symbols from binary
         run: |
           strip -s ${{ matrix.path }} || arm-linux-gnueabihf-strip -s ${{ matrix.path }} || aarch64-linux-gnu-strip -s ${{ matrix.path }}
