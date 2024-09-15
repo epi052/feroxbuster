@@ -8,7 +8,7 @@ jobs:
     env:
       IN_PIPELINE: true
     runs-on: ${{ matrix.os }}
-    # if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
         type: [ubuntu-x64, ubuntu-x86, armv7, aarch64]
@@ -118,7 +118,7 @@ jobs:
     env:
       IN_PIPELINE: true
     runs-on: macos-latest
-    # if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: Cache cargo & target directories
@@ -147,7 +147,7 @@ jobs:
     env:
       IN_PIPELINE: true
     runs-on: macos-latest
-    # if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: Cache cargo & target directories
@@ -176,7 +176,7 @@ jobs:
     env:
       IN_PIPELINE: true
     runs-on: ${{ matrix.os }}
-    # if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     strategy:
       matrix:
         type: [windows-x64, windows-x86]
