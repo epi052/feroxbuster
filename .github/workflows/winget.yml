@@ -13,7 +13,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: vedantmgoyal2009/winget-releaser@v2
+      - uses: vedantmgoyal2009/winget-releaser@main
         with:
           identifier: epi052.feroxbuster
           installers-regex: '-windows-feroxbuster\.exe\.zip$'
