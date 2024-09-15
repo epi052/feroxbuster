@@ -34,7 +34,7 @@ jobs:
       - name: Cache cargo & target directories
         uses: Swatinem/rust-cache@v2
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo fmt run --all -- --check
+      - run: cargo fmt --all -- --check
 
   clippy:
     name: Clippy
