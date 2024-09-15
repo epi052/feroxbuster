@@ -3,7 +3,8 @@ name: CD Pipeline
 on: [push]
 
 jobs:
-  build-nix:
+  build-nix-release:
+    name: Release - ${{ matrix.os }}
     env:
       IN_PIPELINE: true
     runs-on: ${{ matrix.os }}
@@ -38,25 +39,37 @@ jobs:
             pkg_config_path: /usr/lib/x86_64-linux-gnu/pkgconfig
     steps:
       - uses: actions/checkout@v4
-      - name: Install System Dependencies
-        run: |
-          env
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@master
-        env:
-          PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
-          OPENSSL_DIR: /usr/lib/ssl
+      - name: Cache cargo & target directories
+        uses: Swatinem/rust-cache@v2
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v0
         with:
+          command: build
+          target: ${{ matrix.target }}
+          args: "--locked --release"
+          strip: true
           toolchain: stable
-          run: \
-            cargo install cross --git https://github.com/cross-rs/cross
-            cross build --target ${{ matrix.target }} --release
 
-      - name: Strip symbols from binary
-        run: |
-          strip -s ${{ matrix.path }} || arm-linux-gnueabihf-strip -s ${{ matrix.path }} || aarch64-linux-gnu-strip -s ${{ matrix.path }}
+      # - uses: actions/checkout@v4
+      # - name: Install System Dependencies
+      #   run: |
+      #     env
+      #     sudo apt-get update
+      #     sudo apt-get install -y --no-install-recommends libssl-dev pkg-config gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu musl-tools
+      # - name: Set up Rust toolchain
+      #   uses: dtolnay/rust-toolchain@master
+      #   env:
+      #     PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
+      #     OPENSSL_DIR: /usr/lib/ssl
+      #   with:
+      #     toolchain: stable
+      #     run: \
+      #       cargo install cross --git https://github.com/cross-rs/cross
+      #       cross build --target ${{ matrix.target }} --release
+
+      # - name: Strip symbols from binary
+      #   run: |
+      #     strip -s ${{ matrix.path }} || arm-linux-gnueabihf-strip -s ${{ matrix.path }} || aarch64-linux-gnu-strip -s ${{ matrix.path }}
       - name: Build tar.gz for homebrew installs
         if: matrix.type == 'ubuntu-x64'
         run: |

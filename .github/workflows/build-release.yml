@@ -1,0 +1,14 @@
+jobs:
+  release:
+    name: Release - ${{ matrix.platform.os_name }}
+    # if: startsWith( github.ref, 'refs/tags/v' ) || github.ref == 'refs/tags/test-release'
+    strategy:
+      matrix:
+        platform:
+          - os_name: Linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            bin: ubi
+            name: ubi-Linux-x86_64-musl.tar.gz
+            cross: false
+            cargo_command: cargo
