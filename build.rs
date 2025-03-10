@@ -18,7 +18,7 @@ fn main() {
 
     generate_to(shells::Bash, &mut app, "feroxbuster", outdir).unwrap();
     generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
-    generate_to(shells::Zsh, &mut app, "feroxbuster", outdir).unwrap();
+    generate_to(shells::Fish, &mut app, "feroxbuster", outdir).unwrap();
     generate_to(shells::PowerShell, &mut app, "feroxbuster", outdir).unwrap();
     generate_to(shells::Elvish, &mut app, "feroxbuster", outdir).unwrap();
 
