@@ -869,6 +869,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "zer0x64",
+      "name": "zer0x64",
+      "avatar_url": "https://avatars.githubusercontent.com/u/17575242?v=4",
+      "profile": "https://github.com/zer0x64",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
