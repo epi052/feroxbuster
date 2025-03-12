@@ -196,7 +196,12 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
+### Set the Content-Type of the body automatically with --post-json --post-data
 
+```
+./feroxbuster -u http://127.1 -m POST --post-json '{"some": "payload"}'
+./feroxbuster -u http://127.1 -m POST --post-data 'some=payload'
+```
 
 ## 🚀 Documentation has **moved** 🚀  
 
@@ -333,6 +338,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/libklein"><img src="https://avatars.githubusercontent.com/u/42714034?v=4?s=100" width="100px;" alt="Patrick Klein"/><br /><sub><b>Patrick Klein</b></sub></a><br /><a href="#ideas-libklein" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Raymond-JV"><img src="https://avatars.githubusercontent.com/u/23642921?v=4?s=100" width="100px;" alt="Raymond"/><br /><sub><b>Raymond</b></sub></a><br /><a href="#ideas-Raymond-JV" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/zer0x64"><img src="https://avatars.githubusercontent.com/u/17575242?v=4?s=100" width="100px;" alt="zer0x64"/><br /><sub><b>zer0x64</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=zer0x64" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

@@ -25,6 +25,8 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--url', '--url', [CompletionResultType]::ParameterName, 'The target URL (required, unless [--stdin || --resume-from || --request-file] used)')
             [CompletionResult]::new('--resume-from', '--resume-from', [CompletionResultType]::ParameterName, 'State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)')
             [CompletionResult]::new('--request-file', '--request-file', [CompletionResultType]::ParameterName, 'Raw HTTP request file to use as a template for all requests')
+            [CompletionResult]::new('--post-data', '--post-data', [CompletionResultType]::ParameterName, 'Set -H ''Content-Type: application/x-www-form-urlencoded'' and --data to <post-data>')
+            [CompletionResult]::new('--post-json', '--post-json', [CompletionResultType]::ParameterName, 'Set -H ''Content-Type: application/json'', and --data to <post-json>')
             [CompletionResult]::new('-p', '-p', [CompletionResultType]::ParameterName, 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)')
             [CompletionResult]::new('--proxy', '--proxy', [CompletionResultType]::ParameterName, 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)')
             [CompletionResult]::new('-P', '-P ', [CompletionResultType]::ParameterName, 'Send only unfiltered requests through a Replay Proxy, instead of all requests')

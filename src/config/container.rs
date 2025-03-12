@@ -18,12 +18,14 @@ use clap::{parser::ValueSource, ArgMatches};
 use regex::Regex;
 use reqwest::{Client, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::{
     collections::HashMap,
     env::{current_dir, current_exe},
     fs::read_to_string,
     path::{Path, PathBuf},
 };
+use url::form_urlencoded;
 
 /// macro helper to abstract away repetitive configuration updates
 macro_rules! update_config_if_present {
@@ -972,6 +974,25 @@ impl Configuration {
 
         if came_from_cli!(args, "burp") {
             config.proxy = String::from("http://127.0.0.1:8080");
+        }
+
+        if came_from_cli!(args, "post-data") {
+            let arg = args.get_one::<String>("post-data").unwrap();
+            let encoded_body: String = form_urlencoded::byte_serialize(arg.as_bytes()).collect();
+            config.data = encoded_body.as_bytes().to_vec();
+            config.headers.insert(
+                String::from_str("Content-Type").unwrap(),
+                String::from_str("application/x-www-form-urlencoded").unwrap(),
+            );
+        }
+
+        if came_from_cli!(args, "post-json") {
+            let arg = args.get_one::<String>("post-json").unwrap();
+            config.data = arg.as_bytes().to_vec();
+            config.headers.insert(
+                String::from_str("Content-Type").unwrap(),
+                String::from_str("application/json").unwrap(),
+            );
         }
 
         if came_from_cli!(args, "burp_replay") {
