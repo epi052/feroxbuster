@@ -196,7 +196,11 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
+### Set the Content-Type of the body automatically with --post-json --post-data --post-form
 
+```
+./feroxbuster -u http://127.1 -m POST --post-json '{"some": "payload"}'
+```
 
 ## 🚀 Documentation has **moved** 🚀  
 
