@@ -22,6 +22,8 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --url 'The target URL (required, unless [--stdin || --resume-from || --request-file] used)'
             cand --resume-from 'State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)'
             cand --request-file 'Raw HTTP request file to use as a template for all requests'
+            cand --post-data 'Set -H ''Content-Type: application/x-www-form-urlencoded'' and --data to <post-data>'
+            cand --post-json 'Set -H ''Content-Type: application/json'', and --data to <post-json>'
             cand -p 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)'
             cand --proxy 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)'
             cand -P 'Send only unfiltered requests through a Replay Proxy, instead of all requests'

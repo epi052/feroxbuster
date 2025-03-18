@@ -19,6 +19,8 @@ _feroxbuster() {
 '--url=[The target URL (required, unless \[--stdin || --resume-from || --request-file\] used)]:URL:_urls' \
 '(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]:STATE_FILE:_files' \
 '(-u --url)--request-file=[Raw HTTP request file to use as a template for all requests]:REQUEST_FILE:_files' \
+'(--data)--post-data=[Set -H '\''Content-Type\: application/x-www-form-urlencoded'\'' and --data to <post-data>]:DATA: ' \
+'(--data)--post-json=[Set -H '\''Content-Type\: application/json'\'', and --data to <post-json>]:DATA: ' \
 '-p+[Proxy to use for requests (ex\: http(s)\://host\:port, socks5(h)\://host\:port)]:PROXY:_urls' \
 '--proxy=[Proxy to use for requests (ex\: http(s)\://host\:port, socks5(h)\://host\:port)]:PROXY:_urls' \
 '-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
