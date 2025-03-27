@@ -96,22 +96,22 @@ pub fn initialize() -> Command {
                 .help("Set --replay-proxy to http://127.0.0.1:8080 and set --insecure to true"),
         )
         .arg(
-            Arg::new("post-data")
-                .long("post-data")
+            Arg::new("data-urlencoded")
+                .long("data-urlencoded")
                 .value_name("DATA")
                 .num_args(1)
                 .help_heading("Composite settings")
-                .conflicts_with_all(["data"])
-                .help("Set -H 'Content-Type: application/x-www-form-urlencoded' and --data to <post-data>"),
+                .conflicts_with_all(["data", "data-json"])
+                .help("Set -H 'Content-Type: application/x-www-form-urlencoded', --data to <data-urlencoded> (supports @file) and -m to POST"),
         )
         .arg(
-            Arg::new("post-json")
-                .long("post-json")
+            Arg::new("data-json")
+                .long("data-json")
                 .value_name("DATA")
                 .num_args(1)
                 .help_heading("Composite settings")
-                .conflicts_with_all(["data"])
-                .help("Set -H 'Content-Type: application/json', and --data to <post-json>"),
+                .conflicts_with_all(["data", "data-urlencoded"])
+                .help("Set -H 'Content-Type: application/json', --data to <data-json> (supports @file) and -m to POST"),
         )
         .arg(
             Arg::new("smart")
