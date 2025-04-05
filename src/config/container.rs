@@ -1015,13 +1015,16 @@ impl Configuration {
                             if trimmed.is_empty() {
                                 None
                             } else {
-                                // join with an equals sign
-                                let parts = trimmed.split('=').collect::<Vec<&str>>();
-                                Some(format!(
-                                    "{}={}",
-                                    parts[0].trim(),
-                                    parts[1..].join("").trim()
-                                ))
+                                // Find the position of the first equals sign
+                                if let Some(pos) = trimmed.find('=') {
+                                    // Split into name and value at the first equals sign
+                                    let name = &trimmed[..pos].trim();
+                                    let value = &trimmed[pos + 1..].trim();
+                                    Some(format!("{}={}", name, value))
+                                } else {
+                                    // Handle the case where there's no equals sign
+                                    Some(trimmed.to_string())
+                                }
                             }
                         })
                     })
