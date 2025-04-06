@@ -364,6 +364,20 @@ fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
         .join("; ")
 }
 
+pub enum ContentType {
+    JSON,
+    URLENCODED,
+}
+
+impl ContentType {
+    pub fn to_header_value(self: ContentType) -> String {
+        match self {
+            Self::JSON => return "application/json".to_string(),
+            Self::URLENCODED => return "application/x-www-form-urlencoded".to_string(),
+        }
+    }
+}
+
 /// Parses a raw HTTP request from a file and updates the provided configuration.
 ///
 /// This function reads an HTTP request from the file specified by `config.request_file`,

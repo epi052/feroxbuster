@@ -6,6 +6,7 @@ use super::utils::{
 };
 
 use crate::config::determine_output_level;
+use crate::config::utils::ContentType;
 use crate::{
     client, parser,
     scan_manager::resume_scan,
@@ -18,12 +19,14 @@ use clap::{parser::ValueSource, ArgMatches};
 use regex::Regex;
 use reqwest::{Client, Method, StatusCode, Url};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use std::{
     collections::HashMap,
     env::{current_dir, current_exe},
     fs::read_to_string,
     path::{Path, PathBuf},
 };
+use url::form_urlencoded;
 
 /// macro helper to abstract away repetitive configuration updates
 macro_rules! update_config_if_present {
@@ -738,16 +741,12 @@ impl Configuration {
         }
 
         if let Some(arg) = args.get_one::<String>("data") {
-            if let Some(stripped) = arg.strip_prefix('@') {
-                config.data =
-                    std::fs::read(stripped).unwrap_or_else(|e| report_and_exit(&e.to_string()));
-            } else {
-                config.data = arg.as_bytes().to_vec();
-            }
-
+            config.parse_data_arg(arg, None);
             if config.methods == methods() {
                 // if the user didn't specify a method, we're going to assume they meant to use POST
                 config.methods = vec![Method::POST.as_str().to_string()];
+            } else if config.methods == [Method::POST.as_str().to_string()] {
+                log::info!("-m POST already implied by --data");
             }
         }
 
@@ -972,6 +971,40 @@ impl Configuration {
 
         if came_from_cli!(args, "burp") {
             config.proxy = String::from("http://127.0.0.1:8080");
+        }
+
+        if came_from_cli!(args, "data-urlencoded") {
+            let arg = args.get_one::<String>("data-urlencoded").unwrap();
+            config.parse_data_arg(arg, Some(ContentType::URLENCODED));
+
+            if config.methods == methods() {
+                // if the user didn't specify a method, we're going to assume they meant to use POST
+                config.methods = vec![Method::POST.as_str().to_string()];
+            } else if config.methods == [Method::POST.as_str().to_string()] {
+                log::info!("-m POST already implied by --data-urlencoded");
+            }
+
+            config.headers.insert(
+                String::from_str("Content-Type").unwrap(),
+                ContentType::URLENCODED.to_header_value(),
+            );
+        }
+
+        if came_from_cli!(args, "data-json") {
+            let arg = args.get_one::<String>("data-json").unwrap();
+            config.parse_data_arg(arg, Some(ContentType::JSON));
+
+            if config.methods == methods() {
+                // if the user didn't specify a method, we're going to assume they meant to use POST
+                config.methods = vec![Method::POST.as_str().to_string()];
+            } else if config.methods == [Method::POST.as_str().to_string()] {
+                log::info!("-m POST already implied by --data-json");
+            }
+
+            config.headers.insert(
+                String::from_str("Content-Type").unwrap(),
+                ContentType::JSON.to_header_value(),
+            );
         }
 
         if came_from_cli!(args, "burp_replay") {
@@ -1272,6 +1305,37 @@ impl Configuration {
         }
 
         Ok(config)
+    }
+
+    /// Reads payload body from STDIN or file system depending on '@' and
+    ///
+    /// sets config.data according to the body's content type
+    fn parse_data_arg(self: &mut Self, arg: &str, content_type: Option<ContentType>) {
+        let mut payload: String;
+
+        if let Some(stripped) = arg.strip_prefix('@') {
+            payload = std::fs::read_to_string(stripped)
+                .unwrap_or_else(|e| report_and_exit(&e.to_string()))
+        } else {
+            payload = arg.to_string();
+        }
+
+        match content_type {
+            Some(content_type) => match content_type {
+                ContentType::JSON => {
+                    // because feroxbuster is a fuzzer, we do not minify or validate
+                    // the json payload with serde, for ill-formed JSON might be used
+                    self.data = payload.as_bytes().to_vec()
+                }
+                ContentType::URLENCODED => {
+                    payload = payload.replace("\r\n", "&").replace("\n", "&");
+                    let encoded: String =
+                        form_urlencoded::byte_serialize(payload.as_bytes()).collect();
+                    self.data = encoded.as_bytes().to_vec();
+                }
+            },
+            None => self.data = payload.as_bytes().to_vec(),
+        }
     }
 }
 
