@@ -1,10 +1,13 @@
 use super::Configuration;
 use crate::{
+    message::FeroxMessage,
+    traits::FeroxSerialize,
     utils::{module_colorizer, parse_url_with_raw_path, status_colorizer},
     DEFAULT_BACKUP_EXTENSIONS, DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES,
     DEFAULT_WORDLIST, VERSION,
 };
 use anyhow::{bail, Result};
+use log::LevelFilter;
 use std::collections::HashMap;
 
 #[cfg(not(test))]
@@ -598,6 +601,25 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Log configuration operations before main logger instantiation
+///
+/// Since logging depends on config (e.g. '-vv' parsing), to log
+/// conf related operations, we assemble here FeroxMessage to
+/// remain iso with the rest of the app and display them on STDOUT
+///
+/// # Arguments:
+///
+/// * `level` - Log level of the event
+/// * `message` - message to be displayed
+///
+pub fn preconfig_log(level: LevelFilter, message: String) {
+    let mut log = FeroxMessage::default();
+    log.module = "feroxbuster::config".to_owned();
+    log.level = level.as_str().to_owned();
+    log.message = message.to_owned();
+    println!("{}", log.as_str());
 }
 
 #[cfg(test)]

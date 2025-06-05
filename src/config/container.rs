@@ -6,7 +6,7 @@ use super::utils::{
 };
 
 use crate::config::determine_output_level;
-use crate::config::utils::ContentType;
+use crate::config::utils::{preconfig_log, ContentType};
 use crate::{
     client, parser,
     scan_manager::resume_scan,
@@ -746,7 +746,10 @@ impl Configuration {
                 // if the user didn't specify a method, we're going to assume they meant to use POST
                 config.methods = vec![Method::POST.as_str().to_string()];
             } else if config.methods == [Method::POST.as_str().to_string()] {
-                log::info!("-m POST already implied by --data");
+                preconfig_log(
+                    log::LevelFilter::Info,
+                    "-m POST already implied by --data".to_string(),
+                );
             }
         }
 
@@ -976,12 +979,16 @@ impl Configuration {
         if came_from_cli!(args, "data-urlencoded") {
             let arg = args.get_one::<String>("data-urlencoded").unwrap();
             config.parse_data_arg(arg, Some(ContentType::URLENCODED));
+            let default_methods = vec![Method::POST.as_str().to_string()];
 
             if config.methods == methods() {
                 // if the user didn't specify a method, we're going to assume they meant to use POST
-                config.methods = vec![Method::POST.as_str().to_string()];
-            } else if config.methods == [Method::POST.as_str().to_string()] {
-                log::info!("-m POST already implied by --data-urlencoded");
+                config.methods = default_methods;
+            } else if config.methods == default_methods {
+                preconfig_log(
+                    log::LevelFilter::Info,
+                    "-m POST already implied by --data-urlencoded".to_string(),
+                );
             }
 
             config.headers.insert(
@@ -993,12 +1000,16 @@ impl Configuration {
         if came_from_cli!(args, "data-json") {
             let arg = args.get_one::<String>("data-json").unwrap();
             config.parse_data_arg(arg, Some(ContentType::JSON));
+            let default_methods = vec![Method::POST.as_str().to_string()];
 
             if config.methods == methods() {
                 // if the user didn't specify a method, we're going to assume they meant to use POST
-                config.methods = vec![Method::POST.as_str().to_string()];
-            } else if config.methods == [Method::POST.as_str().to_string()] {
-                log::info!("-m POST already implied by --data-json");
+                config.methods = default_methods;
+            } else if config.methods == default_methods {
+                preconfig_log(
+                    log::LevelFilter::Info,
+                    "-m POST already implied by --data-json".to_string(),
+                );
             }
 
             config.headers.insert(
@@ -1029,7 +1040,7 @@ impl Configuration {
         if let Some(headers) = args.get_many::<String>("headers") {
             for val in headers {
                 let Ok((name, value)) = split_header(val) else {
-                    log::warn!("Invalid header: {}", val);
+                    preconfig_log(log::LevelFilter::Info, format!("Invalid header: {}", val));
                     continue;
                 };
                 config.headers.insert(name, value);
@@ -1067,7 +1078,10 @@ impl Configuration {
         if let Some(queries) = args.get_many::<String>("queries") {
             for val in queries {
                 let Ok((name, value)) = split_query(val) else {
-                    log::warn!("Invalid query string: {}", val);
+                    preconfig_log(
+                        log::LevelFilter::Warn,
+                        format!("Invalid query string: {}", val),
+                    );
                     continue;
                 };
                 config.queries.push((name, value));
