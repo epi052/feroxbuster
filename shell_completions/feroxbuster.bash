@@ -19,7 +19,7 @@ _feroxbuster() {
 
     case "${cmd}" in
         feroxbuster)
-            opts="-u -p -P -R -a -A -x -m -H -b -Q -f -S -X -W -N -C -s -T -r -k -t -n -d -e -L -w -D -E -B -g -I -v -q -o -U -h -V --url --stdin --resume-from --request-file --burp --burp-replay --smart --thorough --proxy --replay-proxy --replay-codes --user-agent --random-agent --extensions --methods --data --headers --cookies --query --add-slash --protocol --dont-scan --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --status-codes --timeout --redirects --insecure --server-certs --client-cert --client-key --threads --no-recursion --depth --force-recursion --extract-links --dont-extract-links --scan-limit --parallel --rate-limit --time-limit --wordlist --auto-tune --auto-bail --dont-filter --collect-extensions --collect-backups --collect-words --dont-collect --scan-dir-listings --verbosity --silent --quiet --json --output --debug-log --no-state --limit-bars --update --help --version"
+            opts="-u -p -P -R -a -A -x -m -H -b -Q -f -S -X -W -N -C -s -T -r -k -t -n -d -e -L -w -D -E -B -g -I -v -q -o -U -h -V --url --stdin --resume-from --request-file --burp --burp-replay --data-urlencoded --data-json --smart --thorough --proxy --replay-proxy --replay-codes --user-agent --random-agent --extensions --methods --data --headers --cookies --query --add-slash --protocol --dont-scan --filter-size --filter-regex --filter-words --filter-lines --filter-status --filter-similar-to --status-codes --timeout --redirects --insecure --server-certs --client-cert --client-key --threads --no-recursion --depth --force-recursion --extract-links --dont-extract-links --scan-limit --parallel --rate-limit --time-limit --wordlist --auto-tune --auto-bail --dont-filter --collect-extensions --collect-backups --collect-words --dont-collect --scan-dir-listings --verbosity --silent --quiet --json --output --debug-log --no-state --limit-bars --update --help --version"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -61,6 +61,14 @@ _feroxbuster() {
                     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
                         compopt -o filenames
                     fi
+                    return 0
+                    ;;
+                --data-urlencoded)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --data-json)
+                    COMPREPLY=($(compgen -f "${cur}"))
                     return 0
                     ;;
                 --proxy)
