@@ -367,11 +367,16 @@ fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
         .join("; ")
 }
 
+/// Content Types enumeration (to be complete as more header values
+/// are needed)
 pub enum ContentType {
     JSON,
     URLENCODED,
 }
 
+/// to_header_value() produces the value of the CONTENT-TYPE
+/// header for each ContentType. Ideally, new content type headers
+/// should be added and produced from here
 impl ContentType {
     pub fn to_header_value(self: ContentType) -> String {
         match self {
