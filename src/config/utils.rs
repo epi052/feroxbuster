@@ -624,7 +624,7 @@ pub fn preconfig_log(level: LevelFilter, message: String) {
     log.module = "feroxbuster::config".to_owned();
     log.level = level.as_str().to_owned();
     log.message = message.to_owned();
-    println!("{}", log.as_str());
+    eprintln!("{}", log.as_str());
 }
 
 #[cfg(test)]
