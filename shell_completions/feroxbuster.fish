@@ -1,6 +1,8 @@
 complete -c feroxbuster -s u -l url -d 'The target URL (required, unless [--stdin || --resume-from || --request-file] used)' -r -f
 complete -c feroxbuster -l resume-from -d 'State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)' -r -F
 complete -c feroxbuster -l request-file -d 'Raw HTTP request file to use as a template for all requests' -r -F
+complete -c feroxbuster -l data-urlencoded -d 'Set -H \'Content-Type: application/x-www-form-urlencoded\', --data to <data-urlencoded> (supports @file) and -m to POST' -r
+complete -c feroxbuster -l data-json -d 'Set -H \'Content-Type: application/json\', --data to <data-json> (supports @file) and -m to POST' -r
 complete -c feroxbuster -s p -l proxy -d 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)' -r -f
 complete -c feroxbuster -s P -l replay-proxy -d 'Send only unfiltered requests through a Replay Proxy, instead of all requests' -r -f
 complete -c feroxbuster -s R -l replay-codes -d 'Status Codes to send through a Replay Proxy when found (default: --status-codes value)' -r

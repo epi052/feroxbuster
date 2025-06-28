@@ -1,10 +1,13 @@
 use super::Configuration;
 use crate::{
+    message::FeroxMessage,
+    traits::FeroxSerialize,
     utils::{module_colorizer, parse_url_with_raw_path, status_colorizer},
     DEFAULT_BACKUP_EXTENSIONS, DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES,
     DEFAULT_WORDLIST, VERSION,
 };
 use anyhow::{bail, Result};
+use log::LevelFilter;
 use std::collections::HashMap;
 
 #[cfg(not(test))]
@@ -364,6 +367,25 @@ fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
         .join("; ")
 }
 
+/// Content Types enumeration (to be complete as more header values
+/// are needed)
+pub enum ContentType {
+    JSON,
+    URLENCODED,
+}
+
+/// to_header_value() produces the value of the CONTENT-TYPE
+/// header for each ContentType. Ideally, new content type headers
+/// should be added and produced from here
+impl ContentType {
+    pub fn to_header_value(self: ContentType) -> String {
+        match self {
+            Self::JSON => return "application/json".to_string(),
+            Self::URLENCODED => return "application/x-www-form-urlencoded".to_string(),
+        }
+    }
+}
+
 /// Parses a raw HTTP request from a file and updates the provided configuration.
 ///
 /// This function reads an HTTP request from the file specified by `config.request_file`,
@@ -584,6 +606,25 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Log configuration operations before main logger instantiation
+///
+/// Since logging depends on config (e.g. '-vv' parsing), to log
+/// conf related operations, we assemble here FeroxMessage to
+/// remain iso with the rest of the app and display them on STDOUT
+///
+/// # Arguments:
+///
+/// * `level` - Log level of the event
+/// * `message` - message to be displayed
+///
+pub fn preconfig_log(level: LevelFilter, message: String) {
+    let mut log = FeroxMessage::default();
+    log.module = "feroxbuster::config".to_owned();
+    log.level = level.as_str().to_owned();
+    log.message = message.to_owned();
+    eprintln!("{}", log.as_str());
 }
 
 #[cfg(test)]

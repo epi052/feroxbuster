@@ -196,7 +196,14 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 ./feroxbuster -u http://127.1 --query token=0123456789ABCDEF
 ```
 
+### Set the Content-Type of the body automatically with --data-json --data-urlencoded
 
+```
+./feroxbuster -u http://127.1 --data-json '{"some": "payload"}'
+./feroxbuster -u http://127.1 --data-json @payload.json
+./feroxbuster -u http://127.1 --data-urlencoded 'some=payload'
+./feroxbuster -u http://127.1 --data-urlencoded @file.payload
+```
 
 ## 🚀 Documentation has **moved** 🚀  
 
