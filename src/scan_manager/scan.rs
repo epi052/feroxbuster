@@ -198,7 +198,7 @@ impl FeroxScan {
     /// small wrapper to set the JoinHandle
     pub async fn set_task(&self, task: JoinHandle<()>) -> Result<()> {
         let mut guard = self.task.lock().await;
-        let _ = std::mem::replace(&mut *guard, Some(task));
+        guard.replace(task);
         Ok(())
     }
 
@@ -260,7 +260,7 @@ impl FeroxScan {
 
                     pb.set_position(self.requests_made_so_far);
 
-                    let _ = std::mem::replace(&mut *guard, Some(pb.clone()));
+                    guard.replace(pb.clone());
 
                     pb
                 }

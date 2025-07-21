@@ -144,7 +144,7 @@ impl FeroxFilter for WildcardFilter {
 
     /// Compare one WildcardFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
-        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+        other.downcast_ref::<Self>() == Some(self)
     }
 
     /// Return self as Any for dynamic dispatch purposes
@@ -175,6 +175,6 @@ impl std::fmt::Display for WildcardFilter {
             ),
             OutputLevel::Default,
         );
-        write!(f, "{}", msg)
+        write!(f, "{msg}")
     }
 }

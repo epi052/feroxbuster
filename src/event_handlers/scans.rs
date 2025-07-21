@@ -110,7 +110,7 @@ impl ScanHandler {
     fn wordlist(&self, wordlist: Arc<Vec<String>>) {
         if let Ok(mut guard) = self.wordlist.lock() {
             if guard.is_none() {
-                let _ = std::mem::replace(&mut *guard, Some(wordlist));
+                guard.replace(wordlist);
             }
         }
     }
@@ -209,12 +209,12 @@ impl ScanHandler {
     ///
     /// updating all bar lengths correctly requires a few different actions on our part.
     /// - get the current number of requests expected per scan (dynamic when --collect-extensions
-    ///     is used)
+    ///   is used)
     /// - update the overall progress bar via the statistics handler (total expected)
     /// - update the expected per scan value tracked in the statistics handler
     /// - update progress bars on each FeroxScan (type::directory) that are running/not-started
     /// - update progress bar length on FeroxScans (this is used when creating new a FeroxScan and
-    ///     determines the new scan's progress bar length)
+    ///   determines the new scan's progress bar length)
     fn update_all_bar_lengths(&self) -> Result<()> {
         log::trace!("enter: update_all_bar_lengths");
 

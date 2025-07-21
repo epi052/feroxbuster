@@ -190,15 +190,14 @@ impl FeroxResponse {
     ///
     /// Additionally, inspects query parameters, as they're also often indicative of a file
     pub fn is_file(&self) -> bool {
-        let has_extension = match self.url.path_segments() {
-            Some(path) => {
-                if let Some(last) = path.last() {
-                    last.contains('.') // last segment has some sort of extension, probably
-                } else {
-                    false
-                }
+        let has_extension = if let Some(mut path) = self.url.path_segments() {
+            if let Some(last) = path.next_back() {
+                last.contains('.') // last segment has some sort of extension, probably
+            } else {
+                false
             }
-            None => false,
+        } else {
+            false
         };
 
         self.url.query_pairs().count() > 0 || has_extension
@@ -279,7 +278,7 @@ impl FeroxResponse {
         //     (which may be empty).
         //
         // meaning: the two unwraps here are fine, the worst outcome is an empty string
-        let filename = self.url.path_segments().unwrap().last().unwrap();
+        let filename = self.url.path_segments().unwrap().next_back().unwrap();
 
         if !filename.is_empty() {
             // non-empty string, try to get extension

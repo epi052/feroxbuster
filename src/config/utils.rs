@@ -359,7 +359,7 @@ fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
     // Build the final cookie header string
     cookie_map
         .into_iter()
-        .map(|(key, value)| format!("{}={}", key, value))
+        .map(|(key, value)| format!("{key}={value}"))
         .collect::<Vec<_>>()
         .join("; ")
 }
@@ -522,12 +522,32 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
 
     let url = parse_url_with_raw_path(uri);
 
-    if url.is_err() {
+    if let Ok(mut url) = url {
+        if let Some(host) = config.headers.get("Host") {
+            url.set_host(Some(host)).unwrap();
+        }
+
+        url.query_pairs().for_each(|(key, value)| {
+            for (k, _) in &config.queries {
+                if k.to_lowercase() == key.to_lowercase() {
+                    // allow cli options to take precedent when query names match
+                    return;
+                }
+            }
+
+            config.queries.push((key.to_string(), value.to_string()));
+        });
+
+        url.set_query(None);
+        url.set_fragment(None);
+
+        config.target_url = url.to_string();
+    } else {
         // uri in request line is not a valid URL, so it's most likely a path/relative url
         // we need to combine it with the host header
         for (key, value) in &config.headers {
             if key.to_lowercase() == "host" {
-                config.target_url = format!("{}{}", value, uri);
+                config.target_url = format!("{value}{uri}");
                 break;
             }
         }
@@ -559,28 +579,6 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
                 config.queries.push((name, value));
             });
         }
-    } else {
-        let mut url = url.unwrap();
-
-        if let Some(host) = config.headers.get("Host") {
-            url.set_host(Some(host)).unwrap();
-        }
-
-        url.query_pairs().for_each(|(key, value)| {
-            for (k, _) in &config.queries {
-                if k.to_lowercase() == key.to_lowercase() {
-                    // allow cli options to take precedent when query names match
-                    return;
-                }
-            }
-
-            config.queries.push((key.to_string(), value.to_string()));
-        });
-
-        url.set_query(None);
-        url.set_fragment(None);
-
-        config.target_url = url.to_string();
     }
 
     Ok(())

@@ -612,7 +612,7 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
     if let Some(port) = parsed.port() {
         // if the url has a port, then the farthest right authority component is
         // the port
-        farthest_right_authority_part = format!(":{}", port);
+        farthest_right_authority_part = format!(":{port}");
     } else if parsed.has_host() {
         // if the url has a host, then the farthest right authority component is
         // the host

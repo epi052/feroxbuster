@@ -474,7 +474,10 @@ impl FeroxScans {
 
         self.menu.clear_screen();
 
-        let banner = Banner::new(&[handles.config.target_url.clone()], &handles.config);
+        let banner = Banner::new(
+            std::slice::from_ref(&handles.config.target_url),
+            &handles.config,
+        );
         banner
             .print_to(&self.menu.term, handles.config.clone())
             .unwrap_or_default();

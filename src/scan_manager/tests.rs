@@ -703,7 +703,7 @@ fn menu_get_command_input_from_user_returns_cancel() {
     let menu = Menu::new();
 
     for (idx, cmd) in ["cancel", "Cancel", "c", "C"].iter().enumerate() {
-        let force = idx % 2 == 0;
+        let force = idx.is_multiple_of(2);
 
         let full_cmd = if force {
             format!("{cmd} -f {idx}\n")

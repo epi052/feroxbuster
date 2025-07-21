@@ -112,7 +112,7 @@ impl Handles {
     pub fn set_scan_handle(&self, handle: ScanHandle) {
         if let Ok(mut guard) = self.scans.write() {
             if guard.is_none() {
-                let _ = std::mem::replace(&mut *guard, Some(handle));
+                guard.replace(handle);
             }
         }
     }

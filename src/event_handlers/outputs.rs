@@ -402,7 +402,7 @@ impl TermOutHandler {
         let url = response.url();
 
         // confirmed safe: see src/response.rs for comments
-        let filename = url.path_segments().unwrap().last().unwrap();
+        let filename = url.path_segments().unwrap().next_back().unwrap();
 
         if !filename.is_empty() {
             // append rules
@@ -501,7 +501,7 @@ mod tests {
 
         let paths: Vec<_> = urls
             .iter()
-            .map(|url| url.path_segments().unwrap().last().unwrap())
+            .map(|url| url.path_segments().unwrap().next_back().unwrap())
             .collect();
 
         assert_eq!(urls.len(), 7);
@@ -545,7 +545,7 @@ mod tests {
 
         let paths: Vec<_> = urls
             .iter()
-            .map(|url| url.path_segments().unwrap().last().unwrap())
+            .map(|url| url.path_segments().unwrap().next_back().unwrap())
             .collect();
 
         assert_eq!(urls.len(), 6);

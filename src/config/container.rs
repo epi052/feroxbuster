@@ -1020,7 +1020,7 @@ impl Configuration {
                                     // Split into name and value at the first equals sign
                                     let name = &trimmed[..pos].trim();
                                     let value = &trimmed[pos + 1..].trim();
-                                    Some(format!("{}={}", name, value))
+                                    Some(format!("{name}={value}"))
                                 } else {
                                     // Handle the case where there's no equals sign
                                     Some(trimmed.to_string())

@@ -117,7 +117,7 @@ impl TermInputHandler {
 
                 let Ok(mut state_file) = open_file(&temp_filename.to_string_lossy()) else {
                     // couldn't open the fallback file, let the user know
-                    let error = format!("❌❌ Could not save {:?}, giving up...", temp_filename);
+                    let error = format!("❌❌ Could not save {temp_filename:?}, giving up...");
                     PROGRESS_PRINTER.println(error);
 
                     log::trace!("exit: sigint_handler (failed to write)");
@@ -126,7 +126,7 @@ impl TermInputHandler {
 
                 write_to(&state, &mut state_file, true)?;
 
-                let msg = format!("✅ Saved scan state to {:?}", temp_filename);
+                let msg = format!("✅ Saved scan state to {temp_filename:?}");
                 PROGRESS_PRINTER.println(msg);
 
                 log::trace!("exit: sigint_handler (saved to temp folder)");

@@ -41,7 +41,7 @@ impl FeroxFilter for RegexFilter {
 
     /// Compare one SizeFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
-        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+        other.downcast_ref::<Self>() == Some(self)
     }
 
     /// Return self as Any for dynamic dispatch purposes

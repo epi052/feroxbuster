@@ -287,7 +287,7 @@ impl HeuristicTests {
         // and then we want to add any extensions that was specified
         // or has since been added to the running config
         for ext in &self.handles.config.extensions {
-            extensions.push(format!(".{}", ext));
+            extensions.push(format!(".{ext}"));
         }
 
         // for every method, attempt to id its 404 response
@@ -409,7 +409,7 @@ impl HeuristicTests {
 
                             // if we're here, we've found a new wildcard that we didn't previously display, print it
                             if print_sentry {
-                                ferox_print(&format!("{}", new_wildcard), &PROGRESS_PRINTER);
+                                ferox_print(&format!("{new_wildcard}"), &PROGRESS_PRINTER);
                             }
                         }
                     }

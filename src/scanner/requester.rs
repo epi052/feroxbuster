@@ -480,8 +480,9 @@ impl Requester {
                     if let Ok(mut guard) = TF_IDF.write() {
                         if let Some(doc) = Document::from_html(ferox_response.text()) {
                             guard.add_document(doc);
-                            if guard.num_documents() % 12 == 0
-                                || (guard.num_documents() < 5 && guard.num_documents() % 2 == 0)
+                            if guard.num_documents().is_multiple_of(12)
+                                || (guard.num_documents() < 5
+                                    && guard.num_documents().is_multiple_of(2))
                             {
                                 guard.calculate_tf_idf_scores();
                             }
