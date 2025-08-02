@@ -342,6 +342,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Raymond-JV"><img src="https://avatars.githubusercontent.com/u/23642921?v=4?s=100" width="100px;" alt="Raymond"/><br /><sub><b>Raymond</b></sub></a><br /><a href="#ideas-Raymond-JV" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/zer0x64"><img src="https://avatars.githubusercontent.com/u/17575242?v=4?s=100" width="100px;" alt="zer0x64"/><br /><sub><b>zer0x64</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=zer0x64" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://zar3bski.com"><img src="https://avatars.githubusercontent.com/u/22128014?v=4?s=100" width="100px;" alt="zar3bski"/><br /><sub><b>zar3bski</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=zar3bski" title="Code">💻</a> <a href="#ideas-zar3bski" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/karanabe"><img src="https://avatars.githubusercontent.com/u/152078880?v=4?s=100" width="100px;" alt="karanabe"/><br /><sub><b>karanabe</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=karanabe" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>
