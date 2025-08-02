@@ -888,6 +888,15 @@
         "code",
         "ideas"
       ]
+    },
+    {
+      "login": "karanabe",
+      "name": "karanabe",
+      "avatar_url": "https://avatars.githubusercontent.com/u/152078880?v=4",
+      "profile": "https://github.com/karanabe",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
