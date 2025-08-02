@@ -186,12 +186,13 @@ rustup component add llvm-tools
 rustup install nightly
 rustup default nightly
 export CARGO_INCREMENTAL=0
-export RUSTFLAGS="-Cinstrument-coverage"
-export LLVM_PROFILE_FILE="feroxbuster-%p-%m.profraw"
+export RUSTFLAGS="-Cinstrument-coverage -Clink-dead-code -Ccodegen-units=1 -Coverflow-checks=off"
+export LLVM_PROFILE_FILE="target/debug/coverage/profraw/feroxbuster-%p-%m.profraw"
 export RUSTDOCFLAGS="-Cpanic=abort"
+rm -r target/debug/coverage/profraw
 cargo build
 cargo test
-grcov . -s . --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/debug/coverage/
+grcov . --source-dir . --keep-only "src/*" --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/debug/coverage/
 firefox target/debug/coverage/index.html
 ```
 
