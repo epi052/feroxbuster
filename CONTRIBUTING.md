@@ -182,14 +182,17 @@ Test coverage can be checked using [grcov](https://github.com/mozilla/grcov).  I
 
 ```sh
 cargo install grcov
+rustup component add llvm-tools
 rustup install nightly
 rustup default nightly
 export CARGO_INCREMENTAL=0
-export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort"
+export RUSTFLAGS="-Cinstrument-coverage -Clink-dead-code -Ccodegen-units=1 -Coverflow-checks=off"
+export LLVM_PROFILE_FILE="target/debug/coverage/profraw/feroxbuster-%p-%m.profraw"
 export RUSTDOCFLAGS="-Cpanic=abort"
+rm -r target/debug/coverage/profraw
 cargo build
 cargo test
-grcov ./target/debug/ -s . -t html --llvm --branch --ignore-not-existing -o ./target/debug/coverage/
+grcov . --source-dir . --keep-only "src/*" --binary-path ./target/debug/ -t html --branch --ignore-not-existing -o ./target/debug/coverage/
 firefox target/debug/coverage/index.html
 ```
 

@@ -24,14 +24,14 @@ maintenance = { status = "actively-developed" }
 [build-dependencies]
 clap = { version = "4.5", features = ["wrap_help", "cargo"] }
 clap_complete = "4.5"
-regex = "1.10"
+regex = "1.11"
 lazy_static = "1.5"
 dirs = "5.0"
 
 [dependencies]
 scraper = "0.19"
 futures = "0.3"
-tokio = { version = "1.39", features = ["full"] }
+tokio = { version = "1.47", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 log = "0.4"
 env_logger = "0.11"
@@ -44,12 +44,12 @@ lazy_static = "1.5"
 toml = "0.8"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
-uuid = { version = "1.10", features = ["v4"] }
-indicatif = { version = "0.17.8" }
+uuid = { version = "1.17", features = ["v4"] }
+indicatif = { version = "0.17.11" }
 console = "0.15"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "5.0"
-regex = "1.10"
+regex = "1.11"
 crossterm = "0.27"
 rlimit = "0.10"
 ctrlc = "3.4"
@@ -67,7 +67,7 @@ self_update = { version = "0.40", features = [
 ] }
 
 [dev-dependencies]
-tempfile = "3.12"
+tempfile = "3.20"
 httpmock = "0.7"
 assert_cmd = "2.0"
 predicates = "3.1"
