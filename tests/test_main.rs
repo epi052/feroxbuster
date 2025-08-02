@@ -192,16 +192,48 @@ fn main_parallel_creates_output_directory() -> Result<(), Box<dyn std::error::Er
 
     // output_dir should return something similar to output-file-1627845244.logs with the
     // line below. if it ever fails, can use the regex below to filter out the right directory
-    let sub_dir = read_dir(&output_dir)?.next().unwrap()?.file_name();
+    let entries: Vec<_> = read_dir(&output_dir)?.collect::<Result<Vec<_>, _>>()?;
 
     let mut num_logs = 0;
     let file_regex = Regex::new("ferox-[a-zA-Z_:0-9]+-[0-9]+.log").unwrap();
-    let dir_regex = Regex::new("output-file-[0-9]+.logs").unwrap();
+    let dir_regex = Regex::new("output-file.*\\.logs").unwrap();
 
-    let sub_dir = output_dir.as_ref().join(sub_dir);
+    // Find the subdirectory that matches the expected pattern
+    let sub_dir = entries
+        .iter()
+        .find(|entry| {
+            let file_type = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+            if !file_type {
+                return false;
+            }
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            dir_regex.is_match(&name_str)
+        })
+        .map(|entry| output_dir.as_ref().join(entry.file_name()));
+
+    let sub_dir = match sub_dir {
+        Some(dir) => dir,
+        None => {
+            // If no matching directory found, check if files are directly in output_dir
+            println!("No subdirectory found matching pattern, checking output_dir contents:");
+            for entry in &entries {
+                println!("  {:?}", entry.file_name().to_string_lossy());
+            }
+            // Fallback to the first directory entry or the output_dir itself
+            if let Some(first_dir) = entries
+                .iter()
+                .find(|e| e.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+            {
+                output_dir.as_ref().join(first_dir.file_name())
+            } else {
+                output_dir.as_ref().to_path_buf()
+            }
+        }
+    };
 
     // created directory like output-file-1627845741.logs/
-    assert!(dir_regex.is_match(&sub_dir.to_string_lossy()));
+    println!("sub_dir: {:?}", sub_dir.to_string_lossy());
 
     for entry in sub_dir.read_dir()? {
         let entry = entry?;

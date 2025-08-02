@@ -19,66 +19,66 @@ _feroxbuster() {
 '--url=[The target URL (required, unless \[--stdin || --resume-from || --request-file\] used)]:URL:_urls' \
 '(-u --url)--resume-from=[State file from which to resume a partially complete scan (ex. --resume-from ferox-1606586780.state)]:STATE_FILE:_files' \
 '(-u --url)--request-file=[Raw HTTP request file to use as a template for all requests]:REQUEST_FILE:_files' \
-'(--data --data-json)--data-urlencoded=[Set -H '\''Content-Type\: application/x-www-form-urlencoded'\'', --data to <data-urlencoded> (supports @file) and -m to POST]:DATA: ' \
-'(--data --data-urlencoded)--data-json=[Set -H '\''Content-Type\: application/json'\'', --data to <data-json> (supports @file) and -m to POST]:DATA: ' \
+'(--data --data-json)--data-urlencoded=[Set -H '\''Content-Type\: application/x-www-form-urlencoded'\'', --data to <data-urlencoded> (supports @file) and -m to POST]:DATA:_default' \
+'(--data --data-urlencoded)--data-json=[Set -H '\''Content-Type\: application/json'\'', --data to <data-json> (supports @file) and -m to POST]:DATA:_default' \
 '-p+[Proxy to use for requests (ex\: http(s)\://host\:port, socks5(h)\://host\:port)]:PROXY:_urls' \
 '--proxy=[Proxy to use for requests (ex\: http(s)\://host\:port, socks5(h)\://host\:port)]:PROXY:_urls' \
 '-P+[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
-'*-R+[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE: ' \
-'*--replay-codes=[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE: ' \
-'-a+[Sets the User-Agent (default\: feroxbuster/2.11.0)]:USER_AGENT: ' \
-'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.11.0)]:USER_AGENT: ' \
-'*-x+[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION: ' \
-'*--extensions=[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION: ' \
-'*-m+[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS: ' \
-'*--methods=[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS: ' \
-'--data=[Request'\''s Body; can read data from a file if input starts with an @ (ex\: @post.bin)]:DATA: ' \
-'*-H+[Specify HTTP headers to be used in each request (ex\: -H Header\:val -H '\''stuff\: things'\'')]:HEADER: ' \
-'*--headers=[Specify HTTP headers to be used in each request (ex\: -H Header\:val -H '\''stuff\: things'\'')]:HEADER: ' \
-'*-b+[Specify HTTP cookies to be used in each request (ex\: -b stuff=things)]:COOKIE: ' \
-'*--cookies=[Specify HTTP cookies to be used in each request (ex\: -b stuff=things)]:COOKIE: ' \
-'*-Q+[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY: ' \
-'*--query=[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY: ' \
-'--protocol=[Specify the protocol to use when targeting via --request-file or --url with domain only (default\: https)]:PROTOCOL: ' \
-'*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]:URL: ' \
-'*-S+[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE: ' \
-'*--filter-size=[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE: ' \
-'*-X+[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX: ' \
-'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX: ' \
-'*-W+[Filter out messages of a particular word count (ex\: -W 312 -W 91,82)]:WORDS: ' \
-'*--filter-words=[Filter out messages of a particular word count (ex\: -W 312 -W 91,82)]:WORDS: ' \
-'*-N+[Filter out messages of a particular line count (ex\: -N 20 -N 31,30)]:LINES: ' \
-'*--filter-lines=[Filter out messages of a particular line count (ex\: -N 20 -N 31,30)]:LINES: ' \
-'(-s --status-codes)*-C+[Filter out status codes (deny list) (ex\: -C 200 -C 401)]:STATUS_CODE: ' \
-'(-s --status-codes)*--filter-status=[Filter out status codes (deny list) (ex\: -C 200 -C 401)]:STATUS_CODE: ' \
+'*-R+[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE:_default' \
+'*--replay-codes=[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE:_default' \
+'-a+[Sets the User-Agent (default\: feroxbuster/2.11.0)]:USER_AGENT:_default' \
+'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.11.0)]:USER_AGENT:_default' \
+'*-x+[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION:_default' \
+'*--extensions=[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION:_default' \
+'*-m+[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS:_default' \
+'*--methods=[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS:_default' \
+'--data=[Request'\''s Body; can read data from a file if input starts with an @ (ex\: @post.bin)]:DATA:_default' \
+'*-H+[Specify HTTP headers to be used in each request (ex\: -H Header\:val -H '\''stuff\: things'\'')]:HEADER:_default' \
+'*--headers=[Specify HTTP headers to be used in each request (ex\: -H Header\:val -H '\''stuff\: things'\'')]:HEADER:_default' \
+'*-b+[Specify HTTP cookies to be used in each request (ex\: -b stuff=things)]:COOKIE:_default' \
+'*--cookies=[Specify HTTP cookies to be used in each request (ex\: -b stuff=things)]:COOKIE:_default' \
+'*-Q+[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY:_default' \
+'*--query=[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY:_default' \
+'--protocol=[Specify the protocol to use when targeting via --request-file or --url with domain only (default\: https)]:PROTOCOL:_default' \
+'*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]:URL:_default' \
+'*-S+[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE:_default' \
+'*--filter-size=[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE:_default' \
+'*-X+[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX:_default' \
+'*--filter-regex=[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX:_default' \
+'*-W+[Filter out messages of a particular word count (ex\: -W 312 -W 91,82)]:WORDS:_default' \
+'*--filter-words=[Filter out messages of a particular word count (ex\: -W 312 -W 91,82)]:WORDS:_default' \
+'*-N+[Filter out messages of a particular line count (ex\: -N 20 -N 31,30)]:LINES:_default' \
+'*--filter-lines=[Filter out messages of a particular line count (ex\: -N 20 -N 31,30)]:LINES:_default' \
+'(-s --status-codes)*-C+[Filter out status codes (deny list) (ex\: -C 200 -C 401)]:STATUS_CODE:_default' \
+'(-s --status-codes)*--filter-status=[Filter out status codes (deny list) (ex\: -C 200 -C 401)]:STATUS_CODE:_default' \
 '*--filter-similar-to=[Filter out pages that are similar to the given page (ex. --filter-similar-to http\://site.xyz/soft404)]:UNWANTED_PAGE:_urls' \
-'*-s+[Status Codes to include (allow list) (default\: All Status Codes)]:STATUS_CODE: ' \
-'*--status-codes=[Status Codes to include (allow list) (default\: All Status Codes)]:STATUS_CODE: ' \
-'-T+[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS: ' \
-'--timeout=[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS: ' \
+'*-s+[Status Codes to include (allow list) (default\: All Status Codes)]:STATUS_CODE:_default' \
+'*--status-codes=[Status Codes to include (allow list) (default\: All Status Codes)]:STATUS_CODE:_default' \
+'-T+[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS:_default' \
+'--timeout=[Number of seconds before a client'\''s request times out (default\: 7)]:SECONDS:_default' \
 '--server-certs=[Add custom root certificate(s) for servers with unknown certificates]:PEM|DER:_files' \
 '--client-cert=[Add a PEM encoded certificate for mutual authentication (mTLS)]:PEM:_files' \
 '--client-key=[Add a PEM encoded private key for mutual authentication (mTLS)]:PEM:_files' \
-'-t+[Number of concurrent threads (default\: 50)]:THREADS: ' \
-'--threads=[Number of concurrent threads (default\: 50)]:THREADS: ' \
-'-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH: ' \
-'--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH: ' \
-'-L+[Limit total number of concurrent scans (default\: 0, i.e. no limit)]:SCAN_LIMIT: ' \
-'--scan-limit=[Limit total number of concurrent scans (default\: 0, i.e. no limit)]:SCAN_LIMIT: ' \
-'(-v --verbosity -u --url)--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]:PARALLEL_SCANS: ' \
-'(--auto-tune)--rate-limit=[Limit number of requests per second (per directory) (default\: 0, i.e. no limit)]:RATE_LIMIT: ' \
-'--time-limit=[Limit total run time of all scans (ex\: --time-limit 10m)]:TIME_SPEC: ' \
+'-t+[Number of concurrent threads (default\: 50)]:THREADS:_default' \
+'--threads=[Number of concurrent threads (default\: 50)]:THREADS:_default' \
+'-d+[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH:_default' \
+'--depth=[Maximum recursion depth, a depth of 0 is infinite recursion (default\: 4)]:RECURSION_DEPTH:_default' \
+'-L+[Limit total number of concurrent scans (default\: 0, i.e. no limit)]:SCAN_LIMIT:_default' \
+'--scan-limit=[Limit total number of concurrent scans (default\: 0, i.e. no limit)]:SCAN_LIMIT:_default' \
+'(-v --verbosity -u --url)--parallel=[Run parallel feroxbuster instances (one child process per url passed via stdin)]:PARALLEL_SCANS:_default' \
+'(--auto-tune)--rate-limit=[Limit number of requests per second (per directory) (default\: 0, i.e. no limit)]:RATE_LIMIT:_default' \
+'--time-limit=[Limit total run time of all scans (ex\: --time-limit 10m)]:TIME_SPEC:_default' \
 '-w+[Path or URL of the wordlist]:FILE:_files' \
 '--wordlist=[Path or URL of the wordlist]:FILE:_files' \
 '-B+[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
 '--collect-backups=[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
-'*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
-'*--dont-collect=[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION: ' \
+'*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION:_default' \
+'*--dont-collect=[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION:_default' \
 '-o+[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--output=[Output file to write results to (use w/ --json for JSON entries)]:FILE:_files' \
 '--debug-log=[Output file to write log entries (use w/ --json for JSON entries)]:FILE:_files' \
-'--limit-bars=[Number of directory scan bars to show at any given time (default\: no limit)]:NUM_BARS_TO_SHOW: ' \
+'--limit-bars=[Number of directory scan bars to show at any given time (default\: no limit)]:NUM_BARS_TO_SHOW:_default' \
 '(-u --url)--stdin[Read url(s) from STDIN]' \
 '(-p --proxy -k --insecure --burp-replay)--burp[Set --proxy to http\://127.0.0.1\:8080 and set --insecure to true]' \
 '(-P --replay-proxy -k --insecure)--burp-replay[Set --replay-proxy to http\://127.0.0.1\:8080 and set --insecure to true]' \
