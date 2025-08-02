@@ -36,6 +36,18 @@ cargo fmt --all
 # tests
 [tasks.test]
 clear = true
+dependencies = ["test-local", "test-remote"]
+
+[tasks.test-remote]
+condition = { env_set = ["CI"] }
+clear = true
 script = """
 cargo nextest run --all-features --all-targets --retries 4 --no-fail-fast
+"""
+
+[tasks.test-local]
+condition = { env_not_set = ["CI"] }
+clear = true
+script = """
+cargo nextest run --all-features --all-targets --no-fail-fast --run-ignored all --retries 4
 """

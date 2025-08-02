@@ -1,10 +1,13 @@
 use super::Configuration;
 use crate::{
+    message::FeroxMessage,
+    traits::FeroxSerialize,
     utils::{module_colorizer, parse_url_with_raw_path, status_colorizer},
     DEFAULT_BACKUP_EXTENSIONS, DEFAULT_IGNORED_EXTENSIONS, DEFAULT_METHOD, DEFAULT_STATUS_CODES,
     DEFAULT_WORDLIST, VERSION,
 };
 use anyhow::{bail, Result};
+use log::LevelFilter;
 use std::collections::HashMap;
 
 #[cfg(not(test))]
@@ -208,25 +211,6 @@ pub fn determine_requester_policy(auto_tune: bool, auto_bail: bool) -> Requester
 /// This function will return an error if:
 /// * The input string is empty or equal to `"="`.
 /// * The key part of the query string is empty (i.e., if the string starts with `"="`).
-///
-/// # Examples
-///
-/// ```
-/// let result = split_query("name=John");
-/// assert_eq!(result.unwrap(), ("name".to_string(), "John".to_string()));
-///
-/// let result = split_query("name=");
-/// assert_eq!(result.unwrap(), ("name".to_string(), "".to_string()));
-///
-/// let result = split_query("name=John=Doe");
-/// assert_eq!(result.unwrap(), ("name".to_string(), "John=Doe".to_string()));
-///
-/// let result = split_query("=John");
-/// assert!(result.is_err());
-///
-/// let result = split_query("");
-/// assert!(result.is_err());
-/// ```
 pub fn split_query(query: &str) -> Result<(String, String)> {
     if query.is_empty() || query == "=" {
         bail!("Empty query string provided");
@@ -265,25 +249,6 @@ pub fn split_query(query: &str) -> Result<(String, String)> {
 /// This function will return an error if:
 /// * The input string is empty.
 /// * The key part of the header string is empty (i.e., if the string starts with `":"`).
-///
-/// # Examples
-///
-/// ```
-/// let result = split_header("Content-Type: application/json");
-/// assert_eq!(result.unwrap(), ("Content-Type".to_string(), "application/json".to_string()));
-///
-/// let result = split_header("Content-Length: 1234");
-/// assert_eq!(result.unwrap(), ("Content-Length".to_string(), "1234".to_string()));
-///
-/// let result = split_header("Authorization: Bearer token");
-/// assert_eq!(result.unwrap(), ("Authorization".to_string(), "Bearer token".to_string()));
-///
-/// let result = split_header("InvalidHeader");
-/// assert!(result.is_err());
-///
-/// let result = split_header("");
-/// assert!(result.is_err());
-/// ```
 pub fn split_header(header: &str) -> Result<(String, String)> {
     if header.is_empty() {
         bail!("Empty header provided");
@@ -328,18 +293,9 @@ pub fn split_header(header: &str) -> Result<(String, String)> {
 ///
 /// * A `String` containing the combined `Cookie` header with unique keys.
 ///
-/// # Example
-///
-/// ```
-/// let cookie1 = "super=duper; stuff=things";
-/// let cookie2 = "stuff=mothings; derp=tronic";
-/// let combined_cookie = combine_cookies(cookie1, cookie2);
-/// assert_eq!(combined_cookie, "super=duper; stuff=mothings; derp=tronic");
-/// ```
-///
 /// The output string will contain all unique keys from both input strings, with the value
 /// from the second string taking precedence in the case of key collisions.
-fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
+pub fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
     let mut cookie_map = HashMap::new();
 
     // Helper function to parse a cookie string and insert it into the map
@@ -362,6 +318,25 @@ fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
         .map(|(key, value)| format!("{key}={value}"))
         .collect::<Vec<_>>()
         .join("; ")
+}
+
+/// Content Types enumeration (to be complete as more header values
+/// are needed)
+pub enum ContentType {
+    JSON,
+    URLENCODED,
+}
+
+/// to_header_value() produces the value of the CONTENT-TYPE
+/// header for each ContentType. Ideally, new content type headers
+/// should be added and produced from here
+impl ContentType {
+    pub fn to_header_value(self: ContentType) -> String {
+        match self {
+            Self::JSON => return "application/json".to_string(),
+            Self::URLENCODED => return "application/x-www-form-urlencoded".to_string(),
+        }
+    }
 }
 
 /// Parses a raw HTTP request from a file and updates the provided configuration.
@@ -400,19 +375,6 @@ fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
 /// * Query parameters are extracted from the URI and added to `config.queries`,
 ///   unless overridden by CLI options.
 ///
-/// # Examples
-///
-/// ```rust
-/// let mut config = Configuration::default();
-/// config.request_file = "path/to/raw/request.txt".to_string();
-///
-/// let result = parse_request_file(&mut config);
-/// assert!(result.is_ok());
-/// assert_eq!(config.methods, vec!["GET".to_string()]);
-/// assert_eq!(config.target_url, "http://example.com/path".to_string());
-/// assert_eq!(config.headers.get("User-Agent").unwrap(), "MyCustomAgent");
-/// assert_eq!(config.data, b"key=value".to_vec());
-/// ```
 pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     // read in the file located at config.request_file
     // parse the file into a Request struct
@@ -582,6 +544,25 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Log configuration operations before main logger instantiation
+///
+/// Since logging depends on config (e.g. '-vv' parsing), to log
+/// conf related operations, we assemble here FeroxMessage to
+/// remain iso with the rest of the app and display them on STDOUT
+///
+/// # Arguments:
+///
+/// * `level` - Log level of the event
+/// * `message` - message to be displayed
+///
+pub fn preconfig_log(level: LevelFilter, message: String) {
+    let mut log = FeroxMessage::default();
+    log.module = "feroxbuster::config".to_owned();
+    log.level = level.as_str().to_owned();
+    log.message = message.to_owned();
+    eprintln!("{}", log.as_str());
 }
 
 #[cfg(test)]
@@ -1284,5 +1265,67 @@ mod tests {
 
         tmp.cleanup();
         Ok(())
+    }
+
+    #[test]
+    fn test_combine_cookies() {
+        let cookie1 = "super=duper; stuff=things";
+        let cookie2 = "stuff=mothings; derp=tronic";
+        let combined_cookie = combine_cookies(cookie1, cookie2);
+        assert!(combined_cookie.contains("super=duper"));
+        assert!(combined_cookie.contains("stuff=mothings"));
+        assert!(combined_cookie.contains("derp=tronic"));
+        assert!(combined_cookie.contains("; "));
+    }
+
+    #[test]
+    fn test_split_header() {
+        let result = split_header("Content-Type: application/json");
+        assert_eq!(
+            result.unwrap(),
+            ("Content-Type".to_string(), "application/json".to_string())
+        );
+
+        let result = split_header("Content-Length: 1234");
+        assert_eq!(
+            result.unwrap(),
+            ("Content-Length".to_string(), "1234".to_string())
+        );
+
+        let result = split_header("Authorization: Bearer token");
+        assert_eq!(
+            result.unwrap(),
+            ("Authorization".to_string(), "Bearer token".to_string())
+        );
+
+        let result = split_header("NoValueHeader");
+        assert_eq!(
+            result.unwrap(),
+            ("NoValueHeader".to_string(), "".to_string())
+        );
+
+        let result = split_header("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_split_query() {
+        let result = split_query("name=John");
+        assert_eq!(result.unwrap(), ("name".to_string(), "John".to_string()));
+
+        let result = split_query("name=");
+        assert_eq!(result.unwrap(), ("name".to_string(), "".to_string()));
+
+        let result = split_query("name=John=Doe");
+        assert_eq!(
+            result.unwrap(),
+            ("name".to_string(), "John=Doe".to_string())
+        );
+
+        let result = split_query("=John");
+        assert!(result.is_err());
+
+        let result = split_query("");
+        assert!(result.is_err());
     }
 }
