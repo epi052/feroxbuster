@@ -92,7 +92,7 @@ impl FileOutHandler {
     ///
     /// The consumer simply receives responses from the terminal handler and writes them to disk
     async fn start(&mut self, tx_stats: CommandSender) -> Result<()> {
-        log::trace!("enter: start_file_handler({:?})", tx_stats);
+        log::trace!("enter: start_file_handler({tx_stats:?})");
 
         let mut file = open_file(&self.config.output)?;
 
@@ -174,7 +174,7 @@ impl TermOutHandler {
         config: Arc<Configuration>,
         tx_stats: CommandSender,
     ) -> (Joiner, TermOutHandle) {
-        log::trace!("enter: initialize({:?}, {:?})", config, tx_stats);
+        log::trace!("enter: initialize({config:?}, {tx_stats:?})");
 
         let (tx_term, rx_term) = mpsc::unbounded_channel::<Command>();
         let (tx_file, rx_file) = mpsc::unbounded_channel::<Command>();
@@ -197,7 +197,7 @@ impl TermOutHandler {
 
         let event_handle = TermOutHandle::new(tx_term, tx_file);
 
-        log::trace!("exit: initialize -> ({:?}, {:?})", term_task, event_handle);
+        log::trace!("exit: initialize -> ({term_task:?}, {event_handle:?})");
 
         (term_task, event_handle)
     }
@@ -206,7 +206,7 @@ impl TermOutHandler {
     ///
     /// The consumer simply receives `Command` and acts accordingly
     async fn start(&mut self, tx_stats: CommandSender) -> Result<()> {
-        log::trace!("enter: start({:?})", tx_stats);
+        log::trace!("enter: start({tx_stats:?})");
 
         while let Some(command) = self.receiver.recv().await {
             match command {
@@ -215,7 +215,7 @@ impl TermOutHandler {
                         .process_response(tx_stats.clone(), resp, ProcessResponseCall::Recursive)
                         .await
                     {
-                        log::warn!("{}", err);
+                        log::warn!("{err}");
                     }
                 }
                 Command::Sync(sender) => {
@@ -245,7 +245,7 @@ impl TermOutHandler {
         mut resp: Box<FeroxResponse>,
         call_type: ProcessResponseCall,
     ) -> BoxFuture<'_, Result<()>> {
-        log::trace!("enter: process_response({:?}, {:?})", resp, call_type);
+        log::trace!("enter: process_response({resp:?}, {call_type:?})");
 
         async move {
             let contains_sentry = if !self.config.filter_status.is_empty() {
@@ -396,13 +396,13 @@ impl TermOutHandler {
     ///         - LICENSE.bak
     ///         - .LICENSE.txt.swp
     async fn generate_backup_urls(&self, response: &FeroxResponse) -> Vec<Url> {
-        log::trace!("enter: generate_backup_urls({:?})", response);
+        log::trace!("enter: generate_backup_urls({response:?})");
 
         let mut urls = vec![];
         let url = response.url();
 
         // confirmed safe: see src/response.rs for comments
-        let filename = url.path_segments().unwrap().last().unwrap();
+        let filename = url.path_segments().unwrap().next_back().unwrap();
 
         if !filename.is_empty() {
             // append rules
@@ -426,7 +426,7 @@ impl TermOutHandler {
             }
         }
 
-        log::trace!("exit: generate_backup_urls -> {:?}", urls);
+        log::trace!("exit: generate_backup_urls -> {urls:?}");
         urls
     }
 }
@@ -501,7 +501,7 @@ mod tests {
 
         let paths: Vec<_> = urls
             .iter()
-            .map(|url| url.path_segments().unwrap().last().unwrap())
+            .map(|url| url.path_segments().unwrap().next_back().unwrap())
             .collect();
 
         assert_eq!(urls.len(), 7);
@@ -545,7 +545,7 @@ mod tests {
 
         let paths: Vec<_> = urls
             .iter()
-            .map(|url| url.path_segments().unwrap().last().unwrap())
+            .map(|url| url.path_segments().unwrap().next_back().unwrap())
             .collect();
 
         assert_eq!(urls.len(), 6);

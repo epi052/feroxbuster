@@ -12,18 +12,18 @@ pub struct WordsFilter {
 impl FeroxFilter for WordsFilter {
     /// Check `word_count` against what was passed in via -W|--filter-words
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         let result = response.word_count() == self.word_count;
 
-        log::trace!("exit: should_filter_response -> {}", result);
+        log::trace!("exit: should_filter_response -> {result}");
 
         result
     }
 
     /// Compare one WordsFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
-        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+        other.downcast_ref::<Self>() == Some(self)
     }
 
     /// Return self as Any for dynamic dispatch purposes

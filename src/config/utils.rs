@@ -315,7 +315,7 @@ pub fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
     // Build the final cookie header string
     cookie_map
         .into_iter()
-        .map(|(key, value)| format!("{}={}", key, value))
+        .map(|(key, value)| format!("{key}={value}"))
         .collect::<Vec<_>>()
         .join("; ")
 }
@@ -323,8 +323,8 @@ pub fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
 /// Content Types enumeration (to be complete as more header values
 /// are needed)
 pub enum ContentType {
-    JSON,
-    URLENCODED,
+    Json,
+    UrlEncoded,
 }
 
 /// to_header_value() produces the value of the CONTENT-TYPE
@@ -333,8 +333,8 @@ pub enum ContentType {
 impl ContentType {
     pub fn to_header_value(self: ContentType) -> String {
         match self {
-            Self::JSON => return "application/json".to_string(),
-            Self::URLENCODED => return "application/x-www-form-urlencoded".to_string(),
+            Self::Json => "application/json".to_string(),
+            Self::UrlEncoded => "application/x-www-form-urlencoded".to_string(),
         }
     }
 }
@@ -443,12 +443,12 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
         }
 
         let Ok((name, value)) = split_header(line) else {
-            log::warn!("Invalid header: {}", line);
+            log::warn!("Invalid header: {line}");
             continue;
         };
 
         if name.is_empty() {
-            log::warn!("Invalid header name: {}", line);
+            log::warn!("Invalid header name: {line}");
             continue;
         }
 
@@ -484,12 +484,32 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
 
     let url = parse_url_with_raw_path(uri);
 
-    if url.is_err() {
+    if let Ok(mut url) = url {
+        if let Some(host) = config.headers.get("Host") {
+            url.set_host(Some(host)).unwrap();
+        }
+
+        url.query_pairs().for_each(|(key, value)| {
+            for (k, _) in &config.queries {
+                if k.to_lowercase() == key.to_lowercase() {
+                    // allow cli options to take precedent when query names match
+                    return;
+                }
+            }
+
+            config.queries.push((key.to_string(), value.to_string()));
+        });
+
+        url.set_query(None);
+        url.set_fragment(None);
+
+        config.target_url = url.to_string();
+    } else {
         // uri in request line is not a valid URL, so it's most likely a path/relative url
         // we need to combine it with the host header
         for (key, value) in &config.headers {
             if key.to_lowercase() == "host" {
-                config.target_url = format!("{}{}", value, uri);
+                config.target_url = format!("{value}{uri}");
                 break;
             }
         }
@@ -521,28 +541,6 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
                 config.queries.push((name, value));
             });
         }
-    } else {
-        let mut url = url.unwrap();
-
-        if let Some(host) = config.headers.get("Host") {
-            url.set_host(Some(host)).unwrap();
-        }
-
-        url.query_pairs().for_each(|(key, value)| {
-            for (k, _) in &config.queries {
-                if k.to_lowercase() == key.to_lowercase() {
-                    // allow cli options to take precedent when query names match
-                    return;
-                }
-            }
-
-            config.queries.push((key.to_string(), value.to_string()));
-        });
-
-        url.set_query(None);
-        url.set_fragment(None);
-
-        config.target_url = url.to_string();
     }
 
     Ok(())
@@ -560,10 +558,12 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
 /// * `message` - message to be displayed
 ///
 pub fn preconfig_log(level: LevelFilter, message: String) {
-    let mut log = FeroxMessage::default();
-    log.module = "feroxbuster::config".to_owned();
-    log.level = level.as_str().to_owned();
-    log.message = message.to_owned();
+    let log = FeroxMessage {
+        module: "feroxbuster::config".to_owned(),
+        level: level.as_str().to_owned(),
+        message,
+        ..Default::default()
+    };
     eprintln!("{}", log.as_str());
 }
 

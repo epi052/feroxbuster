@@ -56,7 +56,7 @@ impl FeroxFilter for WildcardFilter {
     /// Examine size/words/lines and method to determine whether or not the response received
     /// is a wildcard response and therefore should be filtered out
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         // quick return if dont_filter is set
         if self.dont_filter {
@@ -144,7 +144,7 @@ impl FeroxFilter for WildcardFilter {
 
     /// Compare one WildcardFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
-        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+        other.downcast_ref::<Self>() == Some(self)
     }
 
     /// Return self as Any for dynamic dispatch purposes
@@ -175,6 +175,6 @@ impl std::fmt::Display for WildcardFilter {
             ),
             OutputLevel::Default,
         );
-        write!(f, "{}", msg)
+        write!(f, "{msg}")
     }
 }

@@ -337,7 +337,7 @@ fn heuristics_wildcard_test_that_auto_filtering_403s_still_allows_for_recursion_
     });
 
     srv.mock(|when, then| {
-        when.method(GET).path(format!("/LICENSE/{}", super_long));
+        when.method(GET).path(format!("/LICENSE/{super_long}"));
         then.status(200);
     });
 

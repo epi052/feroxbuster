@@ -50,32 +50,31 @@ impl Display for dyn FeroxFilter {
                     unreachable!("wildcard filter without any filters set");
                 }
                 (None, None, Some(lc)) => {
-                    msg.push_str(&format!("containing {} lines", lc));
+                    msg.push_str(&format!("containing {lc} lines"));
                 }
                 (None, Some(wc), None) => {
-                    msg.push_str(&format!("containing {} words", wc));
+                    msg.push_str(&format!("containing {wc} words"));
                 }
                 (None, Some(wc), Some(lc)) => {
-                    msg.push_str(&format!("containing {} words and {} lines", wc, lc));
+                    msg.push_str(&format!("containing {wc} words and {lc} lines"));
                 }
                 (Some(cl), None, None) => {
-                    msg.push_str(&format!("containing {} bytes", cl));
+                    msg.push_str(&format!("containing {cl} bytes"));
                 }
                 (Some(cl), None, Some(lc)) => {
-                    msg.push_str(&format!("containing {} bytes and {} lines", cl, lc));
+                    msg.push_str(&format!("containing {cl} bytes and {lc} lines"));
                 }
                 (Some(cl), Some(wc), None) => {
-                    msg.push_str(&format!("containing {} bytes and {} words", cl, wc));
+                    msg.push_str(&format!("containing {cl} bytes and {wc} words"));
                 }
                 (Some(cl), Some(wc), Some(lc)) => {
                     msg.push_str(&format!(
-                        "containing {} bytes, {} words, and {} lines",
-                        cl, wc, lc
+                        "containing {cl} bytes, {wc} words, and {lc} lines"
                     ));
                 }
             }
 
-            write!(f, "{}", msg)
+            write!(f, "{msg}")
         } else if let Some(filter) = self.as_any().downcast_ref::<StatusCodeFilter>() {
             write!(f, "Status code: {}", style(filter.filter_code).cyan())
         } else if let Some(filter) = self.as_any().downcast_ref::<SimilarityFilter>() {

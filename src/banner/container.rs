@@ -521,7 +521,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
     ///
     /// ex: v1.1.0
     pub async fn check_for_updates(&mut self, url: &str, handles: Arc<Handles>) -> Result<()> {
-        log::trace!("enter: needs_update({}, {:?})", url, handles);
+        log::trace!("enter: needs_update({url}, {handles:?})");
 
         let api_url = parse_url_with_raw_path(url)?;
 
@@ -560,7 +560,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         let latest_version = match json_response["tag_name"].as_str() {
             Some(tag) => tag.trim_start_matches('v'),
             None => {
-                bail!("JSON has no tag_name: {}", json_response);
+                bail!("JSON has no tag_name: {json_response}");
             }
         };
 

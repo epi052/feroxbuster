@@ -73,9 +73,7 @@ where
 
             let identity = reqwest::Identity::from_pkcs8_pem(&cert, &key).with_context(|| {
                 format!(
-                    "either {} or {} are invalid; expecting PEM encoded certificate and key",
-                    cert_path, key_path
-                )
+                    "either {cert_path} or {key_path} are invalid; expecting PEM encoded certificate and key")
             })?;
 
             client = client.identity(identity);

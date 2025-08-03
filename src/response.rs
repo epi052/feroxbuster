@@ -154,7 +154,7 @@ impl FeroxResponse {
                 self.url = url;
             }
             Err(e) => {
-                log::warn!("Could not parse {} into a Url: {}", url, e);
+                log::warn!("Could not parse {url} into a Url: {e}");
             }
         };
     }
@@ -190,15 +190,14 @@ impl FeroxResponse {
     ///
     /// Additionally, inspects query parameters, as they're also often indicative of a file
     pub fn is_file(&self) -> bool {
-        let has_extension = match self.url.path_segments() {
-            Some(path) => {
-                if let Some(last) = path.last() {
-                    last.contains('.') // last segment has some sort of extension, probably
-                } else {
-                    false
-                }
+        let has_extension = if let Some(mut path) = self.url.path_segments() {
+            if let Some(last) = path.next_back() {
+                last.contains('.') // last segment has some sort of extension, probably
+            } else {
+                false
             }
-            None => false,
+        } else {
+            false
         };
 
         self.url.query_pairs().count() > 0 || has_extension
@@ -279,7 +278,7 @@ impl FeroxResponse {
         //     (which may be empty).
         //
         // meaning: the two unwraps here are fine, the worst outcome is an empty string
-        let filename = self.url.path_segments().unwrap().last().unwrap();
+        let filename = self.url.path_segments().unwrap().next_back().unwrap();
 
         if !filename.is_empty() {
             // non-empty string, try to get extension
@@ -329,12 +328,7 @@ impl FeroxResponse {
         max_depth: usize,
         handles: Arc<Handles>,
     ) -> bool {
-        log::trace!(
-            "enter: reached_max_depth({}, {}, {:?})",
-            base_depth,
-            max_depth,
-            handles
-        );
+        log::trace!("enter: reached_max_depth({base_depth}, {max_depth}, {handles:?})");
 
         if max_depth == 0 {
             // early return, as 0 means recurse forever; no additional processing needed
@@ -357,7 +351,7 @@ impl FeroxResponse {
     /// handles 2xx and 3xx responses by either checking if the url ends with a / (2xx)
     /// or if the Location header is present and matches the base url + / (3xx)
     pub fn is_directory(&self) -> bool {
-        log::trace!("enter: is_directory({})", self);
+        log::trace!("enter: is_directory({self})");
 
         if self.status().is_redirection() {
             // status code is 3xx
@@ -365,7 +359,7 @@ impl FeroxResponse {
                 // and has a Location header
                 Some(loc) => {
                     // get absolute redirect Url based on the already known base url
-                    log::debug!("Location header: {:?}", loc);
+                    log::debug!("Location header: {loc:?}");
 
                     if let Ok(loc_str) = loc.to_str() {
                         if let Ok(abs_url) = self.url().join(loc_str) {
@@ -383,7 +377,7 @@ impl FeroxResponse {
                     }
                 }
                 None => {
-                    log::debug!("expected Location header, but none was found: {}", self);
+                    log::debug!("expected Location header, but none was found: {self}");
                     log::trace!("exit: is_directory -> false");
                     return false;
                 }
@@ -404,7 +398,7 @@ impl FeroxResponse {
 
     /// Simple helper to send a `FeroxResponse` over the tx side of an `mpsc::unbounded_channel`
     pub fn send_report(self, report_sender: CommandSender) -> Result<()> {
-        log::trace!("enter: send_report({:?}", report_sender);
+        log::trace!("enter: send_report({report_sender:?}");
 
         // there's no reason to send the response body across the mpsc
         //

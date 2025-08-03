@@ -67,6 +67,7 @@ fn auto_bail_cancels_scan_with_403s() {
 
     println!("log filesize: {}", logfile.metadata().unwrap().len());
     let debug_log = read_to_string(logfile).unwrap();
+    let re = Regex::new("total_expected: ([0-9]+),").unwrap();
 
     // read debug log to get the number of errors enforced
     for line in debug_log.lines() {
@@ -76,7 +77,6 @@ fn auto_bail_cancels_scan_with_403s() {
 
             if str_msg.starts_with("Stats") {
                 println!("{str_msg}");
-                let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
                 let total_expected = re
                     .captures(&str_msg)
@@ -149,6 +149,7 @@ fn auto_bail_cancels_scan_with_429s() {
 
     println!("log filesize: {}", logfile.metadata().unwrap().len());
     let debug_log = read_to_string(logfile).unwrap();
+    let re = Regex::new("total_expected: ([0-9]+),").unwrap();
 
     // read debug log to get the number of errors enforced
     for line in debug_log.lines() {
@@ -158,7 +159,6 @@ fn auto_bail_cancels_scan_with_429s() {
 
             if str_msg.starts_with("Stats") {
                 println!("{str_msg}");
-                let re = Regex::new("total_expected: ([0-9]+),").unwrap();
                 assert!(re.is_match(&str_msg));
                 let total_expected = re
                     .captures(&str_msg)

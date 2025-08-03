@@ -122,7 +122,7 @@ impl FeroxScans {
                     scans.push(scan);
                 }
                 Err(e) => {
-                    log::warn!("FeroxScans' container's mutex is poisoned: {}", e);
+                    log::warn!("FeroxScans' container's mutex is poisoned: {e}");
                     return false;
                 }
             }
@@ -133,7 +133,7 @@ impl FeroxScans {
 
     /// load serialized FeroxScan(s) and any previously collected extensions into this FeroxScans  
     pub fn add_serialized_scans(&self, filename: &str, handles: Arc<Handles>) -> Result<()> {
-        log::trace!("enter: add_serialized_scans({})", filename);
+        log::trace!("enter: add_serialized_scans({filename})");
         let file = File::open(filename)?;
 
         let reader = BufReader::new(file);
@@ -255,7 +255,7 @@ impl FeroxScans {
     }
 
     pub fn get_base_scan_by_url(&self, url: &str) -> Option<Arc<FeroxScan>> {
-        log::trace!("enter: get_base_scan_by_url({})", url);
+        log::trace!("enter: get_base_scan_by_url({url})");
 
         // rmatch_indices returns tuples in index, match form, i.e. (10, "/")
         // with the furthest-right match in the first position in the vector
@@ -279,7 +279,7 @@ impl FeroxScans {
                 for scan in guard.iter() {
                     let slice = url.index(0..*idx);
                     if slice == scan.url || format!("{slice}/").as_str() == scan.url {
-                        log::trace!("enter: get_base_scan_by_url -> {}", scan);
+                        log::trace!("enter: get_base_scan_by_url -> {scan}");
                         return Some(scan.clone());
                     }
                 }
@@ -397,7 +397,7 @@ impl FeroxScans {
                 selected
                     .abort(active_bars)
                     .await
-                    .unwrap_or_else(|e| log::warn!("Could not cancel task: {}", e));
+                    .unwrap_or_else(|e| log::warn!("Could not cancel task: {e}"));
 
                 let pb = selected.progress_bar();
                 num_cancelled += pb.length().unwrap_or(0) as usize - pb.position() as usize;
@@ -474,7 +474,10 @@ impl FeroxScans {
 
         self.menu.clear_screen();
 
-        let banner = Banner::new(&[handles.config.target_url.clone()], &handles.config);
+        let banner = Banner::new(
+            std::slice::from_ref(&handles.config.target_url),
+            &handles.config,
+        );
         banner
             .print_to(&self.menu.term, handles.config.clone())
             .unwrap_or_default();
@@ -596,7 +599,7 @@ impl FeroxScans {
                     INTERACTIVE_BARRIER.fetch_sub(1, Ordering::Relaxed);
                 }
 
-                log::trace!("exit: pause_scan -> {:?}", command_result);
+                log::trace!("exit: pause_scan -> {command_result:?}");
                 return command_result;
             }
         }
@@ -772,7 +775,7 @@ impl FeroxScans {
     /// given an extension, add it to `collected_extensions` if all constraints are met
     /// returns `true` if an extension was added, `false` otherwise
     pub fn add_discovered_extension(&self, extension: String) -> bool {
-        log::trace!("enter: add_discovered_extension({})", extension);
+        log::trace!("enter: add_discovered_extension({extension})");
         let mut extension_added = false;
 
         // note: the filter by --dont-collect happens in the event handler, since it has access
@@ -787,12 +790,12 @@ impl FeroxScans {
         }
 
         if let Ok(mut extensions) = self.collected_extensions.write() {
-            log::info!("discovered new extension: {}", extension);
+            log::info!("discovered new extension: {extension}");
             extensions.insert(extension);
             extension_added = true;
         }
 
-        log::trace!("exit: add_discovered_extension -> {}", extension_added);
+        log::trace!("exit: add_discovered_extension -> {extension_added}");
         extension_added
     }
 }

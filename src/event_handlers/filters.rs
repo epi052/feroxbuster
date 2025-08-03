@@ -71,7 +71,7 @@ impl FiltersHandler {
 
         let event_handle = FiltersHandle::new(data, tx);
 
-        log::trace!("exit: initialize -> ({:?}, {:?})", task, event_handle);
+        log::trace!("exit: initialize -> ({task:?}, {event_handle:?})");
 
         (task, event_handle)
     }
@@ -80,7 +80,7 @@ impl FiltersHandler {
     ///
     /// The consumer simply receives `Command` and acts accordingly
     pub async fn start(&mut self) -> Result<()> {
-        log::trace!("enter: start({:?})", self);
+        log::trace!("enter: start({self:?})");
 
         while let Some(command) = self.receiver.recv().await {
             match command {
@@ -92,7 +92,7 @@ impl FiltersHandler {
                 }
                 Command::RemoveFilters(mut indices) => self.data.remove(&mut indices),
                 Command::Sync(sender) => {
-                    log::debug!("filters: {:?}", self);
+                    log::debug!("filters: {self:?}");
                     sender.send(true).unwrap_or_default();
                 }
                 Command::Exit => break,

@@ -12,7 +12,7 @@ pub struct StatusCodeFilter {
 impl FeroxFilter for StatusCodeFilter {
     /// Check `filter_code` against what was passed in via -C|--filter-status
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         if response.status().as_u16() == self.filter_code {
             log::debug!(
@@ -30,7 +30,7 @@ impl FeroxFilter for StatusCodeFilter {
 
     /// Compare one StatusCodeFilter to another
     fn box_eq(&self, other: &dyn Any) -> bool {
-        other.downcast_ref::<Self>().map_or(false, |a| self == a)
+        other.downcast_ref::<Self>() == Some(self)
     }
 
     /// Return self as Any for dynamic dispatch purposes

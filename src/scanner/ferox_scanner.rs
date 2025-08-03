@@ -44,10 +44,7 @@ async fn check_for_user_input(
     scanned_urls: Arc<FeroxScans>,
     handles: Arc<Handles>,
 ) {
-    log::trace!(
-        "enter: check_for_user_input({:?}, SCANNED_URLS, HANDLES)",
-        pause_flag
-    );
+    log::trace!("enter: check_for_user_input({pause_flag:?}, SCANNED_URLS, HANDLES)",);
 
     // todo write a test or two for this function at some point...
     if pause_flag.load(Ordering::Acquire) {
@@ -57,14 +54,14 @@ async fn check_for_user_input(
                 // it over to the event handler for processing
                 handles
                     .send_scan_command(Command::ScanNewUrl(url))
-                    .unwrap_or_else(|e| log::warn!("Could not add scan to scan queue: {}", e))
+                    .unwrap_or_else(|e| log::warn!("Could not add scan to scan queue: {e}"))
             }
             Some(MenuCmdResult::NumCancelled(num_canx)) => {
                 if num_canx > 0 {
                     handles
                         .stats
                         .send(SubtractFromUsizeField(TotalExpected, num_canx))
-                        .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {}", e));
+                        .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {e}"));
                 }
             }
             Some(MenuCmdResult::Filter(mut filter)) => {
@@ -97,7 +94,7 @@ async fn check_for_user_input(
                 handles
                     .filters
                     .send(AddFilter(filter))
-                    .unwrap_or_else(|e| log::warn!("Could not add new filter: {}", e));
+                    .unwrap_or_else(|e| log::warn!("Could not add new filter: {e}"));
             }
             _ => {}
         }
@@ -169,7 +166,7 @@ impl FeroxScanner {
                         requester_clone
                             .request(&word)
                             .await
-                            .unwrap_or_else(|e| log::warn!("Requester encountered an error: {}", e))
+                            .unwrap_or_else(|e| log::warn!("Requester encountered an error: {e}"))
                     }),
                     pb,
                 )
@@ -181,7 +178,7 @@ impl FeroxScanner {
                         bar.inc(increment_len);
                     }
                     Err(e) => {
-                        log::warn!("error awaiting a response: {}", e);
+                        log::warn!("error awaiting a response: {e}");
                         self.handles.stats.send(AddError(Other)).unwrap_or_default();
                         std::process::exit(1);
                     }

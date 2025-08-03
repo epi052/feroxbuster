@@ -44,7 +44,7 @@ impl TermInputHandler {
     /// Initialize the sigint and enter handlers that are responsible for handling initial user
     /// interaction during scans
     pub fn initialize(handles: Arc<Handles>) {
-        log::trace!("enter: initialize({:?})", handles);
+        log::trace!("enter: initialize({handles:?})");
 
         let handler = Self::new(handles);
         handler.start();
@@ -76,7 +76,7 @@ impl TermInputHandler {
 
     /// Writes the current state of the program to disk (if save_state is true) and then exits
     pub fn sigint_handler(handles: Arc<Handles>) -> Result<()> {
-        log::trace!("enter: sigint_handler({:?})", handles);
+        log::trace!("enter: sigint_handler({handles:?})");
 
         let filename = if !handles.config.target_url.is_empty() {
             // target url populated
@@ -117,7 +117,7 @@ impl TermInputHandler {
 
                 let Ok(mut state_file) = open_file(&temp_filename.to_string_lossy()) else {
                     // couldn't open the fallback file, let the user know
-                    let error = format!("❌❌ Could not save {:?}, giving up...", temp_filename);
+                    let error = format!("❌❌ Could not save {temp_filename:?}, giving up...");
                     PROGRESS_PRINTER.println(error);
 
                     log::trace!("exit: sigint_handler (failed to write)");
@@ -126,7 +126,7 @@ impl TermInputHandler {
 
                 write_to(&state, &mut state_file, true)?;
 
-                let msg = format!("✅ Saved scan state to {:?}", temp_filename);
+                let msg = format!("✅ Saved scan state to {temp_filename:?}");
                 PROGRESS_PRINTER.println(msg);
 
                 log::trace!("exit: sigint_handler (saved to temp folder)");
