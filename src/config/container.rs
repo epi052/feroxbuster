@@ -978,7 +978,7 @@ impl Configuration {
 
         if came_from_cli!(args, "data-urlencoded") {
             let arg = args.get_one::<String>("data-urlencoded").unwrap();
-            config.parse_data_arg(arg, Some(ContentType::URLENCODED));
+            config.parse_data_arg(arg, Some(ContentType::UrlEncoded));
             let default_methods = vec![Method::POST.as_str().to_string()];
 
             if config.methods == methods() {
@@ -993,13 +993,13 @@ impl Configuration {
 
             config.headers.insert(
                 String::from_str("Content-Type").unwrap(),
-                ContentType::URLENCODED.to_header_value(),
+                ContentType::UrlEncoded.to_header_value(),
             );
         }
 
         if came_from_cli!(args, "data-json") {
             let arg = args.get_one::<String>("data-json").unwrap();
-            config.parse_data_arg(arg, Some(ContentType::JSON));
+            config.parse_data_arg(arg, Some(ContentType::Json));
             let default_methods = vec![Method::POST.as_str().to_string()];
 
             if config.methods == methods() {
@@ -1014,7 +1014,7 @@ impl Configuration {
 
             config.headers.insert(
                 String::from_str("Content-Type").unwrap(),
-                ContentType::JSON.to_header_value(),
+                ContentType::Json.to_header_value(),
             );
         }
 
@@ -1040,7 +1040,7 @@ impl Configuration {
         if let Some(headers) = args.get_many::<String>("headers") {
             for val in headers {
                 let Ok((name, value)) = split_header(val) else {
-                    preconfig_log(log::LevelFilter::Info, format!("Invalid header: {}", val));
+                    preconfig_log(log::LevelFilter::Info, format!("Invalid header: {val}"));
                     continue;
                 };
                 config.headers.insert(name, value);
@@ -1083,7 +1083,7 @@ impl Configuration {
                 let Ok((name, value)) = split_query(val) else {
                     preconfig_log(
                         log::LevelFilter::Warn,
-                        format!("Invalid query string: {}", val),
+                        format!("Invalid query string: {val}"),
                     );
                     continue;
                 };
@@ -1324,7 +1324,7 @@ impl Configuration {
     /// Reads payload body from STDIN or file system depending on '@' and
     ///
     /// sets config.data according to the body's content type
-    fn parse_data_arg(self: &mut Self, arg: &str, content_type: Option<ContentType>) {
+    fn parse_data_arg(&mut self, arg: &str, content_type: Option<ContentType>) {
         let mut payload: String;
 
         if let Some(stripped) = arg.strip_prefix('@') {
@@ -1336,12 +1336,12 @@ impl Configuration {
 
         match content_type {
             Some(content_type) => match content_type {
-                ContentType::JSON => {
+                ContentType::Json => {
                     // because feroxbuster is a fuzzer, we do not minify or validate
                     // the json payload with serde, for ill-formed JSON might be used
                     self.data = payload.as_bytes().to_vec()
                 }
-                ContentType::URLENCODED => {
+                ContentType::UrlEncoded => {
                     payload = payload.replace("\r\n", "&").replace("\n", "&");
                     let encoded: String =
                         form_urlencoded::byte_serialize(payload.as_bytes()).collect();

@@ -311,7 +311,7 @@ impl Requester {
             // minimum number of requests entering this block
             self.ferox_scan
                 .set_status(ScanStatus::Cancelled)
-                .unwrap_or_else(|e| log::warn!("Could not set scan status: {}", e));
+                .unwrap_or_else(|e| log::warn!("Could not set scan status: {e}"));
 
             let scans = self.handles.ferox_scans()?;
             let active_bars = scans.number_of_bars();
@@ -320,7 +320,7 @@ impl Requester {
             self.ferox_scan
                 .abort(active_bars)
                 .await
-                .unwrap_or_else(|e| log::warn!("Could not bail on scan: {}", e));
+                .unwrap_or_else(|e| log::warn!("Could not bail on scan: {e}"));
 
             // figure out how many requests are skipped as a result
             let pb = self.ferox_scan.progress_bar();
@@ -339,7 +339,7 @@ impl Requester {
             self.handles
                 .stats
                 .send(SubtractFromUsizeField(TotalExpected, num_skipped))
-                .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {}", e));
+                .unwrap_or_else(|e| log::warn!("Could not update overall scan bar: {e}"));
         }
 
         Ok(())
@@ -349,7 +349,7 @@ impl Requester {
     ///
     /// Attempts recursion when appropriate and sends Responses to the output handler for processing
     pub async fn request(&self, word: &str) -> Result<()> {
-        log::trace!("enter: request({})", word);
+        log::trace!("enter: request({word})");
 
         let collected = self.handles.collected_extensions();
 
@@ -371,7 +371,7 @@ impl Requester {
                 if should_limit {
                     // found a rate limiter, limit that junk!
                     if let Err(e) = self.limit().await {
-                        log::warn!("Could not rate limit scan: {}", e);
+                        log::warn!("Could not rate limit scan: {e}");
                         self.handles.stats.send(AddError(Other)).unwrap_or_default();
                     }
                 }
@@ -529,7 +529,7 @@ impl Requester {
 
                 // everything else should be reported
                 if let Err(e) = ferox_response.send_report(self.handles.output.tx.clone()) {
-                    log::warn!("Could not send FeroxResponse to output handler: {}", e);
+                    log::warn!("Could not send FeroxResponse to output handler: {e}");
                 }
             }
         }

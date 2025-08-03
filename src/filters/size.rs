@@ -12,11 +12,11 @@ pub struct SizeFilter {
 impl FeroxFilter for SizeFilter {
     /// Check `content_length` against what was passed in via -S|--filter-size
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         let result = response.content_length() == self.content_length;
 
-        log::trace!("exit: should_filter_response -> {}", result);
+        log::trace!("exit: should_filter_response -> {result}");
 
         result
     }

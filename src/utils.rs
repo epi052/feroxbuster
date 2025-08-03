@@ -35,7 +35,7 @@ static mut USER_AGENT_CTR: usize = 0;
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
 /// return a reference to the buffered file
 pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
-    log::trace!("enter: open_file({})", filename);
+    log::trace!("enter: open_file({filename})");
 
     let file = fs::OpenOptions::new() // std fs
         .create(true)
@@ -45,7 +45,7 @@ pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
 
     let writer = BufWriter::new(file); // std io
 
-    log::trace!("exit: open_file -> {:?}", writer);
+    log::trace!("exit: open_file -> {writer:?}");
     Ok(writer)
 }
 
@@ -153,7 +153,7 @@ pub async fn logged_request(
             Ok(resp)
         }
         Err(e) => {
-            log::warn!("err: {:?}", e);
+            log::warn!("err: {e:?}");
             scans.increment_error(url.as_str());
             bail!(e)
         }
@@ -171,10 +171,7 @@ pub async fn make_request(
     tx_stats: UnboundedSender<Command>,
 ) -> Result<Response> {
     log::trace!(
-        "enter: make_request(Configuration::Client, {}, {:?}, {:?})",
-        url,
-        output_level,
-        tx_stats
+        "enter: make_request(Configuration::Client, {url}, {output_level:?}, {tx_stats:?})"
     );
     let tmp_workaround: Option<&[u8]> = Some(&[0xd_u8, 0xa]); // \r\n
 
@@ -217,7 +214,7 @@ pub async fn make_request(
 
     match request.send().await {
         Err(e) => {
-            log::trace!("exit: make_request -> {}", e);
+            log::trace!("exit: make_request -> {e}");
 
             if e.is_timeout() {
                 send_command!(tx_stats, AddError(Timeout));
@@ -258,11 +255,11 @@ pub async fn make_request(
                 send_command!(tx_stats, AddError(Other));
             }
 
-            log::warn!("Error while making request: {}", e);
+            log::warn!("Error while making request: {e}");
             bail!("{}", e)
         }
         Ok(resp) => {
-            log::trace!("exit: make_request -> {:?}", resp);
+            log::trace!("exit: make_request -> {resp:?}");
             send_command!(tx_stats, AddStatus(resp.status()));
             Ok(resp)
         }
@@ -325,7 +322,7 @@ pub fn set_open_file_limit(limit: u64) -> bool {
             // set the soft limit to our default
 
             if setrlimit(Resource::NOFILE, limit, hard).is_ok() {
-                log::debug!("set open file descriptor limit to {}", limit);
+                log::debug!("set open file descriptor limit to {limit}");
 
                 log::trace!("exit: set_open_file_limit -> {}", true);
                 return true;
@@ -334,7 +331,7 @@ pub fn set_open_file_limit(limit: u64) -> bool {
             // hard limit is lower than our default, the next best option is to set the soft limit as
             // high as the hard limit will allow
             if setrlimit(Resource::NOFILE, hard, hard).is_ok() {
-                log::debug!("set open file descriptor limit to {}", limit);
+                log::debug!("set open file descriptor limit to {limit}");
 
                 log::trace!("exit: set_open_file_limit -> {}", true);
                 return true;
@@ -344,7 +341,7 @@ pub fn set_open_file_limit(limit: u64) -> bool {
 
     // failed to set a new limit, as limit adjustments are a 'nice to have', we'll just log
     // and move along
-    log::warn!("could not set open file descriptor limit to {}", limit);
+    log::warn!("could not set open file descriptor limit to {limit}");
 
     log::trace!("exit: set_open_file_limit -> {}", false);
     false
@@ -490,7 +487,7 @@ fn should_deny_regex(url_to_test: &Url, denier: &Regex) -> bool {
 
     let result = denier.is_match(url_to_test.as_str());
 
-    log::trace!("exit: should_deny_regex -> {}", result);
+    log::trace!("exit: should_deny_regex -> {result}");
     result
 }
 
@@ -535,7 +532,7 @@ pub fn should_deny_url(url: &Url, handles: Arc<Handles>) -> Result<bool> {
 ///
 /// ex: ferox-http_telsa_com-1606947491.state
 pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
-    log::trace!("enter: slugify({:?}, {:?}, {:?})", url, prefix, suffix);
+    log::trace!("enter: slugify({url:?}, {prefix:?}, {suffix:?})");
 
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -552,7 +549,7 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
 
     let filename = format!("{altered_prefix}{slug}-{ts}.{suffix}");
 
-    log::trace!("exit: slugify -> {}", filename);
+    log::trace!("exit: slugify -> {filename}");
     filename
 }
 
@@ -567,7 +564,7 @@ pub fn slugify_filename(url: &str, prefix: &str, suffix: &str) -> String {
 /// /path/%2e%2e/file.html, the underlying `url::Url::parse` will
 /// further encode the %-signs and return /path/%252e%252e/file.html
 pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
-    log::trace!("enter: parse_url_with_raw_path({})", url);
+    log::trace!("enter: parse_url_with_raw_path({url})");
 
     let parsed = Url::parse(url)?;
 
@@ -740,7 +737,7 @@ pub fn parse_url_with_raw_path(url: &str) -> Result<Url> {
     hacked_url.set_query(parsed.query());
     hacked_url.set_fragment(parsed.fragment());
 
-    log::trace!("exit: parse_url_with_raw_path -> {}", hacked_url);
+    log::trace!("exit: parse_url_with_raw_path -> {hacked_url}");
     Ok(hacked_url)
 }
 

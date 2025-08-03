@@ -12,11 +12,11 @@ pub struct LinesFilter {
 impl FeroxFilter for LinesFilter {
     /// Check `line_count` against what was passed in via -N|--filter-lines
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         let result = response.line_count() == self.line_count;
 
-        log::trace!("exit: should_filter_response -> {}", result);
+        log::trace!("exit: should_filter_response -> {result}");
 
         result
     }

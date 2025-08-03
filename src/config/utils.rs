@@ -323,8 +323,8 @@ pub fn combine_cookies(cookie1: &str, cookie2: &str) -> String {
 /// Content Types enumeration (to be complete as more header values
 /// are needed)
 pub enum ContentType {
-    JSON,
-    URLENCODED,
+    Json,
+    UrlEncoded,
 }
 
 /// to_header_value() produces the value of the CONTENT-TYPE
@@ -333,8 +333,8 @@ pub enum ContentType {
 impl ContentType {
     pub fn to_header_value(self: ContentType) -> String {
         match self {
-            Self::JSON => return "application/json".to_string(),
-            Self::URLENCODED => return "application/x-www-form-urlencoded".to_string(),
+            Self::Json => "application/json".to_string(),
+            Self::UrlEncoded => "application/x-www-form-urlencoded".to_string(),
         }
     }
 }
@@ -443,12 +443,12 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
         }
 
         let Ok((name, value)) = split_header(line) else {
-            log::warn!("Invalid header: {}", line);
+            log::warn!("Invalid header: {line}");
             continue;
         };
 
         if name.is_empty() {
-            log::warn!("Invalid header name: {}", line);
+            log::warn!("Invalid header name: {line}");
             continue;
         }
 
@@ -558,10 +558,12 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
 /// * `message` - message to be displayed
 ///
 pub fn preconfig_log(level: LevelFilter, message: String) {
-    let mut log = FeroxMessage::default();
-    log.module = "feroxbuster::config".to_owned();
-    log.level = level.as_str().to_owned();
-    log.message = message.to_owned();
+    let log = FeroxMessage {
+        module: "feroxbuster::config".to_owned(),
+        level: level.as_str().to_owned(),
+        message,
+        ..Default::default()
+    };
     eprintln!("{}", log.as_str());
 }
 

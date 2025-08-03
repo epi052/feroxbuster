@@ -44,7 +44,7 @@ impl FeroxUrl {
         word: &str,
         collected_extensions: HashSet<String>,
     ) -> Result<Vec<Url>> {
-        log::trace!("enter: formatted_urls({})", word);
+        log::trace!("enter: formatted_urls({word})");
 
         let mut urls = vec![];
 
@@ -73,7 +73,7 @@ impl FeroxUrl {
                 Err(_) => self.handles.stats.send(AddError(UrlFormat))?,
             }
         }
-        log::trace!("exit: formatted_urls -> {:?}", urls);
+        log::trace!("exit: formatted_urls -> {urls:?}");
         Ok(urls)
     }
 
@@ -81,7 +81,7 @@ impl FeroxUrl {
     ///
     /// Errors during parsing `url` or joining `word` are propagated up the call stack
     pub fn format(&self, word: &str, extension: Option<&str>) -> Result<Url> {
-        log::trace!("enter: format({}, {:?})", word, extension);
+        log::trace!("enter: format({word}, {extension:?})");
 
         if Url::parse(word).is_ok() {
             // when a full url is passed in as a word to be joined to a base url using
@@ -92,8 +92,8 @@ impl FeroxUrl {
             // in order to resolve the issue, we check if the word from the wordlist is a parsable URL
             // and if so, don't do any further processing
             let message = format!("word ({word}) from wordlist is a URL, skipping...");
-            log::warn!("{}", message);
-            log::trace!("exit: format -> Err({})", message);
+            log::warn!("{message}");
+            log::trace!("exit: format -> Err({message})");
             bail!(message);
         }
 
@@ -154,7 +154,7 @@ impl FeroxUrl {
                 .extend_pairs(self.handles.config.queries.iter());
         }
 
-        log::trace!("exit: format_url -> {}", joined);
+        log::trace!("exit: format_url -> {joined}");
         Ok(joined)
     }
 
@@ -170,7 +170,7 @@ impl FeroxUrl {
             format!("{}/", self.target)
         };
 
-        log::trace!("exit: normalize -> {}", normalized);
+        log::trace!("exit: normalize -> {normalized}");
         normalized
     }
 
@@ -202,7 +202,7 @@ impl FeroxUrl {
             depth += 1;
         }
 
-        log::trace!("exit: get_depth -> {}", depth);
+        log::trace!("exit: get_depth -> {depth}");
         Ok(depth)
     }
 }

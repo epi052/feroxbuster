@@ -56,7 +56,7 @@ impl FeroxFilter for WildcardFilter {
     /// Examine size/words/lines and method to determine whether or not the response received
     /// is a wildcard response and therefore should be filtered out
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         // quick return if dont_filter is set
         if self.dont_filter {

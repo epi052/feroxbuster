@@ -80,7 +80,7 @@ impl HeuristicTests {
     /// is 32 characters long. So, a length of 1 return a 32 character string,
     /// a length of 2 returns a 64 character string, and so on...
     fn unique_string(&self, length: usize) -> String {
-        log::trace!("enter: unique_string({})", length);
+        log::trace!("enter: unique_string({length})");
         let mut ids = vec![];
 
         for _ in 0..length {
@@ -89,7 +89,7 @@ impl HeuristicTests {
 
         let unique_id = ids.join("");
 
-        log::trace!("exit: unique_string -> {}", unique_id);
+        log::trace!("exit: unique_string -> {unique_id}");
         unique_id
     }
 
@@ -99,7 +99,7 @@ impl HeuristicTests {
     ///
     /// Any urls that are found to be alive are returned to the caller.
     pub async fn connectivity(&self, target_urls: &[String]) -> Result<Vec<String>> {
-        log::trace!("enter: connectivity_test({:?})", target_urls);
+        log::trace!("enter: connectivity_test({target_urls:?})");
 
         let mut good_urls = vec![];
 
@@ -133,7 +133,7 @@ impl HeuristicTests {
                             );
                         }
                     }
-                    log::warn!("{}", e);
+                    log::warn!("{e}");
                 }
             }
         }
@@ -142,13 +142,13 @@ impl HeuristicTests {
             bail!("Could not connect to any target provided");
         }
 
-        log::trace!("exit: connectivity_test -> {:?}", good_urls);
+        log::trace!("exit: connectivity_test -> {good_urls:?}");
         Ok(good_urls)
     }
 
     /// heuristic designed to detect when a server has directory listing enabled
     pub async fn directory_listing(&self, target_url: &str) -> Result<Option<DirListingResult>> {
-        log::trace!("enter: directory_listing({})", target_url);
+        log::trace!("enter: directory_listing({target_url})");
 
         let tgt = if !target_url.ends_with('/') {
             // if left unchanged, this function would be called against redirects that point to
@@ -201,14 +201,14 @@ impl HeuristicTests {
                 .send(Command::WriteToDisk(Box::new(ferox_msg)))
                 .unwrap_or_default();
 
-            log::info!("{}", msg);
+            log::info!("{msg}");
 
             let result = DirListingResult {
                 dir_list_type: dirlist_type,
                 response: ferox_response,
             };
 
-            log::trace!("exit: directory_listing -> {:?}", result);
+            log::trace!("exit: directory_listing -> {result:?}");
             return Ok(Some(result));
         }
 
@@ -242,7 +242,7 @@ impl HeuristicTests {
             };
 
             if dirlist_type.is_some() {
-                log::trace!("exit: detect_directory_listing -> {:?}", dirlist_type);
+                log::trace!("exit: detect_directory_listing -> {dirlist_type:?}");
                 return dirlist_type;
             }
         }
@@ -258,7 +258,7 @@ impl HeuristicTests {
         &self,
         target_url: &str,
     ) -> Result<Option<WildcardResult>> {
-        log::trace!("enter: detect_404_like_responses({:?})", target_url);
+        log::trace!("enter: detect_404_like_responses({target_url:?})");
 
         if self.handles.config.dont_filter {
             // early return, dont_filter scans don't need tested

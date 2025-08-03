@@ -51,7 +51,7 @@ lazy_static! {
 
 /// Create a Vec of Strings from the given wordlist then stores it inside an Arc
 fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
-    log::trace!("enter: get_unique_words_from_wordlist({})", path);
+    log::trace!("enter: get_unique_words_from_wordlist({path})");
     let mut trimmed_word = false;
 
     let file = File::open(path).with_context(|| format!("Could not open {path}"))?;
@@ -92,7 +92,7 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
 async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
-    log::trace!("enter: scan({:?}, {:?})", targets, handles);
+    log::trace!("enter: scan({targets:?}, {handles:?})");
 
     let scanned_urls = handles.ferox_scans()?;
 
@@ -132,7 +132,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
         scanned_urls.print_completed_bars(handles.wordlist.len())?;
     }
 
-    log::debug!("sending {:?} to be scanned as initial targets", targets);
+    log::debug!("sending {targets:?} to be scanned as initial targets");
     handles.send_scan_command(ScanInitialUrls(targets))?;
 
     log::trace!("exit: scan");
@@ -142,7 +142,7 @@ async fn scan(targets: Vec<String>, handles: Arc<Handles>) -> Result<()> {
 
 /// Get targets from either commandline or stdin, pass them back to the caller as a Result<Vec>
 async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
-    log::trace!("enter: get_targets({:?})", handles);
+    log::trace!("enter: get_targets({handles:?})");
 
     let mut targets = vec![];
 
@@ -203,7 +203,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
         }
     }
 
-    log::trace!("exit: get_targets -> {:?}", targets);
+    log::trace!("exit: get_targets -> {targets:?}");
 
     Ok(targets)
 }
@@ -580,7 +580,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 /// Single cleanup function that handles all the necessary drops/finishes etc required to gracefully
 /// shutdown the program
 async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
-    log::trace!("enter: clean_up({:?}, {:?})", handles, tasks);
+    log::trace!("enter: clean_up({handles:?}, {tasks:?})");
 
     let (tx, rx) = oneshot::channel::<bool>();
     handles.send_scan_command(JoinTasks(tx))?;

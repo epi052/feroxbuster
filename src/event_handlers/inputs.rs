@@ -44,7 +44,7 @@ impl TermInputHandler {
     /// Initialize the sigint and enter handlers that are responsible for handling initial user
     /// interaction during scans
     pub fn initialize(handles: Arc<Handles>) {
-        log::trace!("enter: initialize({:?})", handles);
+        log::trace!("enter: initialize({handles:?})");
 
         let handler = Self::new(handles);
         handler.start();
@@ -76,7 +76,7 @@ impl TermInputHandler {
 
     /// Writes the current state of the program to disk (if save_state is true) and then exits
     pub fn sigint_handler(handles: Arc<Handles>) -> Result<()> {
-        log::trace!("enter: sigint_handler({:?})", handles);
+        log::trace!("enter: sigint_handler({handles:?})");
 
         let filename = if !handles.config.target_url.is_empty() {
             // target url populated

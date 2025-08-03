@@ -77,7 +77,7 @@ impl StatsHandler {
     ///
     /// The consumer simply receives `StatCommands` and updates the given `Stats` object as appropriate
     async fn start(&mut self, output_file: &str) -> Result<()> {
-        log::trace!("enter: start({:?})", self);
+        log::trace!("enter: start({self:?})");
 
         let start = Instant::now();
 
@@ -176,7 +176,7 @@ impl StatsHandler {
 
         let event_handle = StatsHandle::new(data, tx);
 
-        log::trace!("exit: initialize -> ({:?}, {:?})", task, event_handle);
+        log::trace!("exit: initialize -> ({task:?}, {event_handle:?})");
 
         (task, event_handle)
     }

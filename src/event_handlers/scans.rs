@@ -134,7 +134,7 @@ impl ScanHandler {
 
         let event_handle = ScanHandle::new(data, tx);
 
-        log::trace!("exit: initialize -> ({:?}, {:?})", task, event_handle);
+        log::trace!("exit: initialize -> ({task:?}, {event_handle:?})");
 
         (task, event_handle)
     }
@@ -143,7 +143,7 @@ impl ScanHandler {
     ///
     /// The consumer simply receives `Command` and acts accordingly
     pub async fn start(&mut self) -> Result<()> {
-        log::trace!("enter: start({:?})", self);
+        log::trace!("enter: start({self:?})");
 
         while let Some(command) = self.receiver.recv().await {
             match command {
@@ -309,7 +309,7 @@ impl ScanHandler {
 
     /// wrapper around scanning a url to stay DRY
     async fn ordered_scan_url(&mut self, targets: Vec<String>, order: ScanOrder) -> Result<()> {
-        log::trace!("enter: ordered_scan_url({:?}, {:?})", targets, order);
+        log::trace!("enter: ordered_scan_url({targets:?}, {order:?})");
         let should_test_deny = !self.handles.config.url_denylist.is_empty()
             || !self.handles.config.regex_denylist.is_empty();
 
@@ -352,7 +352,7 @@ impl ScanHandler {
                 self.get_wordlist(scan.requests_made_so_far() as usize)?
             };
 
-            log::info!("scan handler received {} - beginning scan", target);
+            log::info!("scan handler received {target} - beginning scan");
 
             if matches!(order, ScanOrder::Initial) {
                 // keeps track of the initial targets' scan depths in order to enforce the
@@ -372,7 +372,7 @@ impl ScanHandler {
 
             let task = tokio::spawn(async move {
                 if let Err(e) = scanner.scan_url().await {
-                    log::warn!("{}", e);
+                    log::warn!("{e}");
                 }
             });
 
@@ -388,7 +388,7 @@ impl ScanHandler {
     }
 
     async fn try_recursion(&mut self, response: Box<FeroxResponse>) -> Result<()> {
-        log::trace!("enter: try_recursion({:?})", response,);
+        log::trace!("enter: try_recursion({response:?})",);
 
         if !self.handles.config.force_recursion && !response.is_directory() {
             // not a directory and --force-recursion wasn't used, quick exit

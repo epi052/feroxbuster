@@ -27,16 +27,17 @@ impl FeroxFilter for RegexFilter {
     /// Check `expression` against the response body, if the expression matches, the response
     /// should be filtered out
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
-        log::trace!("enter: should_filter_response({:?} {})", self, response);
+        log::trace!("enter: should_filter_response({self:?} {response})");
 
         let result = self.compiled.is_match(response.text());
         let other = response.headers().iter().any(|(k, v)| {
             self.compiled.is_match(k.as_str()) || self.compiled.is_match(v.to_str().unwrap_or(""))
         });
 
-        log::trace!("exit: should_filter_response -> {}", result || other);
+        let final_result = result || other;
+        log::trace!("exit: should_filter_response -> {final_result}");
 
-        result || other
+        final_result
     }
 
     /// Compare one SizeFilter to another

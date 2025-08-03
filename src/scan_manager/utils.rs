@@ -17,7 +17,7 @@ use tokio::time;
 /// of time has elapsed, kill all currently running scans and dump a state file to disk that can
 /// be used to resume any unfinished scan.
 pub async fn start_max_time_thread(handles: Arc<Handles>) {
-    log::trace!("enter: start_max_time_thread({:?})", handles);
+    log::trace!("enter: start_max_time_thread({handles:?})");
 
     // as this function has already made it through the parser, which calls is_match on
     // the value passed to --time-limit using TIMESPEC_REGEX; we can safely assume that
@@ -60,10 +60,10 @@ pub async fn start_max_time_thread(handles: Arc<Handles>) {
 /// Primary logic used to load a Configuration from disk and populate the appropriate data
 /// structures
 pub fn resume_scan(filename: &str) -> Configuration {
-    log::trace!("enter: resume_scan({})", filename);
+    log::trace!("enter: resume_scan({filename})");
 
     let file = File::open(filename).unwrap_or_else(|e| {
-        log::error!("{}", e);
+        log::error!("{e}");
         log::error!("Could not open state file, exiting");
         std::process::exit(1);
     });
@@ -77,7 +77,7 @@ pub fn resume_scan(filename: &str) -> Configuration {
     });
 
     let config = serde_json::from_value(conf.clone()).unwrap_or_else(|e| {
-        log::error!("{}", e);
+        log::error!("{e}");
         log::error!("Could not deserialize configuration found in state file, exiting");
         std::process::exit(1);
     });
@@ -92,7 +92,7 @@ pub fn resume_scan(filename: &str) -> Configuration {
         }
     }
 
-    log::trace!("exit: resume_scan -> {:?}", config);
+    log::trace!("exit: resume_scan -> {config:?}");
     config
 }
 

@@ -76,7 +76,7 @@ impl FeroxFilters {
             for filter in filters.iter() {
                 // wildcard.should_filter goes here
                 if filter.should_filter_response(response) {
-                    log::debug!("filtering response due to: {:?}", filter);
+                    log::debug!("filtering response due to: {filter:?}");
                     if filter.as_any().downcast_ref::<WildcardFilter>().is_some() {
                         tx_stats
                             .send(AddToUsizeField(WildcardsFiltered, 1))

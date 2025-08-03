@@ -171,14 +171,14 @@ impl FeroxScan {
         match self.task.try_lock() {
             Ok(mut guard) => {
                 if let Some(task) = guard.take() {
-                    log::trace!("aborting {:?}", self);
+                    log::trace!("aborting {self:?}");
                     task.abort();
                     self.set_status(ScanStatus::Cancelled)?;
                     self.stop_progress_bar(active_bars);
                 }
             }
             Err(e) => {
-                log::warn!("Could not acquire lock to abort scan (we're already waiting for its results): {:?} {}", self, e);
+                log::warn!("Could not acquire lock to abort scan (we're already waiting for its results): {self:?} {e}");
             }
         }
         log::trace!("exit: abort");
@@ -266,7 +266,7 @@ impl FeroxScan {
                 }
             }
             Err(_) => {
-                log::warn!("Could not unlock progress bar on {:?}", self);
+                log::warn!("Could not unlock progress bar on {self:?}");
 
                 let (active_bars, bar_limit) = if let Some(handles) = self.handles.as_ref() {
                     if let Ok(scans) = handles.ferox_scans() {
@@ -368,18 +368,18 @@ impl FeroxScan {
 
     /// await a task's completion, similar to a thread's join; perform necessary bookkeeping
     pub async fn join(&self) {
-        log::trace!("enter join({:?})", self);
+        log::trace!("enter join({self:?})");
         let mut guard = self.task.lock().await;
 
         if guard.is_some() {
             if let Some(task) = guard.take() {
                 task.await.unwrap();
                 self.set_status(ScanStatus::Complete)
-                    .unwrap_or_else(|e| log::warn!("Could not mark scan complete: {}", e))
+                    .unwrap_or_else(|e| log::warn!("Could not mark scan complete: {e}"))
             }
         }
 
-        log::trace!("exit join({:?})", self);
+        log::trace!("exit join({self:?})");
     }
     /// increment the value in question by 1
     pub(crate) fn add_403(&self) {
