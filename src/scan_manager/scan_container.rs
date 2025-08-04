@@ -469,6 +469,7 @@ impl FeroxScans {
                     .unwrap_or_default();
                 None
             }
+            Some(MenuCmd::AddScanPermits(value)) => Some(MenuCmdResult::NumPermits(value)),
             None => None,
         };
 

@@ -92,4 +92,7 @@ pub enum Command {
 
     /// query the Stats handler about the position of the overall progress bar
     QueryOverallBarEta(Sender<Duration>),
+
+    /// Add permits to the scan limiter (semaphore)
+    AddScanPermits(usize),
 }

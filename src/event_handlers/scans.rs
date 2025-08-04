@@ -197,6 +197,13 @@ impl ScanHandler {
                             .unwrap_or_default();
                     }
                 }
+                Command::AddScanPermits(value) => {
+                    let current = self.limiter.available_permits();
+
+                    self.limiter.add_permits(value);
+
+                    log::debug!("increased scan permits by {value} (was {current})");
+                }
                 _ => {} // no other commands needed for RecursionHandler
             }
         }

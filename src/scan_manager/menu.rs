@@ -21,6 +21,9 @@ pub enum MenuCmd {
 
     /// user wants to remove one or more active filters
     RemoveFilter(Vec<usize>),
+
+    /// user wants to increase the number of scan permits
+    AddScanPermits(usize),
 }
 
 /// Data container for a command result to be used internally by the ferox_scanner
@@ -34,6 +37,9 @@ pub enum MenuCmdResult {
 
     /// Filter to be added to current list of `FeroxFilters`
     Filter(Box<dyn FeroxFilter>),
+
+    /// number of permits to be added to the semaphore
+    NumPermits(usize),
 }
 
 /// Interactive scan cancellation menu
@@ -101,11 +107,18 @@ impl Menu {
         );
 
         let rm_filter_cmd = format!(
-            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)",
+            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)\n",
             style("r").red(),
             style("m-filter").red(),
             style("rm-filter").red(),
             style("r").red(),
+        );
+
+        let add_limit_cmd = format!(
+            "  {}[{}] VALUE (ex: {} 5)\n",
+            style("i").green(),
+            style("ncrease-limit").green(),
+            style("increase-limit").green(),
         );
 
         let mut commands = format!("{}:\n", style("Commands").bright().blue());
@@ -114,6 +127,7 @@ impl Menu {
         commands.push_str(&new_filter_cmd);
         commands.push_str(&valid_filters);
         commands.push_str(&rm_filter_cmd);
+        commands.push_str(&add_limit_cmd);
 
         let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name)) + 1;
 
@@ -296,6 +310,21 @@ impl Menu {
                 let indices = self.split_to_nums(&line);
 
                 Some(MenuCmd::RemoveFilter(indices))
+            }
+            'i' => {
+                // increase scan permits
+
+                // remove i[nc] from the command so it can be passed to the number
+                // splitter
+                let re = Regex::new(r"^[iI][ncreaseNCREASElimitLIMIT-]*").unwrap();
+                let replaced = re.replace(line, "").to_string().trim().to_string();
+
+                let Ok(value) = replaced.parse::<usize>() else {
+                    // couldn't parse a usize, so return None
+                    return None;
+                };
+
+                Some(MenuCmd::AddScanPermits(value))
             }
             _ => {
                 // invalid input

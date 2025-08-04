@@ -96,6 +96,13 @@ async fn check_for_user_input(
                     .send(AddFilter(filter))
                     .unwrap_or_else(|e| log::warn!("Could not add new filter: {e}"));
             }
+            Some(MenuCmdResult::NumPermits(num_permits)) => {
+                if num_permits > 0 {
+                    handles
+                        .send_scan_command(Command::AddScanPermits(num_permits))
+                        .unwrap_or_else(|e| log::warn!("Could not increase scan limit: {e}"));
+                }
+            }
             _ => {}
         }
     }
