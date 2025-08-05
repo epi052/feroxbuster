@@ -52,4 +52,31 @@ impl FeroxResponses {
         }
         false
     }
+
+    /// check whether a FeroxResponse is unique (i.e. has a different word count and status code)
+    pub fn is_unique(&self, other: &FeroxResponse) -> bool {
+        if let Ok(responses) = self.responses.read() {
+            for response in responses.iter() {
+                if other.status().is_redirection() {
+                    // if the other response is a redirect, we want to check content length
+                    // instead of word count. This is to catch cases where a redirect
+                    // response has the same word count within its body.
+                    // e.g. "Moved Permanently - redirecting to https://example.com"
+                    // which has a word count of 5 but so would
+                    // "Moved Permanently - redirecting to https://example.com/about"
+                    // and showing redirects to the user is something we should maintain
+                    if response.content_length() == other.content_length()
+                        && response.status() == other.status()
+                    {
+                        return false;
+                    }
+                } else if response.word_count() == other.word_count()
+                    && response.status() == other.status()
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
 }
