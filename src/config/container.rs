@@ -352,6 +352,10 @@ pub struct Configuration {
     /// number of directory scan bars to show at any given time, 0 is no limit
     #[serde(default)]
     pub limit_bars: usize,
+
+    /// only show unique responses based on status code and word count
+    #[serde(default)]
+    pub unique: bool,
 }
 
 impl Default for Configuration {
@@ -446,6 +450,7 @@ impl Default for Configuration {
             wordlist: wordlist(),
             dont_collect: ignored_extensions(),
             backup_extensions: backup_extensions(),
+            unique: false,
         }
     }
 }
@@ -510,6 +515,7 @@ impl Configuration {
     /// - **scan_dir_listings**: `false`
     /// - **request_file**: `None`
     /// - **protocol**: `https`
+    /// - **unique**: `false` (don't filter responses based on status code and word count)
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
@@ -962,6 +968,10 @@ impl Configuration {
             config.update_app = true;
         }
 
+        if came_from_cli!(args, "unique") {
+            config.unique = true;
+        }
+
         ////
         // organizational breakpoint; all options below alter the Client configuration
         ////
@@ -1279,6 +1289,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.resume_from, new.resume_from, "");
         update_if_not_default!(&mut conf.request_file, new.request_file, "");
         update_if_not_default!(&mut conf.protocol, new.protocol, request_protocol());
+        update_if_not_default!(&mut conf.unique, new.unique, false);
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());
