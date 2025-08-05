@@ -237,10 +237,7 @@ impl FeroxScanner {
 
         let scanned_urls = self.handles.ferox_scans()?;
         let ferox_scan = match scanned_urls.get_scan_by_url(&self.target_url) {
-            Some(scan) => {
-                scan.set_status(ScanStatus::Running)?;
-                scan
-            }
+            Some(scan) => scan,
             None => {
                 let msg = format!(
                     "Could not find FeroxScan associated with {}; this shouldn't happen... exiting",
@@ -256,7 +253,9 @@ impl FeroxScanner {
         // returns a permit. However, if no remaining permits are available, acquire (asynchronously)
         // waits until an outstanding permit is dropped, at which point, the freed permit is assigned
         // to the caller.
+        ferox_scan.set_status(ScanStatus::Waiting)?;
         let _permit = self.scan_limiter.acquire().await;
+        ferox_scan.set_status(ScanStatus::Running)?;
 
         if self.handles.config.scan_limit > 0 {
             scan_timer = Instant::now();
