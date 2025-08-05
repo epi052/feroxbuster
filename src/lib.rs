@@ -22,6 +22,7 @@ pub mod progress;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
+pub mod sync;
 mod traits;
 pub mod utils;
 mod extractor;

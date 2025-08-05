@@ -7,10 +7,10 @@ use console::style;
 use futures::{stream, StreamExt};
 use indicatif::ProgressBar;
 use lazy_static::lazy_static;
-use tokio::sync::Semaphore;
 
 use crate::filters::{create_similarity_filter, EmptyFilter, SimilarityFilter};
 use crate::heuristics::WildcardResult;
+use crate::sync::DynamicSemaphore;
 use crate::Command::AddFilter;
 use crate::{
     event_handlers::{
@@ -43,12 +43,13 @@ async fn check_for_user_input(
     pause_flag: &AtomicBool,
     scanned_urls: Arc<FeroxScans>,
     handles: Arc<Handles>,
+    limiter: Arc<DynamicSemaphore>,
 ) {
     log::trace!("enter: check_for_user_input({pause_flag:?}, SCANNED_URLS, HANDLES)",);
 
     // todo write a test or two for this function at some point...
     if pause_flag.load(Ordering::Acquire) {
-        match scanned_urls.pause(true, handles.clone()).await {
+        match scanned_urls.pause(true, handles.clone(), limiter).await {
             Some(MenuCmdResult::Url(url)) => {
                 // user wants to add a new url to be scanned, need to send
                 // it over to the event handler for processing
@@ -96,6 +97,16 @@ async fn check_for_user_input(
                     .send(AddFilter(filter))
                     .unwrap_or_else(|e| log::warn!("Could not add new filter: {e}"));
             }
+            Some(MenuCmdResult::NumPermitsToAdd(num_permits)) => {
+                handles
+                    .send_scan_command(Command::AddScanPermits(num_permits))
+                    .unwrap_or_else(|e| log::warn!("Could not increase scan limit: {e}"));
+            }
+            Some(MenuCmdResult::NumPermitsToSubtract(num_permits)) => {
+                handles
+                    .send_scan_command(Command::SubtractScanPermits(num_permits))
+                    .unwrap_or_else(|e| log::warn!("Could not decrease scan limit: {e}"));
+            }
             _ => {}
         }
     }
@@ -118,7 +129,7 @@ pub struct FeroxScanner {
     wordlist: Arc<Vec<String>>,
 
     /// limiter that restricts the number of active FeroxScanners
-    scan_limiter: Arc<Semaphore>,
+    scan_limiter: Arc<DynamicSemaphore>,
 }
 
 /// FeroxScanner implementation
@@ -128,7 +139,7 @@ impl FeroxScanner {
         target_url: &str,
         order: ScanOrder,
         wordlist: Arc<Vec<String>>,
-        scan_limiter: Arc<Semaphore>,
+        scan_limiter: Arc<DynamicSemaphore>,
         handles: Arc<Handles>,
     ) -> Self {
         Self {
@@ -156,11 +167,19 @@ impl FeroxScanner {
                 let scanned_urls_clone = scanned_urls.clone();
                 let requester_clone = requester.clone();
                 let handles_clone = self.handles.clone();
+                let limiter_clone = self.scan_limiter.clone();
+
                 (
                     tokio::spawn(async move {
                         // for every word in the wordlist, check to see if user has pressed enter
                         // in order to go into the interactive menu
-                        check_for_user_input(&PAUSE_SCAN, scanned_urls_clone, handles_clone).await;
+                        check_for_user_input(
+                            &PAUSE_SCAN,
+                            scanned_urls_clone,
+                            handles_clone,
+                            limiter_clone,
+                        )
+                        .await;
 
                         // after checking for user input, send the request
                         requester_clone
