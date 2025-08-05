@@ -177,7 +177,7 @@ impl Menu {
     /// print time remaining in a human-readable format
     pub(super) fn print_scan_limit(&self, limiter: Arc<DynamicSemaphore>) {
         let inner = format!(
-            "🦥 Scan limit {}; running {} 🦥",
+            "🦥 Scan limit {}; active {} 🦥",
             HumanCount(limiter.current_capacity() as u64),
             HumanCount(limiter.permits_in_use() as u64)
         );
@@ -333,7 +333,7 @@ impl Menu {
                 // remove s[et-limit] from the command so it can be passed to the number
                 // splitter
                 let re = Regex::new(r"^[sS][etETlimitLIMIT-]*").unwrap();
-                let line = re.replace(line, "").to_string().trim().to_string();
+                let line = re.replace(line, "").trim().to_string();
 
                 let Ok(value) = line.parse::<usize>() else {
                     return None;
