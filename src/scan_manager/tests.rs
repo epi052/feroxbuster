@@ -3,6 +3,7 @@ use crate::filters::{
     FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
     WordsFilter,
 };
+use crate::sync::DynamicSemaphore;
 use crate::{
     config::{Configuration, OutputLevel},
     event_handlers::Handles,
@@ -48,7 +49,8 @@ async fn scanner_pause_scan_with_finished_spinner() {
         PAUSE_SCAN.store(false, Ordering::Relaxed);
     });
 
-    urls.pause(false, handles).await;
+    urls.pause(false, handles, Arc::new(DynamicSemaphore::new(100)))
+        .await;
 
     assert!(now.elapsed() > expected);
 }

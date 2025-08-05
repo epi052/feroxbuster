@@ -95,4 +95,7 @@ pub enum Command {
 
     /// Add permits to the scan limiter (semaphore)
     AddScanPermits(usize),
+
+    /// Subtract permits from the scan limiter (semaphore)
+    SubtractScanPermits(usize),
 }
