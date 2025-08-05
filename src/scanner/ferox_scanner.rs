@@ -257,10 +257,6 @@ impl FeroxScanner {
         // waits until an outstanding permit is dropped, at which point, the freed permit is assigned
         // to the caller.
         let _permit = self.scan_limiter.acquire().await;
-        log::warn!(
-            "Acquired scan permit for {} -> {_permit:?}",
-            self.target_url
-        );
 
         if self.handles.config.scan_limit > 0 {
             scan_timer = Instant::now();
