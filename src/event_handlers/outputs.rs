@@ -483,6 +483,7 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
+        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -490,6 +491,7 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
+            unique,
         };
 
         println!("{toh:?}");
@@ -503,6 +505,7 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
+        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -510,6 +513,7 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
+            unique,
         };
 
         let expected: Vec<_> = vec![
@@ -548,6 +552,7 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
+        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -555,6 +560,7 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
+            unique,
         };
 
         let expected: Vec<_> = vec![
@@ -593,6 +599,7 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
+        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -600,6 +607,7 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
+            unique,
         };
 
         let expected: Vec<_> = vec![
