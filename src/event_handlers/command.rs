@@ -98,4 +98,8 @@ pub enum Command {
 
     /// Subtract permits from the scan limiter (semaphore)
     SubtractScanPermits(usize),
+
+    /// Toggle the unique output flag, which determines whether or not to only
+    /// report unique responses
+    ToggleUnique,
 }

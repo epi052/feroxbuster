@@ -16,7 +16,11 @@ use crate::{
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
     CommandReceiver, CommandSender, Joiner,
 };
-use std::sync::Arc;
+
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use url::Url;
 
 #[derive(Debug, Copy, Clone)]
@@ -148,6 +152,9 @@ pub struct TermOutHandler {
 
     /// handles instance
     handles: Option<Arc<Handles>>,
+
+    /// flag indicating whether only unique responses should be processed
+    unique: AtomicBool,
 }
 
 /// implementation of TermOutHandler
@@ -160,12 +167,15 @@ impl TermOutHandler {
         file_task: Option<Joiner>,
         config: Arc<Configuration>,
     ) -> Self {
+        let unique_flag = AtomicBool::new(config.unique);
+
         Self {
             receiver,
             tx_file,
             file_task,
             config,
             handles: None,
+            unique: unique_flag,
         }
     }
 
@@ -224,6 +234,10 @@ impl TermOutHandler {
                 Command::AddHandles(handles) => {
                     self.handles = Some(handles);
                 }
+                Command::ToggleUnique => {
+                    let current = self.unique.load(Ordering::Relaxed);
+                    self.unique.store(!current, Ordering::Relaxed);
+                }
                 Command::Exit => {
                     if self.file_task.is_some() && self.tx_file.send(Command::Exit).is_ok() {
                         self.file_task.as_mut().unwrap().await??; // wait for death
@@ -261,7 +275,7 @@ impl TermOutHandler {
             let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
             let mut should_process_response = contains_sentry && unknown_sentry;
 
-            if self.config.unique {
+            if self.unique.load(Ordering::Relaxed) {
                 let is_unique = RESPONSES.is_unique(&resp);
                 if !is_unique {
                     log::debug!(

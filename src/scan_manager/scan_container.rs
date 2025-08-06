@@ -494,6 +494,7 @@ impl FeroxScans {
                     ))
                 }
             }
+            Some(MenuCmd::ToggleUnique) => Some(MenuCmdResult::ToggleUnique),
             None => None,
         };
 
