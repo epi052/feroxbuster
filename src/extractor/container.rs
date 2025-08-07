@@ -221,7 +221,9 @@ impl<'a> Extractor<'a> {
                                 }
 
                                 // request and report assumed file
-                                if resp.is_file() || !resp.is_directory() {
+                                if (resp.is_file() || !resp.is_directory())
+                                    && !c_handles.config.force_recursion
+                                {
                                     log::debug!("Extracted File: {resp}");
 
                                     c_scanned_urls.add_file_scan(
