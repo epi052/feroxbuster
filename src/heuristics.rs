@@ -6,9 +6,8 @@ use futures::future;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
-use crate::filters::{SimilarityFilter, WildcardFilter, SIM_HASHER};
+use crate::filters::{SimilarityFilter, WildcardFilter};
 use crate::message::FeroxMessage;
-use crate::nlp::preprocess;
 use crate::scanner::RESPONSES;
 use crate::{
     config::OutputLevel,

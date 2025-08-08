@@ -1,4 +1,5 @@
 use super::*;
+use crate::filters::similarity::MAX_HAMMING_DISTANCE;
 use crate::nlp::preprocess;
 use crate::DEFAULT_METHOD;
 use ::regex::Regex;
@@ -209,6 +210,7 @@ fn similarity_filter_is_accurate() {
     let mut filter = SimilarityFilter {
         hash: SIM_HASHER.create_signature(["kitten"].iter()),
         original_url: "".to_string(),
+        cutoff: MAX_HAMMING_DISTANCE,
     };
 
     // kitten/sitting is 57% similar, so a threshold of 95 should not be filtered
@@ -234,11 +236,13 @@ fn similarity_filter_as_any() {
     let filter = SimilarityFilter {
         hash: 1,
         original_url: "".to_string(),
+        cutoff: MAX_HAMMING_DISTANCE,
     };
 
     let filter2 = SimilarityFilter {
         hash: 1,
         original_url: "".to_string(),
+        cutoff: MAX_HAMMING_DISTANCE,
     };
 
     assert!(filter.box_eq(filter2.as_any()));

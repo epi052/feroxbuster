@@ -152,7 +152,8 @@ mod tests {
             filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
             &SimilarityFilter {
                 hash: 0,
-                original_url: "http://localhost".to_string()
+                original_url: "http://localhost".to_string(),
+                cutoff: MAX_HAMMING_DISTANCE,
             }
         );
 
@@ -189,7 +190,8 @@ mod tests {
             filter,
             SimilarityFilter {
                 hash: 14897447612059286329,
-                original_url: srv.url("/")
+                original_url: srv.url("/"),
+                cutoff: MAX_HAMMING_DISTANCE,
             }
         );
     }
