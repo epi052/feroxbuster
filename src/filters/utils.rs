@@ -1,11 +1,10 @@
 use super::FeroxFilter;
 use super::SimilarityFilter;
 use crate::event_handlers::Handles;
-use crate::filters::similarity::SIM_HASHER;
-use crate::nlp::preprocess;
 use crate::response::FeroxResponse;
 use crate::utils::{logged_request, parse_url_with_raw_path};
 use crate::DEFAULT_METHOD;
+use crate::NEAR_DUPLICATE_DISTANCE;
 use anyhow::Result;
 use regex::Regex;
 use std::sync::Arc;
@@ -40,12 +39,9 @@ pub(crate) async fn create_similarity_filter(
         fr.parse_extension(handles.clone())?;
     }
 
-    let hash = SIM_HASHER.create_signature(preprocess(fr.text()).iter());
+    let filter = SimilarityFilter::from(&fr);
 
-    Ok(SimilarityFilter {
-        hash,
-        original_url: similarity_filter.to_string(),
-    })
+    Ok(filter)
 }
 
 /// used in conjunction with the Scan Management Menu
@@ -92,10 +88,11 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
             }
         }
         "similarity" => {
-            return Some(Box::new(SimilarityFilter {
-                hash: 0,
-                original_url: filter_value.to_string(),
-            }));
+            return Some(Box::new(SimilarityFilter::new(
+                0,
+                filter_value.to_string(),
+                NEAR_DUPLICATE_DISTANCE,
+            )));
         }
         _ => (),
     }
@@ -155,7 +152,8 @@ mod tests {
             filter.as_any().downcast_ref::<SimilarityFilter>().unwrap(),
             &SimilarityFilter {
                 hash: 0,
-                original_url: "http://localhost".to_string()
+                original_url: "http://localhost".to_string(),
+                cutoff: NEAR_DUPLICATE_DISTANCE,
             }
         );
 
@@ -192,7 +190,8 @@ mod tests {
             filter,
             SimilarityFilter {
                 hash: 14897447612059286329,
-                original_url: srv.url("/")
+                original_url: srv.url("/"),
+                cutoff: NEAR_DUPLICATE_DISTANCE,
             }
         );
     }

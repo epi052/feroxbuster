@@ -393,6 +393,13 @@ pub fn initialize() -> Command {
                 .help(
                     "Status Codes to include (allow list) (default: All Status Codes)",
                 ),
+        )
+        .arg(
+            Arg::new("unique")
+                .long("unique")
+                .num_args(0)
+                .help_heading("Response filters")
+                .help("Only show unique responses")
         );
 
     /////////////////////////////////////////////////////////////////////

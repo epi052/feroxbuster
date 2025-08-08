@@ -5,6 +5,7 @@ use crate::{
         Command::{AddError, AddToUsizeField},
         Handles,
     },
+    filters::SimilarityFilter,
     scan_manager::ScanOrder,
     statistics::{
         StatError::Other,
@@ -15,7 +16,7 @@ use crate::{
         logged_request, make_request, parse_url_with_raw_path, send_try_recursion_command,
         should_deny_url,
     },
-    ExtractionResult, DEFAULT_METHOD,
+    ExtractionResult, DEFAULT_METHOD, UNIQUE_DISTANCE,
 };
 use anyhow::{bail, Context, Result};
 use futures::StreamExt;
@@ -218,6 +219,17 @@ impl<'a> Extractor<'a> {
                                     .should_filter_response(&resp, c_handles.stats.tx.clone())
                                 {
                                     return;
+                                }
+
+                                if c_handles.config.unique {
+                                    // if the filter above didn't filter it out, add it as a unique filter
+                                    let mut unique_filter = SimilarityFilter::from(&resp);
+                                    unique_filter.cutoff = UNIQUE_DISTANCE;
+                                    c_handles
+                                        .filters
+                                        .data
+                                        .push(Box::new(unique_filter))
+                                        .unwrap_or_default();
                                 }
 
                                 // request and report assumed file
