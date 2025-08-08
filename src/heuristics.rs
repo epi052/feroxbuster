@@ -424,12 +424,7 @@ impl HeuristicTests {
                 //
                 // in addition, we'll create a similarity filter as a fallback
                 for resp in wildcard_responses {
-                    let hash = SIM_HASHER.create_signature(preprocess(resp.text()).iter());
-
-                    let sim_filter = SimilarityFilter {
-                        hash,
-                        original_url: resp.url().to_string(),
-                    };
+                    let sim_filter = SimilarityFilter::from(resp);
 
                     self.handles
                         .filters

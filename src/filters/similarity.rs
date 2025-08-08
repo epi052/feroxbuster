@@ -13,7 +13,7 @@ lazy_static! {
 ///
 /// ref: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/33026.pdf
 /// section: 4.1 Choice of Parameters
-const MAX_HAMMING_DISTANCE: usize = 3;
+pub const MAX_HAMMING_DISTANCE: usize = 3;
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on the similarity of a
 /// Response body with a known response; specified using --filter-similar-to
@@ -24,6 +24,29 @@ pub struct SimilarityFilter {
 
     /// Url originally requested for the similarity filter
     pub original_url: String,
+
+    pub cutoff: usize,
+}
+
+impl SimilarityFilter {
+    /// Create a new SimilarityFilter
+    pub fn new(hash: u64, original_url: String, cutoff: usize) -> Self {
+        Self {
+            hash,
+            original_url,
+            cutoff,
+        }
+    }
+}
+
+impl From<&FeroxResponse> for SimilarityFilter {
+    fn from(response: &FeroxResponse) -> Self {
+        Self::new(
+            SIM_HASHER.create_signature(preprocess(response.text()).iter()),
+            response.url().to_string(),
+            MAX_HAMMING_DISTANCE,
+        )
+    }
 }
 
 /// implementation of FeroxFilter for SimilarityFilter

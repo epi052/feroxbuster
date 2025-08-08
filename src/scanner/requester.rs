@@ -25,6 +25,7 @@ use crate::{
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
+    filters::SimilarityFilter,
     nlp::{Document, TfIdf},
     response::FeroxResponse,
     scan_manager::{FeroxScan, ScanStatus},
@@ -443,6 +444,12 @@ impl Requester {
                     .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
                 {
                     continue;
+                }
+
+                if self.handles.config.unique {
+                    let mut unique_filter = SimilarityFilter::from(&ferox_response);
+                    unique_filter.cutoff = 1; // set cutoff to 1 for uniqueness vs 3 for near-duplicate
+                    self.handles.filters.data.push(Box::new(unique_filter))?;
                 }
 
                 if !self.handles.config.no_recursion && self.handles.config.force_recursion {

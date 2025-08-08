@@ -273,21 +273,7 @@ impl TermOutHandler {
             };
 
             let unknown_sentry = !RESPONSES.contains(&resp); // !contains == unknown
-            let mut should_process_response = contains_sentry && unknown_sentry;
-
-            if self.unique.load(Ordering::Relaxed) {
-                let is_unique = RESPONSES.is_unique(&resp);
-                if !is_unique {
-                    log::debug!(
-                        "Response is not unique; not processing: [{}] {} {}w {}c",
-                        resp.status(),
-                        resp.url(),
-                        resp.word_count(),
-                        resp.content_length()
-                    );
-                }
-                should_process_response = should_process_response && is_unique;
-            }
+            let should_process_response = contains_sentry && unknown_sentry;
 
             if should_process_response {
                 // print to stdout
