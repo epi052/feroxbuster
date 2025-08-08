@@ -15,7 +15,7 @@ use crate::{
     statistics::StatField::{ResourcesDiscovered, TotalExpected},
     traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
-    CommandReceiver, CommandSender, Joiner,
+    CommandReceiver, CommandSender, Joiner, UNIQUE_DISTANCE,
 };
 
 use std::sync::Arc;
@@ -353,7 +353,7 @@ impl TermOutHandler {
 
                     if handles.config.unique {
                         let mut unique_filter = SimilarityFilter::from(&ferox_response);
-                        unique_filter.cutoff = 1; // set cutoff to 1 for uniqueness vs 3 for near-duplicate
+                        unique_filter.cutoff = UNIQUE_DISTANCE;
                         handles.filters.data.push(Box::new(unique_filter))?;
                     }
 

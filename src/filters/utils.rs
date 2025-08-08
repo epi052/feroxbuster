@@ -1,10 +1,10 @@
 use super::FeroxFilter;
 use super::SimilarityFilter;
 use crate::event_handlers::Handles;
-use crate::filters::similarity::MAX_HAMMING_DISTANCE;
 use crate::response::FeroxResponse;
 use crate::utils::{logged_request, parse_url_with_raw_path};
 use crate::DEFAULT_METHOD;
+use crate::NEAR_DUPLICATE_DISTANCE;
 use anyhow::Result;
 use regex::Regex;
 use std::sync::Arc;
@@ -91,7 +91,7 @@ pub(crate) fn filter_lookup(filter_type: &str, filter_value: &str) -> Option<Box
             return Some(Box::new(SimilarityFilter::new(
                 0,
                 filter_value.to_string(),
-                MAX_HAMMING_DISTANCE,
+                NEAR_DUPLICATE_DISTANCE,
             )));
         }
         _ => (),
@@ -153,7 +153,7 @@ mod tests {
             &SimilarityFilter {
                 hash: 0,
                 original_url: "http://localhost".to_string(),
-                cutoff: MAX_HAMMING_DISTANCE,
+                cutoff: NEAR_DUPLICATE_DISTANCE,
             }
         );
 
@@ -191,7 +191,7 @@ mod tests {
             SimilarityFilter {
                 hash: 14897447612059286329,
                 original_url: srv.url("/"),
-                cutoff: MAX_HAMMING_DISTANCE,
+                cutoff: NEAR_DUPLICATE_DISTANCE,
             }
         );
     }

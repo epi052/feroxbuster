@@ -16,7 +16,7 @@ use crate::{
         logged_request, make_request, parse_url_with_raw_path, send_try_recursion_command,
         should_deny_url,
     },
-    ExtractionResult, DEFAULT_METHOD,
+    ExtractionResult, DEFAULT_METHOD, UNIQUE_DISTANCE,
 };
 use anyhow::{bail, Context, Result};
 use futures::StreamExt;
@@ -224,7 +224,7 @@ impl<'a> Extractor<'a> {
                                 if c_handles.config.unique {
                                     // if the filter above didn't filter it out, add it as a unique filter
                                     let mut unique_filter = SimilarityFilter::from(&resp);
-                                    unique_filter.cutoff = 1; // set cutoff to 1 for uniqueness vs 3 for near-duplicate
+                                    unique_filter.cutoff = UNIQUE_DISTANCE;
                                     c_handles
                                         .filters
                                         .data

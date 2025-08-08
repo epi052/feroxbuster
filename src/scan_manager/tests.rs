@@ -1,7 +1,7 @@
 use super::*;
 use crate::filters::{
     FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
-    WordsFilter, MAX_HAMMING_DISTANCE,
+    WordsFilter,
 };
 use crate::sync::DynamicSemaphore;
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     scanner::RESPONSES,
     statistics::Stats,
     traits::FeroxSerialize,
-    SLEEP_DURATION, VERSION,
+    NEAR_DUPLICATE_DISTANCE, SLEEP_DURATION, VERSION,
 };
 use indicatif::ProgressBar;
 use predicates::prelude::*;
@@ -445,7 +445,7 @@ fn feroxstates_feroxserialize_implementation() {
         .push(Box::new(SimilarityFilter {
             hash: 1,
             original_url: "http://localhost:12345/".to_string(),
-            cutoff: MAX_HAMMING_DISTANCE,
+            cutoff: NEAR_DUPLICATE_DISTANCE,
         }))
         .unwrap();
 

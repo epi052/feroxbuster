@@ -32,7 +32,7 @@ use crate::{
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
     utils::{logged_request, send_try_recursion_command, should_deny_url},
-    HIGH_ERROR_RATIO,
+    HIGH_ERROR_RATIO, UNIQUE_DISTANCE,
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
@@ -448,7 +448,7 @@ impl Requester {
 
                 if self.handles.config.unique {
                     let mut unique_filter = SimilarityFilter::from(&ferox_response);
-                    unique_filter.cutoff = 1; // set cutoff to 1 for uniqueness vs 3 for near-duplicate
+                    unique_filter.cutoff = UNIQUE_DISTANCE;
                     self.handles.filters.data.push(Box::new(unique_filter))?;
                 }
 

@@ -1,5 +1,6 @@
 use super::*;
 use crate::nlp::preprocess;
+use crate::NEAR_DUPLICATE_DISTANCE;
 use gaoya::simhash::{SimHash, SimHashBits, SimSipHasher64};
 use lazy_static::lazy_static;
 
@@ -8,12 +9,6 @@ lazy_static! {
     pub static ref SIM_HASHER: SimHash<SimSipHasher64, u64, 64> =
         SimHash::<SimSipHasher64, u64, 64>::new(SimSipHasher64::new(1, 2));
 }
-
-/// maximum hamming distance allowed between two signatures
-///
-/// ref: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/33026.pdf
-/// section: 4.1 Choice of Parameters
-pub const MAX_HAMMING_DISTANCE: usize = 3;
 
 /// Simple implementor of FeroxFilter; used to filter out responses based on the similarity of a
 /// Response body with a known response; specified using --filter-similar-to
@@ -25,6 +20,7 @@ pub struct SimilarityFilter {
     /// Url originally requested for the similarity filter
     pub original_url: String,
 
+    /// Maximum hamming distance allowed between two signatures
     pub cutoff: usize,
 }
 
@@ -44,7 +40,7 @@ impl From<&FeroxResponse> for SimilarityFilter {
         Self::new(
             SIM_HASHER.create_signature(preprocess(response.text()).iter()),
             response.url().to_string(),
-            MAX_HAMMING_DISTANCE,
+            NEAR_DUPLICATE_DISTANCE,
         )
     }
 }
@@ -55,7 +51,7 @@ impl FeroxFilter for SimilarityFilter {
     /// --filter-similar-to
     fn should_filter_response(&self, response: &FeroxResponse) -> bool {
         let other = SIM_HASHER.create_signature(preprocess(response.text()).iter());
-        self.hash.hamming_distance(&other) <= MAX_HAMMING_DISTANCE
+        self.hash.hamming_distance(&other) <= NEAR_DUPLICATE_DISTANCE
     }
 
     /// Compare one SimilarityFilter to another
