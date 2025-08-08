@@ -1,10 +1,12 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::filters::filter_lookup;
 use crate::progress::PROGRESS_BAR;
+use crate::sync::DynamicSemaphore;
 use crate::traits::FeroxFilter;
 use console::{measure_text_width, pad_str, style, Alignment, Term};
-use indicatif::{HumanDuration, ProgressDrawTarget};
+use indicatif::{HumanCount, HumanDuration, ProgressDrawTarget};
 use regex::Regex;
 
 /// Data container for a command entered by the user interactively
@@ -21,6 +23,9 @@ pub enum MenuCmd {
 
     /// user wants to remove one or more active filters
     RemoveFilter(Vec<usize>),
+
+    /// user wants to set the number of scan permits
+    SetScanPermits(usize),
 }
 
 /// Data container for a command result to be used internally by the ferox_scanner
@@ -34,6 +39,12 @@ pub enum MenuCmdResult {
 
     /// Filter to be added to current list of `FeroxFilters`
     Filter(Box<dyn FeroxFilter>),
+
+    /// number of permits to be added to the semaphore
+    NumPermitsToAdd(usize),
+
+    /// number of permits to be subtracted from the semaphore
+    NumPermitsToSubtract(usize),
 }
 
 /// Interactive scan cancellation menu
@@ -101,11 +112,18 @@ impl Menu {
         );
 
         let rm_filter_cmd = format!(
-            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)",
+            "  {}[{}] FILTER_ID[-FILTER_ID[,...]] (ex: {} 1-4,8,9-13 or {} 3)\n",
             style("r").red(),
             style("m-filter").red(),
             style("rm-filter").red(),
             style("r").red(),
+        );
+
+        let set_limit_cmd = format!(
+            "  {}[{}] VALUE (ex: {} 5)",
+            style("s").green(),
+            style("et-limit").green(),
+            style("set-limit").green(),
         );
 
         let mut commands = format!("{}:\n", style("Commands").bright().blue());
@@ -114,6 +132,7 @@ impl Menu {
         commands.push_str(&new_filter_cmd);
         commands.push_str(&valid_filters);
         commands.push_str(&rm_filter_cmd);
+        commands.push_str(&set_limit_cmd);
 
         let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name)) + 1;
 
@@ -148,9 +167,20 @@ impl Menu {
         self.println(&self.footer);
     }
 
-    /// print menu footer
+    /// print time remaining in a human-readable format
     pub(super) fn print_eta(&self, eta: Duration) {
         let inner = format!("⏳ {} remaining ⏳", HumanDuration(eta));
+        let padded_eta = pad_str(&inner, self.longest, Alignment::Center, None);
+        self.println(&format!("{padded_eta}\n{}", self.border));
+    }
+
+    /// print time remaining in a human-readable format
+    pub(super) fn print_scan_limit(&self, limiter: Arc<DynamicSemaphore>) {
+        let inner = format!(
+            "🦥 Scan limit {}; active {} 🦥",
+            HumanCount(limiter.current_capacity() as u64),
+            HumanCount(limiter.permits_in_use() as u64)
+        );
         let padded_eta = pad_str(&inner, self.longest, Alignment::Center, None);
         self.println(&format!("{padded_eta}\n{}", self.border));
     }
@@ -296,6 +326,25 @@ impl Menu {
                 let indices = self.split_to_nums(&line);
 
                 Some(MenuCmd::RemoveFilter(indices))
+            }
+            's' => {
+                // set scan permits
+
+                // remove s[et-limit] from the command so it can be passed to the number
+                // splitter
+                let re = Regex::new(r"^[sS][etETlimitLIMIT-]*").unwrap();
+                let line = re.replace(line, "").trim().to_string();
+
+                let Ok(value) = line.parse::<usize>() else {
+                    return None;
+                };
+
+                if value == 0 {
+                    // if the value is 0, we don't want to set the limit, so return None
+                    return None;
+                }
+
+                Some(MenuCmd::SetScanPermits(value))
             }
             _ => {
                 // invalid input

@@ -185,6 +185,9 @@ pub struct Banner {
 
     /// represents Configuration.limit_bars
     limit_bars: BannerEntry,
+
+    /// represents Configuration.unique
+    unique: BannerEntry,
 }
 
 /// implementation of Banner
@@ -429,6 +432,8 @@ impl Banner {
         let collect_words =
             BannerEntry::new("🤑", "Collect Words", &config.collect_words.to_string());
 
+        let unique = BannerEntry::new("🎲", "Unique Responses", &config.unique.to_string());
+
         Self {
             targets,
             status_codes,
@@ -480,6 +485,7 @@ impl Banner {
             scan_dir_listings,
             protocol,
             limit_bars,
+            unique,
             version: VERSION.to_string(),
             update_status: UpdateStatus::Unknown,
         }
@@ -776,6 +782,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         if !config.time_limit.is_empty() {
             writeln!(&mut writer, "{}", self.time_limit)?;
+        }
+
+        if config.unique {
+            writeln!(&mut writer, "{}", self.unique)?;
         }
 
         if matches!(self.update_status, UpdateStatus::OutOfDate) {
