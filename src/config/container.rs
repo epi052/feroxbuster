@@ -515,7 +515,7 @@ impl Configuration {
     /// - **scan_dir_listings**: `false`
     /// - **request_file**: `None`
     /// - **protocol**: `https`
-    /// - **unique**: `false` (don't filter responses based on status code and word count)
+    /// - **unique**: `false`
     ///
     /// After which, any values defined in a
     /// [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file will override the
