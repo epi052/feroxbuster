@@ -7,6 +7,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     config::Configuration,
+    filters::SimilarityFilter,
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     scanner::RESPONSES,
@@ -17,10 +18,7 @@ use crate::{
     CommandReceiver, CommandSender, Joiner,
 };
 
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::{atomic::AtomicBool, Arc};
 use url::Url;
 
 #[derive(Debug, Copy, Clone)]
@@ -234,10 +232,6 @@ impl TermOutHandler {
                 Command::AddHandles(handles) => {
                     self.handles = Some(handles);
                 }
-                Command::ToggleUnique => {
-                    let current = self.unique.load(Ordering::Relaxed);
-                    self.unique.store(!current, Ordering::Relaxed);
-                }
                 Command::Exit => {
                     if self.file_task.is_some() && self.tx_file.send(Command::Exit).is_ok() {
                         self.file_task.as_mut().unwrap().await??; // wait for death
@@ -361,6 +355,12 @@ impl TermOutHandler {
                     {
                         // response was filtered for one reason or another, don't process it
                         continue;
+                    }
+
+                    if handles.config.unique {
+                        let mut unique_filter = SimilarityFilter::from(&ferox_response);
+                        unique_filter.cutoff = 1; // set cutoff to 1 for uniqueness vs 3 for near-duplicate
+                        handles.filters.data.push(Box::new(unique_filter))?;
                     }
 
                     self.process_response(

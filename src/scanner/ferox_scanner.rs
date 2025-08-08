@@ -107,14 +107,6 @@ async fn check_for_user_input(
                     .send_scan_command(Command::SubtractScanPermits(num_permits))
                     .unwrap_or_else(|e| log::warn!("Could not decrease scan limit: {e}"));
             }
-            Some(MenuCmdResult::ToggleUnique) => {
-                handles
-                    .output
-                    .send(Command::ToggleUnique)
-                    .unwrap_or_else(|e| {
-                        log::warn!("Could not toggle unique output: {e}");
-                    });
-            }
             _ => {}
         }
     }

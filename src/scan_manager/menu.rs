@@ -26,9 +26,6 @@ pub enum MenuCmd {
 
     /// user wants to set the number of scan permits
     SetScanPermits(usize),
-
-    /// user wants to toggle unique output
-    ToggleUnique,
 }
 
 /// Data container for a command result to be used internally by the ferox_scanner
@@ -48,9 +45,6 @@ pub enum MenuCmdResult {
 
     /// number of permits to be subtracted from the semaphore
     NumPermitsToSubtract(usize),
-
-    /// toggle unique output
-    ToggleUnique,
 }
 
 /// Interactive scan cancellation menu
@@ -126,16 +120,10 @@ impl Menu {
         );
 
         let set_limit_cmd = format!(
-            "  {}[{}] VALUE (ex: {} 5)\n",
+            "  {}[{}] VALUE (ex: {} 5)",
             style("s").green(),
             style("et-limit").green(),
             style("set-limit").green(),
-        );
-
-        let uniq_cmd = format!(
-            "  {}[{}] (toggles unique responses flag)",
-            style("u").red(),
-            style("nique").red(),
         );
 
         let mut commands = format!("{}:\n", style("Commands").bright().blue());
@@ -145,7 +133,6 @@ impl Menu {
         commands.push_str(&valid_filters);
         commands.push_str(&rm_filter_cmd);
         commands.push_str(&set_limit_cmd);
-        commands.push_str(&uniq_cmd);
 
         let longest = measure_text_width(&canx_cmd).max(measure_text_width(&name)) + 1;
 
@@ -358,10 +345,6 @@ impl Menu {
                 }
 
                 Some(MenuCmd::SetScanPermits(value))
-            }
-            'u' => {
-                // toggle unique output
-                Some(MenuCmd::ToggleUnique)
             }
             _ => {
                 // invalid input
