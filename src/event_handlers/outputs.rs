@@ -18,7 +18,7 @@ use crate::{
     CommandReceiver, CommandSender, Joiner,
 };
 
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::Arc;
 use url::Url;
 
 #[derive(Debug, Copy, Clone)]
@@ -150,9 +150,6 @@ pub struct TermOutHandler {
 
     /// handles instance
     handles: Option<Arc<Handles>>,
-
-    /// flag indicating whether only unique responses should be processed
-    unique: AtomicBool,
 }
 
 /// implementation of TermOutHandler
@@ -165,15 +162,12 @@ impl TermOutHandler {
         file_task: Option<Joiner>,
         config: Arc<Configuration>,
     ) -> Self {
-        let unique_flag = AtomicBool::new(config.unique);
-
         Self {
             receiver,
             tx_file,
             file_task,
             config,
             handles: None,
-            unique: unique_flag,
         }
     }
 
@@ -469,7 +463,6 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
-        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -477,7 +470,6 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
-            unique,
         };
 
         println!("{toh:?}");
@@ -491,7 +483,6 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
-        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -499,7 +490,6 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
-            unique,
         };
 
         let expected: Vec<_> = vec![
@@ -538,7 +528,6 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
-        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -546,7 +535,6 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
-            unique,
         };
 
         let expected: Vec<_> = vec![
@@ -585,7 +573,6 @@ mod tests {
         let (tx_file, _) = mpsc::unbounded_channel::<Command>();
         let config = Arc::new(Configuration::new().unwrap());
         let handles = Arc::new(Handles::for_testing(None, None).0);
-        let unique = AtomicBool::new(config.unique);
 
         let toh = TermOutHandler {
             config,
@@ -593,7 +580,6 @@ mod tests {
             receiver: rx,
             tx_file,
             handles: Some(handles),
-            unique,
         };
 
         let expected: Vec<_> = vec![
