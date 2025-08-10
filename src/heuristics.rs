@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
+use console::style;
 use futures::future;
 use scraper::{Html, Selector};
 use uuid::Uuid;
@@ -118,10 +119,8 @@ impl HeuristicTests {
                         OutputLevel::Default | OutputLevel::Quiet
                     ) {
                         if e.to_string().contains(":SSL") {
-                            ferox_print(
-                                &format!("Could not connect to {target_url} due to SSL errors (run with -k to ignore), skipping...\n  => {}\n", e.root_cause()),
-                                &PROGRESS_PRINTER,
-                            );
+                            let msg = format!("Could not connect to {target_url} due to {} errors (run with {} to ignore), skipping...\n  => {}\n",style("SSL").red(), style("--insecure").yellow().bright(), e.root_cause());
+                            ferox_print(&msg, &PROGRESS_PRINTER);
                         } else {
                             ferox_print(
                                 &format!(
