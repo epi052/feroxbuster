@@ -6,6 +6,7 @@ use reqwest::{Client, Method, Response, StatusCode, Url};
 #[cfg(not(target_os = "windows"))]
 use rlimit::{getrlimit, setrlimit, Resource};
 use std::{
+    error::Error,
     fs,
     io::{self, BufWriter, Write},
     sync::Arc,
@@ -24,13 +25,70 @@ use crate::{
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     send_command,
-    statistics::StatError::{Connection, Other, Redirection, Request, Timeout},
+    statistics::StatError::{Certificate, Connection, Other, Redirection, Request, Timeout},
     traits::FeroxSerialize,
     USER_AGENTS,
 };
 
 /// simple counter for grabbing 'random' user agents
 static mut USER_AGENT_CTR: usize = 0;
+
+/// detects certificate-related errors by analyzing the error chain
+fn is_certificate_error(error: &reqwest::Error) -> bool {
+    let full_error = format!("{error:?}").to_lowercase();
+    let error_msg = error.to_string().to_lowercase();
+
+    // check the main error message first
+    if error_msg.contains("certificate verify failed")
+        || error_msg.contains("self-signed certificate")
+        || error_msg.contains("certificate has expired")
+        || error_msg.contains("hostname mismatch")
+        || error_msg.contains("certificate")
+    {
+        return true;
+    }
+
+    // check the full debug representation for OpenSSL patterns
+    if full_error.contains("ssl routines")
+        || full_error.contains("certificate verify failed")
+        || full_error.contains("self-signed certificate")
+        || full_error.contains("certificate has expired")
+        || full_error.contains("hostname mismatch")
+        || full_error.contains("tls_post_process_server_certificate")
+        || full_error.contains("certificate")
+        || full_error.contains("cert")
+    {
+        return true;
+    }
+
+    // walk the error source chain to find underlying TLS/certificate errors
+    let mut source = error.source();
+    while let Some(err) = source {
+        let source_msg = err.to_string().to_lowercase();
+
+        // check for specific OpenSSL certificate error patterns
+        if source_msg.contains("ssl routines")
+            || source_msg.contains("certificate verify failed")
+            || source_msg.contains("self-signed certificate")
+            || source_msg.contains("certificate has expired")
+            || source_msg.contains("hostname mismatch")
+            || source_msg.contains("unable to get local issuer certificate")
+            || source_msg.contains("certificate is not yet valid")
+            || source_msg.contains("invalid certificate")
+            || source_msg.contains("unknown ca")
+            || source_msg.contains("certificate")
+            || source_msg.contains("cert")
+            || source_msg.contains("tls")
+            || source_msg.contains("ssl")
+        {
+            return true;
+        }
+
+        source = err.source();
+    }
+
+    false
+}
 
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
 /// return a reference to the buffered file
@@ -233,7 +291,7 @@ pub async fn make_request(
                         None => "ERR".to_string(),
                     };
 
-                    let report = create_report_string(
+                    let report: String = create_report_string(
                         &msg_status,
                         method,
                         "-1",
@@ -247,6 +305,10 @@ pub async fn make_request(
 
                     ferox_print(&report, &PROGRESS_PRINTER)
                 };
+            } else if is_certificate_error(&e) {
+                log::warn!("Certificate error detected: {e}");
+                send_command!(tx_stats, AddError(Certificate));
+                bail!(":SSL: {e}");
             } else if e.is_connect() {
                 send_command!(tx_stats, AddError(Connection));
             } else if e.is_request() {
