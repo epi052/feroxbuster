@@ -291,7 +291,7 @@ pub async fn make_request(
                         None => "ERR".to_string(),
                     };
 
-                    let report: String = create_report_string(
+                    let report = create_report_string(
                         &msg_status,
                         method,
                         "-1",
