@@ -53,3 +53,37 @@ impl FeroxResponses {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::response::FeroxResponse;
+
+    fn create_response_json(
+        url: &str,
+        status: u16,
+        word_count: usize,
+        content_length: u64,
+    ) -> FeroxResponse {
+        let json = format!(
+            r#"{{"type":"response","url":"{url}","path":"/test","wildcard":false,"status":{status},"content_length":{content_length},"line_count":10,"word_count":{word_count},"headers":{{}},"extension":""}}"#,
+        );
+        serde_json::from_str(&json).unwrap()
+    }
+
+    #[test]
+    /// test that contains method works correctly  
+    fn contains_method_works_correctly() {
+        let responses = FeroxResponses::default();
+
+        let response1 = create_response_json("http://example.com/page1", 200, 100, 1024);
+        responses.insert(response1.clone());
+
+        // Same URL and method should be contained
+        assert!(responses.contains(&response1));
+
+        // Different URL should not be contained
+        let response2 = create_response_json("http://example.com/page2", 200, 100, 1024);
+        assert!(!responses.contains(&response2));
+    }
+}

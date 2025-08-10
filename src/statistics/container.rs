@@ -124,6 +124,9 @@ pub struct Stats {
     /// tracker for number of errors related to the request used
     request_errors: AtomicUsize,
 
+    /// tracker for number of certificate/TLS/SSL errors
+    certificate_errors: AtomicUsize,
+
     /// tracker for each directory's total scan time in seconds as a float
     directory_scan_times: Mutex<Vec<f64>>,
 
@@ -197,6 +200,7 @@ impl Serialize for Stats {
         state.serialize_field("redirection_errors", &atomic_load!(self.redirection_errors))?;
         state.serialize_field("connection_errors", &atomic_load!(self.connection_errors))?;
         state.serialize_field("request_errors", &atomic_load!(self.request_errors))?;
+        state.serialize_field("certificate_errors", &atomic_load!(self.certificate_errors))?;
         state.serialize_field("directory_scan_times", &self.directory_scan_times)?;
         state.serialize_field("total_runtime", &self.total_runtime)?;
         state.serialize_field("targets", &self.targets)?;
@@ -571,6 +575,9 @@ impl Stats {
             }
             StatError::Request => {
                 atomic_increment!(self.request_errors);
+            }
+            StatError::Certificate => {
+                atomic_increment!(self.certificate_errors);
             }
             _ => {} // no need to hit Other as we always increment self.errors anyway
         }

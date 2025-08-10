@@ -4,8 +4,48 @@ use anyhow::{bail, Result};
 
 /// Regular expression used in [LinkFinder](https://github.com/GerbenJavado/LinkFinder)
 ///
-/// Incorporates change from this [Pull Request](https://github.com/GerbenJavado/LinkFinder/pull/66/files)
-pub(super) const LINKFINDER_REGEX: &str = r#"(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-.]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')"#;
+/// updated on 8 August 2025 to commit 1debac5dace4724fd6187c06f133578dae51c86f
+///
+/// NOTE: the ` ? or # mark with parameters` lines need to have the # character escaped as `\#`
+/// to avoid being interpreted as a comment by the Rust compiler
+pub(super) const LINKFINDER_REGEX: &str = r#"(?x)
+  (?:"|')                               # Start newline delimiter
+
+  (
+    ((?:[a-zA-Z]{1,10}://|//)           # Match a scheme [a-Z]*1-10 or //
+    [^"'/]{1,}\.                        # Match a domainname (any character + dot)
+    [a-zA-Z]{2,}[^"']{0,})              # The domainextension and/or path
+
+    |
+
+    ((?:/|\.\./|\./)                    # Start with /,../,./
+    [^"'><,;| *()(%%$^/\\\[\]]          # Next character can't be...
+    [^"'><,;|()]{1,})                   # Rest of the characters can't be
+
+    |
+
+    ([a-zA-Z0-9_\-/]{1,}/               # Relative endpoint with /
+    [a-zA-Z0-9_\-/.]{1,}                # Resource name
+    \.(?:[a-zA-Z]{1,4}|action)          # Rest + extension (length 1-4 or action)
+    (?:[\?|\#][^"|']{0,}|))             # ? or # mark with parameters
+
+    |
+
+    ([a-zA-Z0-9_\-/]{1,}/               # REST API (no extension) with /
+    [a-zA-Z0-9_\-/]{3,}                 # Proper REST endpoints usually have 3+ chars
+    (?:[\?|\#][^"|']{0,}|))             # ? or # mark with parameters
+
+    |
+
+    ([a-zA-Z0-9_\-]{1,}                 # filename
+    \.(?:php|asp|aspx|jsp|json|
+         action|html|js|txt|xml)        # . + extension
+    (?:[\?|\#][^"|']{0,}|))             # ? or # mark with parameters
+
+  )
+
+  (?:"|')                               # End newline delimiter
+"#;
 
 /// Regular expression to pull url paths from robots.txt
 ///

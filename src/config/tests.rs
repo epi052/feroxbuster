@@ -64,6 +64,7 @@ fn setup_config_test() -> Configuration {
             client_cert = "/some/client/cert.pem"
             client_key = "/some/client/key.pem"
             backup_extensions = [".save"]
+            unique = true
         "#;
     let tmp_dir = TempDir::new().unwrap();
     let file = tmp_dir.path().join(DEFAULT_CONFIG_NAME);
@@ -133,6 +134,7 @@ fn default_configuration() {
     assert_eq!(config.backup_extensions, backup_extensions());
     assert_eq!(config.protocol, request_protocol());
     assert_eq!(config.request_file, String::new());
+    assert!(!config.unique);
 }
 
 #[test]
@@ -578,4 +580,11 @@ fn as_json_returns_json_representation_of_configuration_with_newline() {
     assert_eq!(json.replay_codes, config.replay_codes);
     assert_eq!(json.timeout, config.timeout);
     assert_eq!(json.depth, config.depth);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_unique() {
+    let config = setup_config_test();
+    assert!(config.unique);
 }

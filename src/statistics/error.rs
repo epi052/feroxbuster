@@ -16,6 +16,9 @@ pub enum StatError {
     /// Represents an error resulting from the client's request
     Request,
 
+    /// Represents certificate-related errors (TLS/SSL)
+    Certificate,
+
     /// Represents any other error not explicitly defined above
     Other,
 }
