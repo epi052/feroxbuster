@@ -64,6 +64,9 @@ pub struct FeroxResponse {
     /// Url's file extension, if one exists
     pub(crate) extension: Option<String>,
 
+    /// Whether the response body was truncated due to size limits
+    truncated: bool,
+
     /// Timestamp of when this response was received
     timestamp: f64,
 }
@@ -85,6 +88,7 @@ impl Default for FeroxResponse {
             wildcard: false,
             output_level: Default::default(),
             extension: None,
+            truncated: false,
             timestamp: timestamp(),
         }
     }
@@ -145,6 +149,11 @@ impl FeroxResponse {
     /// Get the timestamp of this response
     pub fn timestamp(&self) -> f64 {
         self.timestamp
+    }
+
+    /// Get whether this response was truncated due to size limits
+    pub fn truncated(&self) -> bool {
+        self.truncated
     }
 
     /// Set `FeroxResponse`'s `url` attribute, has no affect if an error occurs
@@ -215,10 +224,11 @@ impl FeroxResponse {
 
     /// Create a new `FeroxResponse` from the given `Response`
     pub async fn from(
-        response: Response,
+        mut response: Response,
         original_url: &str,
         method: &str,
         output_level: OutputLevel,
+        max_size_read: usize,
     ) -> Self {
         let url = response.url().clone();
         let status = response.status();
@@ -226,12 +236,47 @@ impl FeroxResponse {
         let content_length = response.content_length().unwrap_or(0);
         let timestamp = timestamp();
 
-        // .text() consumes the response, must be called last
-        let text = response
-            .text()
-            .await
-            .with_context(|| "Could not parse body from response")
-            .unwrap_or_default();
+        // Read the response bytes with size limit to prevent OOM issues
+        // Use chunk() to limit bytes during reading, not after
+        let mut bytes_read = Vec::new();
+        let mut total_bytes_read = 0;
+        let mut was_truncated = false;
+
+        while let Some(chunk_result) = response.chunk().await.transpose() {
+            match chunk_result.with_context(|| "Could not read chunk from response") {
+                Ok(chunk) => {
+                    let chunk_len = chunk.len();
+
+                    if total_bytes_read + chunk_len > max_size_read {
+                        // Only read the remaining bytes up to the limit
+                        let remaining = max_size_read - total_bytes_read;
+                        total_bytes_read += remaining;
+                        bytes_read.extend_from_slice(&chunk[..remaining]);
+                        was_truncated = true;
+                        log::debug!("Response body truncated at {max_size_read} bytes for {url}");
+                        break;
+                    } else {
+                        bytes_read.extend_from_slice(&chunk);
+                        total_bytes_read += chunk_len;
+                    }
+                }
+                Err(_) => {
+                    // Error reading chunk, break and use what we have
+                    break;
+                }
+            }
+        }
+
+        // Convert to text, handling UTF-8 errors gracefully
+        let text = String::from_utf8_lossy(&bytes_read).to_string();
+
+        // Log warning if content was truncated
+        if was_truncated {
+            log::warn!(
+                "Response body truncated to {} bytes for {url} (original size may be larger)",
+                bytes_read.len()
+            );
+        }
 
         // in the event that the content_length was 0, we can try to get the length
         // of the body we just parsed. At worst, it's still 0; at best we've accounted
@@ -239,7 +284,27 @@ impl FeroxResponse {
         // contents in the body.
         //
         // thanks to twitter use @f3rn0s for pointing out the possibility
-        let content_length = content_length.max(text.len() as u64);
+        //
+        // update v2.12.0: added max_size_read to limit how much of the body we read
+        // this means we need to account for the possibility that the content_length
+        // is larger than what we actually read. That means we should only use the
+        // actual bytes we read if we truncated the response body.
+        let converted = total_bytes_read as u64;
+        let content_length = if was_truncated && content_length > converted {
+            // content_length is larger than what we read, use what we read
+            log::debug!(
+                "Using actual bytes read ({}) as content_length instead of reported content_length ({}) for {}",
+                total_bytes_read,
+                content_length,
+                url
+            );
+            // set content_length to what we actually read
+            total_bytes_read as u64
+        } else {
+            // content_length is accurate or smaller than what we read, use old logic that
+            // deals with content_length of 0
+            content_length.max(text.len() as u64)
+        };
 
         let line_count = text.lines().count();
         let word_count = text.lines().map(|s| s.split_whitespace().count()).sum();
@@ -257,6 +322,7 @@ impl FeroxResponse {
             output_level,
             wildcard: false,
             extension: None,
+            truncated: was_truncated,
             timestamp,
         }
     }
@@ -458,9 +524,23 @@ impl FeroxSerialize for FeroxResponse {
 
                 format!("{} => {loc}", self.url())
             }
-            _ => {
-                // no redirect, just use the normal url
+            (_, _, true) => {
+                // --silent was used, just show the url
                 self.url().to_string()
+            }
+            _ => {
+                // no redirect, no silent; check for truncation and report if needed
+                let mut url_display = self.url().to_string();
+
+                if self.truncated {
+                    // only add truncation indicator if content was truncated and --silent not used
+                    url_display.push_str(&format!(
+                        " ({} to size limit)",
+                        style("truncated").yellow().bright()
+                    ));
+                }
+
+                url_display
             }
         };
 
@@ -555,7 +635,7 @@ impl Serialize for FeroxResponse {
         S: Serializer,
     {
         let mut headers = HashMap::new();
-        let mut state = serializer.serialize_struct("FeroxResponse", 8)?;
+        let mut state = serializer.serialize_struct("FeroxResponse", 9)?;
 
         // need to convert the HeaderMap to a HashMap in order to pass it to the serializer
         for (key, value) in &self.headers {
@@ -579,6 +659,7 @@ impl Serialize for FeroxResponse {
             "extension",
             self.extension.as_ref().unwrap_or(&String::new()),
         )?;
+        state.serialize_field("truncated", &self.truncated)?;
         state.serialize_field("timestamp", &self.timestamp)?;
 
         state.end()
@@ -605,6 +686,7 @@ impl<'de> Deserialize<'de> for FeroxResponse {
             line_count: 0,
             word_count: 0,
             extension: None,
+            truncated: false,
             timestamp: timestamp(),
         };
 
@@ -677,6 +759,11 @@ impl<'de> Deserialize<'de> for FeroxResponse {
                 "extension" => {
                     if let Some(result) = value.as_str() {
                         response.extension = Some(result.to_string());
+                    }
+                }
+                "truncated" => {
+                    if let Some(result) = value.as_bool() {
+                        response.truncated = result;
                     }
                 }
                 "timestamp" => {
@@ -827,5 +914,31 @@ mod tests {
         response.parse_extension(Arc::new(handles)).unwrap();
 
         assert_eq!(response.extension, None);
+    }
+
+    #[test]
+    /// test that the truncated getter returns the correct value
+    fn truncated_getter_returns_correct_value() {
+        let mut response = FeroxResponse::default();
+
+        // Default should be false
+        assert!(!response.truncated());
+
+        // Manually set truncated to true to test getter
+        response.truncated = true;
+        assert!(response.truncated());
+    }
+
+    #[test]
+    /// test that truncated responses show [TRUNCATED] in URL display
+    fn truncated_response_shows_in_url_display() {
+        let response = FeroxResponse {
+            url: Url::parse("http://localhost/test").unwrap(),
+            truncated: true,
+            ..Default::default()
+        };
+
+        let display = response.as_str();
+        assert!(display.contains("truncated"));
     }
 }

@@ -1,8 +1,8 @@
 use super::utils::{
     backup_extensions, depth, determine_requester_policy, extract_links, ignored_extensions,
-    methods, parse_request_file, report_and_exit, request_protocol, save_state, serialized_type,
-    split_header, split_query, status_codes, threads, timeout, user_agent, wordlist, OutputLevel,
-    RequesterPolicy,
+    methods, parse_request_file, report_and_exit, request_protocol, response_size_limit,
+    save_state, serialized_type, split_header, split_query, status_codes, threads, timeout,
+    user_agent, wordlist, OutputLevel, RequesterPolicy,
 };
 
 use crate::config::determine_output_level;
@@ -356,6 +356,10 @@ pub struct Configuration {
     /// only show unique responses based on status code and word count
     #[serde(default)]
     pub unique: bool,
+
+    /// Maximum size of response to read in bytes (default: 4MB to prevent OOM)
+    #[serde(default = "response_size_limit")]
+    pub response_size_limit: usize,
 }
 
 impl Default for Configuration {
@@ -451,6 +455,7 @@ impl Default for Configuration {
             dont_collect: ignored_extensions(),
             backup_extensions: backup_extensions(),
             unique: false,
+            response_size_limit: response_size_limit(),
         }
     }
 }
@@ -661,6 +666,12 @@ impl Configuration {
         update_config_with_num_type_if_present!(&mut config.scan_limit, args, "scan_limit", usize);
         update_config_with_num_type_if_present!(&mut config.rate_limit, args, "rate_limit", usize);
         update_config_with_num_type_if_present!(&mut config.limit_bars, args, "limit_bars", usize);
+        update_config_with_num_type_if_present!(
+            &mut config.response_size_limit,
+            args,
+            "response_size_limit",
+            usize
+        );
         update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
         update_config_if_present!(&mut config.output, args, "output", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
@@ -1290,6 +1301,11 @@ impl Configuration {
         update_if_not_default!(&mut conf.request_file, new.request_file, "");
         update_if_not_default!(&mut conf.protocol, new.protocol, request_protocol());
         update_if_not_default!(&mut conf.unique, new.unique, false);
+        update_if_not_default!(
+            &mut conf.response_size_limit,
+            new.response_size_limit,
+            response_size_limit()
+        );
 
         update_if_not_default!(&mut conf.timeout, new.timeout, timeout());
         update_if_not_default!(&mut conf.user_agent, new.user_agent, user_agent());

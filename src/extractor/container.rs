@@ -209,6 +209,7 @@ impl<'a> Extractor<'a> {
                                     &og_url,
                                     DEFAULT_METHOD,
                                     c_handles.config.output_level,
+                                    c_handles.config.response_size_limit,
                                 )
                                 .await;
 
@@ -703,6 +704,7 @@ impl<'a> Extractor<'a> {
             &self.url,
             DEFAULT_METHOD,
             self.handles.config.output_level,
+            self.handles.config.response_size_limit,
         )
         .await;
         // note: don't call parse_extension here. If we call it here, it gets called on robots.txt

@@ -333,6 +333,7 @@ impl TermOutHandler {
                         resp.url().as_str(),
                         resp.method().as_str(),
                         resp.output_level,
+                        self.config.response_size_limit,
                     )
                     .await;
 
