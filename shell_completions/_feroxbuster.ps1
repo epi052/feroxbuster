@@ -74,6 +74,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--scan-limit', '--scan-limit', [CompletionResultType]::ParameterName, 'Limit total number of concurrent scans (default: 0, i.e. no limit)')
             [CompletionResult]::new('--parallel', '--parallel', [CompletionResultType]::ParameterName, 'Run parallel feroxbuster instances (one child process per url passed via stdin)')
             [CompletionResult]::new('--rate-limit', '--rate-limit', [CompletionResultType]::ParameterName, 'Limit number of requests per second (per directory) (default: 0, i.e. no limit)')
+            [CompletionResult]::new('--response-size-limit', '--response-size-limit', [CompletionResultType]::ParameterName, 'Limit size of response body to read in bytes (default: 4MB)')
             [CompletionResult]::new('--time-limit', '--time-limit', [CompletionResultType]::ParameterName, 'Limit total run time of all scans (ex: --time-limit 10m)')
             [CompletionResult]::new('-w', '-w', [CompletionResultType]::ParameterName, 'Path or URL of the wordlist')
             [CompletionResult]::new('--wordlist', '--wordlist', [CompletionResultType]::ParameterName, 'Path or URL of the wordlist')

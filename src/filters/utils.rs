@@ -32,6 +32,7 @@ pub(crate) async fn create_similarity_filter(
         similarity_filter,
         DEFAULT_METHOD,
         handles.config.output_level,
+        handles.config.response_size_limit,
     )
     .await;
 

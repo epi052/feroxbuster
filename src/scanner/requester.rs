@@ -421,6 +421,7 @@ impl Requester {
                     &self.target_url,
                     method,
                     self.handles.config.output_level,
+                    self.handles.config.response_size_limit,
                 )
                 .await;
 

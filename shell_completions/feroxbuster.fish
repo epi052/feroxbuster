@@ -31,6 +31,7 @@ complete -c feroxbuster -s d -l depth -d 'Maximum recursion depth, a depth of 0 
 complete -c feroxbuster -s L -l scan-limit -d 'Limit total number of concurrent scans (default: 0, i.e. no limit)' -r
 complete -c feroxbuster -l parallel -d 'Run parallel feroxbuster instances (one child process per url passed via stdin)' -r
 complete -c feroxbuster -l rate-limit -d 'Limit number of requests per second (per directory) (default: 0, i.e. no limit)' -r
+complete -c feroxbuster -l response-size-limit -d 'Limit size of response body to read in bytes (default: 4MB)' -r
 complete -c feroxbuster -l time-limit -d 'Limit total run time of all scans (ex: --time-limit 10m)' -r
 complete -c feroxbuster -s w -l wordlist -d 'Path or URL of the wordlist' -r -F
 complete -c feroxbuster -s B -l collect-backups -d 'Automatically request likely backup extensions for "found" urls (default: ~, .bak, .bak2, .old, .1)' -r

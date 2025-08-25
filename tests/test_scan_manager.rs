@@ -118,6 +118,7 @@ fn time_limit_enforced_when_specified() {
     Command::cargo_bin("feroxbuster")
         .unwrap()
         .arg("--stdin")
+        .arg("-vv")
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--time-limit")

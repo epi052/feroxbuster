@@ -169,6 +169,7 @@ impl HeuristicTests {
             &url.target,
             DEFAULT_METHOD,
             self.handles.config.output_level,
+            self.handles.config.response_size_limit,
         )
         .await;
 
@@ -354,6 +355,7 @@ impl HeuristicTests {
                             &ferox_url.target,
                             method,
                             self.handles.config.output_level,
+                            self.handles.config.response_size_limit,
                         )
                         .await,
                     )
