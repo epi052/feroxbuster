@@ -293,11 +293,7 @@ impl FeroxResponse {
         let content_length = if was_truncated && content_length > converted {
             // content_length is larger than what we read, use what we read
             log::debug!(
-                "Using actual bytes read ({}) as content_length instead of reported content_length ({}) for {}",
-                total_bytes_read,
-                content_length,
-                url
-            );
+                "Using actual bytes read ({total_bytes_read}) as content_length instead of reported content_length ({content_length}) for {url}");
             // set content_length to what we actually read
             total_bytes_read as u64
         } else {
