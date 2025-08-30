@@ -110,6 +110,11 @@ pub(super) fn extract_links() -> bool {
     true
 }
 
+/// default max response size to read (4MB to prevent OOM issues)
+pub(super) fn response_size_limit() -> usize {
+    4 * 1024 * 1024 // 4MB in bytes
+}
+
 /// enum representing the three possible states for informational output (not logging verbosity)
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum OutputLevel {

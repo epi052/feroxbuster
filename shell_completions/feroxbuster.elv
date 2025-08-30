@@ -71,6 +71,7 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --scan-limit 'Limit total number of concurrent scans (default: 0, i.e. no limit)'
             cand --parallel 'Run parallel feroxbuster instances (one child process per url passed via stdin)'
             cand --rate-limit 'Limit number of requests per second (per directory) (default: 0, i.e. no limit)'
+            cand --response-size-limit 'Limit size of response body to read in bytes (default: 4MB)'
             cand --time-limit 'Limit total run time of all scans (ex: --time-limit 10m)'
             cand -w 'Path or URL of the wordlist'
             cand --wordlist 'Path or URL of the wordlist'
