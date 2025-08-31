@@ -3,6 +3,7 @@ use crate::filters::{
     FeroxFilters, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
     WordsFilter,
 };
+use crate::sync::DynamicSemaphore;
 use crate::{
     config::{Configuration, OutputLevel},
     event_handlers::Handles,
@@ -10,7 +11,7 @@ use crate::{
     scanner::RESPONSES,
     statistics::Stats,
     traits::FeroxSerialize,
-    SLEEP_DURATION, VERSION,
+    NEAR_DUPLICATE_DISTANCE, SLEEP_DURATION, VERSION,
 };
 use indicatif::ProgressBar;
 use predicates::prelude::*;
@@ -48,7 +49,8 @@ async fn scanner_pause_scan_with_finished_spinner() {
         PAUSE_SCAN.store(false, Ordering::Relaxed);
     });
 
-    urls.pause(false, handles).await;
+    urls.pause(false, handles, Arc::new(DynamicSemaphore::new(100)))
+        .await;
 
     assert!(now.elapsed() > expected);
 }
@@ -348,7 +350,7 @@ fn ferox_scans_serialize() {
 #[test]
 /// given a FeroxResponses, test that it serializes into the proper JSON entry
 fn ferox_responses_serialize() {
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":"","timestamp":1711796681.3455093}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":"","truncated":false,"timestamp":1711796681.3455093}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     let responses = FeroxResponses::default();
@@ -366,7 +368,7 @@ fn ferox_responses_serialize() {
 /// given a FeroxResponse, test that it serializes into the proper JSON entry
 fn ferox_response_serialize_and_deserialize() {
     // deserialize
-    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":"","timestamp":1711796681.3455093}"#;
+    let json_response = r#"{"type":"response","url":"https://nerdcore.com/css","original_url":"https://nerdcore.com","path":"/css","wildcard":true,"status":301,"method":"GET","content_length":173,"line_count":10,"word_count":16,"headers":{"server":"nginx/1.16.1"},"extension":"","truncated":false,"timestamp":1711796681.3455093}"#;
     let response: FeroxResponse = serde_json::from_str(json_response).unwrap();
 
     assert_eq!(response.url().as_str(), "https://nerdcore.com/css");
@@ -378,6 +380,7 @@ fn ferox_response_serialize_and_deserialize() {
     assert_eq!(response.word_count(), 16);
     assert_eq!(response.headers().get("server").unwrap(), "nginx/1.16.1");
     assert_eq!(response.timestamp(), 1711796681.3455093);
+    assert!(!response.truncated());
 
     // serialize, however, this can fail when headers are out of order
     let new_json = serde_json::to_string(&response).unwrap();
@@ -443,6 +446,7 @@ fn feroxstates_feroxserialize_implementation() {
         .push(Box::new(SimilarityFilter {
             hash: 1,
             original_url: "http://localhost:12345/".to_string(),
+            cutoff: NEAR_DUPLICATE_DISTANCE,
         }))
         .unwrap();
 
@@ -546,7 +550,9 @@ fn feroxstates_feroxserialize_implementation() {
         r#""collect_words":false"#,
         r#""scan_dir_listings":false"#,
         r#""protocol":"https""#,
-        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":1,"original_url":"http://localhost:12345/"}]"#,
+        r#""unique":false"#,
+        r#""response_size_limit":4194304"#,
+        r#""filters":[{"filter_code":100},{"word_count":200},{"content_length":300},{"line_count":400},{"compiled":".*","raw_string":".*"},{"hash":1,"original_url":"http://localhost:12345/","cutoff":3}]"#,
         r#""collected_extensions":["php"]"#,
         r#""dont_collect":["tif","tiff","ico","cur","bmp","webp","svg","png","jpg","jpeg","jfif","gif","avif","apng","pjpeg","pjp","mov","wav","mpg","mpeg","mp3","mp4","m4a","m4p","m4v","ogg","webm","ogv","oga","flac","aac","3gp","css","zip","xls","xml","gz","tgz"]"#,
     ]

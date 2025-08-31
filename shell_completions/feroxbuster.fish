@@ -6,7 +6,7 @@ complete -c feroxbuster -l data-json -d 'Set -H \'Content-Type: application/json
 complete -c feroxbuster -s p -l proxy -d 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)' -r -f
 complete -c feroxbuster -s P -l replay-proxy -d 'Send only unfiltered requests through a Replay Proxy, instead of all requests' -r -f
 complete -c feroxbuster -s R -l replay-codes -d 'Status Codes to send through a Replay Proxy when found (default: --status-codes value)' -r
-complete -c feroxbuster -s a -l user-agent -d 'Sets the User-Agent (default: feroxbuster/2.11.0)' -r
+complete -c feroxbuster -s a -l user-agent -d 'Sets the User-Agent (default: feroxbuster/2.12.0)' -r
 complete -c feroxbuster -s x -l extensions -d 'File extension(s) to search for (ex: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex: @ext.txt)' -r
 complete -c feroxbuster -s m -l methods -d 'Which HTTP request method(s) should be sent (default: GET)' -r
 complete -c feroxbuster -l data -d 'Request\'s Body; can read data from a file if input starts with an @ (ex: @post.bin)' -r
@@ -31,6 +31,7 @@ complete -c feroxbuster -s d -l depth -d 'Maximum recursion depth, a depth of 0 
 complete -c feroxbuster -s L -l scan-limit -d 'Limit total number of concurrent scans (default: 0, i.e. no limit)' -r
 complete -c feroxbuster -l parallel -d 'Run parallel feroxbuster instances (one child process per url passed via stdin)' -r
 complete -c feroxbuster -l rate-limit -d 'Limit number of requests per second (per directory) (default: 0, i.e. no limit)' -r
+complete -c feroxbuster -l response-size-limit -d 'Limit size of response body to read in bytes (default: 4MB)' -r
 complete -c feroxbuster -l time-limit -d 'Limit total run time of all scans (ex: --time-limit 10m)' -r
 complete -c feroxbuster -s w -l wordlist -d 'Path or URL of the wordlist' -r -F
 complete -c feroxbuster -s B -l collect-backups -d 'Automatically request likely backup extensions for "found" urls (default: ~, .bak, .bak2, .old, .1)' -r
@@ -45,6 +46,7 @@ complete -c feroxbuster -l smart -d 'Set --auto-tune, --collect-words, and --col
 complete -c feroxbuster -l thorough -d 'Use the same settings as --smart and set --collect-extensions and --scan-dir-listings to true'
 complete -c feroxbuster -s A -l random-agent -d 'Use a random User-Agent'
 complete -c feroxbuster -s f -l add-slash -d 'Append / to each request\'s URL'
+complete -c feroxbuster -l unique -d 'Only show unique responses'
 complete -c feroxbuster -s r -l redirects -d 'Allow client to follow redirects'
 complete -c feroxbuster -s k -l insecure -d 'Disables TLS certificate validation in the client'
 complete -c feroxbuster -s n -l no-recursion -d 'Do not scan recursively'

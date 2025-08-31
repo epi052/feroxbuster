@@ -2,13 +2,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
+use console::style;
 use futures::future;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
-use crate::filters::{SimilarityFilter, WildcardFilter, SIM_HASHER};
+use crate::filters::{SimilarityFilter, WildcardFilter};
 use crate::message::FeroxMessage;
-use crate::nlp::preprocess;
 use crate::scanner::RESPONSES;
 use crate::{
     config::OutputLevel,
@@ -119,10 +119,8 @@ impl HeuristicTests {
                         OutputLevel::Default | OutputLevel::Quiet
                     ) {
                         if e.to_string().contains(":SSL") {
-                            ferox_print(
-                                &format!("Could not connect to {target_url} due to SSL errors (run with -k to ignore), skipping...\n  => {}\n", e.root_cause()),
-                                &PROGRESS_PRINTER,
-                            );
+                            let msg = format!("Could not connect to {target_url} due to {} errors (run with {} to ignore), skipping...\n  => {}\n",style("SSL").red(), style("--insecure").yellow().bright(), e.root_cause());
+                            ferox_print(&msg, &PROGRESS_PRINTER);
                         } else {
                             ferox_print(
                                 &format!(
@@ -171,6 +169,7 @@ impl HeuristicTests {
             &url.target,
             DEFAULT_METHOD,
             self.handles.config.output_level,
+            self.handles.config.response_size_limit,
         )
         .await;
 
@@ -356,6 +355,7 @@ impl HeuristicTests {
                             &ferox_url.target,
                             method,
                             self.handles.config.output_level,
+                            self.handles.config.response_size_limit,
                         )
                         .await,
                     )
@@ -424,12 +424,7 @@ impl HeuristicTests {
                 //
                 // in addition, we'll create a similarity filter as a fallback
                 for resp in wildcard_responses {
-                    let hash = SIM_HASHER.create_signature(preprocess(resp.text()).iter());
-
-                    let sim_filter = SimilarityFilter {
-                        hash,
-                        original_url: resp.url().to_string(),
-                    };
+                    let sim_filter = SimilarityFilter::from(resp);
 
                     self.handles
                         .filters

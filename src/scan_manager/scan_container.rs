@@ -5,6 +5,7 @@ use crate::filters::{
     EmptyFilter, LinesFilter, RegexFilter, SimilarityFilter, SizeFilter, StatusCodeFilter,
     WildcardFilter, WordsFilter,
 };
+use crate::sync::DynamicSemaphore;
 use crate::traits::FeroxFilter;
 use crate::Command::AddFilter;
 use crate::{
@@ -433,7 +434,11 @@ impl FeroxScans {
     }
 
     /// CLI menu that allows for interactive cancellation of recursed-into directories
-    async fn interactive_menu(&self, handles: Arc<Handles>) -> Option<MenuCmdResult> {
+    async fn interactive_menu(
+        &self,
+        handles: Arc<Handles>,
+        limiter: Arc<DynamicSemaphore>,
+    ) -> Option<MenuCmdResult> {
         self.menu.hide_progress_bars();
         self.menu.clear_screen();
         self.menu.print_header();
@@ -443,6 +448,8 @@ impl FeroxScans {
                 self.menu.print_eta(y);
             }
         }
+
+        self.menu.print_scan_limit(limiter.clone());
 
         self.display_scans().await;
         self.display_filters(handles.clone());
@@ -468,6 +475,24 @@ impl FeroxScans {
                     .send(Command::RemoveFilters(indices))
                     .unwrap_or_default();
                 None
+            }
+            Some(MenuCmd::SetScanPermits(value)) => {
+                if limiter.current_capacity() == value {
+                    // value is equal to current capacity, so we don't need to do anything
+                    return None;
+                }
+
+                if limiter.current_capacity() < value {
+                    // value is greater than current capacity, so we need to increase it
+                    Some(MenuCmdResult::NumPermitsToAdd(
+                        value - limiter.current_capacity(),
+                    ))
+                } else {
+                    // value is less than current capacity, so we need to decrease it
+                    Some(MenuCmdResult::NumPermitsToSubtract(
+                        limiter.current_capacity() - value,
+                    ))
+                }
             }
             None => None,
         };
@@ -570,6 +595,7 @@ impl FeroxScans {
         &self,
         get_user_input: bool,
         handles: Arc<Handles>,
+        limiter: Arc<DynamicSemaphore>,
     ) -> Option<MenuCmdResult> {
         // function uses tokio::time, not std
 
@@ -582,7 +608,7 @@ impl FeroxScans {
             INTERACTIVE_BARRIER.fetch_add(1, Ordering::Relaxed);
 
             if get_user_input {
-                command_result = self.interactive_menu(handles).await;
+                command_result = self.interactive_menu(handles, limiter).await;
                 PAUSE_SCAN.store(false, Ordering::Relaxed);
                 self.print_known_responses();
             }

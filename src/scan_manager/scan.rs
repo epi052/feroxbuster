@@ -448,6 +448,7 @@ impl fmt::Display for FeroxScan {
                 ScanStatus::Complete => style("complete").green(),
                 ScanStatus::Cancelled => style("cancelled").red(),
                 ScanStatus::Running => style("running").bright().yellow(),
+                ScanStatus::Waiting => style("waiting").bright().cyan(),
             }
         } else {
             style("unknown").red()
@@ -583,6 +584,9 @@ pub enum ScanStatus {
 
     /// Scan has started, but hasn't finished, nor been cancelled
     Running,
+
+    /// Scan is waiting to be started due to max concurrent scan limit
+    Waiting,
 }
 
 /// Default implementation for ScanStatus

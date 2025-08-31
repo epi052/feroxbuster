@@ -22,6 +22,7 @@ pub mod progress;
 pub mod scan_manager;
 pub mod scanner;
 pub mod statistics;
+pub mod sync;
 mod traits;
 pub mod utils;
 mod extractor;
@@ -176,6 +177,15 @@ pub const USER_AGENTS: [&str; 12] = [
     "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
     "Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)",
 ];
+
+/// maximum hamming distance allowed between two simhash signatures when detecting near-duplicates
+///
+/// ref: https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/33026.pdf
+/// section: 4.1 Choice of Parameters
+pub(crate) const NEAR_DUPLICATE_DISTANCE: usize = 3;
+
+/// maximum hamming distance allowed between two simhash signatures when unique'ifying responses
+pub(crate) const UNIQUE_DISTANCE: usize = 1;
 
 #[cfg(test)]
 mod tests {

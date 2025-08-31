@@ -7,6 +7,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     config::Configuration,
+    filters::SimilarityFilter,
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
     scanner::RESPONSES,
@@ -14,8 +15,9 @@ use crate::{
     statistics::StatField::{ResourcesDiscovered, TotalExpected},
     traits::FeroxSerialize,
     utils::{ferox_print, fmt_err, make_request, open_file, write_to},
-    CommandReceiver, CommandSender, Joiner,
+    CommandReceiver, CommandSender, Joiner, UNIQUE_DISTANCE,
 };
+
 use std::sync::Arc;
 use url::Url;
 
@@ -331,6 +333,7 @@ impl TermOutHandler {
                         resp.url().as_str(),
                         resp.method().as_str(),
                         resp.output_level,
+                        self.config.response_size_limit,
                     )
                     .await;
 
@@ -347,6 +350,12 @@ impl TermOutHandler {
                     {
                         // response was filtered for one reason or another, don't process it
                         continue;
+                    }
+
+                    if handles.config.unique {
+                        let mut unique_filter = SimilarityFilter::from(&ferox_response);
+                        unique_filter.cutoff = UNIQUE_DISTANCE;
+                        handles.filters.data.push(Box::new(unique_filter))?;
                     }
 
                     self.process_response(

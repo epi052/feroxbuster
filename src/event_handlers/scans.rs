@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::mpsc;
 
 use crate::{
     response::FeroxResponse,
     scan_manager::{FeroxScan, FeroxScans, ScanOrder},
     scanner::{FeroxScanner, RESPONSES},
     statistics::StatField::TotalScans,
+    sync::DynamicSemaphore,
     url::FeroxUrl,
     utils::should_deny_url,
     CommandReceiver, CommandSender, FeroxChannel, Joiner, SLEEP_DURATION,
@@ -68,7 +69,7 @@ pub struct ScanHandler {
     depths: Vec<(String, usize)>,
 
     /// Bounded semaphore used as a barrier to limit concurrent scans
-    limiter: Arc<Semaphore>,
+    limiter: Arc<DynamicSemaphore>,
 }
 
 /// implementation of event handler for filters
@@ -81,7 +82,7 @@ impl ScanHandler {
         receiver: CommandReceiver,
     ) -> Self {
         let limit = handles.config.scan_limit;
-        let limiter = Semaphore::new(limit);
+        let limiter = DynamicSemaphore::new(limit);
 
         if limit == 0 {
             // scan_limit == 0 means no limit should be imposed... however, scoping the Semaphore
@@ -91,7 +92,7 @@ impl ScanHandler {
             // note to self: the docs say max is usize::MAX >> 3, however, threads will panic if
             // that value is used (says adding (1) will overflow the semaphore, even though none
             // are being added...)
-            limiter.add_permits(usize::MAX >> 4);
+            limiter.increase_capacity(usize::MAX >> 4);
         }
 
         Self {
@@ -196,6 +197,24 @@ impl ScanHandler {
                             .send(Command::AddToUsizeField(StatField::ExtensionsCollected, 1))
                             .unwrap_or_default();
                     }
+                }
+                Command::AddScanPermits(value) => {
+                    let current = self.limiter.current_capacity();
+
+                    self.limiter.increase_capacity(current + value);
+
+                    log::debug!(
+                        "increased scan permits to {} (was {current})",
+                        current + value
+                    );
+                }
+                Command::SubtractScanPermits(value) => {
+                    let current = self.limiter.current_capacity();
+                    let new_capacity = current.saturating_sub(value);
+
+                    self.limiter.reduce_capacity(new_capacity);
+
+                    log::debug!("decreased scan permits to {new_capacity} (was {current})");
                 }
                 _ => {} // no other commands needed for RecursionHandler
             }

@@ -25,13 +25,14 @@ use crate::{
         Handles,
     },
     extractor::{ExtractionTarget, ExtractorBuilder},
+    filters::SimilarityFilter,
     nlp::{Document, TfIdf},
     response::FeroxResponse,
     scan_manager::{FeroxScan, ScanStatus},
     statistics::{StatError::Other, StatField::TotalExpected},
     url::FeroxUrl,
     utils::{logged_request, send_try_recursion_command, should_deny_url},
-    HIGH_ERROR_RATIO,
+    HIGH_ERROR_RATIO, UNIQUE_DISTANCE,
 };
 
 use super::{policy_data::PolicyData, FeroxScanner, PolicyTrigger};
@@ -420,6 +421,7 @@ impl Requester {
                     &self.target_url,
                     method,
                     self.handles.config.output_level,
+                    self.handles.config.response_size_limit,
                 )
                 .await;
 
@@ -443,6 +445,12 @@ impl Requester {
                     .should_filter_response(&ferox_response, self.handles.stats.tx.clone())
                 {
                     continue;
+                }
+
+                if self.handles.config.unique {
+                    let mut unique_filter = SimilarityFilter::from(&ferox_response);
+                    unique_filter.cutoff = UNIQUE_DISTANCE;
+                    self.handles.filters.data.push(Box::new(unique_filter))?;
                 }
 
                 if !self.handles.config.no_recursion && self.handles.config.force_recursion {

@@ -393,6 +393,13 @@ pub fn initialize() -> Command {
                 .help(
                     "Status Codes to include (allow list) (default: All Status Codes)",
                 ),
+        )
+        .arg(
+            Arg::new("unique")
+                .long("unique")
+                .num_args(0)
+                .help_heading("Response filters")
+                .help("Only show unique responses")
         );
 
     /////////////////////////////////////////////////////////////////////
@@ -534,6 +541,14 @@ pub fn initialize() -> Command {
                 .conflicts_with("auto_tune")
                 .help_heading("Scan settings")
                 .help("Limit number of requests per second (per directory) (default: 0, i.e. no limit)")
+        )
+        .arg(
+            Arg::new("response_size_limit")
+                .long("response-size-limit")
+                .value_name("BYTES")
+                .num_args(1)
+                .help_heading("Scan settings")
+                .help("Limit size of response body to read in bytes (default: 4MB)"),
         )
         .arg(
             Arg::new("time_limit")
