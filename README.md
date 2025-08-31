@@ -348,6 +348,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/wilco375"><img src="https://avatars.githubusercontent.com/u/7385023?v=4?s=100" width="100px;" alt="Wilco"/><br /><sub><b>Wilco</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Awilco375" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/HenriBom"><img src="https://avatars.githubusercontent.com/u/46447744?v=4?s=100" width="100px;" alt="HenriBom"/><br /><sub><b>HenriBom</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3AHenriBom" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
