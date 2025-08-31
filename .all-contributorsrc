@@ -916,6 +916,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "wilco375",
+      "name": "Wilco",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7385023?v=4",
+      "profile": "https://github.com/wilco375",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
