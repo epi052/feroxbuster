@@ -925,6 +925,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "HenriBom",
+      "name": "HenriBom",
+      "avatar_url": "https://avatars.githubusercontent.com/u/46447744?v=4",
+      "profile": "https://github.com/HenriBom",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
