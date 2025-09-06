@@ -45,7 +45,7 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand --query 'Request''s URL query parameters (ex: -Q token=stuff -Q secret=key)'
             cand --protocol 'Specify the protocol to use when targeting via --request-file or --url with domain only (default: https)'
             cand --dont-scan 'URL(s) or Regex Pattern(s) to exclude from recursion/scans'
-            cand --scope 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain and subdomains)'
+            cand --scope 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain)'
             cand -S 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)'
             cand --filter-size 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)'
             cand -X 'Filter out messages via regular expression matching on the response''s body/headers (ex: -X ''^ignore me$'')'

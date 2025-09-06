@@ -48,7 +48,7 @@ Register-ArgumentCompleter -Native -CommandName 'feroxbuster' -ScriptBlock {
             [CompletionResult]::new('--query', '--query', [CompletionResultType]::ParameterName, 'Request''s URL query parameters (ex: -Q token=stuff -Q secret=key)')
             [CompletionResult]::new('--protocol', '--protocol', [CompletionResultType]::ParameterName, 'Specify the protocol to use when targeting via --request-file or --url with domain only (default: https)')
             [CompletionResult]::new('--dont-scan', '--dont-scan', [CompletionResultType]::ParameterName, 'URL(s) or Regex Pattern(s) to exclude from recursion/scans')
-            [CompletionResult]::new('--scope', '--scope', [CompletionResultType]::ParameterName, 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain and subdomains)')
+            [CompletionResult]::new('--scope', '--scope', [CompletionResultType]::ParameterName, 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain)')
             [CompletionResult]::new('-S', '-S ', [CompletionResultType]::ParameterName, 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)')
             [CompletionResult]::new('--filter-size', '--filter-size', [CompletionResultType]::ParameterName, 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)')
             [CompletionResult]::new('-X', '-X ', [CompletionResultType]::ParameterName, 'Filter out messages via regular expression matching on the response''s body/headers (ex: -X ''^ignore me$'')')

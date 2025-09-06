@@ -296,6 +296,15 @@ pub fn initialize() -> Command {
             .use_value_delimiter(true)
             .help_heading("Request filters")
             .help("URL(s) or Regex Pattern(s) to exclude from recursion/scans"),
+    ).arg(
+        Arg::new("scope")
+            .long("scope")
+            .value_name("URL")
+            .num_args(1..)
+            .action(ArgAction::Append)
+            .use_value_delimiter(true)
+            .help_heading("Request filters")
+            .help("Additional domains/URLs to consider in-scope for scanning (in addition to current domain)"),
     );
 
     /////////////////////////////////////////////////////////////////////

@@ -15,7 +15,7 @@ complete -c feroxbuster -s b -l cookies -d 'Specify HTTP cookies to be used in e
 complete -c feroxbuster -s Q -l query -d 'Request\'s URL query parameters (ex: -Q token=stuff -Q secret=key)' -r
 complete -c feroxbuster -l protocol -d 'Specify the protocol to use when targeting via --request-file or --url with domain only (default: https)' -r
 complete -c feroxbuster -l dont-scan -d 'URL(s) or Regex Pattern(s) to exclude from recursion/scans' -r
-complete -c feroxbuster -l scope -d 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain and subdomains)' -r
+complete -c feroxbuster -l scope -d 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain)' -r
 complete -c feroxbuster -s S -l filter-size -d 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)' -r
 complete -c feroxbuster -s X -l filter-regex -d 'Filter out messages via regular expression matching on the response\'s body/headers (ex: -X \'^ignore me$\')' -r
 complete -c feroxbuster -s W -l filter-words -d 'Filter out messages of a particular word count (ex: -W 312 -W 91,82)' -r
