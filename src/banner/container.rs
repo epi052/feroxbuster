@@ -156,6 +156,9 @@ pub struct Banner {
     /// represents Configuration.url_denylist
     url_denylist: Vec<BannerEntry>,
 
+    /// represents Configuration.scope
+    scope: Vec<BannerEntry>,
+
     /// current version of feroxbuster
     pub(super) version: String,
 
@@ -199,6 +202,7 @@ impl Banner {
     pub fn new(tgts: &[String], config: &Configuration) -> Self {
         let mut targets = Vec::new();
         let mut url_denylist = Vec::new();
+        let mut scope = Vec::new();
         let mut code_filters = Vec::new();
         let mut replay_codes = Vec::new();
         let mut headers = Vec::new();
@@ -227,6 +231,10 @@ impl Banner {
                 "Don't Scan Regex",
                 denied_regex.as_str(),
             ));
+        }
+
+        for scope_url in &config.scope {
+            scope.push(BannerEntry::new("🚩", "Scoped Url", scope_url));
         }
 
         // the +2 is for the 2 experimental status codes we add to the default list manually
@@ -486,6 +494,7 @@ impl Banner {
             force_recursion,
             time_limit,
             url_denylist,
+            scope,
             collect_extensions,
             collect_backups,
             collect_words,
@@ -614,6 +623,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
 
         for denied_url in &self.url_denylist {
             writeln!(&mut writer, "{denied_url}")?;
+        }
+
+        for scoped_url in &self.scope {
+            writeln!(&mut writer, "{scoped_url}")?;
         }
 
         writeln!(&mut writer, "{}", self.threads)?;
