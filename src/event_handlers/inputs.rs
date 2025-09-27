@@ -78,7 +78,10 @@ impl TermInputHandler {
     pub fn sigint_handler(handles: Arc<Handles>) -> Result<()> {
         log::trace!("enter: sigint_handler({handles:?})");
 
-        let filename = if !handles.config.target_url.is_empty() {
+        // check for STATE_FILENAME env var first; credit to Tobias Rauch for the idea
+        let filename = if let Ok(path) = std::env::var("STATE_FILENAME") {
+            path
+        } else if !handles.config.target_url.is_empty() {
             // target url populated
             slugify_filename(&handles.config.target_url, "ferox", "state")
         } else {
