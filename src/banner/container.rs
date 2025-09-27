@@ -234,7 +234,7 @@ impl Banner {
         }
 
         for scope_url in &config.scope {
-            scope.push(BannerEntry::new("🚩", "Scoped Url", scope_url));
+            scope.push(BannerEntry::new("🚩", "In-Scope Url", scope_url));
         }
 
         // the +2 is for the 2 experimental status codes we add to the default list manually
