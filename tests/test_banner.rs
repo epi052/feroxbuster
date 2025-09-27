@@ -176,7 +176,7 @@ fn banner_prints_scope_urls() {
                 .and(predicate::str::contains("Status Codes"))
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
-                .and(predicate::str::contains("Scoped Url"))
+                .and(predicate::str::contains("In-Scope Url"))
                 .and(predicate::str::contains("example.com"))
                 .and(predicate::str::contains("api.example.com"))
                 .and(predicate::str::contains("sub.example.com"))
