@@ -1,4 +1,3 @@
-use std::io::stdin;
 use std::{
     env::{
         args,
@@ -146,7 +145,7 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
 
     let mut targets = vec![];
 
-    if handles.config.stdin {
+    if handles.config.stdin && handles.config.cached_stdin.is_empty() {
         // got targets from stdin, i.e. cat sites | ./feroxbuster ...
         // just need to read the targets from stdin and spawn a future for each target found
         let stdin = io::stdin(); // tokio's stdin, not std
@@ -155,6 +154,10 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
         while let Some(line) = reader.next().await {
             targets.push(line?);
         }
+    } else if !handles.config.cached_stdin.is_empty() {
+        // cached_stdin populated from config::container if --stdin was used
+        // keeping the if block above as a failsafe, but i dont think we'll hit it anymore
+        targets = handles.config.cached_stdin.clone();
     } else if handles.config.resumed {
         // resume-from can't be used with --url, and --stdin is marked false for every resumed
         // scan, making it mutually exclusive from either of the other two options
@@ -199,6 +202,9 @@ async fn get_targets(handles: Arc<Handles>) -> Result<Vec<String>> {
 
         if !target.starts_with("http") {
             // --url hackerone.com
+            // as of the 2.13.0 update, config::container handles both --url hackerone.com
+            // and urls coming in from --stdin. I think this is dead code now, but leaving
+            // it in just in case
             *target = format!("{}://{target}", handles.config.protocol);
         }
     }
@@ -666,10 +672,10 @@ fn main() -> Result<()> {
                 .contains("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
             {
                 // support the handful of tests that use `--stdin`
-                let targets: Vec<_> = if config.stdin {
-                    stdin().lock().lines().map(|tgt| tgt.unwrap()).collect()
-                } else {
+                let targets: Vec<_> = if config.cached_stdin.is_empty() {
                     vec!["http://localhost".to_string()]
+                } else {
+                    config.cached_stdin.clone()
                 };
 
                 // print the banner to stderr

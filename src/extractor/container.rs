@@ -11,7 +11,7 @@ use crate::{
         StatError::Other,
         StatField::{LinksExtracted, TotalExpected},
     },
-    url::FeroxUrl,
+    url::{FeroxUrl, UrlExt},
     utils::{
         logged_request, make_request, parse_url_with_raw_path, send_try_recursion_command,
         should_deny_url,
@@ -116,24 +116,20 @@ impl<'a> Extractor<'a> {
 
     /// wrapper around logic that performs the following:
     /// - parses `url_to_parse`
-    /// - bails if the parsed url doesn't belong to the original host/domain
+    /// - bails if the parsed url doesn't belong to the list of in-scope urls
     /// - otherwise, calls `add_all_sub_paths` with the parsed result
     fn parse_url_and_add_subpaths(
         &self,
         url_to_parse: &str,
-        original_url: &Url,
         links: &mut HashSet<String>,
     ) -> Result<()> {
         log::trace!("enter: parse_url_and_add_subpaths({links:?})");
 
         match parse_url_with_raw_path(url_to_parse) {
             Ok(absolute) => {
-                if absolute.domain() != original_url.domain()
-                    || absolute.host() != original_url.host()
-                {
-                    // domains/ips are not the same, don't scan things that aren't part of the original
-                    // target url
-                    bail!("parsed url does not belong to original domain/host");
+                if !absolute.is_in_scope(&self.handles.config.scope) {
+                    // URL is not in scope based on domain/scope configuration
+                    bail!("parsed url is not in scope");
                 }
 
                 if self.add_all_sub_paths(absolute.path(), links).is_err() {
@@ -145,6 +141,9 @@ impl<'a> Extractor<'a> {
                 //     ex: Url::parse("/login") -> Err("relative URL without a base")
                 // while this is technically an error, these are good results for us
                 if e.to_string().contains("relative URL without a base") {
+                    // scope for these should be enforced in add_all_sub_paths since
+                    // we join the fragment with the base url there and can check
+                    // the full Url against scope
                     if self.add_all_sub_paths(url_to_parse, links).is_err() {
                         log::warn!("could not add sub-paths from {url_to_parse} to {links:?}");
                     }
@@ -359,10 +358,7 @@ impl<'a> Extractor<'a> {
             // capture[0] is the entire match, additional capture groups start at [1]
             let link = capture[0].trim_matches(|c| c == '\'' || c == '"');
 
-            if self
-                .parse_url_and_add_subpaths(link, response_url, links)
-                .is_err()
-            {
+            if self.parse_url_and_add_subpaths(link, links).is_err() {
                 // purposely not logging the error here, due to the frequency with which it gets hit
             }
         }
@@ -503,10 +499,9 @@ impl<'a> Extractor<'a> {
             .join(link)
             .with_context(|| format!("Could not join {old_url} with {link}"))?;
 
-        if old_url.domain() != new_url.domain() || old_url.host() != new_url.host() {
-            // domains/ips are not the same, don't scan things that aren't part of the original
-            // target url
-            log::debug!("Skipping {new_url} because it's not part of the original target",);
+        if !new_url.is_in_scope(&self.handles.config.scope) {
+            // URL is not in scope based on domain/scope configuration
+            log::debug!("Skipping {new_url} because it's not in scope");
             log::trace!("exit: add_link_to_set_of_links");
             return Ok(());
         }
@@ -615,10 +610,7 @@ impl<'a> Extractor<'a> {
             if let Some(link) = tag.value().attr(html_attr) {
                 log::debug!("Parsed link \"{}\" from {}", link, resp_url.as_str());
 
-                if self
-                    .parse_url_and_add_subpaths(link, resp_url, links)
-                    .is_err()
-                {
+                if self.parse_url_and_add_subpaths(link, links).is_err() {
                     log::debug!("link didn't belong to the target domain/host: {link}");
                 }
             }
@@ -665,17 +657,19 @@ impl<'a> Extractor<'a> {
                 Some(self.handles.config.client_key.as_str())
             };
 
-            client = client::initialize(
-                self.handles.config.timeout,
-                &self.handles.config.user_agent,
-                follow_redirects,
-                self.handles.config.insecure,
-                &self.handles.config.headers,
+            let client_config = client::ClientConfig {
+                timeout: self.handles.config.timeout,
+                user_agent: &self.handles.config.user_agent,
+                redirects: follow_redirects,
+                insecure: self.handles.config.insecure,
+                headers: &self.handles.config.headers,
                 proxy,
-                server_certs,
+                server_certs: Some(server_certs),
                 client_cert,
                 client_key,
-            )?;
+                scope: &self.handles.config.scope,
+            };
+            client = client::initialize(client_config)?;
         }
 
         let client = if location != "/robots.txt" {

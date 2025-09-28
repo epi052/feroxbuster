@@ -21,7 +21,7 @@ fn test_single_target_cannot_connect() -> Result<(), Box<dyn std::error::Error>>
         .assert()
         .success()
         .stdout(
-            predicate::str::contains("Could not connect to http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk, skipping...", )
+            predicate::str::contains("Could not connect to http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk/, skipping...", )
         );
 
     teardown_tmp_directory(tmp_dir);
@@ -47,7 +47,7 @@ fn test_two_targets_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
         .assert()
         .success()
         .stdout(
-            predicate::str::contains("Could not connect to http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk, skipping...", )
+            predicate::str::contains("Could not connect to http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk/, skipping...", )
         );
 
     teardown_tmp_directory(tmp_dir);

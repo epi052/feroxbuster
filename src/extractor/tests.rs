@@ -51,7 +51,12 @@ fn setup_extractor(target: ExtractionTarget, scanned_urls: Arc<FeroxScans>) -> E
             .target(ExtractionTarget::DirectoryListing),
     };
 
-    let config = Arc::new(Configuration::new().unwrap());
+    // need to add scope to the config to allow extracted links to make it through the
+    // full pipeline
+    let mut config = Configuration::new().unwrap();
+    config.scope.push(Url::parse("http://localhost").unwrap());
+
+    let config = Arc::new(config);
     let handles = Arc::new(Handles::for_testing(Some(scanned_urls), Some(config)).0);
 
     builder.handles(handles).build().unwrap()
