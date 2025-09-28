@@ -255,17 +255,17 @@ impl Requester {
     async fn set_rate_limiter(&self, new_limit: Option<usize>) -> Result<()> {
         let mut guard = self.rate_limiter.write().await;
 
-        let new_bucket = if new_limit.is_none() {
+        let new_bucket = if let Some(limit) = new_limit {
+            if guard.is_some() && guard.as_ref().unwrap().max() == limit {
+                // this function is called more often than i'd prefer due to Send requirements of
+                // mutex/rwlock primitives and awaits, this will minimize the cost of the extra calls
+                return Ok(());
+            } else {
+                Some(Self::build_a_bucket(limit)?)
+            }
+        } else {
             // got None, need to remove the rate_limiter
             None
-        } else if guard.is_some() && guard.as_ref().unwrap().max() == new_limit.unwrap() {
-            // new_limit is checked for None in first branch, should be fine to unwrap
-
-            // this function is called more often than i'd prefer due to Send requirements of
-            // mutex/rwlock primitives and awaits, this will minimize the cost of the extra calls
-            return Ok(());
-        } else {
-            Some(Self::build_a_bucket(new_limit.unwrap())?)
         };
 
         let _ = std::mem::replace(&mut *guard, new_bucket);
