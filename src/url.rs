@@ -33,7 +33,7 @@ impl UrlExt for Url {
         }
 
         for url in scope {
-            if self.domain() == url.domain() && self.host() == url.host() {
+            if self.host() == url.host() {
                 log::trace!("exit: is_in_scope -> true (same domain/host)");
                 return true;
             }
@@ -50,7 +50,31 @@ impl UrlExt for Url {
 
     fn is_subdomain_of(&self, parent_url: &Url) -> bool {
         if let (Some(url_domain), Some(parent_domain)) = (self.domain(), parent_url.domain()) {
-            url_domain.ends_with(&format!(".{parent_domain}"))
+            let candidate = url_domain.to_lowercase();
+            let candidate = candidate.trim_end_matches('.');
+
+            let parent = parent_domain.to_lowercase();
+            let parent = parent.trim_end_matches('.');
+
+            if candidate == parent {
+                // same domain is not a subdomain
+                return false;
+            }
+
+            let candidate_parts: Vec<&str> = candidate.split('.').collect();
+            let parent_parts: Vec<&str> = parent.split('.').collect();
+
+            if candidate_parts.len() <= parent_parts.len() {
+                // candidate has fewer or equal parts than parent, so it can't be a subdomain
+                return false;
+            }
+
+            // check if parent parts match the rightmost parts of candidate
+            candidate_parts
+                .iter()
+                .rev()
+                .zip(parent_parts.iter().rev())
+                .all(|(c, p)| c == p)
         } else {
             false
         }
