@@ -90,6 +90,26 @@ jobs:
           name: x86_64-linux-debug-feroxbuster
           path: target/x86_64-unknown-linux-musl/debug/feroxbuster
 
+  build-debug-windows:
+    env:
+      IN_PIPELINE: true
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+
+      - name: Build the project
+        run: cargo build --target=x86_64-pc-windows-msvc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: x86_64-windows-debug-feroxbuster.exe
+          path: target\x86_64-pc-windows-msvc\debug\feroxbuster.exe
+
   build-deb:
     needs: [build-nix]
     runs-on: ubuntu-latest
