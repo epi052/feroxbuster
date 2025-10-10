@@ -38,6 +38,10 @@
 # methods = ["GET", "POST"]
 # data = [11, 12, 13, 14, 15]
 # url_denylist = ["http://dont-scan.me", "https://also-not.me"]
+# any subdomain of a domain provided to scope is implicitly allowed also.
+# so things like "api.other.com" and "sub.third.com" would also be considered
+# in-scope given the example config below.
+# scope = ["example.com", "other.com", "third.com"]
 # regex_denylist = ["/deny.*"]
 # no_recursion = true
 # add_slash = true

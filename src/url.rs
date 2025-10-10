@@ -5,6 +5,82 @@ use reqwest::Url;
 use std::collections::HashSet;
 use std::{fmt, sync::Arc};
 
+/// Trait extension for reqwest::Url to add scope checking functionality
+pub trait UrlExt {
+    /// Check if this URL is allowed based on scope configuration
+    ///
+    /// A URL is considered in-scope if:
+    /// 1. It belongs to the same domain as an in-scope url, OR
+    /// 2. It belongs to a subdomain of an in-scope url
+    ///
+    /// note: the scope list passed in is populated from either --url or --stdin
+    /// as well as --scope. This means we don't have to worry about checking
+    /// against the original target url, as that is already in the scope list
+    fn is_in_scope(&self, scope: &[Url]) -> bool;
+
+    /// Check if this URL is a subdomain of the given parent domain
+    fn is_subdomain_of(&self, parent_url: &Url) -> bool;
+}
+
+impl UrlExt for Url {
+    fn is_in_scope(&self, scope: &[Url]) -> bool {
+        log::trace!("enter: is_in_scope({}, scope: {:?})", self.as_str(), scope);
+
+        if scope.is_empty() {
+            log::error!("is_in_scope check failed (scope is empty, this should not happen)");
+            log::trace!("exit: is_in_scope -> false");
+            return false;
+        }
+
+        for url in scope {
+            if self.host() == url.host() {
+                log::trace!("exit: is_in_scope -> true (same domain/host)");
+                return true;
+            }
+
+            if self.is_subdomain_of(url) {
+                log::trace!("exit: is_in_scope -> true (subdomain)");
+                return true;
+            }
+        }
+
+        log::trace!("exit: is_in_scope -> false");
+        false
+    }
+
+    fn is_subdomain_of(&self, parent_url: &Url) -> bool {
+        if let (Some(url_domain), Some(parent_domain)) = (self.domain(), parent_url.domain()) {
+            let candidate = url_domain.to_lowercase();
+            let candidate = candidate.trim_end_matches('.');
+
+            let parent = parent_domain.to_lowercase();
+            let parent = parent.trim_end_matches('.');
+
+            if candidate == parent {
+                // same domain is not a subdomain
+                return false;
+            }
+
+            let candidate_parts: Vec<&str> = candidate.split('.').collect();
+            let parent_parts: Vec<&str> = parent.split('.').collect();
+
+            if candidate_parts.len() <= parent_parts.len() {
+                // candidate has fewer or equal parts than parent, so it can't be a subdomain
+                return false;
+            }
+
+            // check if parent parts match the rightmost parts of candidate
+            candidate_parts
+                .iter()
+                .rev()
+                .zip(parent_parts.iter().rev())
+                .all(|(c, p)| c == p)
+        } else {
+            false
+        }
+    }
+}
+
 /// abstraction around target urls; collects all Url related shenanigans in one place
 #[derive(Debug)]
 pub struct FeroxUrl {
@@ -488,5 +564,187 @@ mod tests {
             }
             Err(err) => panic!("{}", err.to_string()),
         }
+    }
+
+    #[test]
+    /// test is_in_scope function to ensure that it checks for presence within scope list
+    fn test_is_in_scope() {
+        let url = Url::parse("http://localhost").unwrap();
+        let scope = vec![
+            Url::parse("http://localhost").unwrap(),
+            Url::parse("http://example.com").unwrap(),
+        ];
+
+        assert!(url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope function to ensure that it checks that a subdomain of a domain within
+    /// the scope list returns true
+    fn test_is_in_scope_subdomain() {
+        let url = Url::parse("http://sub.localhost").unwrap();
+        let scope = vec![
+            Url::parse("http://localhost").unwrap(),
+            Url::parse("http://example.com").unwrap(),
+        ];
+
+        assert!(url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope returns false when url is not in scope
+    fn test_is_in_scope_not_in_scope() {
+        let url = Url::parse("http://notinscope.com").unwrap();
+        let scope = vec![
+            Url::parse("http://localhost").unwrap(),
+            Url::parse("http://example.com").unwrap(),
+        ];
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with empty scope returns false
+    fn test_is_in_scope_empty_scope() {
+        let url = Url::parse("http://localhost").unwrap();
+        let scope: Vec<Url> = vec![];
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with domain-only scope entry (not a URL)
+    fn test_is_in_scope_domain_only_scope() {
+        let url = Url::parse("http://example.com").unwrap();
+        let scope = vec![Url::parse("http://example.com").unwrap()];
+
+        assert!(url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with subdomain and domain-only scope entry
+    fn test_is_in_scope_subdomain_domain_only_scope() {
+        let url = Url::parse("http://sub.example.com").unwrap();
+        let scope = vec![Url::parse("http://example.com").unwrap()];
+
+        assert!(url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with URL that has no domain
+    fn test_is_in_scope_no_domain() {
+        // This creates a URL that may not have a domain (like a file:// URL)
+        let url = Url::parse("file:///path/to/file").unwrap();
+        let scope = vec![Url::parse("http://example.com").unwrap()];
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_subdomain_of basic functionality
+    fn test_is_subdomain_of_true() {
+        let subdomain_url = Url::parse("http://sub.example.com").unwrap();
+        let parent_url = Url::parse("http://example.com").unwrap();
+
+        assert!(subdomain_url.is_subdomain_of(&parent_url));
+    }
+
+    #[test]
+    /// test is_subdomain_of returns false for same domain
+    fn test_is_subdomain_of_same_domain() {
+        let url = Url::parse("http://example.com").unwrap();
+        let parent_url = Url::parse("http://example.com").unwrap();
+
+        assert!(!url.is_subdomain_of(&parent_url));
+    }
+
+    #[test]
+    /// test is_subdomain_of returns false for different domain
+    fn test_is_subdomain_of_different_domain() {
+        let url = Url::parse("http://other.com").unwrap();
+        let parent_url = Url::parse("http://example.com").unwrap();
+
+        assert!(!url.is_subdomain_of(&parent_url));
+    }
+
+    #[test]
+    /// test is_subdomain_of with multi-level subdomain
+    fn test_is_subdomain_of_multi_level() {
+        let subdomain_url = Url::parse("http://deep.sub.example.com").unwrap();
+        let parent_url = Url::parse("http://example.com").unwrap();
+
+        assert!(subdomain_url.is_subdomain_of(&parent_url));
+    }
+
+    #[test]
+    /// test is_subdomain_of with URLs that have no domain
+    fn test_is_subdomain_of_no_domain() {
+        let url = Url::parse("file:///path/to/file").unwrap();
+        let parent_url = Url::parse("http://example.com").unwrap();
+
+        assert!(!url.is_subdomain_of(&parent_url));
+    }
+
+    #[test]
+    /// test is_subdomain_of where parent has no domain
+    fn test_is_subdomain_of_parent_no_domain() {
+        let url = Url::parse("http://example.com").unwrap();
+        let parent_url = Url::parse("file:///path/to/file").unwrap();
+
+        assert!(!url.is_subdomain_of(&parent_url));
+    }
+
+    #[test]
+    /// test is_in_scope with same domain/host
+    fn test_is_not_in_empty_scope() {
+        let url = Url::parse("http://example.com/path").unwrap();
+        let scope: Vec<Url> = Vec::new();
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with subdomain
+    fn test_is_in_scope_subdomain_with_empty_scope() {
+        let url = Url::parse("http://sub.example.com").unwrap();
+        let scope: Vec<Url> = vec![];
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with scope match
+    fn test_is_in_scope_scope_match() {
+        let url = Url::parse("http://other.com").unwrap();
+        let scope = vec![Url::parse("http://other.com").unwrap()];
+
+        assert!(url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope returns false when not in scope
+    fn test_is_in_scope_not_allowed() {
+        let url = Url::parse("http://notallowed.com").unwrap();
+        let scope = vec![Url::parse("http://other.com").unwrap()];
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with empty scope and different domain
+    fn test_is_in_scope_empty_scope_different_domain() {
+        let url = Url::parse("http://other.com").unwrap();
+        let scope: Vec<Url> = vec![];
+
+        assert!(!url.is_in_scope(&scope));
+    }
+
+    #[test]
+    /// test is_in_scope with subdomain in scope
+    fn test_is_in_scope_subdomain_in_scope() {
+        let url = Url::parse("http://sub.allowed.com").unwrap();
+        let scope = vec![Url::parse("http://allowed.com").unwrap()];
+
+        assert!(url.is_in_scope(&scope));
     }
 }

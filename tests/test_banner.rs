@@ -153,6 +153,39 @@ fn banner_prints_denied_urls() {
 
 #[test]
 /// test allows non-existent wordlist to trigger the banner printing to stderr
+/// expect to see all mandatory prints + multiple scope url entries
+fn banner_prints_scope_urls() {
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--scope")
+        .arg("example.com")
+        .arg("api.example.com")
+        .arg("sub.example.com")
+        .arg("--wordlist")
+        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
+        .assert()
+        .success()
+        .stderr(
+            predicate::str::contains("─┬─")
+                .and(predicate::str::contains("Target Url"))
+                .and(predicate::str::contains("http://localhost"))
+                .and(predicate::str::contains("Threads"))
+                .and(predicate::str::contains("Wordlist"))
+                .and(predicate::str::contains("Status Codes"))
+                .and(predicate::str::contains("Timeout (secs)"))
+                .and(predicate::str::contains("User-Agent"))
+                .and(predicate::str::contains("In-Scope Url"))
+                .and(predicate::str::contains("example.com"))
+                .and(predicate::str::contains("api.example.com"))
+                .and(predicate::str::contains("sub.example.com"))
+                .and(predicate::str::contains("─┴─")),
+        );
+}
+
+#[test]
+/// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple headers
 fn banner_prints_random_agent() {
     Command::cargo_bin("feroxbuster")
@@ -1663,34 +1696,6 @@ fn banner_prints_scan_dir_listings() {
                 .and(predicate::str::contains("Timeout (secs)"))
                 .and(predicate::str::contains("User-Agent"))
                 .and(predicate::str::contains("Scan Dir Listings"))
-                .and(predicate::str::contains("─┴─")),
-        );
-}
-
-#[test]
-/// test allows non-existent wordlist to trigger the banner printing to stderr
-/// expect to see all mandatory prints + protocol
-fn banner_prints_protocol() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
-        .arg("--url")
-        .arg("localhost")
-        .arg("--protocol")
-        .arg("http")
-        .arg("--wordlist")
-        .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
-        .assert()
-        .success()
-        .stderr(
-            predicate::str::contains("─┬─")
-                .and(predicate::str::contains("Target Url"))
-                .and(predicate::str::contains("http://localhost"))
-                .and(predicate::str::contains("Threads"))
-                .and(predicate::str::contains("Wordlist"))
-                .and(predicate::str::contains("Status Codes"))
-                .and(predicate::str::contains("Timeout (secs)"))
-                .and(predicate::str::contains("User-Agent"))
-                .and(predicate::str::contains("Default Protocol"))
                 .and(predicate::str::contains("─┴─")),
         );
 }

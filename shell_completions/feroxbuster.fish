@@ -6,7 +6,7 @@ complete -c feroxbuster -l data-json -d 'Set -H \'Content-Type: application/json
 complete -c feroxbuster -s p -l proxy -d 'Proxy to use for requests (ex: http(s)://host:port, socks5(h)://host:port)' -r -f
 complete -c feroxbuster -s P -l replay-proxy -d 'Send only unfiltered requests through a Replay Proxy, instead of all requests' -r -f
 complete -c feroxbuster -s R -l replay-codes -d 'Status Codes to send through a Replay Proxy when found (default: --status-codes value)' -r
-complete -c feroxbuster -s a -l user-agent -d 'Sets the User-Agent (default: feroxbuster/2.12.0)' -r
+complete -c feroxbuster -s a -l user-agent -d 'Sets the User-Agent (default: feroxbuster/2.13.0)' -r
 complete -c feroxbuster -s x -l extensions -d 'File extension(s) to search for (ex: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex: @ext.txt)' -r
 complete -c feroxbuster -s m -l methods -d 'Which HTTP request method(s) should be sent (default: GET)' -r
 complete -c feroxbuster -l data -d 'Request\'s Body; can read data from a file if input starts with an @ (ex: @post.bin)' -r
@@ -15,6 +15,7 @@ complete -c feroxbuster -s b -l cookies -d 'Specify HTTP cookies to be used in e
 complete -c feroxbuster -s Q -l query -d 'Request\'s URL query parameters (ex: -Q token=stuff -Q secret=key)' -r
 complete -c feroxbuster -l protocol -d 'Specify the protocol to use when targeting via --request-file or --url with domain only (default: https)' -r
 complete -c feroxbuster -l dont-scan -d 'URL(s) or Regex Pattern(s) to exclude from recursion/scans' -r
+complete -c feroxbuster -l scope -d 'Additional domains/URLs to consider in-scope for scanning (in addition to current domain)' -r
 complete -c feroxbuster -s S -l filter-size -d 'Filter out messages of a particular size (ex: -S 5120 -S 4927,1970)' -r
 complete -c feroxbuster -s X -l filter-regex -d 'Filter out messages via regular expression matching on the response\'s body/headers (ex: -X \'^ignore me$\')' -r
 complete -c feroxbuster -s W -l filter-words -d 'Filter out messages of a particular word count (ex: -W 312 -W 91,82)' -r

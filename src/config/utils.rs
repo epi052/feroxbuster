@@ -509,18 +509,28 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
         url.set_fragment(None);
 
         config.target_url = url.to_string();
+        config.scope.push(url);
     } else {
         // uri in request line is not a valid URL, so it's most likely a path/relative url
         // we need to combine it with the host header
         for (key, value) in &config.headers {
             if key.to_lowercase() == "host" {
-                config.target_url = format!("{value}{uri}");
+                config.target_url = format!("{}://{value}{uri}", config.protocol);
                 break;
             }
         }
 
         if config.target_url.is_empty() {
             bail!("Invalid request: Missing Host header and request line URI isn't a full URL");
+        }
+
+        if let Ok(url) = parse_url_with_raw_path(&config.target_url) {
+            config.scope.push(url);
+        } else {
+            bail!(
+                "Invalid request: Could not parse target URL {}",
+                config.target_url
+            );
         }
 
         // need to parse queries from the uri, if any are present
@@ -1153,7 +1163,7 @@ mod tests {
         let result = parse_request_file(&mut tmp.config);
 
         assert!(result.is_ok());
-        assert_eq!(tmp.config.target_url, "example.com/srv");
+        assert_eq!(tmp.config.target_url, "https://example.com/srv");
 
         tmp.cleanup();
         Ok(())

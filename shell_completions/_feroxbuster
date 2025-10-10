@@ -27,8 +27,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE:_default' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE:_default' \
-'-a+[Sets the User-Agent (default\: feroxbuster/2.12.0)]:USER_AGENT:_default' \
-'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.12.0)]:USER_AGENT:_default' \
+'-a+[Sets the User-Agent (default\: feroxbuster/2.13.0)]:USER_AGENT:_default' \
+'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.13.0)]:USER_AGENT:_default' \
 '*-x+[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION:_default' \
 '*--extensions=[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION:_default' \
 '*-m+[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS:_default' \
@@ -42,6 +42,7 @@ _feroxbuster() {
 '*--query=[Request'\''s URL query parameters (ex\: -Q token=stuff -Q secret=key)]:QUERY:_default' \
 '--protocol=[Specify the protocol to use when targeting via --request-file or --url with domain only (default\: https)]:PROTOCOL:_default' \
 '*--dont-scan=[URL(s) or Regex Pattern(s) to exclude from recursion/scans]:URL:_default' \
+'*--scope=[Additional domains/URLs to consider in-scope for scanning (in addition to current domain)]:URL:_default' \
 '*-S+[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE:_default' \
 '*--filter-size=[Filter out messages of a particular size (ex\: -S 5120 -S 4927,1970)]:SIZE:_default' \
 '*-X+[Filter out messages via regular expression matching on the response'\''s body/headers (ex\: -X '\''^ignore me\$'\'')]:REGEX:_default' \

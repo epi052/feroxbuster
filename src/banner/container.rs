@@ -156,6 +156,9 @@ pub struct Banner {
     /// represents Configuration.url_denylist
     url_denylist: Vec<BannerEntry>,
 
+    /// represents Configuration.scope
+    scope: Vec<BannerEntry>,
+
     /// current version of feroxbuster
     pub(super) version: String,
 
@@ -199,6 +202,7 @@ impl Banner {
     pub fn new(tgts: &[String], config: &Configuration) -> Self {
         let mut targets = Vec::new();
         let mut url_denylist = Vec::new();
+        let mut scope = Vec::new();
         let mut code_filters = Vec::new();
         let mut replay_codes = Vec::new();
         let mut headers = Vec::new();
@@ -227,6 +231,15 @@ impl Banner {
                 "Don't Scan Regex",
                 denied_regex.as_str(),
             ));
+        }
+
+        for scope_url in &config.scope {
+            let value = match scope_url.host() {
+                Some(host) => host.to_string(),
+                None => scope_url.as_str().to_string(),
+            };
+
+            scope.push(BannerEntry::new("🚩", "In-Scope Url", &value));
         }
 
         // the +2 is for the 2 experimental status codes we add to the default list manually
@@ -486,6 +499,7 @@ impl Banner {
             force_recursion,
             time_limit,
             url_denylist,
+            scope,
             collect_extensions,
             collect_backups,
             collect_words,
@@ -544,17 +558,35 @@ by Ben "epi" Risher {}                 ver: {}"#,
         // we don't want to leak sensitive header info / include auth headers
         // with the github api request, so we'll build a client specifically
         // for this task. thanks to @stuhlmann for the suggestion!
-        let client = client::initialize(
-            handles.config.timeout,
-            "feroxbuster-update-check",
-            handles.config.redirects,
-            handles.config.insecure,
-            &HashMap::new(),
-            Some(&handles.config.proxy),
-            &handles.config.server_certs,
-            Some(&handles.config.client_cert),
-            Some(&handles.config.client_key),
-        )?;
+        let headers = HashMap::new();
+        let client_cert = if handles.config.client_cert.is_empty() {
+            None
+        } else {
+            Some(handles.config.client_cert.as_str())
+        };
+        let client_key = if handles.config.client_key.is_empty() {
+            None
+        } else {
+            Some(handles.config.client_key.as_str())
+        };
+        let proxy = if handles.config.proxy.is_empty() {
+            None
+        } else {
+            Some(handles.config.proxy.as_str())
+        };
+        let client_config = client::ClientConfig {
+            timeout: handles.config.timeout,
+            user_agent: "feroxbuster-update-check",
+            redirects: handles.config.redirects,
+            insecure: handles.config.insecure,
+            headers: &headers,
+            proxy,
+            server_certs: Some(&handles.config.server_certs),
+            client_cert,
+            client_key,
+            scope: &handles.config.scope,
+        };
+        let client = client::initialize(client_config)?;
         let level = handles.config.output_level;
         let tx_stats = handles.stats.tx.clone();
 
@@ -616,6 +648,10 @@ by Ben "epi" Risher {}                 ver: {}"#,
             writeln!(&mut writer, "{denied_url}")?;
         }
 
+        for scoped_url in &self.scope {
+            writeln!(&mut writer, "{scoped_url}")?;
+        }
+
         writeln!(&mut writer, "{}", self.threads)?;
         writeln!(&mut writer, "{}", self.wordlist)?;
 
@@ -636,7 +672,7 @@ by Ben "epi" Risher {}                 ver: {}"#,
         }
 
         // followed by the maybe printed or variably displayed values
-        if !config.request_file.is_empty() || !config.target_url.starts_with("http") {
+        if !config.request_file.is_empty() {
             writeln!(&mut writer, "{}", self.protocol)?;
         }
 

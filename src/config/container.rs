@@ -24,6 +24,7 @@ use std::{
     collections::HashMap,
     env::{current_dir, current_exe},
     fs::read_to_string,
+    io::BufRead,
     path::{Path, PathBuf},
 };
 use url::form_urlencoded;
@@ -245,6 +246,10 @@ pub struct Configuration {
     #[serde(default)]
     pub stdin: bool,
 
+    /// Cached stdin contents to facilitate populating scope from stdin targets
+    #[serde(skip)]
+    pub cached_stdin: Vec<String>,
+
     /// Maximum recursion depth, a depth of 0 is infinite recursion
     #[serde(default = "depth")]
     pub depth: usize,
@@ -310,6 +315,10 @@ pub struct Configuration {
     #[serde(with = "serde_regex", default)]
     pub regex_denylist: Vec<Regex>,
 
+    /// Allowed domains/URLs for redirects and link extraction
+    #[serde(default)]
+    pub scope: Vec<Url>,
+
     /// Automatically discover extensions and add them to --extensions (unless they're in --dont-collect)
     #[serde(default)]
     pub collect_extensions: bool,
@@ -367,18 +376,20 @@ impl Default for Configuration {
     fn default() -> Self {
         let timeout = timeout();
         let user_agent = user_agent();
-        let client = client::initialize(
+        let headers = HashMap::new();
+        let client_config = client::ClientConfig {
             timeout,
-            &user_agent,
-            false,
-            false,
-            &HashMap::new(),
-            None,
-            Vec::<String>::new(),
-            None,
-            None,
-        )
-        .expect("Could not build client");
+            user_agent: &user_agent,
+            redirects: false,
+            insecure: false,
+            headers: &headers,
+            proxy: None,
+            server_certs: Option::<Vec<String>>::None,
+            client_cert: None,
+            client_key: None,
+            scope: &Vec::new(), // no scope by default
+        };
+        let client = client::initialize(client_config).expect("Could not build client");
         let replay_client = None;
         let status_codes = status_codes();
         let replay_codes = status_codes.clone();
@@ -444,6 +455,8 @@ impl Default for Configuration {
             filter_regex: Vec::new(),
             url_denylist: Vec::new(),
             regex_denylist: Vec::new(),
+            scope: Vec::new(),
+            cached_stdin: Vec::new(),
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
             filter_status: Vec::new(),
@@ -495,6 +508,7 @@ impl Configuration {
     /// - **data**: `None`
     /// - **url_denylist**: `None`
     /// - **regex_denylist**: `None`
+    /// - **scope**: `None`
     /// - **filter_size**: `None`
     /// - **filter_similar**: `None`
     /// - **filter_regex**: `None`
@@ -677,7 +691,17 @@ impl Configuration {
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
         update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
         update_config_if_present!(&mut config.request_file, args, "request_file", String);
-        update_config_if_present!(&mut config.protocol, args, "protocol", String);
+
+        // both target-url and scope rely on this value to help parse relative urls
+        // so this logic must stay above target/scope parsing in this fn
+        if let Some(proto) = args.get_one::<String>("protocol") {
+            if proto != "http" && proto != "https" {
+                report_and_exit(&format!(
+                    "Invalid value for --protocol: {proto}, must be 'http' or 'https'"
+                ));
+            }
+            config.protocol = proto.to_owned();
+        }
 
         if let Ok(Some(inner)) = args.try_get_one::<String>("time_limit") {
             inner.clone_into(&mut config.time_limit);
@@ -770,10 +794,72 @@ impl Configuration {
             }
         }
 
+        /// internal helper to parse both scope urls and target urls
+        fn parse_url_with_no_base_correction(
+            config: &Configuration,
+            url: &str,
+        ) -> Result<Url, url::ParseError> {
+            // Url::parse fails if the url is relative (ex: example.com) instead of absolute
+            // (ex: https://example.com). In the case of a relative url, we can prepend
+            // "https://" (or whatever the user provided to --protocol) and try again
+            match parse_url_with_raw_path(url.trim_end_matches('/')) {
+                Ok(absolute) => Ok(absolute),
+                Err(err) => {
+                    log::debug!("Initial url parse failed: {err}");
+
+                    // user provided a relative url, which we can massage into an absolute
+                    // url by prepending the config.protocol (which is parsed earlier in the outer
+                    // function, meaning we'll get the actual protocol if the user specified
+                    // one, otherwise it'll be the default "https")
+                    let url_with_scheme =
+                        format!("{}://{}", config.protocol, url.trim_end_matches('/'));
+
+                    match parse_url_with_raw_path(&url_with_scheme) {
+                        Ok(url) => {
+                            // successfully parsed the relative url after prepending the
+                            // scheme, add it to the scope
+                            Ok(url)
+                        }
+                        Err(err) => {
+                            report_and_exit(&format!("Could not parse '{url}' as a url: {err}"));
+                        }
+                    }
+                }
+            }
+        }
+
         if came_from_cli!(args, "stdin") {
             config.stdin = true;
+
+            // read from stdin and cache it for later use, which allows us to still
+            // call get_targets in main without worrying about stdin being consumed
+            let cached_stdin = std::io::stdin()
+                .lock()
+                .lines()
+                .filter(|line| {
+                    if let Ok(l) = line {
+                        !l.trim().is_empty()
+                    } else {
+                        false
+                    }
+                })
+                .filter_map(|line| line.ok())
+                .collect::<Vec<String>>();
+
+            // if stdin is being used, we need to populate scope with the urls read from stdin
+            for line in &cached_stdin {
+                if let Ok(url) = parse_url_with_no_base_correction(&config, line) {
+                    config.cached_stdin.push(url.as_str().to_string());
+                    config.scope.push(url);
+                }
+            }
         } else if let Some(url) = args.get_one::<String>("url") {
-            config.target_url = url.into();
+            if let Ok(parsed) = parse_url_with_no_base_correction(&config, url) {
+                config.target_url = parsed.as_str().to_string();
+                config.scope.push(parsed);
+            } else {
+                config.target_url = url.into();
+            }
         }
 
         if let Some(arg) = args.get_many::<String>("url_denylist") {
@@ -816,6 +902,16 @@ impl Configuration {
                             report_and_exit(&err.to_string());
                         }
                     }
+                }
+            }
+        }
+
+        if let Some(arg) = args.get_many::<String>("scope") {
+            // using a similar approach as above, we need to handle both absolute and relative URLs
+            // e.g. https://example.com or example.com
+            for scoped_url in arg {
+                if let Ok(url) = parse_url_with_no_base_correction(&config, scoped_url) {
+                    config.scope.push(url);
                 }
             }
         }
@@ -1160,36 +1256,38 @@ impl Configuration {
             || client_cert.is_some()
             || client_key.is_some()
         {
-            configuration.client = client::initialize(
-                configuration.timeout,
-                &configuration.user_agent,
-                configuration.redirects,
-                configuration.insecure,
-                &configuration.headers,
+            let client_config = client::ClientConfig {
+                timeout: configuration.timeout,
+                user_agent: &configuration.user_agent,
+                redirects: configuration.redirects,
+                insecure: configuration.insecure,
+                headers: &configuration.headers,
                 proxy,
-                server_certs,
+                server_certs: Some(server_certs),
                 client_cert,
                 client_key,
-            )
-            .expect("Could not rebuild client");
+                scope: &configuration.scope,
+            };
+            configuration.client =
+                client::initialize(client_config).expect("Could not rebuild client");
         }
 
         if !configuration.replay_proxy.is_empty() {
             // only set replay_client when replay_proxy is set
-            configuration.replay_client = Some(
-                client::initialize(
-                    configuration.timeout,
-                    &configuration.user_agent,
-                    configuration.redirects,
-                    configuration.insecure,
-                    &configuration.headers,
-                    Some(&configuration.replay_proxy),
-                    server_certs,
-                    client_cert,
-                    client_key,
-                )
-                .expect("Could not rebuild client"),
-            );
+            let client_config = client::ClientConfig {
+                timeout: configuration.timeout,
+                user_agent: &configuration.user_agent,
+                redirects: configuration.redirects,
+                insecure: configuration.insecure,
+                headers: &configuration.headers,
+                proxy: Some(&configuration.replay_proxy),
+                server_certs: Some(server_certs),
+                client_cert,
+                client_key,
+                scope: &configuration.scope,
+            };
+            configuration.replay_client =
+                Some(client::initialize(client_config).expect("Could not rebuild client"));
         }
     }
 
@@ -1250,6 +1348,7 @@ impl Configuration {
         update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
         update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
+        update_if_not_default!(&mut conf.scope, new.scope, Vec::<Url>::new());
         update_if_not_default!(&mut conf.update_app, new.update_app, false);
         if !new.regex_denylist.is_empty() {
             // cant use the update_if_not_default macro due to the following error
@@ -1327,6 +1426,11 @@ impl Configuration {
             new.dont_collect,
             ignored_extensions()
         );
+        update_if_not_default!(
+            &mut conf.cached_stdin,
+            new.cached_stdin,
+            Vec::<String>::new()
+        );
     }
 
     /// If present, read in `DEFAULT_CONFIG_NAME` and deserialize the specified values
@@ -1334,7 +1438,8 @@ impl Configuration {
     /// uses serde to deserialize the toml into a `Configuration` struct
     pub(super) fn parse_config(config_file: PathBuf) -> Result<Self> {
         let content = read_to_string(config_file)?;
-        let mut config: Self = toml::from_str(content.as_str())?;
+        let mut config: Self = toml::from_str(content.as_str())
+            .with_context(|| fmt_err("Could not parse config file"))?;
 
         if !config.extensions.is_empty() {
             // remove leading periods, if any are found

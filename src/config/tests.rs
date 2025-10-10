@@ -38,6 +38,7 @@ fn setup_config_test() -> Configuration {
             methods = ["GET", "PUT", "DELETE"]
             data = [31, 32, 33, 34]
             url_denylist = ["http://dont-scan.me", "https://also-not.me"]
+            scope = ["http://example.com", "https://other.com"]
             regex_denylist = ["/deny.*"]
             headers = {stuff = "things", mostuff = "mothings"}
             queries = [["name","value"], ["rick", "astley"]]
@@ -122,6 +123,7 @@ fn default_configuration() {
     assert_eq!(config.methods, vec!["GET"]);
     assert_eq!(config.data, Vec::<u8>::new());
     assert_eq!(config.url_denylist, Vec::<Url>::new());
+    assert_eq!(config.scope, Vec::<Url>::new());
     assert_eq!(config.dont_collect, ignored_extensions());
     assert_eq!(config.filter_regex, Vec::<String>::new());
     assert_eq!(config.filter_similar, Vec::<String>::new());
@@ -403,6 +405,19 @@ fn config_reads_url_denylist() {
         vec![
             Url::parse("http://dont-scan.me").unwrap(),
             Url::parse("https://also-not.me").unwrap(),
+        ]
+    );
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_scope() {
+    let config = setup_config_test();
+    assert_eq!(
+        config.scope,
+        vec![
+            Url::parse("http://example.com").unwrap(),
+            Url::parse("https://other.com").unwrap(),
         ]
     );
 }

@@ -529,6 +529,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""time_limit":"""#,
         r#""filter_similar":[]"#,
         r#""url_denylist":[]"#,
+        r#""scope":[]"#,
         r#""responses""#,
         r#""type":"response""#,
         r#""client_cert":"""#,
