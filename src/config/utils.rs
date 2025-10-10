@@ -1163,7 +1163,7 @@ mod tests {
         let result = parse_request_file(&mut tmp.config);
 
         assert!(result.is_ok());
-        assert_eq!(tmp.config.target_url, "example.com/srv");
+        assert_eq!(tmp.config.target_url, "https://example.com/srv");
 
         tmp.cleanup();
         Ok(())
