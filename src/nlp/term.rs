@@ -22,6 +22,15 @@ impl Term {
 }
 
 /// metadata to be associated with a `Term`
+///
+/// # Design Note
+///
+/// The `count` field represents the number of times a term appeared in a **single document**
+/// and is only meaningful in the per-document context (i.e., within a `Document`).
+///
+/// When `TermMetaData` is stored in the global `TfIdf` model, the `count` field becomes stale
+/// and is not used. Instead, the model relies on `term_frequencies` (which tracks the term
+/// frequency for each document the term appears in) and calculates TF-IDF scores from those.
 #[derive(Debug, Clone, Default)]
 pub(super) struct TermMetaData {
     /// number of times the associated `Term` was seen in a single document
