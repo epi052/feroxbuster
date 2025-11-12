@@ -35,7 +35,10 @@ impl PolicyData {
     /// given a RequesterPolicy, create a new PolicyData
     pub fn new(policy: RequesterPolicy, timeout: u64) -> Self {
         // can use this as a tweak for how aggressively adjustments should be made when tuning
+        // cap at 30 seconds to prevent unbounded waits (e.g., with timeout=100000)
+        const MAX_WAIT_TIME_MS: u64 = 30_000;
         let wait_time = ((timeout as f64 / 2.0) * 1000.0) as u64;
+        let wait_time = wait_time.min(MAX_WAIT_TIME_MS);
 
         Self {
             policy,
@@ -50,6 +53,8 @@ impl PolicyData {
             guard.original = reqs_sec as i32;
             guard.build();
             self.set_limit(guard.inner[0] as usize); // set limit to 1/2 of current request rate
+        } else {
+            log::warn!("Could not acquire heap write lock in set_reqs_sec; heap not initialized");
         }
     }
 
@@ -106,6 +111,8 @@ impl PolicyData {
                 atomic_store!(self.remove_limit, true);
             }
             self.set_limit(heap.value() as usize);
+        } else {
+            log::debug!("Could not acquire heap write lock in adjust_up; rate limit unchanged");
         }
     }
 
@@ -116,6 +123,8 @@ impl PolicyData {
                 heap.move_right();
                 self.set_limit(heap.value() as usize);
             }
+        } else {
+            log::debug!("Could not acquire heap write lock in adjust_down; rate limit unchanged");
         }
     }
 }
