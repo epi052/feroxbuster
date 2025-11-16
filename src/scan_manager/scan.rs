@@ -656,7 +656,7 @@ mod tests {
             status: Mutex::new(ScanStatus::Running),
             task: Default::default(),
             progress_bar: Mutex::new(None),
-            output_level: Default::default(),
+            output_level: OutputLevel::Silent,
             status_403s: Default::default(),
             status_429s: Default::default(),
             errors: Default::default(),
@@ -671,7 +671,13 @@ mod tests {
 
         let req_sec = scan.requests_per_second();
 
-        assert_eq!(req_sec, 100);
+        // allow for timing imprecision: sleep overhead makes elapsed time slightly > 1 second
+        // e.g., 100 reqs / 1.01s = 99 req/s
+        assert!(
+            req_sec >= 99 && req_sec <= 101,
+            "Expected ~100 req/s, got {}",
+            req_sec
+        );
 
         scan.finish(0).unwrap();
         assert_eq!(scan.requests_per_second(), 0);
