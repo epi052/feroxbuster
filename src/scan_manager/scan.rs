@@ -428,9 +428,19 @@ impl FeroxScan {
         }
 
         let reqs = self.requests();
-        let seconds = self.start_time.elapsed().as_secs();
+        let seconds = self.start_time.elapsed().as_secs_f64();
 
-        reqs.checked_div(seconds).unwrap_or(0)
+        if seconds == 0.0 || !seconds.is_finite() {
+            return 0;
+        }
+
+        let rate = reqs as f64 / seconds;
+
+        if rate > u64::MAX as f64 {
+            u64::MAX
+        } else {
+            rate as u64
+        }
     }
 
     /// return the number of requests performed by this scan's scanner
