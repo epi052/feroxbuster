@@ -122,25 +122,20 @@ impl Requester {
 
     /// sleep and set a flag that can be checked by other threads
     async fn cool_down(&self) {
-        if atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst) {
-            // prevents a few racy threads making it in here and doubling the wait time erroneously
-            return;
-        }
-
-        atomic_store!(self.policy_data.cooling_down, true, Ordering::SeqCst);
-
+        // should_enforce_policy=>tune call chain has already acquired cooling_down flag
+        // just need to sleep and reset
         sleep(Duration::from_millis(self.policy_data.wait_time)).await;
         self.ferox_scan.progress_bar().set_message("");
 
-        atomic_store!(self.policy_data.cooling_down, false, Ordering::SeqCst);
+        atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
     }
 
     /// limit the number of requests per second
     pub async fn limit(&self) -> Result<()> {
         let guard = self.rate_limiter.read().await;
 
-        if guard.is_some() {
-            guard.as_ref().unwrap().acquire_one().await;
+        if let Some(limiter) = guard.as_ref() {
+            limiter.acquire_one().await;
         }
 
         Ok(())
