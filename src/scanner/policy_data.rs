@@ -83,6 +83,16 @@ impl PolicyData {
         atomic_load!(self.heap_initialized, Ordering::Acquire)
     }
 
+    /// reset the heap and initialization flag, called when auto-tune is being disabled
+    pub(super) fn reset_heap(&self) {
+        if let Ok(mut guard) = self.heap.write() {
+            *guard = LimitHeap::default();
+            self.heap_initialized.store(false, Ordering::Release);
+        } else {
+            log::warn!("Could not acquire heap write lock in reset_heap");
+        }
+    }
+
     /// setter for limit
     fn set_limit(&self, limit: usize) {
         atomic_store!(self.limit, limit);

@@ -86,7 +86,7 @@ pub struct FeroxScan {
     pub(super) errors: AtomicUsize,
 
     /// tracker for the time at which this scan was started
-    pub(super) start_time: Instant,
+    pub(super) start_time: Mutex<Instant>,
 
     /// whether the progress bar is currently visible or hidden
     pub(super) visible: AtomicBool,
@@ -117,7 +117,7 @@ impl Default for FeroxScan {
             errors: Default::default(),
             status_429s: Default::default(),
             status_403s: Default::default(),
-            start_time: Instant::now(),
+            start_time: Mutex::new(Instant::now()),
             visible: AtomicBool::new(true),
         }
     }
@@ -206,6 +206,14 @@ impl FeroxScan {
     pub fn set_status(&self, status: ScanStatus) -> Result<()> {
         if let Ok(mut guard) = self.status.lock() {
             let _ = std::mem::replace(&mut *guard, status);
+        }
+        Ok(())
+    }
+
+    /// small wrapper to set `start_time`
+    pub fn set_start_time(&self, start_time: Instant) -> Result<()> {
+        if let Ok(mut guard) = self.start_time.lock() {
+            let _ = std::mem::replace(&mut *guard, start_time);
         }
         Ok(())
     }
@@ -428,7 +436,12 @@ impl FeroxScan {
         }
 
         let reqs = self.requests();
-        let seconds = self.start_time.elapsed().as_secs_f64();
+        let seconds = if let Ok(guard) = self.start_time.lock() {
+            guard.elapsed().as_secs_f64()
+        } else {
+            log::warn!("Could not acquire lock to read start_time for requests_per_second calculation on scan: {self:?}");
+            0.0
+        };
 
         if seconds == 0.0 || !seconds.is_finite() {
             return 0;
@@ -660,7 +673,7 @@ mod tests {
             status_403s: Default::default(),
             status_429s: Default::default(),
             errors: Default::default(),
-            start_time: Instant::now(),
+            start_time: Mutex::new(Instant::now()),
             handles: None,
         };
 

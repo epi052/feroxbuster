@@ -256,6 +256,7 @@ impl FeroxScanner {
         ferox_scan.set_status(ScanStatus::Waiting)?;
         let _permit = self.scan_limiter.acquire().await;
         ferox_scan.set_status(ScanStatus::Running)?;
+        ferox_scan.set_start_time(Instant::now())?;
 
         if self.handles.config.scan_limit > 0 {
             scan_timer = Instant::now();
