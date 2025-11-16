@@ -446,7 +446,11 @@ impl Requester {
                     match self.policy_data.policy {
                         RequesterPolicy::AutoTune => {
                             if let Some(trigger) = self.should_enforce_policy() {
-                                self.tune(trigger).await?;
+                                if let Err(e) = self.tune(trigger).await {
+                                    // reset cooling_down flag on error to prevent permanent lockout
+                                    atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
+                                    return Err(e);
+                                }
                             } else if atomic_load!(self.policy_triggered) {
                                 self.adjust_limit(PolicyTrigger::TryAdjustUp, true).await?;
                                 self.cool_down().await;
@@ -454,7 +458,11 @@ impl Requester {
                         }
                         RequesterPolicy::AutoBail => {
                             if let Some(trigger) = self.should_enforce_policy() {
-                                self.bail(trigger).await?;
+                                if let Err(e) = self.bail(trigger).await {
+                                    // reset cooling_down flag on error to prevent permanent lockout
+                                    atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
+                                    return Err(e);
+                                }
                             }
                         }
                         RequesterPolicy::Default => {}
