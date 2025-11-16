@@ -217,6 +217,9 @@ impl Requester {
         let scan_errors = self.ferox_scan.num_errors(trigger);
         let policy_errors = self.policy_data.get_errors(trigger);
 
+        // track if we need to update the progress bar message outside the lock
+        let mut pb_message: Option<String> = None;
+
         if let Ok(mut guard) = self.tuning_lock.try_lock() {
             if scan_errors > policy_errors {
                 // errors have increased, need to reduce the requests/sec limit
@@ -226,9 +229,10 @@ impl Requester {
 
                     let styled_direction = style("reduced").red();
 
-                    self.ferox_scan
-                        .progress_bar()
-                        .set_message(format!("=> 🚦 {styled_direction} scan speed",));
+                    pb_message = Some(format!(
+                        "=> 🚦 {styled_direction} scan speed ({}/s)",
+                        self.policy_data.get_limit()
+                    ));
                 }
                 self.policy_data.set_errors(trigger, scan_errors);
             } else {
@@ -239,9 +243,15 @@ impl Requester {
 
                 let styled_direction = style("increased").green();
 
-                self.ferox_scan
-                    .progress_bar()
-                    .set_message(format!("=> 🚦 {styled_direction} scan speed",));
+                pb_message = Some(format!(
+                    "=> 🚦 {styled_direction} scan speed ({}/s)",
+                    self.policy_data.get_limit()
+                ));
+            }
+
+            // update progress bar while still holding the lock to prevent races
+            if let Some(msg) = pb_message.take() {
+                self.ferox_scan.progress_bar().set_message(msg);
             }
         } else {
             log::warn!(
@@ -253,9 +263,13 @@ impl Requester {
         if atomic_load!(self.policy_data.remove_limit) {
             self.set_rate_limiter(None).await?;
             atomic_store!(self.policy_data.remove_limit, false);
-            self.ferox_scan
-                .progress_bar()
-                .set_message("=> 🚦 removed rate limiter 🚀");
+
+            // acquire lock just for the progress bar update to prevent races
+            if let Ok(_guard) = self.tuning_lock.try_lock() {
+                self.ferox_scan
+                    .progress_bar()
+                    .set_message("=> 🚦 removed rate limiter 🚀");
+            }
         } else if create_limiter {
             // create_limiter is really just used for unit testing situations, it's true anytime
             // during actual execution
@@ -965,8 +979,9 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// cooldown should pause execution and prevent others calling it by setting cooling_down flag
-    async fn cooldown_pauses_and_sets_flag() {
+    /// cooldown should pause execution for the specified wait_time
+    /// note: cooling_down flag is now set by should_enforce_policy, not cool_down itself
+    async fn cooldown_pauses_for_wait_time() {
         let (handles, _) = setup_requester_test(None).await;
 
         let requester = Arc::new(Requester {
@@ -981,17 +996,14 @@ mod tests {
         });
 
         let start = Instant::now();
-        let clone = requester.clone();
-        let resp = tokio::task::spawn(async move {
-            sleep(Duration::new(1, 0)).await;
-            clone.policy_data.cooling_down.load(Ordering::Relaxed)
-        });
 
         requester.cool_down().await;
 
-        assert!(resp.await.unwrap());
-        println!("{}", start.elapsed().as_millis());
+        // verify cooldown paused for wait_time (3500ms for timeout=7s)
         assert!(start.elapsed().as_millis() >= 3500);
+
+        // verify flag was reset to false after cooldown completes
+        assert!(!requester.policy_data.cooling_down.load(Ordering::Relaxed));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -1051,7 +1063,7 @@ mod tests {
         };
 
         requester.policy_data.set_reqs_sec(400);
-        requester.policy_data.set_errors(1);
+        requester.policy_data.set_errors(PolicyTrigger::Errors, 1);
 
         {
             let mut guard = requester.tuning_lock.lock().unwrap();
@@ -1065,7 +1077,7 @@ mod tests {
 
         assert_eq!(*requester.tuning_lock.lock().unwrap(), 0);
         assert_eq!(requester.policy_data.get_limit(), 100);
-        assert_eq!(requester.policy_data.errors.load(Ordering::Relaxed), 2);
+        assert_eq!(requester.policy_data.get_errors(PolicyTrigger::Errors), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -1214,7 +1226,10 @@ mod tests {
         pb.set_position(400);
         sleep(Duration::new(1, 0)).await; // used to get req/sec up to 400
 
-        assert_eq!(requester.policy_data.errors.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            requester.policy_data.get_errors(PolicyTrigger::Status429),
+            0
+        );
 
         requester.tune(PolicyTrigger::Status429).await.unwrap();
 

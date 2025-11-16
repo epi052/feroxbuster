@@ -142,11 +142,9 @@ impl PolicyData {
             if heap.has_children() {
                 heap.move_right();
                 self.set_limit(heap.value() as usize);
-            } else {
-                log::debug!(
-                    "Could not acquire heap write lock in adjust_down; rate limit unchanged"
-                );
             }
+        } else {
+            log::debug!("Could not acquire heap write lock in adjust_down; rate limit unchanged");
         }
     }
 }
