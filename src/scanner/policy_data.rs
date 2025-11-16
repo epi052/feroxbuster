@@ -23,7 +23,7 @@ pub struct PolicyData {
     pub(super) heap_initialized: AtomicBool,
 
     /// number of errors (at last interval)
-    pub(super) errors: [AtomicUsize; 4],
+    pub(super) errors: [AtomicUsize; 3],
 
     /// whether or not the owning Requester should remove the rate_limiter, happens when a scan
     /// has been limited and moves back up to the point of its original scan speed
