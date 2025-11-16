@@ -21,7 +21,9 @@ impl PolicyTrigger {
             PolicyTrigger::Status403 => 0,
             PolicyTrigger::Status429 => 1,
             PolicyTrigger::Errors => 2,
-            PolicyTrigger::TryAdjustUp => 3,
+            PolicyTrigger::TryAdjustUp => {
+                unreachable!("TryAdjustUp should never be used to access the errors array")
+            }
         }
     }
 }
