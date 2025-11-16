@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::{atomic_load, atomic_store, config::RequesterPolicy};
 
-use super::limit_heap::LimitHeap;
+use super::{limit_heap::LimitHeap, PolicyTrigger};
 
 /// data regarding policy and metadata about last enforced trigger etc...
 #[derive(Default, Debug)]
@@ -23,7 +23,7 @@ pub struct PolicyData {
     pub(super) heap_initialized: AtomicBool,
 
     /// number of errors (at last interval)
-    pub(super) errors: AtomicUsize,
+    pub(super) errors: [AtomicUsize; 4],
 
     /// whether or not the owning Requester should remove the rate_limiter, happens when a scan
     /// has been limited and moves back up to the point of its original scan speed
@@ -62,9 +62,20 @@ impl PolicyData {
         }
     }
 
-    /// setter for errors
-    pub(super) fn set_errors(&self, errors: usize) {
-        atomic_store!(self.errors, errors);
+    /// setter for errors (trigger-specific)
+    pub(super) fn set_errors(&self, trigger: PolicyTrigger, errors: usize) {
+        if trigger == PolicyTrigger::TryAdjustUp {
+            return;
+        }
+        atomic_store!(self.errors[trigger.as_index()], errors);
+    }
+
+    /// getter for errors (trigger-specific)
+    pub(super) fn get_errors(&self, trigger: PolicyTrigger) -> usize {
+        if trigger == PolicyTrigger::TryAdjustUp {
+            return 0;
+        }
+        atomic_load!(self.errors[trigger.as_index()])
     }
 
     /// status of heap initialization
@@ -162,8 +173,12 @@ mod tests {
     /// PolicyData setters/getters tests for code coverage / sanity
     fn policy_data_getters_and_setters() {
         let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
-        pd.set_errors(20);
-        assert_eq!(pd.errors.load(Ordering::Relaxed), 20);
+        pd.set_errors(PolicyTrigger::Errors, 20);
+        assert_eq!(pd.get_errors(PolicyTrigger::Errors), 20);
+        pd.set_errors(PolicyTrigger::Status403, 15);
+        assert_eq!(pd.get_errors(PolicyTrigger::Status403), 15);
+        pd.set_errors(PolicyTrigger::Status429, 10);
+        assert_eq!(pd.get_errors(PolicyTrigger::Status429), 10);
         pd.set_limit(200);
         assert_eq!(pd.get_limit(), 200);
     }
