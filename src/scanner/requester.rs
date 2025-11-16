@@ -284,9 +284,18 @@ impl Requester {
 
     /// enforce auto-tune policy
     async fn tune(&self, trigger: PolicyTrigger) -> Result<()> {
-        if atomic_load!(self.policy_data.errors) == 0 {
-            // set original number of reqs/second the first time tune is called, skip otherwise
+        if !self.policy_data.heap_initialized() {
+            // keep attempting to set original number of reqs/second when tune is called
             let reqs_sec = self.ferox_scan.requests_per_second() as usize;
+
+            // guard against req/sec < 2, which would create heap with root=0 and cause panic
+            // when building rate limiter (.initial > .max). need at least 2 req/sec for stable
+            // rate limiting (original/2 = 1, which is minimum viable limit)
+            if reqs_sec < 2 {
+                return Ok(());
+            }
+
+            // only initialize if we have a valid req/sec value
             self.policy_data.set_reqs_sec(reqs_sec);
 
             // set the flag to indicate that we have triggered the rate limiter
@@ -294,6 +303,14 @@ impl Requester {
             atomic_store!(self.policy_triggered, true);
 
             let new_limit = self.policy_data.get_limit();
+
+            log::info!(
+                "auto-tune: {} reqs/sec was too fast; enforcing limit {} reqs/sec for {}",
+                reqs_sec,
+                new_limit,
+                self.target_url
+            );
+
             self.set_rate_limiter(Some(new_limit)).await?;
             self.ferox_scan
                 .progress_bar()
@@ -402,7 +419,7 @@ impl Requester {
                     logged_request(&url, method.as_str(), data, self.handles.clone()).await?;
 
                 if (should_tune || self.handles.config.auto_bail)
-                    && !atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst)
+                    && !atomic_load!(self.policy_data.cooling_down, Ordering::Acquire)
                 {
                     // only check for policy enforcement when the trigger isn't on cooldown and tuning
                     // or bailing is in place (should_tune used here because when auto-tune is on, we'll

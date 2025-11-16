@@ -19,6 +19,9 @@ pub struct PolicyData {
     /// rate limit (at last interval)
     limit: AtomicUsize,
 
+    /// whether the heap has been initialized
+    pub(super) heap_initialized: AtomicBool,
+
     /// number of errors (at last interval)
     pub(super) errors: AtomicUsize,
 
@@ -50,12 +53,18 @@ impl PolicyData {
             guard.original = reqs_sec as i32;
             guard.build();
             self.set_limit(guard.inner[0] as usize); // set limit to 1/2 of current request rate
+            self.heap_initialized.store(true, Ordering::Release);
         }
     }
 
     /// setter for errors
     pub(super) fn set_errors(&self, errors: usize) {
         atomic_store!(self.errors, errors);
+    }
+
+    /// status of heap initialization
+    pub(super) fn heap_initialized(&self) -> bool {
+        atomic_load!(self.heap_initialized, Ordering::Acquire)
     }
 
     /// setter for limit
