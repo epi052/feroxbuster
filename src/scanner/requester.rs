@@ -105,7 +105,10 @@ impl Requester {
 
     /// build a RateLimiter, given a rate limit (as requests per second)
     fn build_a_bucket(limit: usize) -> Result<RateLimiter> {
-        let refill = max((limit as f64 / 10.0).round() as usize, 1); // minimum of 1 per second
+        // safety: ensure limit is at least 1 to prevent panic from .initial > .max
+        let limit = max(limit, 1);
+
+        let refill = max((limit as f64 / 10.0).round() as usize, 1);
         let tokens = max((limit as f64 / 2.0).round() as usize, 1);
         let interval = if refill == 1 { 1000 } else { 100 }; // 1 second if refill is 1
 
