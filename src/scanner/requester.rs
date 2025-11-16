@@ -172,8 +172,16 @@ impl Requester {
     /// - 90% of requests are 403
     /// - 30% of requests are 429
     fn should_enforce_policy(&self) -> Option<PolicyTrigger> {
-        if atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst) {
-            // prevents a few racy threads making it in here and doubling the wait time erroneously
+        // use compare_exchange to ensure only one thread can proceed with policy enforcement
+        // this prevents multiple threads from simultaneously deciding to enforce policy
+        // AcqRel provides necessary synchronization
+        if self
+            .policy_data
+            .cooling_down
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            // Another thread is already enforcing policy or cooling down
             return None;
         }
 
