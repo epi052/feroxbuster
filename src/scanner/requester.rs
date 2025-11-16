@@ -188,8 +188,10 @@ impl Requester {
         let requests = atomic_load!(self.handles.stats.data.requests);
 
         if requests < max(self.handles.config.threads, 50) {
-            // check whether at least a full round of threads has made requests or 50 (default # of
-            // threads), whichever is higher
+            // check whether at least a full round of threads has made requests or 50
+            // (default # of threads), whichever is higher
+            // need to reset the flag since we're not actually enforcing
+            atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
             return None;
         }
 
@@ -205,6 +207,8 @@ impl Requester {
             return Some(PolicyTrigger::Status429);
         }
 
+        // No policy trigger found, reset the flag
+        atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
         None
     }
 
