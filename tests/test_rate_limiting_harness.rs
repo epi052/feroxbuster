@@ -1,11 +1,3 @@
-/// Rate Limiting Test Harness
-///
-/// This provides controllable mock server scenarios to test rate limiting behavior.
-///
-/// Run with: cargo test --test test_rate_limiting_harness -- --nocapture
-///
-/// Each test demonstrates a different rate limiting scenario and can be run independently
-
 mod utils;
 
 use assert_cmd::Command;

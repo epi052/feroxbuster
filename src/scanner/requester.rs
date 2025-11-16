@@ -1236,7 +1236,7 @@ mod tests {
         let original = requester.policy_data.heap.read().unwrap().original;
         // Allow for timing imprecision: 400 reqs / 1.01s elapsed = 399 req/s
         assert!(
-            original >= 399 && original <= 401,
+            (399..=401).contains(&original),
             "Expected ~400 req/s original, got {}",
             original
         );
@@ -1244,14 +1244,14 @@ mod tests {
         let limit = requester.policy_data.get_limit();
         // Limit is original/2, so with original 399-401, limit is 199-200
         assert!(
-            limit >= 199 && limit <= 201,
+            (199..=201).contains(&limit),
             "Expected limit ~200, got {}",
             limit
         );
 
         let rate_limiter_max = requester.rate_limiter.read().await.as_ref().unwrap().max();
         assert!(
-            rate_limiter_max >= 199 && rate_limiter_max <= 201,
+            (199..=201).contains(&rate_limiter_max),
             "Expected rate limiter max ~200, got {}",
             rate_limiter_max
         );

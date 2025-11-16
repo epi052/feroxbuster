@@ -674,7 +674,7 @@ mod tests {
         // allow for timing imprecision: sleep overhead makes elapsed time slightly > 1 second
         // e.g., 100 reqs / 1.01s = 99 req/s
         assert!(
-            req_sec >= 99 && req_sec <= 101,
+            (99..=101).contains(&req_sec),
             "Expected ~100 req/s, got {}",
             req_sec
         );
