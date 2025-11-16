@@ -215,13 +215,13 @@ impl Requester {
     /// wrapper for adjust_[up,down] functions, checks error levels to determine adjustment direction
     async fn adjust_limit(&self, trigger: PolicyTrigger, create_limiter: bool) -> Result<()> {
         let scan_errors = self.ferox_scan.num_errors(trigger);
-        let policy_errors = atomic_load!(self.policy_data.errors, Ordering::SeqCst);
+        let policy_errors = self.policy_data.get_errors(trigger);
 
         if let Ok(mut guard) = self.tuning_lock.try_lock() {
             if scan_errors > policy_errors {
                 // errors have increased, need to reduce the requests/sec limit
                 *guard = 0; // reset streak counter to 0
-                if atomic_load!(self.policy_data.errors) != 0 {
+                if policy_errors != 0 {
                     self.policy_data.adjust_down();
 
                     let styled_direction = style("reduced").red();
@@ -230,7 +230,7 @@ impl Requester {
                         .progress_bar()
                         .set_message(format!("=> 🚦 {styled_direction} scan speed",));
                 }
-                self.policy_data.set_errors(scan_errors);
+                self.policy_data.set_errors(trigger, scan_errors);
             } else {
                 // errors can only be incremented, so an else is sufficient
                 *guard += 1;
@@ -243,6 +243,11 @@ impl Requester {
                     .progress_bar()
                     .set_message(format!("=> 🚦 {styled_direction} scan speed",));
             }
+        } else {
+            log::warn!(
+                "Could not acquire tuning lock for {}; skipping rate adjustment",
+                self.target_url
+            );
         }
 
         if atomic_load!(self.policy_data.remove_limit) {
