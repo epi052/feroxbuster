@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::fmt::{Debug, Formatter, Result};
 
 /// bespoke variation on an array-backed max-heap
@@ -51,7 +52,18 @@ impl LimitHeap {
     pub(super) fn move_right(&mut self) -> usize {
         if self.has_children() {
             let tmp = self.current;
-            self.current = self.current * 2 + 2;
+            let new_index = self.current * 2 + 2;
+
+            // bounds check to prevent overflow
+            if new_index < self.inner.len() {
+                self.current = new_index;
+            } else {
+                log::warn!(
+                    "Heap navigation out of bounds: move_right from {} would go to {}",
+                    tmp,
+                    new_index
+                );
+            }
             return tmp;
         }
         self.current
@@ -61,7 +73,18 @@ impl LimitHeap {
     pub(super) fn move_left(&mut self) -> usize {
         if self.has_children() {
             let tmp = self.current;
-            self.current = self.current * 2 + 1;
+            let new_index = self.current * 2 + 1;
+
+            // Bounds check to prevent overflow
+            if new_index < self.inner.len() {
+                self.current = new_index;
+            } else {
+                log::warn!(
+                    "Heap navigation out of bounds: move_left from {} would go to {}",
+                    tmp,
+                    new_index
+                );
+            }
             return tmp;
         }
         self.current
@@ -79,17 +102,42 @@ impl LimitHeap {
 
     /// move directly to the given index
     pub(super) fn move_to(&mut self, index: usize) {
-        self.current = index;
+        if index < self.inner.len() {
+            self.current = index;
+        } else {
+            log::warn!(
+                "Heap navigation out of bounds: move_to({}) exceeds array length {}",
+                index,
+                self.inner.len()
+            );
+        }
     }
 
     /// get the current node's value
     pub(super) fn value(&self) -> i32 {
-        self.inner[self.current]
+        if self.current < self.inner.len() {
+            self.inner[self.current]
+        } else {
+            log::error!(
+                "Heap index out of bounds in value(): current={}, len={}",
+                self.current,
+                self.inner.len()
+            );
+            0 // Return safe default
+        }
     }
 
     /// set the current node's value
     pub(super) fn set_value(&mut self, value: i32) {
-        self.inner[self.current] = value;
+        if self.current < self.inner.len() {
+            self.inner[self.current] = value;
+        } else {
+            log::error!(
+                "Heap index out of bounds in set_value(): current={}, len={}",
+                self.current,
+                self.inner.len()
+            );
+        }
     }
 
     /// check that this node has a parent (true for all except root)
@@ -150,11 +198,15 @@ impl LimitHeap {
         // arr[0] == 200
         // arr[1] (left child) == 300
         // arr[2] (right child) == 100
-        let root = self.original / 2;
+
+        // safety: ensure original is at least 2 so root = original/2 >= 1
+        // this prevents heap from producing limit=0 which would panic in rate limiter
+        let original = max(self.original, 2);
+        let root = original / 2;
 
         self.inner[0] = root; // set root node to half of the original value
-        self.inner[1] = ((self.original - root).abs() / 2) + root;
-        self.inner[2] = root - ((self.original - root).abs() / 2);
+        self.inner[1] = ((original - root).abs() / 2) + root;
+        self.inner[2] = root - ((original - root).abs() / 2);
 
         // start with index 1 and fill in each child below that node
         for i in 1..self.inner.len() {
