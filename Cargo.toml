@@ -1,6 +1,6 @@
 [package]
 name = "feroxbuster"
-version = "2.13.0"
+version = "2.13.1"
 authors = ["Ben 'epi' Risher (@epi052)"]
 license = "MIT"
 edition = "2021"

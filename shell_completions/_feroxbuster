@@ -27,8 +27,8 @@ _feroxbuster() {
 '--replay-proxy=[Send only unfiltered requests through a Replay Proxy, instead of all requests]:REPLAY_PROXY:_urls' \
 '*-R+[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE:_default' \
 '*--replay-codes=[Status Codes to send through a Replay Proxy when found (default\: --status-codes value)]:REPLAY_CODE:_default' \
-'-a+[Sets the User-Agent (default\: feroxbuster/2.13.0)]:USER_AGENT:_default' \
-'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.13.0)]:USER_AGENT:_default' \
+'-a+[Sets the User-Agent (default\: feroxbuster/2.13.1)]:USER_AGENT:_default' \
+'--user-agent=[Sets the User-Agent (default\: feroxbuster/2.13.1)]:USER_AGENT:_default' \
 '*-x+[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION:_default' \
 '*--extensions=[File extension(s) to search for (ex\: -x php -x pdf js); reads values (newline-separated) from file if input starts with an @ (ex\: @ext.txt)]:FILE_EXTENSION:_default' \
 '*-m+[Which HTTP request method(s) should be sent (default\: GET)]:HTTP_METHODS:_default' \
