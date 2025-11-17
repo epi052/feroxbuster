@@ -192,6 +192,20 @@ impl LimitHeap {
         self.move_up();
     }
 
+    /// clamp all heap values to a maximum limit
+    ///
+    /// this is used when --rate-limit is set alongside --auto-tune to ensure
+    /// that no auto-tuning adjustment can exceed the user's specified rate limit.
+    /// only clamps non-zero values to preserve the "unset" marker (0) used during
+    /// heap construction.
+    pub(super) fn clamp_to_max(&mut self, max: i32) {
+        for i in 0..self.inner.len() {
+            if self.inner[i] > 0 && self.inner[i] > max {
+                self.inner[i] = max;
+            }
+        }
+    }
+
     /// iterate over the backing array, filling in each child's value based on the original value
     pub(super) fn build(&mut self) {
         // ex: original is 400

@@ -304,3 +304,99 @@ fn scenario_mixed_steady_state() {
     // With mixed but not extreme errors, should see some adjustments
     assert!(total > 100, "Should complete significant portion of scan");
 }
+
+/// Scenario 5: Capped auto-tune - --rate-limit caps --auto-tune adjustments
+#[test]
+fn scenario_capped_auto_tune() {
+    let srv = MockServer::start();
+    let (tmp_dir, file) = setup_tmp_directory(&[], "wordlist").unwrap();
+    let (log_dir, logfile) = setup_tmp_directory(&[], "debug-log").unwrap();
+
+    // Pattern: errors first to trigger rate limiting, then normal responses to allow upward adjustment
+    // The rate limit cap should prevent exceeding the specified limit
+    let mut wordlist = Vec::new();
+
+    // Start with many errors to trigger auto-tune
+    for i in 0..200 {
+        wordlist.push(format!("s403_{:04}", i));
+    }
+
+    // Then many normal responses to allow upward adjustment
+    for i in 0..400 {
+        wordlist.push(format!("normal_{:04}", i));
+    }
+
+    write(&file, wordlist.join("\n")).unwrap();
+
+    let _normal_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/normal_.*").unwrap());
+        then.status(200).body("OK");
+    });
+
+    let _error_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path_matches(Regex::new("/s403_.*").unwrap());
+        then.status(403).body("Forbidden");
+    });
+
+    Command::cargo_bin("feroxbuster")
+        .unwrap()
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--auto-tune")
+        .arg("--rate-limit")
+        .arg("50") // Cap at 50 req/s
+        .arg("--dont-filter")
+        .arg("--threads")
+        .arg("10")
+        .arg("--debug-log")
+        .arg(logfile.as_os_str())
+        .arg("--json")
+        .arg("-vv")
+        .assert()
+        .success();
+
+    let debug_log = read_to_string(&logfile).unwrap();
+
+    let mut auto_tune_triggered = false;
+    let mut max_rate_seen = 0;
+
+    for line in debug_log.lines() {
+        if let Ok(log) = serde_json::from_str::<serde_json::Value>(line) {
+            if let Some(msg) = log.get("message").and_then(|m| m.as_str()) {
+                // Check for auto-tune activation
+                if msg.contains("auto-tune:") && msg.contains("enforcing limit") {
+                    auto_tune_triggered = true;
+                }
+
+                // Extract rate values from messages like "set rate limit (25/s)" or "scan speed (30/s)"
+                if msg.contains("/s)") {
+                    if let Some(start) = msg.rfind('(') {
+                        if let Some(end) = msg.rfind("/s)") {
+                            if let Ok(rate) = msg[start + 1..end].parse::<usize>() {
+                                max_rate_seen = max_rate_seen.max(rate);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    teardown_tmp_directory(tmp_dir);
+    teardown_tmp_directory(log_dir);
+
+    assert!(
+        auto_tune_triggered,
+        "Auto-tune should be triggered by errors"
+    );
+
+    assert!(
+        max_rate_seen <= 50,
+        "Auto-tune should never exceed rate-limit cap of 50, but saw {}",
+        max_rate_seen
+    );
+}

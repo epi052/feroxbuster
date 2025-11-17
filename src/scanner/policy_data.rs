@@ -31,6 +31,11 @@ pub struct PolicyData {
 
     /// heap of values used for adjusting # of requests/second
     pub(super) heap: std::sync::RwLock<LimitHeap>,
+
+    /// maximum limit for requests per second; optionally set by --rate-limit
+    /// if not set, the maximum limit during auto-tuning is unbounded and determined
+    /// dynamically based on the observed request rate
+    pub(super) rate_limit: Option<usize>,
 }
 
 /// implementation of PolicyData
@@ -50,11 +55,26 @@ impl PolicyData {
         }
     }
 
+    /// builder for rate limit
+    ///
+    /// builder method chosen to not conflict with existing `new` api
+    pub fn with_rate_limit(mut self, rate_limit: usize) -> Self {
+        self.rate_limit = Some(rate_limit);
+        self
+    }
+
     /// setter for requests / second; populates the underlying heap with values from req/sec seed
     pub(super) fn set_reqs_sec(&self, reqs_sec: usize) {
         if let Ok(mut guard) = self.heap.write() {
             guard.original = reqs_sec as i32;
             guard.build();
+
+            if let Some(cap) = self.rate_limit {
+                // if a rate limit was set, clamp the heap to that maximum
+                // this method is only called from tune, which implies that auto-tune is enabled
+                guard.clamp_to_max(cap as i32);
+            }
+
             self.set_limit(guard.inner[0] as usize); // set limit to 1/2 of current request rate
             self.heap_initialized.store(true, Ordering::Release);
         } else {

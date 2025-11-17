@@ -547,7 +547,6 @@ pub fn initialize() -> Command {
                 .long("rate-limit")
                 .value_name("RATE_LIMIT")
                 .num_args(1)
-                .conflicts_with("auto_tune")
                 .help_heading("Scan settings")
                 .help("Limit number of requests per second (per directory) (default: 0, i.e. no limit)")
         )
