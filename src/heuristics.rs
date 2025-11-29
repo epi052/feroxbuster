@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use console::style;
 use futures::future;
+use lazy_static::lazy_static;
 use scraper::{Html, Selector};
 use uuid::Uuid;
 
@@ -18,8 +19,25 @@ use crate::{
     skip_fail,
     url::FeroxUrl,
     utils::{ferox_print, fmt_err, logged_request},
-    DEFAULT_METHOD,
+    COMMON_FILE_EXTENSIONS, DEFAULT_BACKUP_EXTENSIONS, DEFAULT_METHOD,
 };
+
+lazy_static! {
+    /// Pre-built HashSet of file extensions for O(1) lookup in directory listing detection
+    /// Combines COMMON_FILE_EXTENSIONS and DEFAULT_BACKUP_EXTENSIONS
+    static ref FILE_EXTENSION_SET: HashSet<&'static str> = {
+        let mut set = HashSet::with_capacity(
+            COMMON_FILE_EXTENSIONS.len() + DEFAULT_BACKUP_EXTENSIONS.len()
+        );
+        for ext in COMMON_FILE_EXTENSIONS.iter() {
+            set.insert(*ext);
+        }
+        for ext in DEFAULT_BACKUP_EXTENSIONS.iter() {
+            set.insert(*ext);
+        }
+        set
+    };
+}
 
 /// enum representing the different servers that `parse_html` can detect when directory listing is
 /// enabled
@@ -458,7 +476,7 @@ impl HeuristicTests {
                 let href_lower = href_trimmed.to_lowercase();
                 if let Some(dot_pos) = href_lower.rfind('.') {
                     let extension = &href_lower[dot_pos..];
-                    if crate::FILE_EXTENSION_SET.contains(extension) {
+                    if FILE_EXTENSION_SET.contains(extension) {
                         count += 1;
                     }
                 }

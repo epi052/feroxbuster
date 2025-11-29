@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 #![allow(clippy::mutex_atomic)]
 use anyhow::Result;
-use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use std::collections::HashSet;
 use tokio::{
@@ -64,8 +63,8 @@ pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 38] = [
 /// Default set of extensions to search for when auto-collecting backups during scans
 pub(crate) const DEFAULT_BACKUP_EXTENSIONS: [&str; 5] = ["~", ".bak", ".bak2", ".old", ".1"];
 
-/// Comprehensive list of common file extensions for link density detection in directory listings
-/// Based on https://www.computerhope.com/issues/ch001789.htm
+/// list of common file extensions for link density detection in directory listings
+/// based on https://www.computerhope.com/issues/ch001789.htm
 pub(crate) const COMMON_FILE_EXTENSIONS: [&str; 154] = [
     // Web & Documents
     ".html",
@@ -232,23 +231,6 @@ pub(crate) const COMMON_FILE_EXTENSIONS: [&str; 154] = [
     ".orig",
     ".backup",
 ];
-
-lazy_static! {
-    /// Pre-built HashSet of file extensions for O(1) lookup in directory listing detection
-    /// Combines COMMON_FILE_EXTENSIONS and DEFAULT_BACKUP_EXTENSIONS
-    pub(crate) static ref FILE_EXTENSION_SET: HashSet<&'static str> = {
-        let mut set = HashSet::with_capacity(
-            COMMON_FILE_EXTENSIONS.len() + DEFAULT_BACKUP_EXTENSIONS.len()
-        );
-        for ext in COMMON_FILE_EXTENSIONS.iter() {
-            set.insert(*ext);
-        }
-        for ext in DEFAULT_BACKUP_EXTENSIONS.iter() {
-            set.insert(*ext);
-        }
-        set
-    };
-}
 
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
