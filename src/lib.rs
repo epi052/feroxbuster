@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
 #![allow(clippy::mutex_atomic)]
 use anyhow::Result;
+use lazy_static::lazy_static;
 use reqwest::StatusCode;
 use std::collections::HashSet;
 use tokio::{
@@ -62,6 +63,192 @@ pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 38] = [
 
 /// Default set of extensions to search for when auto-collecting backups during scans
 pub(crate) const DEFAULT_BACKUP_EXTENSIONS: [&str; 5] = ["~", ".bak", ".bak2", ".old", ".1"];
+
+/// Comprehensive list of common file extensions for link density detection in directory listings
+/// Based on https://www.computerhope.com/issues/ch001789.htm
+pub(crate) const COMMON_FILE_EXTENSIONS: [&str; 154] = [
+    // Web & Documents
+    ".html",
+    ".htm",
+    ".php",
+    ".asp",
+    ".aspx",
+    ".jsp",
+    ".jspx",
+    ".cgi",
+    ".pl",
+    ".py",
+    ".rb",
+    ".lua",
+    ".txt",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".odt",
+    ".ods",
+    ".odp",
+    ".rtf",
+    ".tex",
+    ".md",
+    ".csv",
+    // Programming & Scripts
+    ".js",
+    ".mjs",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".java",
+    ".class",
+    ".jar",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".vb",
+    ".go",
+    ".rs",
+    ".swift",
+    ".kt",
+    ".scala",
+    ".r",
+    ".m",
+    ".mm",
+    ".f",
+    ".f90",
+    ".pas",
+    ".asm",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".fish",
+    ".bat",
+    ".cmd",
+    ".ps1",
+    ".psm1",
+    // Data & Config
+    ".xml",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".conf",
+    ".config",
+    ".cfg",
+    ".properties",
+    ".env",
+    ".sql",
+    ".db",
+    ".sqlite",
+    ".mdb",
+    ".accdb",
+    // Archives & Compressed
+    ".zip",
+    ".rar",
+    ".7z",
+    ".tar",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".tgz",
+    ".tbz2",
+    ".cab",
+    ".dmg",
+    ".iso",
+    ".img",
+    // Executables & Libraries
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".app",
+    ".deb",
+    ".rpm",
+    ".apk",
+    ".msi",
+    // Images
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".svg",
+    ".webp",
+    ".ico",
+    ".tif",
+    ".tiff",
+    ".psd",
+    ".ai",
+    ".eps",
+    ".raw",
+    ".cr2",
+    ".nef",
+    // Audio
+    ".mp3",
+    ".wav",
+    ".flac",
+    ".aac",
+    ".ogg",
+    ".wma",
+    ".m4a",
+    ".opus",
+    ".aiff",
+    // Video
+    ".mp4",
+    ".avi",
+    ".mkv",
+    ".mov",
+    ".wmv",
+    ".flv",
+    ".webm",
+    ".m4v",
+    ".mpg",
+    ".mpeg",
+    ".3gp",
+    ".ogv",
+    // Fonts
+    ".ttf",
+    ".otf",
+    ".woff",
+    ".woff2",
+    ".eot",
+    // Backups & Logs
+    ".log",
+    ".bak",
+    ".tmp",
+    ".temp",
+    ".swp",
+    ".swo",
+    ".old",
+    ".orig",
+    ".backup",
+];
+
+lazy_static! {
+    /// Pre-built HashSet of file extensions for O(1) lookup in directory listing detection
+    /// Combines COMMON_FILE_EXTENSIONS and DEFAULT_BACKUP_EXTENSIONS
+    pub(crate) static ref FILE_EXTENSION_SET: HashSet<&'static str> = {
+        let mut set = HashSet::with_capacity(
+            COMMON_FILE_EXTENSIONS.len() + DEFAULT_BACKUP_EXTENSIONS.len()
+        );
+        for ext in COMMON_FILE_EXTENSIONS.iter() {
+            set.insert(*ext);
+        }
+        for ext in DEFAULT_BACKUP_EXTENSIONS.iter() {
+            set.insert(*ext);
+        }
+        set
+    };
+}
 
 /// Default wordlist to use when `-w|--wordlist` isn't specified and not `wordlist` isn't set
 /// in a [ferox-config.toml](constant.DEFAULT_CONFIG_NAME.html) config file.
