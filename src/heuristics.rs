@@ -179,13 +179,10 @@ impl HeuristicTests {
         let body = ferox_response.text();
         let html = Html::parse_document(body);
 
-        let dirlist_type = self.detect_directory_listing(&html);
-
-        if dirlist_type.is_some() {
+        if let Some(dir_type) = self.detect_directory_listing(&html) {
             // folks that run things and step away/rely on logs need to be notified of directory
             // listing, since they won't see the message on the bar; bastardizing FeroxMessage
             // for ease of implementation. This could use a bit of polish at some point.
-            let dir_type = dirlist_type.unwrap();
 
             let msg = format!(
                 "detected directory listing: {} ({:?})",
@@ -207,7 +204,7 @@ impl HeuristicTests {
             log::info!("{msg}");
 
             let result = DirListingResult {
-                dir_list_type: dirlist_type,
+                dir_list_type: Some(dir_type),
                 response: ferox_response,
             };
 
@@ -355,7 +352,7 @@ impl HeuristicTests {
 
         // fallback: if no <th> elements, try first row of <td> elements
         if headers.is_empty() {
-            if let Some(tr_selector) = Selector::parse("tr").ok() {
+            if let Ok(tr_selector) = Selector::parse("tr") {
                 if let Some(first_row) = html.select(&tr_selector).next() {
                     for td in first_row.select(&td_selector) {
                         let text = td.text().collect::<String>().to_lowercase();
