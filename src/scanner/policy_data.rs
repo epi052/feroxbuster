@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::{atomic_load, atomic_store, config::RequesterPolicy};
 
-use super::limit_heap::LimitHeap;
+use super::{limit_heap::LimitHeap, PolicyTrigger};
 
 /// data regarding policy and metadata about last enforced trigger etc...
 #[derive(Default, Debug)]
@@ -19,8 +19,11 @@ pub struct PolicyData {
     /// rate limit (at last interval)
     limit: AtomicUsize,
 
+    /// whether the heap has been initialized
+    pub(super) heap_initialized: AtomicBool,
+
     /// number of errors (at last interval)
-    pub(super) errors: AtomicUsize,
+    pub(super) errors: [AtomicUsize; 3],
 
     /// whether or not the owning Requester should remove the rate_limiter, happens when a scan
     /// has been limited and moves back up to the point of its original scan speed
@@ -28,6 +31,11 @@ pub struct PolicyData {
 
     /// heap of values used for adjusting # of requests/second
     pub(super) heap: std::sync::RwLock<LimitHeap>,
+
+    /// maximum limit for requests per second; optionally set by --rate-limit
+    /// if not set, the maximum limit during auto-tuning is unbounded and determined
+    /// dynamically based on the observed request rate
+    pub(super) rate_limit: Option<usize>,
 }
 
 /// implementation of PolicyData
@@ -35,7 +43,10 @@ impl PolicyData {
     /// given a RequesterPolicy, create a new PolicyData
     pub fn new(policy: RequesterPolicy, timeout: u64) -> Self {
         // can use this as a tweak for how aggressively adjustments should be made when tuning
+        // cap at 30 seconds to prevent unbounded waits (e.g., with timeout=100000)
+        const MAX_WAIT_TIME_MS: u64 = 30_000;
         let wait_time = ((timeout as f64 / 2.0) * 1000.0) as u64;
+        let wait_time = wait_time.min(MAX_WAIT_TIME_MS);
 
         Self {
             policy,
@@ -44,18 +55,62 @@ impl PolicyData {
         }
     }
 
+    /// builder for rate limit
+    ///
+    /// builder method chosen to not conflict with existing `new` api
+    pub fn with_rate_limit(mut self, rate_limit: usize) -> Self {
+        self.rate_limit = Some(rate_limit);
+        self
+    }
+
     /// setter for requests / second; populates the underlying heap with values from req/sec seed
     pub(super) fn set_reqs_sec(&self, reqs_sec: usize) {
         if let Ok(mut guard) = self.heap.write() {
             guard.original = reqs_sec as i32;
             guard.build();
+
+            if let Some(cap) = self.rate_limit {
+                // if a rate limit was set, clamp the heap to that maximum
+                // this method is only called from tune, which implies that auto-tune is enabled
+                guard.clamp_to_max(cap as i32);
+            }
+
             self.set_limit(guard.inner[0] as usize); // set limit to 1/2 of current request rate
+            self.heap_initialized.store(true, Ordering::Release);
+        } else {
+            log::warn!("Could not acquire heap write lock in set_reqs_sec; heap not initialized");
         }
     }
 
-    /// setter for errors
-    pub(super) fn set_errors(&self, errors: usize) {
-        atomic_store!(self.errors, errors);
+    /// setter for errors (trigger-specific)
+    pub(super) fn set_errors(&self, trigger: PolicyTrigger, errors: usize) {
+        if trigger == PolicyTrigger::TryAdjustUp {
+            return;
+        }
+        atomic_store!(self.errors[trigger.as_index()], errors);
+    }
+
+    /// getter for errors (trigger-specific)
+    pub(super) fn get_errors(&self, trigger: PolicyTrigger) -> usize {
+        if trigger == PolicyTrigger::TryAdjustUp {
+            return 0;
+        }
+        atomic_load!(self.errors[trigger.as_index()])
+    }
+
+    /// status of heap initialization
+    pub(super) fn heap_initialized(&self) -> bool {
+        atomic_load!(self.heap_initialized, Ordering::Acquire)
+    }
+
+    /// reset the heap and initialization flag, called when auto-tune is being disabled
+    pub(super) fn reset_heap(&self) {
+        if let Ok(mut guard) = self.heap.write() {
+            *guard = LimitHeap::default();
+            self.heap_initialized.store(false, Ordering::Release);
+        } else {
+            log::warn!("Could not acquire heap write lock in reset_heap");
+        }
     }
 
     /// setter for limit
@@ -106,6 +161,8 @@ impl PolicyData {
                 atomic_store!(self.remove_limit, true);
             }
             self.set_limit(heap.value() as usize);
+        } else {
+            log::debug!("Could not acquire heap write lock in adjust_up; rate limit unchanged");
         }
     }
 
@@ -116,6 +173,8 @@ impl PolicyData {
                 heap.move_right();
                 self.set_limit(heap.value() as usize);
             }
+        } else {
+            log::debug!("Could not acquire heap write lock in adjust_down; rate limit unchanged");
         }
     }
 }
@@ -142,8 +201,12 @@ mod tests {
     /// PolicyData setters/getters tests for code coverage / sanity
     fn policy_data_getters_and_setters() {
         let pd = PolicyData::new(RequesterPolicy::AutoBail, 7);
-        pd.set_errors(20);
-        assert_eq!(pd.errors.load(Ordering::Relaxed), 20);
+        pd.set_errors(PolicyTrigger::Errors, 20);
+        assert_eq!(pd.get_errors(PolicyTrigger::Errors), 20);
+        pd.set_errors(PolicyTrigger::Status403, 15);
+        assert_eq!(pd.get_errors(PolicyTrigger::Status403), 15);
+        pd.set_errors(PolicyTrigger::Status429, 10);
+        assert_eq!(pd.get_errors(PolicyTrigger::Status429), 10);
         pd.set_limit(200);
         assert_eq!(pd.get_limit(), 200);
     }

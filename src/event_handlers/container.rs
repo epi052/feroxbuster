@@ -157,20 +157,17 @@ impl Handles {
         multiplier * num_words
     }
 
-    /// number of extensions plus the number of request method types plus any dynamically collected
-    /// extensions
+    /// estimate of HTTP requests per word = (base + static extensions + collected extensions)
+    /// multiplied by the number of request methods
     pub fn expected_num_requests_multiplier(&self) -> usize {
-        let mut multiplier = self.config.extensions.len().max(1);
+        let methods = self.config.methods.len().max(1);
+        let base_requests = 1; // the bare word (with optional slash)
+        let static_extensions = self.config.extensions.len();
+        let dynamic_extensions = self.num_collected_extensions();
 
-        if multiplier > 1 {
-            // when we have more than one extension, we need to account for the fact that we'll
-            // be making a request for each extension and the base word (e.g. /foo.html and /foo)
-            multiplier += 1;
-        }
+        let total_paths = base_requests + static_extensions + dynamic_extensions;
 
-        multiplier *= self.config.methods.len().max(1) * self.num_collected_extensions().max(1);
-
-        multiplier
+        total_paths * methods
     }
 
     /// Helper to easily get the (locked) underlying FeroxScans object

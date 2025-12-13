@@ -600,7 +600,10 @@ impl<'a> Extractor<'a> {
     ) {
         log::trace!("enter: extract_links_by_attr");
 
-        let selector = Selector::parse(html_tag).unwrap();
+        let Some(selector) = Selector::parse(html_tag).ok() else {
+            log::warn!("Failed to parse selector for tag: {html_tag}");
+            return;
+        };
 
         let tags = html
             .select(&selector)

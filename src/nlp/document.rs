@@ -20,11 +20,10 @@ impl Document {
 
         let processed = preprocess(text);
 
-        document.number_of_terms += processed.len();
-
         for normalized in processed {
             if normalized.len() >= 2 {
-                document.add_term(&normalized)
+                document.add_term(&normalized);
+                document.number_of_terms += 1;
             }
         }
         document

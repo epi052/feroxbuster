@@ -86,7 +86,7 @@ pub struct FeroxScan {
     pub(super) errors: AtomicUsize,
 
     /// tracker for the time at which this scan was started
-    pub(super) start_time: Instant,
+    pub(super) start_time: Mutex<Instant>,
 
     /// whether the progress bar is currently visible or hidden
     pub(super) visible: AtomicBool,
@@ -117,7 +117,7 @@ impl Default for FeroxScan {
             errors: Default::default(),
             status_429s: Default::default(),
             status_403s: Default::default(),
-            start_time: Instant::now(),
+            start_time: Mutex::new(Instant::now()),
             visible: AtomicBool::new(true),
         }
     }
@@ -206,6 +206,14 @@ impl FeroxScan {
     pub fn set_status(&self, status: ScanStatus) -> Result<()> {
         if let Ok(mut guard) = self.status.lock() {
             let _ = std::mem::replace(&mut *guard, status);
+        }
+        Ok(())
+    }
+
+    /// small wrapper to set `start_time`
+    pub fn set_start_time(&self, start_time: Instant) -> Result<()> {
+        if let Ok(mut guard) = self.start_time.lock() {
+            let _ = std::mem::replace(&mut *guard, start_time);
         }
         Ok(())
     }
@@ -428,9 +436,24 @@ impl FeroxScan {
         }
 
         let reqs = self.requests();
-        let seconds = self.start_time.elapsed().as_secs();
+        let seconds = if let Ok(guard) = self.start_time.lock() {
+            guard.elapsed().as_secs_f64()
+        } else {
+            log::warn!("Could not acquire lock to read start_time for requests_per_second calculation on scan: {self:?}");
+            0.0
+        };
 
-        reqs.checked_div(seconds).unwrap_or(0)
+        if seconds == 0.0 || !seconds.is_finite() {
+            return 0;
+        }
+
+        let rate = reqs as f64 / seconds;
+
+        if rate > u64::MAX as f64 {
+            u64::MAX
+        } else {
+            rate as u64
+        }
     }
 
     /// return the number of requests performed by this scan's scanner
@@ -646,11 +669,11 @@ mod tests {
             status: Mutex::new(ScanStatus::Running),
             task: Default::default(),
             progress_bar: Mutex::new(None),
-            output_level: Default::default(),
+            output_level: OutputLevel::Silent,
             status_403s: Default::default(),
             status_429s: Default::default(),
             errors: Default::default(),
-            start_time: Instant::now(),
+            start_time: Mutex::new(Instant::now()),
             handles: None,
         };
 
@@ -661,7 +684,13 @@ mod tests {
 
         let req_sec = scan.requests_per_second();
 
-        assert_eq!(req_sec, 100);
+        // allow for timing imprecision: sleep overhead makes elapsed time slightly > 1 second
+        // e.g., 100 reqs / 1.01s = 99 req/s
+        assert!(
+            (99..=101).contains(&req_sec),
+            "Expected ~100 req/s, got {}",
+            req_sec
+        );
 
         scan.finish(0).unwrap();
         assert_eq!(scan.requests_per_second(), 0);

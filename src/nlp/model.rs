@@ -73,7 +73,11 @@ impl TfIdf {
                 to_add.push(score);
             }
 
-            let average: f32 = to_add.iter().sum::<f32>() / to_add.len() as f32;
+            let average = if to_add.is_empty() {
+                0.0
+            } else {
+                to_add.iter().sum::<f32>() / to_add.len() as f32
+            };
 
             *metadata.tf_idf_score_mut() = average;
         }

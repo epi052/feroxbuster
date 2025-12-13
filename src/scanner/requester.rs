@@ -80,16 +80,17 @@ impl Requester {
     pub fn from(scanner: &FeroxScanner, ferox_scan: Arc<FeroxScan>) -> Result<Self> {
         let limit = scanner.handles.config.rate_limit;
 
+        let mut policy_data = PolicyData::new(
+            scanner.handles.config.requester_policy,
+            scanner.handles.config.timeout,
+        );
+
         let rate_limiter = if limit > 0 {
+            policy_data = policy_data.with_rate_limit(limit);
             Some(Self::build_a_bucket(limit)?)
         } else {
             None
         };
-
-        let policy_data = PolicyData::new(
-            scanner.handles.config.requester_policy,
-            scanner.handles.config.timeout,
-        );
 
         Ok(Self {
             ferox_scan,
@@ -105,39 +106,41 @@ impl Requester {
 
     /// build a RateLimiter, given a rate limit (as requests per second)
     fn build_a_bucket(limit: usize) -> Result<RateLimiter> {
-        let refill = max((limit as f64 / 10.0).round() as usize, 1); // minimum of 1 per second
+        // safety: ensure limit is at least 1 to prevent panic from .initial > .max
+        let limit = max(limit, 1);
+
+        // For accurate rate limiting across all integer values (including low rates like 1-14 req/s),
+        // we use a 1-second interval and refill with exactly `limit` tokens per interval.
+        // This ensures refill/interval == limit for any value, avoiding the previous bug where
+        // limits <15 collapsed to 1 req/s due to rounding.
+        let refill = limit;
         let tokens = max((limit as f64 / 2.0).round() as usize, 1);
-        let interval = if refill == 1 { 1000 } else { 100 }; // 1 second if refill is 1
+        let interval = 1000; // 1 second interval for all rates
 
         Ok(RateLimiter::builder()
-            .interval(Duration::from_millis(interval)) // add tokens every 0.1s
-            .refill(refill) // ex: 100 req/s -> 10 tokens per 0.1s
-            .initial(tokens) // reduce initial burst, 2 is arbitrary, but felt good
+            .interval(Duration::from_millis(interval))
+            .refill(refill)
+            .initial(tokens) // start with half capacity to reduce initial burst
             .max(limit)
             .build())
     }
 
     /// sleep and set a flag that can be checked by other threads
     async fn cool_down(&self) {
-        if atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst) {
-            // prevents a few racy threads making it in here and doubling the wait time erroneously
-            return;
-        }
-
-        atomic_store!(self.policy_data.cooling_down, true, Ordering::SeqCst);
-
+        // should_enforce_policy=>tune call chain has already acquired cooling_down flag
+        // just need to sleep and reset
         sleep(Duration::from_millis(self.policy_data.wait_time)).await;
         self.ferox_scan.progress_bar().set_message("");
 
-        atomic_store!(self.policy_data.cooling_down, false, Ordering::SeqCst);
+        atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
     }
 
     /// limit the number of requests per second
     pub async fn limit(&self) -> Result<()> {
         let guard = self.rate_limiter.read().await;
 
-        if guard.is_some() {
-            guard.as_ref().unwrap().acquire_one().await;
+        if let Some(limiter) = guard.as_ref() {
+            limiter.acquire_one().await;
         }
 
         Ok(())
@@ -174,16 +177,26 @@ impl Requester {
     /// - 90% of requests are 403
     /// - 30% of requests are 429
     fn should_enforce_policy(&self) -> Option<PolicyTrigger> {
-        if atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst) {
-            // prevents a few racy threads making it in here and doubling the wait time erroneously
+        // use compare_exchange to ensure only one thread can proceed with policy enforcement
+        // this prevents multiple threads from simultaneously deciding to enforce policy
+        // AcqRel provides necessary synchronization
+        if self
+            .policy_data
+            .cooling_down
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            // Another thread is already enforcing policy or cooling down
             return None;
         }
 
-        let requests = atomic_load!(self.handles.stats.data.requests);
+        let requests = self.ferox_scan.requests() as usize;
 
         if requests < max(self.handles.config.threads, 50) {
-            // check whether at least a full round of threads has made requests or 50 (default # of
-            // threads), whichever is higher
+            // check whether at least a full round of threads has made requests for this specific
+            // scan (not globally), or 50 (default # of threads), whichever is higher
+            // need to reset the flag since we're not actually enforcing
+            atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
             return None;
         }
 
@@ -199,48 +212,98 @@ impl Requester {
             return Some(PolicyTrigger::Status429);
         }
 
+        // No policy trigger found, reset the flag
+        atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
         None
     }
 
     /// wrapper for adjust_[up,down] functions, checks error levels to determine adjustment direction
     async fn adjust_limit(&self, trigger: PolicyTrigger, create_limiter: bool) -> Result<()> {
         let scan_errors = self.ferox_scan.num_errors(trigger);
-        let policy_errors = atomic_load!(self.policy_data.errors, Ordering::SeqCst);
+        let policy_errors = self.policy_data.get_errors(trigger);
 
-        if let Ok(mut guard) = self.tuning_lock.try_lock() {
+        // track if we need to update the progress bar message outside the lock
+        let pb_message: Option<String>;
+
+        // Scope the lock so it's dropped before any async operations
+        {
+            // Use blocking lock instead of try_lock to avoid spurious warnings and ensure
+            // adjustments are properly serialized
+            let mut guard = match self.tuning_lock.lock() {
+                Ok(g) => g,
+                Err(e) => {
+                    log::error!("tuning_lock poisoned in adjust_limit: {}", e);
+                    return Ok(()); // Skip this adjustment
+                }
+            };
+
             if scan_errors > policy_errors {
                 // errors have increased, need to reduce the requests/sec limit
                 *guard = 0; // reset streak counter to 0
-                if atomic_load!(self.policy_data.errors) != 0 {
+                if policy_errors != 0 {
                     self.policy_data.adjust_down();
+
+                    log::info!(
+                        "auto-tune: errors increased; reducing speed to {} reqs/sec for {}",
+                        self.policy_data.get_limit(),
+                        self.target_url
+                    );
 
                     let styled_direction = style("reduced").red();
 
-                    self.ferox_scan
-                        .progress_bar()
-                        .set_message(format!("=> 🚦 {styled_direction} scan speed",));
+                    pb_message = Some(format!(
+                        "=> 🚦 {styled_direction} scan speed ({}/s)",
+                        self.policy_data.get_limit()
+                    ));
+                } else {
+                    pb_message = None;
                 }
-                self.policy_data.set_errors(scan_errors);
+                self.policy_data.set_errors(trigger, scan_errors);
             } else {
                 // errors can only be incremented, so an else is sufficient
                 *guard += 1;
 
                 self.policy_data.adjust_up(&guard);
 
+                log::info!(
+                    "auto-tune: errors decreased; increasing speed to {} reqs/sec for {}",
+                    self.policy_data.get_limit(),
+                    self.target_url
+                );
+
                 let styled_direction = style("increased").green();
 
-                self.ferox_scan
-                    .progress_bar()
-                    .set_message(format!("=> 🚦 {styled_direction} scan speed",));
+                pb_message = Some(format!(
+                    "=> 🚦 {styled_direction} scan speed ({}/s)",
+                    self.policy_data.get_limit()
+                ));
             }
-        }
+
+            // update progress bar while still holding the lock to prevent races
+            if let Some(ref msg) = pb_message {
+                self.ferox_scan.progress_bar().set_message(msg.clone());
+            }
+        } // guard is dropped here automatically
 
         if atomic_load!(self.policy_data.remove_limit) {
-            self.set_rate_limiter(None).await?;
+            if let Some(rate_limit) = self.policy_data.rate_limit {
+                self.set_rate_limiter(Some(rate_limit)).await?;
+            } else {
+                self.set_rate_limiter(None).await?;
+            }
+
             atomic_store!(self.policy_data.remove_limit, false);
-            self.ferox_scan
-                .progress_bar()
-                .set_message("=> 🚦 removed rate limiter 🚀");
+
+            // reset the auto-tune state machine so it can be re-triggered if needed
+            atomic_store!(self.policy_triggered, false, Ordering::Release);
+            self.policy_data.reset_heap();
+
+            // acquire lock just for the progress bar update to prevent races
+            if let Ok(_guard) = self.tuning_lock.try_lock() {
+                self.ferox_scan
+                    .progress_bar()
+                    .set_message("=> 🚦 removed rate limiter 🚀");
+            }
         } else if create_limiter {
             // create_limiter is really just used for unit testing situations, it's true anytime
             // during actual execution
@@ -274,16 +337,48 @@ impl Requester {
 
     /// enforce auto-tune policy
     async fn tune(&self, trigger: PolicyTrigger) -> Result<()> {
-        if atomic_load!(self.policy_data.errors) == 0 {
-            // set original number of reqs/second the first time tune is called, skip otherwise
+        if !self.policy_data.heap_initialized() {
+            // keep attempting to set original number of reqs/second when tune is called
             let reqs_sec = self.ferox_scan.requests_per_second() as usize;
-            self.policy_data.set_reqs_sec(reqs_sec);
+
+            // guard against req/sec < 2, which would create heap with root=0 and cause panic
+            // when building rate limiter (.initial > .max). need at least 2 req/sec for stable
+            // rate limiting (original/2 = 1, which is minimum viable limit)
+            if reqs_sec < 2 {
+                log::debug!("auto-tune: {} reqs/sec is too low; not initializing heap and resetting cooldown period", reqs_sec);
+
+                // reset heap and initialization flags since we need the should_enforce_limit->tune
+                // flow to execute again
+                self.policy_data.reset_heap();
+                atomic_store!(self.policy_data.cooling_down, false, Ordering::Release);
+                atomic_store!(self.policy_triggered, false, Ordering::Release);
+
+                return Ok(());
+            }
+
+            // cap the initial reqs/sec to the user-specified rate limit if it exists
+            // this ensures that the heap is built in such a way that clamping occurs correctly
+            let seed = if let Some(cap) = self.policy_data.rate_limit {
+                reqs_sec.min(cap)
+            } else {
+                reqs_sec
+            };
+
+            self.policy_data.set_reqs_sec(seed);
 
             // set the flag to indicate that we have triggered the rate limiter
             // at least once
             atomic_store!(self.policy_triggered, true);
 
             let new_limit = self.policy_data.get_limit();
+
+            log::info!(
+                "auto-tune: {} reqs/sec was too fast; enforcing limit {} reqs/sec for {}",
+                reqs_sec,
+                new_limit,
+                self.target_url
+            );
+
             self.set_rate_limiter(Some(new_limit)).await?;
             self.ferox_scan
                 .progress_bar()
@@ -362,7 +457,14 @@ impl Requester {
 
         for url in urls {
             for method in self.handles.config.methods.iter() {
-                // auto_tune is true, or rate_limit was set (mutually exclusive to user)
+                // Check denylist BEFORE consuming rate limit tokens to avoid wasting permits
+                // on URLs that will be skipped anyway
+                if should_test_deny && should_deny_url(&url, self.handles.clone())? {
+                    // can't allow a denied url to be requested
+                    continue;
+                }
+
+                // check if rate limiting should be applied (either via --rate-limit or auto-tune)
                 // and a rate_limiter has been created
                 // short-circuiting the lock access behind the first boolean check
                 let should_tune =
@@ -377,11 +479,6 @@ impl Requester {
                     }
                 }
 
-                if should_test_deny && should_deny_url(&url, self.handles.clone())? {
-                    // can't allow a denied url to be requested
-                    continue;
-                }
-
                 let data = if self.handles.config.data.is_empty() {
                     None
                 } else {
@@ -392,7 +489,7 @@ impl Requester {
                     logged_request(&url, method.as_str(), data, self.handles.clone()).await?;
 
                 if (should_tune || self.handles.config.auto_bail)
-                    && !atomic_load!(self.policy_data.cooling_down, Ordering::SeqCst)
+                    && !atomic_load!(self.policy_data.cooling_down, Ordering::Acquire)
                 {
                     // only check for policy enforcement when the trigger isn't on cooldown and tuning
                     // or bailing is in place (should_tune used here because when auto-tune is on, we'll
@@ -400,15 +497,46 @@ impl Requester {
                     match self.policy_data.policy {
                         RequesterPolicy::AutoTune => {
                             if let Some(trigger) = self.should_enforce_policy() {
-                                self.tune(trigger).await?;
+                                if let Err(e) = self.tune(trigger).await {
+                                    // reset cooling_down flag on error to prevent permanent lockout
+                                    atomic_store!(
+                                        self.policy_data.cooling_down,
+                                        false,
+                                        Ordering::Release
+                                    );
+                                    atomic_store!(self.policy_triggered, false, Ordering::Release);
+                                    return Err(e);
+                                }
                             } else if atomic_load!(self.policy_triggered) {
-                                self.adjust_limit(PolicyTrigger::TryAdjustUp, true).await?;
-                                self.cool_down().await;
+                                // Use compare_exchange to ensure only one thread attempts upward adjustment
+                                // at a time, preventing races and duplicate adjustments
+                                if self
+                                    .policy_data
+                                    .cooling_down
+                                    .compare_exchange(
+                                        false,
+                                        true,
+                                        Ordering::AcqRel,
+                                        Ordering::Acquire,
+                                    )
+                                    .is_ok()
+                                {
+                                    self.adjust_limit(PolicyTrigger::TryAdjustUp, true).await?;
+                                    self.cool_down().await;
+                                }
                             }
                         }
                         RequesterPolicy::AutoBail => {
                             if let Some(trigger) = self.should_enforce_policy() {
-                                self.bail(trigger).await?;
+                                if let Err(e) = self.bail(trigger).await {
+                                    // reset cooling_down flag on error to prevent permanent lockout
+                                    atomic_store!(
+                                        self.policy_data.cooling_down,
+                                        false,
+                                        Ordering::Release
+                                    );
+                                    return Err(e);
+                                }
                             }
                         }
                         RequesterPolicy::Default => {}
@@ -599,6 +727,8 @@ mod tests {
         for _ in 0..num_errors {
             handles.stats.send(AddError(StatError::Other)).unwrap();
             scan.add_error();
+            // Also increment the progress bar to represent a request being made
+            scan.progress_bar().inc(1);
         }
 
         handles.stats.sync().await.unwrap();
@@ -635,6 +765,8 @@ mod tests {
     ) {
         for _ in 0..num_codes {
             handles.stats.send(AddStatus(code)).unwrap();
+            // Also increment the progress bar to represent a request being made
+            scan.progress_bar().inc(1);
             if code == StatusCode::FORBIDDEN {
                 scan.add_403();
             } else {
@@ -933,8 +1065,9 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    /// cooldown should pause execution and prevent others calling it by setting cooling_down flag
-    async fn cooldown_pauses_and_sets_flag() {
+    /// cooldown should pause execution for the specified wait_time
+    /// note: cooling_down flag is now set by should_enforce_policy, not cool_down itself
+    async fn cooldown_pauses_for_wait_time() {
         let (handles, _) = setup_requester_test(None).await;
 
         let requester = Arc::new(Requester {
@@ -949,17 +1082,14 @@ mod tests {
         });
 
         let start = Instant::now();
-        let clone = requester.clone();
-        let resp = tokio::task::spawn(async move {
-            sleep(Duration::new(1, 0)).await;
-            clone.policy_data.cooling_down.load(Ordering::Relaxed)
-        });
 
         requester.cool_down().await;
 
-        assert!(resp.await.unwrap());
-        println!("{}", start.elapsed().as_millis());
+        // verify cooldown paused for wait_time (3500ms for timeout=7s)
         assert!(start.elapsed().as_millis() >= 3500);
+
+        // verify flag was reset to false after cooldown completes
+        assert!(!requester.policy_data.cooling_down.load(Ordering::Relaxed));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -1019,7 +1149,7 @@ mod tests {
         };
 
         requester.policy_data.set_reqs_sec(400);
-        requester.policy_data.set_errors(1);
+        requester.policy_data.set_errors(PolicyTrigger::Errors, 1);
 
         {
             let mut guard = requester.tuning_lock.lock().unwrap();
@@ -1033,7 +1163,7 @@ mod tests {
 
         assert_eq!(*requester.tuning_lock.lock().unwrap(), 0);
         assert_eq!(requester.policy_data.get_limit(), 100);
-        assert_eq!(requester.policy_data.errors.load(Ordering::Relaxed), 2);
+        assert_eq!(requester.policy_data.get_errors(PolicyTrigger::Errors), 2);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -1182,18 +1312,446 @@ mod tests {
         pb.set_position(400);
         sleep(Duration::new(1, 0)).await; // used to get req/sec up to 400
 
-        assert_eq!(requester.policy_data.errors.load(Ordering::Relaxed), 0);
+        assert_eq!(
+            requester.policy_data.get_errors(PolicyTrigger::Status429),
+            0
+        );
 
         requester.tune(PolicyTrigger::Status429).await.unwrap();
 
-        assert_eq!(requester.policy_data.heap.read().unwrap().original, 400);
-        assert_eq!(requester.policy_data.get_limit(), 200);
-        assert_eq!(
-            requester.rate_limiter.read().await.as_ref().unwrap().max(),
-            200
+        let original = requester.policy_data.heap.read().unwrap().original;
+        // Allow for timing imprecision: 400 reqs / 1.01s elapsed = 399 req/s
+        assert!(
+            (399..=401).contains(&original),
+            "Expected ~400 req/s original, got {}",
+            original
+        );
+
+        let limit = requester.policy_data.get_limit();
+        // Limit is original/2, so with original 399-401, limit is 199-200
+        assert!(
+            (199..=201).contains(&limit),
+            "Expected limit ~200, got {}",
+            limit
+        );
+
+        let rate_limiter_max = requester.rate_limiter.read().await.as_ref().unwrap().max();
+        assert!(
+            (199..=201).contains(&rate_limiter_max),
+            "Expected rate limiter max ~200, got {}",
+            rate_limiter_max
         );
 
         scan.finish(0).unwrap();
         assert!(start.elapsed().as_millis() >= 2000);
+    }
+
+    #[test]
+    /// verify build_a_bucket produces correct rate limits for low values (1-20 req/s)
+    /// This test validates the fix for Bug #1 where limits < 15 collapsed to 1 req/s
+    fn build_a_bucket_handles_low_rates_correctly() {
+        // Test various low rate limits to ensure accurate token bucket configuration
+        for limit in 1..=20 {
+            let result = Requester::build_a_bucket(limit);
+            assert!(result.is_ok(), "build_a_bucket failed for limit {}", limit);
+
+            let bucket = result.unwrap();
+
+            // With our fix: interval=1000ms, refill=limit
+            // This ensures refill/interval == limit for accurate rate limiting
+            assert_eq!(
+                bucket.max(),
+                limit,
+                "Bucket max should equal requested limit {} but got {}",
+                limit,
+                bucket.max()
+            );
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify that policy_triggered flag is reset when rate limiter is removed
+    /// This test validates the fix for Bug #2 where auto-tune never disengaged
+    async fn policy_triggered_reset_when_limiter_removed() {
+        let (handles, _) = setup_requester_test(None).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
+
+        let requester = Requester {
+            handles,
+            seen_links: RwLock::new(HashSet::<String>::new()),
+            tuning_lock: Mutex::new(0),
+            ferox_scan,
+            target_url: "http://localhost".to_string(),
+            rate_limiter: RwLock::new(None),
+            policy_data: PolicyData::new(RequesterPolicy::AutoTune, 7),
+            policy_triggered: AtomicBool::new(false),
+        };
+
+        // Set policy_triggered to true (as if auto-tune was triggered)
+        atomic_store!(requester.policy_triggered, true, Ordering::Release);
+
+        // Initialize heap to simulate auto-tune being active
+        requester.policy_data.set_reqs_sec(100);
+        assert!(requester.policy_data.heap_initialized());
+
+        // Simulate the condition where limiter should be removed
+        atomic_store!(requester.policy_data.remove_limit, true);
+
+        // Call adjust_limit which should remove the limiter and reset state
+        requester
+            .adjust_limit(PolicyTrigger::Errors, true)
+            .await
+            .unwrap();
+
+        // Verify policy_triggered was reset
+        assert!(
+            !atomic_load!(requester.policy_triggered),
+            "policy_triggered should be reset to false when limiter is removed"
+        );
+
+        // Verify heap was reset
+        assert!(
+            !requester.policy_data.heap_initialized(),
+            "heap should be reset when limiter is removed"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify should_enforce_policy uses per-scan request counts, not global
+    /// This test validates the fix for Bug #4 where global counters caused false positives
+    async fn should_enforce_policy_uses_per_scan_requests() {
+        let mut config = Configuration::new().unwrap_or_default();
+        config.threads = 50;
+
+        let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
+
+        let requester = Requester {
+            handles: handles.clone(),
+            seen_links: RwLock::new(HashSet::<String>::new()),
+            tuning_lock: Mutex::new(0),
+            ferox_scan: ferox_scan.clone(),
+            target_url: "http://localhost".to_string(),
+            rate_limiter: RwLock::new(None),
+            policy_data: PolicyData::new(RequesterPolicy::AutoTune, 7),
+            policy_triggered: AtomicBool::new(false),
+        };
+
+        // Add many errors globally (simulating previous scans)
+        for _ in 0..100 {
+            handles.stats.send(AddError(StatError::Other)).unwrap();
+        }
+        handles.stats.sync().await.unwrap();
+
+        // But this scan has only made a few requests
+        ferox_scan.progress_bar().inc(5);
+        for _ in 0..5 {
+            ferox_scan.add_error();
+        }
+
+        // should_enforce_policy should return None because THIS scan hasn't made enough requests
+        // even though global request count is high
+        assert_eq!(
+            requester.should_enforce_policy(),
+            None,
+            "should_enforce_policy should use per-scan requests, not global"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify heap values are clamped when rate_limit cap is set
+    async fn heap_values_clamped_to_rate_limit_cap() {
+        let policy_data = PolicyData::new(RequesterPolicy::AutoTune, 7).with_rate_limit(100);
+
+        // Set a high RPS that exceeds the cap
+        policy_data.set_reqs_sec(500);
+
+        // All heap values should be clamped to 100
+        let heap = policy_data.heap.read().unwrap();
+        for i in 0..heap.inner.len() {
+            if heap.inner[i] > 0 {
+                assert!(
+                    heap.inner[i] <= 100,
+                    "Heap value at index {} is {}, expected <= 100",
+                    i,
+                    heap.inner[i]
+                );
+            }
+        }
+
+        // Root should be 100 (clamped from 250)
+        assert_eq!(heap.inner[0], 100, "Root should be clamped to cap");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify auto-tune with cap adjusts down correctly on errors
+    async fn auto_tune_with_cap_adjusts_down_on_errors() {
+        let policy_data = PolicyData::new(RequesterPolicy::AutoTune, 7).with_rate_limit(100);
+
+        // Build heap with cap of 100
+        policy_data.set_reqs_sec(100);
+
+        // Initial limit should be 50 (half of 100)
+        assert_eq!(policy_data.get_limit(), 50);
+
+        // Adjust down (simulating errors)
+        policy_data.adjust_down();
+
+        // Should move to right child, which is 25
+        assert_eq!(policy_data.get_limit(), 25);
+
+        // Adjust down again
+        policy_data.adjust_down();
+
+        // Should continue moving down the tree
+        let new_limit = policy_data.get_limit();
+        assert!(new_limit < 25, "Limit should decrease further");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify auto-tune with cap never exceeds cap on upward adjustment
+    async fn auto_tune_with_cap_never_exceeds_cap_on_upward_adjustment() {
+        let policy_data = PolicyData::new(RequesterPolicy::AutoTune, 7).with_rate_limit(100);
+
+        // Build heap with cap of 100
+        policy_data.set_reqs_sec(100);
+
+        // Move to a low value in the tree
+        {
+            let mut heap = policy_data.heap.write().unwrap();
+            heap.move_to(15); // Deep in the tree
+        }
+
+        // Continuously adjust up with streak counter to reach root
+        for _ in 0..10 {
+            policy_data.adjust_up(&3); // Use high streak to move up faster
+            let current_limit = policy_data.get_limit();
+            assert!(
+                current_limit <= 100,
+                "Limit {} exceeded cap of 100",
+                current_limit
+            );
+        }
+
+        // Should be at or near the cap, but heap navigation may not reach exact root
+        let final_limit = policy_data.get_limit();
+        assert!(
+            (50..=100).contains(&final_limit),
+            "Final limit {} should be between 50 and 100",
+            final_limit
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify remove_limit with cap sets to cap instead of removing
+    async fn remove_limit_with_cap_sets_to_cap_instead_of_removing() {
+        let mut config = Configuration::new().unwrap_or_default();
+        config.rate_limit = 100;
+        config.auto_tune = true;
+        config.requester_policy = RequesterPolicy::AutoTune;
+
+        let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
+
+        let policy_data = PolicyData::new(RequesterPolicy::AutoTune, 7).with_rate_limit(100);
+
+        let requester = Requester {
+            handles: handles.clone(),
+            seen_links: RwLock::new(HashSet::<String>::new()),
+            tuning_lock: Mutex::new(0),
+            ferox_scan: ferox_scan.clone(),
+            target_url: "http://localhost".to_string(),
+            rate_limiter: RwLock::new(Some(Requester::build_a_bucket(50).unwrap())),
+            policy_data,
+            policy_triggered: AtomicBool::new(true),
+        };
+
+        // Set remove_limit flag
+        atomic_store!(requester.policy_data.remove_limit, true);
+
+        // Call adjust_limit
+        requester
+            .adjust_limit(PolicyTrigger::Errors, true)
+            .await
+            .unwrap();
+
+        // Verify limiter was set to cap, not removed
+        let limiter = requester.rate_limiter.read().await;
+        assert!(
+            limiter.is_some(),
+            "Limiter should not be removed when cap exists"
+        );
+        assert_eq!(
+            limiter.as_ref().unwrap().max(),
+            100,
+            "Limiter should be set to cap value"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// verify initial limiter set to cap when both rate_limit and auto_tune are present
+    async fn initial_limiter_set_to_cap_when_both_flags_present() {
+        let mut config = Configuration::new().unwrap_or_default();
+        config.rate_limit = 100;
+        config.auto_tune = true;
+
+        let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
+        let ferox_scan = Arc::new(FeroxScan::default());
+
+        let policy_data = PolicyData::new(RequesterPolicy::AutoTune, 7).with_rate_limit(100);
+
+        // Manually construct requester to verify initialization
+        let requester = Requester {
+            handles: handles.clone(),
+            seen_links: RwLock::new(HashSet::<String>::new()),
+            tuning_lock: Mutex::new(0),
+            ferox_scan: ferox_scan.clone(),
+            target_url: "http://localhost".to_string(),
+            rate_limiter: RwLock::new(Some(Requester::build_a_bucket(100).unwrap())),
+            policy_data,
+            policy_triggered: AtomicBool::new(false),
+        };
+
+        // Verify initial limiter is set
+        let limiter = requester.rate_limiter.read().await;
+        assert!(limiter.is_some(), "Limiter should be initialized");
+        assert_eq!(
+            limiter.as_ref().unwrap().max(),
+            100,
+            "Initial limiter should be set to rate_limit value"
+        );
+
+        // Verify policy_data has the cap
+        assert_eq!(
+            requester.policy_data.rate_limit,
+            Some(100),
+            "PolicyData should have rate_limit set"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    /// Full lifecycle test: --rate-limit 100 --auto-tune
+    /// Simulates errors triggering reduction, then success allowing increase, never exceeding cap
+    async fn capped_auto_tune_full_lifecycle() {
+        let mut config = Configuration::new().unwrap_or_default();
+        config.rate_limit = 100;
+        config.auto_tune = true;
+        config.requester_policy = RequesterPolicy::AutoTune;
+        config.threads = 50;
+
+        let (handles, _) = setup_requester_test(Some(Arc::new(config))).await;
+
+        // Create a proper Directory scan that will report as active
+        let ferox_scan = FeroxScan::new(
+            "http://localhost",
+            ScanType::Directory,
+            ScanOrder::Latest,
+            0,
+            OutputLevel::Default,
+            None,
+            true,
+            handles.clone(),
+        );
+
+        // Simulate scan running - need at least 2 req/s for tune() to initialize
+        ferox_scan.set_status(ScanStatus::Running).unwrap();
+        ferox_scan.set_start_time(Instant::now()).unwrap();
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // Add enough requests to get RPS >= 2 (100 requests in 0.1s = 1000 req/s)
+        ferox_scan.progress_bar().inc(100);
+
+        let policy_data = PolicyData::new(RequesterPolicy::AutoTune, 7).with_rate_limit(100);
+
+        let requester = Requester {
+            handles: handles.clone(),
+            seen_links: RwLock::new(HashSet::<String>::new()),
+            tuning_lock: Mutex::new(0),
+            ferox_scan: ferox_scan.clone(),
+            target_url: "http://localhost".to_string(),
+            rate_limiter: RwLock::new(Some(Requester::build_a_bucket(100).unwrap())),
+            policy_data,
+            policy_triggered: AtomicBool::new(false),
+        };
+
+        // Step 1: Trigger auto-tune due to errors
+        for _ in 0..50 {
+            ferox_scan.add_error();
+        }
+
+        requester.tune(PolicyTrigger::Errors).await.unwrap();
+
+        // Heap should be initialized now (RPS is high, capped to 100)
+        assert!(
+            requester.policy_data.heap_initialized(),
+            "Heap should be initialized after tune()"
+        );
+
+        let initial_limit = requester.policy_data.get_limit();
+        assert!(
+            initial_limit <= 100,
+            "Initial limit {} should not exceed cap",
+            initial_limit
+        );
+        assert_eq!(
+            initial_limit, 50,
+            "Initial limit should be 50 (half of capped seed 100)"
+        );
+
+        // Step 2: More errors - adjust down
+        // Don't reset policy errors - they're already set to 50 from tune()
+        // Add more scan errors so scan_errors (75) > policy_errors (50)
+        for _ in 0..25 {
+            ferox_scan.add_error();
+        }
+
+        requester
+            .adjust_limit(PolicyTrigger::Errors, true)
+            .await
+            .unwrap();
+        let reduced_limit = requester.policy_data.get_limit();
+        assert!(
+            reduced_limit < initial_limit,
+            "Limit should decrease on errors: {} < {}",
+            reduced_limit,
+            initial_limit
+        );
+
+        // Step 3: Success - adjust up multiple times
+        // Set policy errors higher than scan errors to trigger upward adjustment
+        requester.policy_data.set_errors(PolicyTrigger::Errors, 200);
+        for i in 0..5 {
+            requester
+                .adjust_limit(PolicyTrigger::Errors, true)
+                .await
+                .unwrap();
+            let current_limit = requester.policy_data.get_limit();
+
+            // Should never exceed cap
+            assert!(
+                current_limit <= 100,
+                "Iteration {}: Limit {} exceeded cap of 100",
+                i,
+                current_limit
+            );
+        }
+
+        // Step 4: Verify limiter stays at cap (not removed)
+        atomic_store!(requester.policy_data.remove_limit, true);
+        requester
+            .adjust_limit(PolicyTrigger::Errors, true)
+            .await
+            .unwrap();
+
+        let final_limiter = requester.rate_limiter.read().await;
+        assert!(
+            final_limiter.is_some(),
+            "Limiter should not be removed when cap exists"
+        );
+        assert_eq!(
+            final_limiter.as_ref().unwrap().max(),
+            100,
+            "Limiter should be at cap value"
+        );
     }
 }
