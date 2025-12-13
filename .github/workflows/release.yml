@@ -1,0 +1,309 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --abbrev=0 --tags HEAD^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            # First release, get all commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            # Get commits since previous tag
+            CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Create changelog file
+          {
+            echo "## What's Changed"
+            echo ""
+            echo "$CHANGELOG"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${GITHUB_REF_NAME}"
+          } > CHANGELOG.md
+          
+          cat CHANGELOG.md
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+
+  download-and-upload-artifacts:
+    name: Download & Upload Release Assets
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for CD Pipeline
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'build-nix (ubuntu-x64)'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          run-id: ${{ github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts/
+
+      - name: Prepare release assets
+        id: prepare
+        run: |
+          mkdir -p release-assets
+          cd artifacts
+          
+          # Process Linux x86_64 binary - create tar.gz
+          if [ -d "x86_64-linux-feroxbuster" ]; then
+            tar czf ../release-assets/x86_64-linux-feroxbuster.tar.gz -C x86_64-linux-feroxbuster feroxbuster
+          fi
+          
+          # Process Linux x86 binary - create tar.gz
+          if [ -d "x86-linux-feroxbuster" ]; then
+            tar czf ../release-assets/x86-linux-feroxbuster.tar.gz -C x86-linux-feroxbuster feroxbuster
+          fi
+          
+          # Process ARM binaries - create tar.gz
+          if [ -d "armv7-linux-feroxbuster" ]; then
+            tar czf ../release-assets/armv7-linux-feroxbuster.tar.gz -C armv7-linux-feroxbuster feroxbuster
+          fi
+          
+          if [ -d "aarch64-linux-feroxbuster" ]; then
+            tar czf ../release-assets/aarch64-linux-feroxbuster.tar.gz -C aarch64-linux-feroxbuster feroxbuster
+          fi
+          
+          # Copy macOS tar.gz files (already compressed)
+          if [ -f "x86_64-macos-feroxbuster.tar.gz/x86_64-macos-feroxbuster.tar.gz" ]; then
+            cp x86_64-macos-feroxbuster.tar.gz/x86_64-macos-feroxbuster.tar.gz ../release-assets/
+          fi
+          
+          if [ -f "aarch64-macos-feroxbuster.tar.gz/aarch64-macos-feroxbuster.tar.gz" ]; then
+            cp aarch64-macos-feroxbuster.tar.gz/aarch64-macos-feroxbuster.tar.gz ../release-assets/
+          fi
+          
+          # Copy Windows executables - create zip files
+          if [ -d "x86_64-windows-feroxbuster.exe" ]; then
+            cd x86_64-windows-feroxbuster.exe
+            zip ../../release-assets/x86_64-windows-feroxbuster.zip feroxbuster.exe
+            cd ..
+          fi
+          
+          if [ -d "x86-windows-feroxbuster.exe" ]; then
+            cd x86-windows-feroxbuster.exe
+            zip ../../release-assets/x86-windows-feroxbuster.zip feroxbuster.exe
+            cd ..
+          fi
+          
+          # Copy .deb file
+          if [ -d "feroxbuster_amd64.deb" ]; then
+            cp feroxbuster_amd64.deb/*.deb ../release-assets/ || true
+          fi
+          
+          cd ..
+          
+          # Generate SHA256 checksums
+          cd release-assets
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+          
+          # Extract specific hashes for homebrew
+          LINUX_HASH=$(grep "x86_64-linux-feroxbuster.tar.gz" SHA256SUMS | awk '{print $1}')
+          MACOS_X64_HASH=$(grep "x86_64-macos-feroxbuster.tar.gz" SHA256SUMS | awk '{print $1}')
+          MACOS_ARM_HASH=$(grep "aarch64-macos-feroxbuster.tar.gz" SHA256SUMS | awk '{print $1}')
+          
+          echo "linux_hash=$LINUX_HASH" >> $GITHUB_OUTPUT
+          echo "macos_x64_hash=$MACOS_X64_HASH" >> $GITHUB_OUTPUT
+          echo "macos_arm_hash=$MACOS_ARM_HASH" >> $GITHUB_OUTPUT
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+
+  publish-crates-io:
+    name: Publish to crates.io
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish
+
+  update-homebrew:
+    name: Update Homebrew Taps
+    needs: [create-release, download-and-upload-artifacts]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout TGotwig's homebrew-linux-feroxbuster
+        uses: actions/checkout@v4
+        with:
+          repository: TGotwig/homebrew-linux-feroxbuster
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-linux
+
+      - name: Update Linux formula
+        run: |
+          cd homebrew-linux
+          VERSION="${{ needs.create-release.outputs.version }}"
+          HASH="${{ needs.download-and-upload-artifacts.outputs.linux_hash }}"
+          
+          # Update version and hash in formula
+          sed -i "s|url \"https://github.com/epi052/feroxbuster/releases/download/v[^/]*/x86_64-linux-feroxbuster.tar.gz\"|url \"https://github.com/epi052/feroxbuster/releases/download/v${VERSION}/x86_64-linux-feroxbuster.tar.gz\"|g" feroxbuster.rb
+          sed -i "s/sha256 \"[^\"]*\"/sha256 \"${HASH}\"/g" feroxbuster.rb
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add feroxbuster.rb
+          git commit -m "Update feroxbuster to v${VERSION}" || echo "No changes to commit"
+          git push
+
+      - name: Checkout feroxbuster main repo to get config
+        uses: actions/checkout@v4
+        with:
+          path: feroxbuster-src
+
+      - name: Check if config changed
+        id: config_check
+        run: |
+          cd feroxbuster-src
+          CONFIG_HASH=$(sha256sum ferox-config.toml.example | awk '{print $1}')
+          echo "config_hash=$CONFIG_HASH" >> $GITHUB_OUTPUT
+          
+          # Check if config changed since last tag
+          PREV_TAG=$(git describe --abbrev=0 --tags HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            if git diff ${PREV_TAG}..HEAD --quiet -- ferox-config.toml.example; then
+              echo "config_changed=false" >> $GITHUB_OUTPUT
+            else
+              echo "config_changed=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "config_changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update config hash in homebrew if changed
+        if: steps.config_check.outputs.config_changed == 'true'
+        run: |
+          cd homebrew-linux
+          CONFIG_HASH="${{ steps.config_check.outputs.config_hash }}"
+          
+          # Update config hash if it exists in formula
+          if grep -q "ferox-config.toml.example" feroxbuster.rb; then
+            sed -i "s/sha256 \"[^\"]*\" # ferox-config.toml.example/sha256 \"${CONFIG_HASH}\" # ferox-config.toml.example/g" feroxbuster.rb
+            
+            git add feroxbuster.rb
+            git commit -m "Update ferox-config.toml.example hash" || echo "No changes to commit"
+            git push
+          fi
+
+  publish-winget:
+    name: Publish to Winget
+    needs: [create-release, download-and-upload-artifacts]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@main
+        with:
+          identifier: epi052.feroxbuster
+          installers-regex: '-windows-feroxbuster\.exe\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
+          release-tag: v${{ needs.create-release.outputs.version }}
+
+  publish-snapcraft:
+    name: Publish to Snapcraft
+    needs: [create-release, download-and-upload-artifacts]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Publish to Snapcraft
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        with:
+          snap: feroxbuster
+          release: stable
+
+  manual-steps-reminder:
+    name: Manual Steps Reminder
+    needs: [create-release, download-and-upload-artifacts]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create comment with manual steps
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.create-release.outputs.version }}';
+            const linuxHash = '${{ needs.download-and-upload-artifacts.outputs.linux_hash }}';
+            
+            const body = `## 🚀 Release v${version} Published!
+            
+            ### ✅ Automated Steps Completed
+            - [x] GitHub Release created with changelog
+            - [x] All artifacts uploaded with SHA256 checksums
+            - [x] Published to crates.io
+            - [x] Homebrew tap updated
+            - [x] Winget package published
+            - [x] Snapcraft published to stable
+            
+            ### 📋 Manual Steps Required
+            
+            1. **Kali Linux**
+               - Go to https://bugs.kali.org/login_page.php?return=%2Fmy_view_page.php
+               - Request a tool update
+            
+            3. **Announcement** (optional)
+               - Tweet about the release if it's significant!
+            
+            2. **Announcement** (optional)
+            - Linux x86_64: \`${linuxHash}\`
+            
+            See full checksums in release assets: SHA256SUMS
+            `;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
