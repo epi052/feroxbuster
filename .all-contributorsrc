@@ -972,6 +972,15 @@
       "contributions": [
         "code"
       ]
+    },
+    {
+      "login": "mzember",
+      "name": "Martin Žember",
+      "avatar_url": "https://avatars.githubusercontent.com/u/61412285?v=4",
+      "profile": "https://github.com/mzember",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
