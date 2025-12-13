@@ -32,29 +32,3 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
-
-      - name: Verify pushed image
-        run: |
-          # Wait a moment for the image to be available
-          sleep 5
-          
-          # Pull the image we just pushed
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/feroxbuster:latest
-          
-          # Get the digest of the pulled image
-          PULLED_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ secrets.DOCKER_HUB_USERNAME }}/feroxbuster:latest | cut -d'@' -f2)
-          PUSHED_DIGEST="${{ steps.docker_build.outputs.digest }}"
-          
-          echo "Pushed digest: $PUSHED_DIGEST"
-          echo "Pulled digest: $PULLED_DIGEST"
-          
-          # Verify they match
-          if [ "$PULLED_DIGEST" = "$PUSHED_DIGEST" ]; then
-            echo "✓ Verification successful: Pulled image matches pushed image"
-            
-            # Test that the binary works
-            docker run --rm ${{ secrets.DOCKER_HUB_USERNAME }}/feroxbuster:latest --version
-          else
-            echo "✗ Verification failed: Digests do not match"
-            exit 1
-          fi

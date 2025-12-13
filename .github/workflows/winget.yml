@@ -1,0 +1,21 @@
+name: Publish to Winget
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name of release'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@main
+        with:
+          identifier: epi052.feroxbuster
+          installers-regex: '-windows-feroxbuster\.exe\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
+          release-tag: ${{ inputs.tag_name || github.event.release.tag_name || github.ref_name }}

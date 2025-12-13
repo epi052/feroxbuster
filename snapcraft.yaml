@@ -10,9 +10,8 @@ description: |
 
   This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource Enumeration.
 
-confinement: strict
-grade: stable
-base: core22
+
+base: core18
 
 plugs:
   etc-feroxbuster:

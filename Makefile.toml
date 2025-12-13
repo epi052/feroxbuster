@@ -51,11 +51,3 @@ clear = true
 script = """
 cargo nextest run --all-features --all-targets --no-fail-fast --run-ignored all --retries 4
 """
-
-# coverage
-[tasks.coverage]
-clear = true
-script = """
-cargo llvm-cov nextest --all-features --no-fail-fast --retries 4 --html
-echo "Coverage report generated at target/llvm-cov/html/index.html"
-"""
