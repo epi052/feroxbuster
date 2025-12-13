@@ -54,10 +54,11 @@ pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DEFAULT_OPEN_FILE_LIMIT: u64 = 8192;
 
 /// Default set of extensions to Ignore when auto-collecting extensions during scans
-pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 38] = [
-    "tif", "tiff", "ico", "cur", "bmp", "webp", "svg", "png", "jpg", "jpeg", "jfif", "gif", "avif",
-    "apng", "pjpeg", "pjp", "mov", "wav", "mpg", "mpeg", "mp3", "mp4", "m4a", "m4p", "m4v", "ogg",
-    "webm", "ogv", "oga", "flac", "aac", "3gp", "css", "zip", "xls", "xml", "gz", "tgz",
+pub(crate) const DEFAULT_IGNORED_EXTENSIONS: [&str; 43] = [
+    "woff2", "woff", "ttf", "otf", "eot", "tif", "tiff", "ico", "cur", "bmp", "webp", "svg", "png",
+    "jpg", "jpeg", "jfif", "gif", "avif", "apng", "pjpeg", "pjp", "mov", "wav", "mpg", "mpeg",
+    "mp3", "mp4", "m4a", "m4p", "m4v", "ogg", "webm", "ogv", "oga", "flac", "aac", "3gp", "css",
+    "zip", "xls", "xml", "gz", "tgz",
 ];
 
 /// Default set of extensions to search for when auto-collecting backups during scans
