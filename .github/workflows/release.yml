@@ -64,19 +64,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for CD Pipeline
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.ref }}
-          check-name: 'build-nix (ubuntu-x64)'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+      - name: Get latest CD Pipeline run
+        id: get_run
+        run: |
+          # Get the latest successful CD Pipeline run for main branch
+          RUN_ID=$(gh run list --workflow="CD Pipeline" --branch=main --status=success --limit=1 --json databaseId --jq='.[0].databaseId')
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          run-id: ${{ github.run_id }}
+          run-id: ${{ steps.get_run.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Display structure of downloaded files
