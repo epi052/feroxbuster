@@ -963,6 +963,15 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "auk0x01",
+      "name": "Adnan Ullah Khan (auk0x01)",
+      "avatar_url": "https://avatars.githubusercontent.com/u/75381620?v=4",
+      "profile": "http://adnanullahkhan.com",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
