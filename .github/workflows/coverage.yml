@@ -4,17 +4,19 @@ name: Code Coverage Pipeline
 
 jobs:
   coverage:
-    name: Tarpaulin Coverage
+    name: LLVM Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-tarpaulin
+        with:
+          components: llvm-tools-preview
+      - name: Install cargo-llvm-cov and cargo-nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-tarpaulin
+          tool: cargo-nextest,cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo tarpaulin --all-features --workspace --timeout 300 --out lcov --output-dir .
+        run: cargo llvm-cov nextest --all-features --no-fail-fast --lcov --retries 4 --output-path lcov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:

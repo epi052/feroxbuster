@@ -56,6 +56,6 @@ cargo nextest run --all-features --all-targets --no-fail-fast --run-ignored all 
 [tasks.coverage]
 clear = true
 script = """
-cargo tarpaulin --all-features --workspace --timeout 300 --out html --output-dir target/coverage
-echo "Coverage report generated at target/coverage/index.html"
+cargo llvm-cov nextest --all-features --no-fail-fast --retries 4 --html
+echo "Coverage report generated at target/llvm-cov/html/index.html"
 """
