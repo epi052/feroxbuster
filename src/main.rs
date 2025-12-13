@@ -556,9 +556,9 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
     let live_targets = {
         let test = heuristics::HeuristicTests::new(handles.clone());
         let result = test.connectivity(&targets).await;
-        if result.is_err() {
+        if let Err(err) = result {
             clean_up(handles, tasks).await?;
-            bail!(fmt_err(&result.unwrap_err().to_string()));
+            bail!(fmt_err(&err.to_string()));
         }
         result?
     };

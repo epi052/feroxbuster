@@ -183,7 +183,7 @@ impl DynamicSemaphore {
     ///     Ok(permit) => println!("Got permit"),
     ///     Err(TryAcquireError::NoPermits) => println!("No permits available"),
     ///     Err(TryAcquireError::Closed) => println!("Semaphore closed"),
-    /// }
+    /// };
     /// ```
     pub fn try_acquire(&self) -> Result<DynamicSemaphorePermit<'_>, tokio::sync::TryAcquireError> {
         // Check if we're already at or over capacity
