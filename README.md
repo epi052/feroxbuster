@@ -353,6 +353,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/4FunAndProfit"><img src="https://avatars.githubusercontent.com/u/174417079?v=4?s=100" width="100px;" alt="4FunAndProfit"/><br /><sub><b>4FunAndProfit</b></sub></a><br /><a href="#ideas-4FunAndProfit" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/lidorelias3"><img src="https://avatars.githubusercontent.com/u/41958137?v=4?s=100" width="100px;" alt="lidorelias3"/><br /><sub><b>lidorelias3</b></sub></a><br /><a href="#ideas-lidorelias3" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://adnanullahkhan.com"><img src="https://avatars.githubusercontent.com/u/75381620?v=4?s=100" width="100px;" alt="Adnan Ullah Khan (auk0x01)"/><br /><sub><b>Adnan Ullah Khan (auk0x01)</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=auk0x01" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mzember"><img src="https://avatars.githubusercontent.com/u/61412285?v=4?s=100" width="100px;" alt="Martin Žember"/><br /><sub><b>Martin Žember</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Amzember" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
