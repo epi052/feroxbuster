@@ -990,6 +990,16 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "sebastiaanspeck",
+      "name": "Sebastiaan Speck",
+      "avatar_url": "https://avatars.githubusercontent.com/u/12570668?v=4",
+      "profile": "https://github.com/sebastiaanspeck",
+      "contributions": [
+        "bug",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
