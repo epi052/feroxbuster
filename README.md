@@ -45,20 +45,20 @@
 <p align="center">
   🦀
   <a href="https://github.com/epi052/feroxbuster/releases">Releases</a> ✨
-  <a href="https://epi052.github.io/feroxbuster-docs/examples/">Example Usage</a> ✨
+  <a href="https://epi052.github.io/feroxbuster-docs/examples/auto-tune/">Example Usage</a> ✨
   <a href="https://github.com/epi052/feroxbuster/blob/main/CONTRIBUTING.md">Contributing</a> ✨
-  <a href="https://epi052.github.io/feroxbuster-docs/">Documentation</a>
+  <a href="https://epi052.github.io/feroxbuster-docs/overview">Documentation</a>
   🦀
 </p>
 
 ---
 
-<h1><p align="center">✨🎉👉 <a href="https://epi052.github.io/feroxbuster-docs/docs/">NEW DOCUMENTATION SITE</a> 👈🎉✨</p></h1>
+<h1><p align="center">✨🎉👉 <a href="https://epi052.github.io/feroxbuster-docs/">NEW DOCUMENTATION SITE</a> 👈🎉✨</p></h1>
 
 
 ## 🚀 Documentation has **moved** 🚀  
 
-Instead of having a 1300 line `README.md` (sorry...), feroxbuster's documentation has moved to GitHub Pages. The move to hosting documentation on Pages should make it a LOT easier to find the information you're looking for, whatever that may be. Please check it out for anything you need beyond a quick-start. The new documentation can be found [here](https://epi052.github.io/feroxbuster-docs/docs/). 
+Instead of having a 1300 line `README.md` (sorry...), feroxbuster's documentation has moved to GitHub Pages. The move to hosting documentation on Pages should make it a LOT easier to find the information you're looking for, whatever that may be. Please check it out for anything you need beyond a quick-start. The new documentation can be found [here](https://epi052.github.io/feroxbuster-docs/overview). 
 
 ## 😕 What the heck is a ferox anyway?
 
@@ -81,15 +81,15 @@ Enumeration.
 
 ## ⏳ Quick Start
 
-This section will cover the minimum amount of information to get up and running with feroxbuster. Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/), as it's much more comprehensive.
+This section will cover the minimum amount of information to get up and running with feroxbuster. Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/overview/), as it's much more comprehensive.
 
 ### 💿 Installation
 
-There are quite a few other [installation methods](https://epi052.github.io/feroxbuster-docs/docs/installation/), but these snippets should cover the majority of users. 
+There are quite a few other [installation methods](https://epi052.github.io/feroxbuster-docs/installation/android/), but these snippets should cover the majority of users. 
 
 #### Kali 
 
-If you're using kali, this is the preferred install method. Installing from the repos adds a [**ferox-config.toml**](https://epi052.github.io/feroxbuster-docs/docs/configuration/ferox-config-toml/) in `/etc/feroxbuster/`, adds command completion for bash, fish, and zsh, includes a man page entry, and installs `feroxbuster` itself. 
+If you're using kali, this is the preferred install method. Installing from the repos adds a [**ferox-config.toml**](https://epi052.github.io/feroxbuster-docs/configuration/ferox-config-toml/) in `/etc/feroxbuster/`, adds command completion for bash, fish, and zsh, includes a man page entry, and installs `feroxbuster` itself. 
 
 ```
 sudo apt update && sudo apt install -y feroxbuster
@@ -135,7 +135,7 @@ choco install feroxbuster
 
 #### All others 
 
-Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/overview).
 
 ### Updating feroxbuster (new in v2.9.1)
 
@@ -145,7 +145,7 @@ Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/d
 
 ## 🧰 Example Usage
 
-Here are a few brief examples to get you started.  Please note, feroxbuster can do a **lot more** than what's listed below.  As a result, there are **many more** examples, with **demonstration gifs** that highlight specific features, in the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+Here are a few brief examples to get you started.  Please note, feroxbuster can do a **lot more** than what's listed below.  As a result, there are **many more** examples, with **demonstration gifs** that highlight specific features, in the [documentation](https://epi052.github.io/feroxbuster-docs/overview).
 
 ### Multiple Values
 
@@ -207,9 +207,9 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 
 ## 🚀 Documentation has **moved** 🚀  
 
-For realsies, there used to be over 1300 lines in this README, but it's all been moved to the [new documentation site](https://epi052.github.io/feroxbuster-docs/docs/). Go check it out! 
+For realsies, there used to be over 1300 lines in this README, but it's all been moved to the [new documentation site](https://epi052.github.io/feroxbuster-docs/overview). Go check it out! 
 
-<h1><p align="center">✨🎉👉 <a href="https://epi052.github.io/feroxbuster-docs/docs/">DOCUMENTATION</a> 👈🎉✨</p></h1>
+<h1><p align="center">✨🎉👉 <a href="https://epi052.github.io/feroxbuster-docs/overview">DOCUMENTATION</a> 👈🎉✨</p></h1>
 
 ## Contributors ✨
 

@@ -13,7 +13,7 @@
     <licenseUrl>https://github.com/epi052/feroxbuster/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/epi052/feroxbuster</projectSourceUrl>
-    <docsUrl>https://epi052.github.io/feroxbuster-docs/docs/</docsUrl>
+    <docsUrl>https://epi052.github.io/feroxbuster-docs/</docsUrl>
     <!--<mailingListUrl></mailingListUrl>-->
     <bugTrackerUrl>https://github.com/epi052/feroxbuster/issues</bugTrackerUrl>
     <tags>content-discovery pentesting-tool url-bruteforcer</tags>
@@ -43,19 +43,19 @@ Enumeration.
 
 ## Quick Start
 
-This section will cover the minimum amount of information to get up and running with feroxbuster. Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/), as it's much more comprehensive.
+This section will cover the minimum amount of information to get up and running with feroxbuster. Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/overview), as it's much more comprehensive.
 
 ### Installation
 
-There are quite a few other [installation methods](https://epi052.github.io/feroxbuster-docs/docs/installation/), but these snippets should cover the majority of users. 
+There are quite a few other [installation methods](https://epi052.github.io/feroxbuster-docs/installation/android/), but these snippets should cover the majority of users. 
 
 #### All others Docs
 
-Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+Please refer the the [documentation](https://epi052.github.io/feroxbuster-docs/overview).
 
 ## Example Usage
 
-Here are a few brief examples to get you started.  Please note, feroxbuster can do a **lot more** than what's listed below.  As a result, there are **many more** examples, with **demonstration gifs** that highlight specific features, in the [documentation](https://epi052.github.io/feroxbuster-docs/docs/).
+Here are a few brief examples to get you started.  Please note, feroxbuster can do a **lot more** than what's listed below.  As a result, there are **many more** examples, with **demonstration gifs** that highlight specific features, in the [documentation](https://epi052.github.io/feroxbuster-docs/overview).
 
 ### Multiple Values
 

@@ -813,7 +813,7 @@ EXAMPLES:
         ./feroxbuster -u http://127.1 --auto-tune
         
     Examples and demonstrations of all features
-        https://epi052.github.io/feroxbuster-docs/docs/examples/
+        https://epi052.github.io/feroxbuster-docs/examples/auto-tune/
     "#;
 
 #[cfg(test)]
