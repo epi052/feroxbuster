@@ -45,9 +45,9 @@
 <p align="center">
   🦀
   <a href="https://github.com/epi052/feroxbuster/releases">Releases</a> ✨
-  <a href="https://epi052.github.io/feroxbuster-docs/docs/examples/">Example Usage</a> ✨
+  <a href="https://epi052.github.io/feroxbuster-docs/examples/">Example Usage</a> ✨
   <a href="https://github.com/epi052/feroxbuster/blob/main/CONTRIBUTING.md">Contributing</a> ✨
-  <a href="https://epi052.github.io/feroxbuster-docs/docs/">Documentation</a>
+  <a href="https://epi052.github.io/feroxbuster-docs/">Documentation</a>
   🦀
 </p>
 
