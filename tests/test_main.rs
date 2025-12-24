@@ -1,9 +1,11 @@
 mod utils;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin;
+use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::{MockServer, Regex};
 use predicates::prelude::*;
 use std::fs::{read_dir, read_to_string};
+use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -16,8 +18,7 @@ fn main_use_root_owned_file_as_wordlist() {
         then.status(200).body("this is a test");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -41,8 +42,7 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         then.status(200).body("this is a test");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -65,14 +65,12 @@ fn main_use_empty_stdin_targets() -> Result<(), Box<dyn std::error::Error>> {
 
     // get_targets is called before scan, so the empty wordlist shouldn't trigger
     // the 'Did not find any words' error
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("-vvv")
-        .pipe_stdin(file)
-        .unwrap()
+        .stdin(std::fs::File::open(file)?)
         .assert()
         .success()
         .stderr(
@@ -106,8 +104,7 @@ fn main_parallel_spawns_children() -> Result<(), Box<dyn std::error::Error>> {
     let (tgt_tmp_dir, targets) =
         setup_tmp_directory(&[t1.url("/"), t2.url("/"), t3.url("/")], "targets")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .env("RUST_LOG", "trace")
         .arg("--stdin")
         .arg("--parallel")
@@ -117,8 +114,7 @@ fn main_parallel_spawns_children() -> Result<(), Box<dyn std::error::Error>> {
         .arg(outfile.as_os_str())
         .arg("--wordlist")
         .arg(wordlist.as_os_str())
-        .pipe_stdin(targets)
-        .unwrap()
+        .stdin(std::fs::File::open(targets)?)
         .assert()
         .success()
         .stderr(
@@ -170,8 +166,7 @@ fn main_parallel_creates_output_directory() -> Result<(), Box<dyn std::error::Er
     let (tgt_tmp_dir, targets) =
         setup_tmp_directory(&[t1.url("/"), t2.url("/"), t3.url("/")], "targets")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("--quiet")
         .arg("--parallel")
@@ -180,8 +175,7 @@ fn main_parallel_creates_output_directory() -> Result<(), Box<dyn std::error::Er
         .arg(outfile.as_os_str())
         .arg("--wordlist")
         .arg(wordlist.as_os_str())
-        .pipe_stdin(targets)
-        .unwrap()
+        .stdin(std::fs::File::open(targets)?)
         .assert()
         .success()
         .stderr(
@@ -276,8 +270,7 @@ fn main_download_wordlist_from_url() -> Result<(), Box<dyn std::error::Error>> {
         then.status(200);
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .current_dir(&tmp_dir)
         .arg("--url")
         .arg(srv.url("/"))

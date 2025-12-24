@@ -1,4 +1,5 @@
 mod utils;
+use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
@@ -19,8 +20,7 @@ fn scanner_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -72,8 +72,7 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .body("this is a test and is more bytes than other ones");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -135,8 +134,7 @@ fn scanner_recursive_request_scan_using_only_success_responses(
             .body("this is a test and is more bytes than other ones");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -178,8 +176,7 @@ fn scanner_single_request_scan_with_file_output() -> Result<(), Box<dyn std::err
 
     let outfile = tmp_dir.path().join("output");
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -214,8 +211,7 @@ fn scanner_single_request_scan_with_file_output_and_tack_q(
 
     let outfile = tmp_dir.path().join("output");
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -250,8 +246,7 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
 
     let outfile = tmp_dir.path(); // outfile is a directory
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -281,8 +276,7 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -317,8 +311,7 @@ fn scanner_single_request_returns_301_without_location_header(
         then.status(301).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -358,8 +351,7 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -402,8 +394,7 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -443,8 +434,7 @@ fn scanner_single_request_scan_with_debug_logging() {
 
     let outfile = tmp_dir.path().join("debug.log");
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -481,8 +471,7 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
 
     let outfile = tmp_dir.path().join("debug.log");
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -530,8 +519,7 @@ fn scanner_single_request_scan_with_regex_filtered_result() {
             .body("this is a test\nThat rug really tied the room together");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -578,8 +566,7 @@ fn scanner_recursion_works_with_403_directories() {
             .body("this is a test\nThat rug really tied the room together");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -628,8 +615,7 @@ fn rate_limit_enforced_when_specified() {
     let now = time::Instant::now();
     let lower_bound = time::Duration::new(5, 0);
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -665,8 +651,7 @@ fn add_discovered_extension_updates_bars_and_stats() {
 
     assert!(!file_path.exists());
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -735,8 +720,7 @@ fn collect_backups_makes_appropriate_requests() {
         })
         .collect();
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--collect-backups")
@@ -831,8 +815,7 @@ fn collect_words_makes_appropriate_requests() {
         })
         .collect();
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("-vv")
@@ -890,8 +873,7 @@ fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dy
 
     let outfile = tmp_dir.path().join("output");
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")

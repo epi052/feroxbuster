@@ -1,5 +1,7 @@
-use assert_cmd::Command;
+use assert_cmd::cargo_bin;
+use assert_cmd::prelude::*;
 use predicates::prelude::*;
+use std::process::Command;
 
 #[test]
 /// specify an incorrect param (-fc) with --help after it on the command line
@@ -14,8 +16,7 @@ use predicates::prelude::*;
 /// the new behavior we expect to see is to print the long form help message, of which
 /// Ludicrous speed... go! is near the bottom of that output, so we can test for that
 fn parser_incorrect_param_with_tack_tack_help() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("-fc")
         .arg("--help")
         .assert()
@@ -36,8 +37,7 @@ fn parser_incorrect_param_with_tack_tack_help() {
 /// the new behavior we expect to see is to print the short form help message, of which
 /// "[CAUTION] 4 -v's is probably too much" is near the bottom of that output, so we can test for that
 fn parser_incorrect_param_with_tack_h() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("-fc")
         .arg("-h")
         .assert()

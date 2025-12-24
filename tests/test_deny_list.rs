@@ -1,9 +1,10 @@
 mod utils;
+use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
-use assert_cmd::Command;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
+use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -17,8 +18,7 @@ fn deny_list_works_during_with_a_normal_scan() {
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -54,8 +54,7 @@ fn deny_list_works_during_extraction() {
         then.status(200);
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -109,8 +108,7 @@ fn deny_list_works_during_recursion() {
             .body("this is a test and is more bytes than other ones");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -179,8 +177,7 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
             .body("this is a test and is more bytes than other ones");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/js"))
         .arg("--wordlist")
@@ -222,8 +219,7 @@ fn deny_list_prevents_regex_that_denies_base_url() {
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -256,8 +252,7 @@ fn deny_list_prevents_url_that_denies_base_url() {
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")

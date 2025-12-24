@@ -1,10 +1,12 @@
 mod utils;
 
-use assert_cmd::Command;
+use assert_cmd::cargo_bin;
+use assert_cmd::prelude::*;
 use httpmock::prelude::*;
 use httpmock::MockServer;
 use regex::Regex;
 use std::fs::{read_to_string, write};
+use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 /// Helper to create a test wordlist with controllable patterns
@@ -63,8 +65,7 @@ fn scenario_high_403_rate() {
         then.status(403).body("Forbidden");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -124,8 +125,7 @@ fn scenario_high_429_rate() {
         then.status(429).body("Too Many Requests");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -191,8 +191,7 @@ fn scenario_recovery_pattern() {
         then.status(403).body("Forbidden");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -267,8 +266,7 @@ fn scenario_mixed_steady_state() {
         then.status(429).body("Too Many Requests");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -340,8 +338,7 @@ fn scenario_capped_auto_tune() {
         then.status(403).body("Forbidden");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")

@@ -1,4 +1,5 @@
 mod utils;
+use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
@@ -48,8 +49,7 @@ fn auto_bail_cancels_scan_with_403s() {
             .body("these guys need to be 403 in order to trigger 90% threshold");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -130,8 +130,7 @@ fn auto_bail_cancels_scan_with_429s() {
             .body("these guys need to be 403 in order to trigger 90% threshold");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -213,8 +212,7 @@ fn auto_tune_slows_scan_with_429s() {
 
     let start = Instant::now();
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -277,8 +275,7 @@ fn auto_tune_slows_scan_with_403s() {
 
     let start = Instant::now();
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -342,8 +339,7 @@ fn auto_tune_slows_scan_with_general_errors() {
 
     let start = Instant::now();
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")

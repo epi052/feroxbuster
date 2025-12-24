@@ -1,4 +1,5 @@
 mod utils;
+use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
@@ -26,8 +27,7 @@ fn word_and_status_makes_a_response_unique_and_isnt_seen() -> Result<(), Box<dyn
             .body(srv.url("this is a word count supplier"));
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -69,8 +69,7 @@ fn bytes_and_status_makes_a_redirect_response_unique_and_isnt_seen(
             .body(srv.url("this is a word count supplier")); // redirect + same body
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")

@@ -1,6 +1,8 @@
 mod utils;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin;
+use assert_cmd::prelude::*;
 use predicates::prelude::*;
+use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -13,15 +15,13 @@ fn banner_prints_proxy() -> Result<(), Box<dyn std::error::Error>> {
     ];
     let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("--proxy")
         .arg("http://127.0.0.1:8080")
         .arg("--wordlist")
         .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
-        .pipe_stdin(file)
-        .unwrap()
+        .stdin(std::fs::File::open(file)?)
         .assert()
         .success()
         .stderr(
@@ -53,15 +53,13 @@ fn banner_prints_replay_proxy() -> Result<(), Box<dyn std::error::Error>> {
     ];
     let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("--wordlist")
         .arg("/definitely/doesnt/exist/0cd7fed0-47f4-4b18-a1b0-ac39708c1676")
         .arg("--replay-proxy")
         .arg("http://127.0.0.1:8081")
-        .pipe_stdin(file)
-        .unwrap()
+        .stdin(std::fs::File::open(file)?)
         .assert()
         .success()
         .stderr(
@@ -87,8 +85,7 @@ fn banner_prints_replay_proxy() -> Result<(), Box<dyn std::error::Error>> {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple headers
 fn banner_prints_headers() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--headers")
@@ -119,8 +116,7 @@ fn banner_prints_headers() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple dont scan url & regex entries
 fn banner_prints_denied_urls() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--dont-scan")
@@ -155,8 +151,7 @@ fn banner_prints_denied_urls() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple scope url entries
 fn banner_prints_scope_urls() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--scope")
@@ -188,8 +183,7 @@ fn banner_prints_scope_urls() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple headers
 fn banner_prints_random_agent() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--random-agent")
@@ -215,8 +209,7 @@ fn banner_prints_random_agent() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + multiple size filters
 fn banner_prints_filter_sizes() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-S")
@@ -261,8 +254,7 @@ fn banner_prints_filter_sizes() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + queries
 fn banner_prints_queries() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-Q")
@@ -293,8 +285,7 @@ fn banner_prints_queries() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + status codes
 fn banner_prints_status_codes() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-s")
@@ -321,8 +312,7 @@ fn banner_prints_status_codes() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + replay codes
 fn banner_prints_replay_codes() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--replay-codes")
@@ -353,8 +343,7 @@ fn banner_prints_replay_codes() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + output file
 fn banner_prints_output_file() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--output")
@@ -385,8 +374,7 @@ fn banner_prints_output_file() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + insecure
 fn banner_prints_insecure() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-k")
@@ -413,8 +401,7 @@ fn banner_prints_insecure() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + follow redirects
 fn banner_prints_redirects() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-r")
@@ -441,8 +428,7 @@ fn banner_prints_redirects() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + extensions
 fn banner_prints_extensions() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-x")
@@ -472,8 +458,7 @@ fn banner_prints_extensions() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + dont_filter
 fn banner_prints_dont_filter() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--dont-filter")
@@ -500,8 +485,7 @@ fn banner_prints_dont_filter() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=1
 fn banner_prints_verbosity_one() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-v")
@@ -528,8 +512,7 @@ fn banner_prints_verbosity_one() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=2
 fn banner_prints_verbosity_two() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-vv")
@@ -556,8 +539,7 @@ fn banner_prints_verbosity_two() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=3
 fn banner_prints_verbosity_three() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-vvv")
@@ -584,8 +566,7 @@ fn banner_prints_verbosity_three() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + verbosity=4
 fn banner_prints_verbosity_four() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-vvvv")
@@ -612,8 +593,7 @@ fn banner_prints_verbosity_four() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + add slash
 fn banner_prints_add_slash() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-f")
@@ -640,8 +620,7 @@ fn banner_prints_add_slash() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + INFINITE recursion
 fn banner_prints_infinite_depth() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--depth")
@@ -669,8 +648,7 @@ fn banner_prints_infinite_depth() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + recursion depth
 fn banner_prints_recursion_depth() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--depth")
@@ -698,8 +676,7 @@ fn banner_prints_recursion_depth() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + server certs
 fn banner_prints_server_certs() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--server-certs")
@@ -729,8 +706,7 @@ fn banner_prints_server_certs() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + server certs
 fn banner_prints_client_cert_and_key() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--client-cert")
@@ -762,8 +738,7 @@ fn banner_prints_client_cert_and_key() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + no recursion
 fn banner_prints_no_recursion() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-n")
@@ -790,8 +765,7 @@ fn banner_prints_no_recursion() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see nothing
 fn banner_doesnt_print() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-q")
@@ -808,8 +782,7 @@ fn banner_doesnt_print() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + extract-links
 fn banner_prints_extract_links() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-e")
@@ -836,8 +809,7 @@ fn banner_prints_extract_links() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + scan-limit
 fn banner_prints_scan_limit() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-L")
@@ -865,8 +837,7 @@ fn banner_prints_scan_limit() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + response-size-limit
 fn banner_prints_response_size_limit() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--response-size-limit")
@@ -894,8 +865,7 @@ fn banner_prints_response_size_limit() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + filter-status
 fn banner_prints_filter_status() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-C")
@@ -922,8 +892,7 @@ fn banner_prints_filter_status() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + json
 fn banner_prints_json() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--json")
@@ -952,8 +921,7 @@ fn banner_prints_json() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + json
 fn banner_prints_debug_log() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--debug-log")
@@ -981,8 +949,7 @@ fn banner_prints_debug_log() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + regex filters
 fn banner_prints_filter_regex() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--filter-regex")
@@ -1010,8 +977,7 @@ fn banner_prints_filter_regex() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + time limit
 fn banner_prints_time_limit() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--time-limit")
@@ -1039,8 +1005,7 @@ fn banner_prints_time_limit() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + similarity filter
 fn banner_prints_similarity_filter() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--filter-similar-to")
@@ -1068,8 +1033,7 @@ fn banner_prints_similarity_filter() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + rate limit
 fn banner_prints_rate_limit() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--rate-limit")
@@ -1097,8 +1061,7 @@ fn banner_prints_rate_limit() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + auto tune
 fn banner_prints_auto_tune() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--auto-tune")
@@ -1125,8 +1088,7 @@ fn banner_prints_auto_tune() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + auto bail
 fn banner_prints_auto_bail() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--auto-bail")
@@ -1153,8 +1115,7 @@ fn banner_prints_auto_bail() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see no banner output
 fn banner_doesnt_print_when_silent() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--silent")
@@ -1179,8 +1140,7 @@ fn banner_doesnt_print_when_silent() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see no banner output
 fn banner_doesnt_print_when_quiet() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--quiet")
@@ -1205,8 +1165,7 @@ fn banner_doesnt_print_when_quiet() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see nothing as --parallel forces --silent to be true
 fn banner_prints_parallel() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("--quiet")
         .arg("--parallel")
@@ -1231,8 +1190,7 @@ fn banner_prints_parallel() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + methods
 fn banner_prints_methods() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-m")
@@ -1262,8 +1220,7 @@ fn banner_prints_methods() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + data body
 fn banner_prints_data() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-m")
@@ -1295,8 +1252,7 @@ fn banner_prints_data() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + ignored extensions
 fn banner_prints_collect_extensions_and_dont_collect_default() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--collect-extensions")
@@ -1324,8 +1280,7 @@ fn banner_prints_collect_extensions_and_dont_collect_default() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect extensions
 fn banner_prints_collect_extensions_and_dont_collect_with_input() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--collect-extensions")
@@ -1356,8 +1311,7 @@ fn banner_prints_collect_extensions_and_dont_collect_with_input() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect backups
 fn banner_prints_collect_backups() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--collect-backups")
@@ -1383,8 +1337,7 @@ fn banner_prints_collect_backups() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_collect_words() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--collect-words")
@@ -1410,8 +1363,7 @@ fn banner_prints_collect_words() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_all_composite_settings_smart() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--smart")
@@ -1440,8 +1392,7 @@ fn banner_prints_all_composite_settings_smart() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_all_composite_settings_thorough() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--thorough")
@@ -1470,8 +1421,7 @@ fn banner_prints_all_composite_settings_thorough() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_all_composite_settings_burp() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--burp")
@@ -1498,8 +1448,7 @@ fn banner_prints_all_composite_settings_burp() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_all_composite_settings_data_json_stdin() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--data-json")
@@ -1525,8 +1474,7 @@ fn banner_prints_all_composite_settings_data_json_stdin() {
 
 #[test]
 fn banner_prints_all_composite_settings_data_json_file() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-m")
@@ -1555,8 +1503,7 @@ fn banner_prints_all_composite_settings_data_json_file() {
 
 #[test]
 fn banner_prints_all_composite_settings_data_urlencoded_stdin() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("-m")
@@ -1590,8 +1537,7 @@ fn banner_prints_all_composite_settings_data_urlencoded_stdin() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_all_composite_settings_data_urlencoded_file() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--data-urlencoded")
@@ -1622,8 +1568,7 @@ fn banner_prints_all_composite_settings_data_urlencoded_file() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + collect words
 fn banner_prints_all_composite_settings_burp_replay() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--burp-replay")
@@ -1650,8 +1595,7 @@ fn banner_prints_all_composite_settings_burp_replay() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + force recursion
 fn banner_prints_force_recursion() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--force-recursion")
@@ -1677,8 +1621,7 @@ fn banner_prints_force_recursion() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + scan-dir-listings
 fn banner_prints_scan_dir_listings() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--scan-dir-listings")
@@ -1704,8 +1647,7 @@ fn banner_prints_scan_dir_listings() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + protocol
 fn banner_prints_limit_dirs() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("localhost")
         .arg("--limit-bars")
@@ -1732,8 +1674,7 @@ fn banner_prints_limit_dirs() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + force recursion
 fn banner_prints_update_app() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--update")
         .assert()
         .success()
@@ -1744,8 +1685,7 @@ fn banner_prints_update_app() {
 /// test allows non-existent wordlist to trigger the banner printing to stderr
 /// expect to see all mandatory prints + unique
 fn banner_prints_unique() {
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://localhost")
         .arg("--unique")

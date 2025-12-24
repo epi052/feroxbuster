@@ -1,10 +1,12 @@
 mod utils;
-use assert_cmd::Command;
+use assert_cmd::cargo_bin;
+use assert_cmd::prelude::*;
 use httpmock::Method::GET;
 use httpmock::MockServer;
 use predicates::prelude::*;
 use std::fs::{read_to_string, write};
 use std::path::Path;
+use std::process::Command;
 use std::time;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -67,8 +69,7 @@ fn resume_scan_works() {
 
     let (tmp_dir2, state_file) = setup_tmp_directory(&[state_file_contents], "state-file").unwrap();
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("-vvv")
         .arg("--resume-from")
         .arg(state_file.as_os_str())
@@ -115,16 +116,14 @@ fn time_limit_enforced_when_specified() {
     let lower_bound = time::Duration::new(5, 0);
     let upper_bound = time::Duration::new(6, 0);
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("-vv")
         .arg("--wordlist")
         .arg(file.as_os_str())
         .arg("--time-limit")
         .arg("5s")
-        .pipe_stdin(targets)
-        .unwrap()
+        .stdin(std::fs::File::open(targets).unwrap())
         .assert()
         .failure();
 

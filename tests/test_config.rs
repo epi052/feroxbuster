@@ -1,4 +1,5 @@
 mod utils;
+use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
 use httpmock::MockServer;
 use predicates::prelude::*;
@@ -12,8 +13,7 @@ fn read_in_config_file_for_settings() -> Result<(), Box<dyn std::error::Error>> 
 
     let (tmp_dir, file) = setup_tmp_directory(&["threads = 37".to_string()], "ferox-config.toml")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .current_dir(&tmp_dir)
         .arg("--url")
         .arg(srv.url("/"))

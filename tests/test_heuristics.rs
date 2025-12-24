@@ -1,9 +1,10 @@
 mod utils;
+use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
-use assert_cmd::Command;
 use httpmock::Method::GET;
 use httpmock::{MockServer, Regex};
 use predicates::prelude::*;
+use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
 #[test]
@@ -12,8 +13,7 @@ use utils::{setup_tmp_directory, teardown_tmp_directory};
 fn test_single_target_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("http://fjdksafjkdsajfkdsajkfdsajkfsdjkdsfdsafdsafdsajkr3l2ajfdskafdsjk")
         .arg("--wordlist")
@@ -37,12 +37,11 @@ fn test_two_targets_cannot_connect() -> Result<(), Box<dyn std::error::Error>> {
     let urls = vec![not_real.clone(), not_real];
     let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--stdin")
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .pipe_stdin(file)
+        .stdin(std::fs::File::open(file)?)
         .unwrap()
         .assert()
         .success()
@@ -70,12 +69,11 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
         then.status(200).body("this is a test");
     });
 
-    let mut cmd = Command::cargo_bin("feroxbuster").unwrap();
-
-    cmd.arg("--stdin")
+    Command::new(cargo_bin!("feroxbuster"))
+        .arg("--stdin")
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .pipe_stdin(file)
+        .stdin(std::fs::File::open(file)?)
         .unwrap()
         .assert()
         .success()
@@ -96,8 +94,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
 fn test_single_target_cannot_connect_due_to_ssl_errors() -> Result<(), Box<dyn std::error::Error>> {
     let (tmp_dir, file) = setup_tmp_directory(&["LICENSE".to_string()], "wordlist")?;
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg("https://expired.badssl.com")
         .arg("--wordlist")
@@ -132,13 +129,11 @@ fn test_two_good_targets_scan_succeeds() -> Result<(), Box<dyn std::error::Error
         then.status(403).body("this also is a test");
     });
 
-    let mut cmd = Command::cargo_bin("feroxbuster").unwrap();
-
-    cmd.arg("--stdin")
+    Command::new(cargo_bin!("feroxbuster"))
+        .arg("--stdin")
         .arg("--wordlist")
         .arg(file.as_os_str())
-        .pipe_stdin(file)
-        .unwrap()
+        .stdin(std::fs::File::open(file)?)
         .assert()
         .success()
         .stdout(
@@ -168,8 +163,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
         then.status(200).body("this is a test");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -205,8 +199,7 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
         then.status(200).body("this is a test");
     });
 
-    Command::cargo_bin("feroxbuster")
-        .unwrap()
+    Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -289,8 +282,7 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
             .body("this is a testAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
@@ -341,8 +333,7 @@ fn heuristics_wildcard_test_that_auto_filtering_403s_still_allows_for_recursion_
         then.status(200);
     });
 
-    let cmd = Command::cargo_bin("feroxbuster")
-        .unwrap()
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
         .arg("--url")
         .arg(srv.url("/"))
         .arg("--wordlist")
