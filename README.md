@@ -371,6 +371,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/pg9051"><img src="https://avatars.githubusercontent.com/u/202219877?v=4?s=100" width="100px;" alt="pg9051"/><br /><sub><b>pg9051</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=pg9051" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/sebastiaanspeck"><img src="https://avatars.githubusercontent.com/u/12570668?v=4?s=100" width="100px;" alt="Sebastiaan Speck"/><br /><sub><b>Sebastiaan Speck</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Asebastiaanspeck" title="Bug reports">🐛</a> <a href="https://github.com/epi052/feroxbuster/commits?author=sebastiaanspeck" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/OpenSourceKyle"><img src="https://avatars.githubusercontent.com/u/173112933?v=4?s=100" width="100px;" alt="OpenSourceKyle"/><br /><sub><b>OpenSourceKyle</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=OpenSourceKyle" title="Documentation">📖</a> <a href="https://github.com/epi052/feroxbuster/issues?q=author%3AOpenSourceKyle" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

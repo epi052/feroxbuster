@@ -1000,6 +1000,16 @@
         "bug",
         "doc"
       ]
+    },
+    {
+      "login": "OpenSourceKyle",
+      "name": "OpenSourceKyle",
+      "avatar_url": "https://avatars.githubusercontent.com/u/173112933?v=4",
+      "profile": "https://github.com/OpenSourceKyle",
+      "contributions": [
+        "doc",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
