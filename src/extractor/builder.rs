@@ -51,7 +51,7 @@ pub(super) const LINKFINDER_REGEX: &str = r#"(?x)
 ///
 /// ref: https://developers.google.com/search/reference/robots_txt
 pub(super) const ROBOTS_TXT_REGEX: &str =
-    r#"(?m)^ *(Allow|Disallow): *(?P<url_path>[a-zA-Z0-9._/?#@!&'()+,;%=-]+?)$"#; // multi-line (?m)
+    r#"(?m)^[ \t]*(?i)(allow|disallow)[ \t]*:[ \t]*(?P<url_path>[^ \t\r\n#$]*)?[ \t]*\$?(?:#.*)?$"#; // multi-line (?m), case-insensitive (?i)
 
 /// Regular expression to filter bad characters from extracted url paths
 ///
