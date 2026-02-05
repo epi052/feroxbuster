@@ -743,12 +743,18 @@ pub fn initialize() -> Command {
         // which is fine, but if you add -h|--help, it still errors out on the bad flag/option,
         // never showing the full help message. This code addresses that behavior
         if arg == "--help" {
-            app.print_long_help().unwrap();
+            if let Err(err) = app.print_long_help() {
+                eprintln!("couldn't print help message: {}", err);
+                process::exit(1);
+            }
             println!(); // just a newline to mirror original --help output
             process::exit(0);
         } else if arg == "-h" {
             // same for -h, just shorter
-            app.print_help().unwrap();
+            if let Err(err) = app.print_help() {
+                eprintln!("couldn't print help message: {}", err);
+                process::exit(1);
+            }
             println!();
             process::exit(0);
         }
