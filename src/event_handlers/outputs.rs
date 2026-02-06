@@ -283,31 +283,30 @@ impl TermOutHandler {
             log::trace!("report complete: {}", resp.url());
 
             if should_process_response {
-                // replay proxy specified/client created and this response's status code is one that
-                // should be replayed; not using logged_request due to replay proxy client
-                let data = if self.config.data.is_empty() {
-                    None
+                if let Some(client) = self.config.replay_client.as_ref() {
+                    // replay proxy specified/client created and this response's status code is one that
+                    // should be replayed; not using logged_request due to replay proxy client
+                    let data = if self.config.data.is_empty() {
+                        None
+                    } else {
+                        Some(self.config.data.as_slice())
+                    };
+
+                    make_request(
+                        client,
+                        resp.url(),
+                        resp.method().as_str(),
+                        data,
+                        self.config.output_level,
+                        &self.config,
+                        tx_stats.clone(),
+                    )
+                    .await
+                    .with_context(|| "Could not replay request through replay proxy")?;
                 } else {
-                    Some(self.config.data.as_slice())
-                };
-
-                let Some(client) = self.config.replay_client.as_ref() else {
-                    // replay proxy not specified/client not created, skip this part
+                    // replay proxy not configured, skip replay without exiting response processing
                     log::trace!("replay proxy not configured, skipping replay");
-                    return Ok(());
-                };
-
-                make_request(
-                    client,
-                    resp.url(),
-                    resp.method().as_str(),
-                    data,
-                    self.config.output_level,
-                    &self.config,
-                    tx_stats.clone(),
-                )
-                .await
-                .with_context(|| "Could not replay request through replay proxy")?;
+                }
             }
 
             if self.config.collect_backups
