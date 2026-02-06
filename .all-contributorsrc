@@ -1020,6 +1020,15 @@
         "code",
         "bug"
       ]
+    },
+    {
+      "login": "redacean",
+      "name": "Redacean",
+      "avatar_url": "https://avatars.githubusercontent.com/u/125687454?v=4",
+      "profile": "https://github.com/redacean",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
