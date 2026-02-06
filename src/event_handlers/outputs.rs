@@ -227,8 +227,10 @@ impl TermOutHandler {
                     self.handles = Some(handles);
                 }
                 Command::Exit => {
-                    if self.file_task.is_some() && self.tx_file.send(Command::Exit).is_ok() {
-                        self.file_task.as_mut().unwrap().await??; // wait for death
+                    if self.tx_file.send(Command::Exit).is_ok() {
+                        if let Some(task) = self.file_task.as_mut() {
+                            task.await??; // wait for death
+                        }
                     }
                     break;
                 }
@@ -280,26 +282,31 @@ impl TermOutHandler {
             }
             log::trace!("report complete: {}", resp.url());
 
-            if self.config.replay_client.is_some() && should_process_response {
-                // replay proxy specified/client created and this response's status code is one that
-                // should be replayed; not using logged_request due to replay proxy client
-                let data = if self.config.data.is_empty() {
-                    None
-                } else {
-                    Some(self.config.data.as_slice())
-                };
+            if should_process_response {
+                if let Some(client) = self.config.replay_client.as_ref() {
+                    // replay proxy specified/client created and this response's status code is one that
+                    // should be replayed; not using logged_request due to replay proxy client
+                    let data = if self.config.data.is_empty() {
+                        None
+                    } else {
+                        Some(self.config.data.as_slice())
+                    };
 
-                make_request(
-                    self.config.replay_client.as_ref().unwrap(),
-                    resp.url(),
-                    resp.method().as_str(),
-                    data,
-                    self.config.output_level,
-                    &self.config,
-                    tx_stats.clone(),
-                )
-                .await
-                .with_context(|| "Could not replay request through replay proxy")?;
+                    make_request(
+                        client,
+                        resp.url(),
+                        resp.method().as_str(),
+                        data,
+                        self.config.output_level,
+                        &self.config,
+                        tx_stats.clone(),
+                    )
+                    .await
+                    .with_context(|| "Could not replay request through replay proxy")?;
+                } else {
+                    // replay proxy not configured, skip replay without exiting response processing
+                    log::trace!("replay proxy not configured, skipping replay");
+                }
             }
 
             if self.config.collect_backups

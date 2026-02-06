@@ -136,11 +136,7 @@ impl<'a> ExtractorBuilder<'a> {
             links_regex: Regex::new(LINKFINDER_REGEX).unwrap(),
             robots_regex: Regex::new(ROBOTS_TXT_REGEX).unwrap(),
             url_regex: Regex::new(URL_CHARS_REGEX).unwrap(),
-            response: if self.response.is_some() {
-                Some(self.response.unwrap())
-            } else {
-                None
-            },
+            response: self.response,
             url: self.url.to_owned(),
             handles: self.handles.as_ref().unwrap().clone(),
             target: self.target,
