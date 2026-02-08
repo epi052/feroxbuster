@@ -192,26 +192,6 @@ impl FeroxResponse {
         self.text.shrink_to_fit(); // allocated capacity shrinks to reflect the new size
     }
 
-    /// Make a reasonable guess at whether the response is a file or not
-    ///
-    /// Examines the last part of a path to determine if it has an obvious extension
-    /// i.e. http://localhost/some/path/stuff.js where stuff.js indicates a file
-    ///
-    /// Additionally, inspects query parameters, as they're also often indicative of a file
-    pub fn is_file(&self) -> bool {
-        let has_extension = if let Some(mut path) = self.url.path_segments() {
-            if let Some(last) = path.next_back() {
-                last.contains('.') // last segment has some sort of extension, probably
-            } else {
-                false
-            }
-        } else {
-            false
-        };
-
-        self.url.query_pairs().count() > 0 || has_extension
-    }
-
     /// Returns line count of the response text.
     pub fn line_count(&self) -> usize {
         self.line_count
