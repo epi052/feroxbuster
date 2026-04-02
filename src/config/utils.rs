@@ -389,8 +389,11 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
         bail!("Empty --request-file file provided");
     }
 
+    // normalize the body to support both CRLF
+    // and LF-only inputs (common when copy-pasting)
+    let normalized = contents.replace("\r\n", "\n");
     // this should split the body from the request line and headers
-    let lines = contents.split("\r\n\r\n").collect::<Vec<&str>>();
+    let lines = normalized.splitn(2, "\n\n").collect::<Vec<&str>>();
 
     if lines.len() < 2 {
         bail!("Invalid request: Missing head/body CRLF separator");
@@ -406,7 +409,7 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     }
 
     // begin parsing the request line and headers
-    let mut head_parts = head.split("\r\n");
+    let mut head_parts = head.split("\n");
 
     let Some(request_line) = head_parts.next() else {
         bail!("Invalid request: Missing request line");
@@ -441,7 +444,7 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     }
 
     for mut line in head_parts {
-        line = line.trim();
+        line = line.trim_matches('\r').trim();
 
         if line.is_empty() {
             break; // Empty line signals the end of headers
