@@ -1442,6 +1442,9 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(tmp.config.data, b"body".to_vec());
+        assert!(tmp.config.headers.contains_key("Host"));
+        assert_eq!(tmp.config.headers.get("Host").unwrap(), "example.com");
+        assert_eq!(tmp.config.user_agent, "test");
 
         tmp.cleanup();
         Ok(())
