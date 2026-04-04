@@ -403,7 +403,7 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     let head_bytes = &contents[..sep_idx];
     let body_bytes = &contents[sep_idx + sep_len..];
 
-    // decode only the head; HTTP framing is generally ascii/utf-8 
+    // decode only the head; HTTP framing is generally ascii/utf-8
     // compatible
     let head = std::str::from_utf8(head_bytes)
         .map_err(|_| anyhow::anyhow!("Request headers contain invalid UTF-8"))?;
@@ -1362,9 +1362,8 @@ mod tests {
     fn test_parse_raw_lf_only_request() -> io::Result<()> {
         let mut tmp = TempSetup::new();
 
-        tmp.file.write_all(
-            b"GET / HTTP/1.1\nHost: example.com\n\nbody"
-        )?;
+        tmp.file
+            .write_all(b"GET / HTTP/1.1\nHost: example.com\n\nbody")?;
 
         let result = parse_request_file(&mut tmp.config);
 
@@ -1379,9 +1378,8 @@ mod tests {
     fn test_parse_raw_crlf_request() -> io::Result<()> {
         let mut tmp = TempSetup::new();
 
-        tmp.file.write_all(
-            b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\nbody"
-        )?;
+        tmp.file
+            .write_all(b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\nbody")?;
 
         let result = parse_request_file(&mut tmp.config);
 
@@ -1434,9 +1432,8 @@ mod tests {
     fn test_parse_raw_mixed_newlines_headers() -> io::Result<()> {
         let mut tmp = TempSetup::new();
 
-        tmp.file.write_all(
-            b"GET / HTTP/1.1\r\nHost: example.com\nUser-Agent: test\r\n\nbody"
-        )?;
+        tmp.file
+            .write_all(b"GET / HTTP/1.1\r\nHost: example.com\nUser-Agent: test\r\n\nbody")?;
 
         let result = parse_request_file(&mut tmp.config);
 
