@@ -405,7 +405,8 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
 
     // decode only the head; HTTP framing is generally ascii/utf-8 
     // compatible
-    let head = std::str::from_utf8(head_bytes)?;
+    let head = std::str::from_utf8(head_bytes)
+        .map_err(|_| anyhow::anyhow!("Request headers contain invalid UTF-8"))?;
 
     // normalize line endings in the decoded head
     let normalized = head.replace("\r\n", "\n");
