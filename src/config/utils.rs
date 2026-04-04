@@ -381,35 +381,43 @@ impl ContentType {
 ///   unless overridden by CLI options.
 ///
 pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
-    // read in the file located at config.request_file
+    // read in the file (raw bytes) located at config.request_file
     // parse the file into a Request struct
-    let contents = std::fs::read_to_string(&config.request_file)?;
+    let contents = std::fs::read(&config.request_file)?;
 
     if contents.is_empty() {
         bail!("Empty --request-file file provided");
     }
 
-    // normalize the body to support both CRLF
-    // and LF-only inputs (common when copy-pasting)
-    let normalized = contents.replace("\r\n", "\n");
-    // this should split the body from the request line and headers
-    let lines = normalized.splitn(2, "\n\n").collect::<Vec<&str>>();
+    // find the first header/body separator
+    // prefer \r\n\r\n, otherwise accept \n\n
+    let (sep_idx, sep_len) = if let Some(idx) = contents.windows(4).position(|w| w == b"\r\n\r\n") {
+        (idx, 4)
+    } else if let Some(idx) = contents.windows(2).position(|w| w == b"\n\n") {
+        (idx, 2)
+    } else {
+        bail!("Invalid request: Missing head/body separator")
+    };
 
-    if lines.len() < 2 {
-        bail!("Invalid request: Missing head/body CRLF separator");
-    }
+    // split the request head and body
+    let head_bytes = &contents[..sep_idx];
+    let body_bytes = &contents[sep_idx + sep_len..];
 
-    let head = lines[0];
-    let body = lines[1].as_bytes().to_vec();
+    // decode only the head; HTTP framing is generally ascii/utf-8 
+    // compatible
+    let head = std::str::from_utf8(head_bytes)?;
 
-    // we only want to use the request's body if the user hasn't
+    // normalize line endings in the decoded head
+    let normalized = head.replace("\r\n", "\n");
+
+    // we only want to use the request's body bytes if the user hasn't
     // overridden it on the cli
     if config.data.is_empty() {
-        config.data = body;
+        config.data = body_bytes.to_vec();
     }
 
-    // begin parsing the request line and headers
-    let mut head_parts = head.split("\n");
+    // begin parsing the request line and normalized headers
+    let mut head_parts = normalized.split("\n");
 
     let Some(request_line) = head_parts.next() else {
         bail!("Invalid request: Missing request line");
