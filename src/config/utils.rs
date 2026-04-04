@@ -1449,4 +1449,23 @@ mod tests {
         tmp.cleanup();
         Ok(())
     }
+
+    #[test]
+    fn test_parse_raw_binary_body_preserved() -> io::Result<()> {
+        let mut tmp = TempSetup::new();
+
+        let body = b"\x00\xde\xad\xbe\xef\x80binary";
+
+        let mut request = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n".to_vec();
+        request.extend_from_slice(body);
+
+        tmp.file.write_all(&request)?;
+
+        parse_request_file(&mut tmp.config).unwrap();
+
+        assert_eq!(tmp.config.data, body.to_vec());
+
+        tmp.cleanup();
+        Ok(())
+    }
 }
