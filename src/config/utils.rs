@@ -390,13 +390,23 @@ pub fn parse_request_file(config: &mut Configuration) -> Result<()> {
     }
 
     // find the first header/body separator
-    // prefer \r\n\r\n, otherwise accept \n\n
-    let (sep_idx, sep_len) = if let Some(idx) = contents.windows(4).position(|w| w == b"\r\n\r\n") {
-        (idx, 4)
-    } else if let Some(idx) = contents.windows(2).position(|w| w == b"\n\n") {
-        (idx, 2)
-    } else {
-        bail!("Invalid request: Missing head/body separator")
+    // locate both \r\n\r\n and \n\n and pick whichever appears earliest,
+    // so that a \r\n\r\n inside the body doesn't shadow a \n\n separator
+    // that terminates the headers
+    let crlf = contents.windows(4).position(|w| w == b"\r\n\r\n");
+    let lf = contents.windows(2).position(|w| w == b"\n\n");
+
+    let (sep_idx, sep_len) = match (crlf, lf) {
+        (Some(c), Some(l)) => {
+            if c <= l {
+                (c, 4)
+            } else {
+                (l, 2)
+            }
+        }
+        (Some(c), None) => (c, 4),
+        (None, Some(l)) => (l, 2),
+        (None, None) => bail!("Invalid request: Missing head/body separator"),
     };
 
     // split the request head and body
@@ -1461,6 +1471,39 @@ mod tests {
         parse_request_file(&mut tmp.config).unwrap();
 
         assert_eq!(tmp.config.data, body.to_vec());
+
+        tmp.cleanup();
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_raw_lf_headers_with_crlf_crlf_in_body() -> io::Result<()> {
+        // headers are LF-separated; body contains \r\n\r\n
+        let mut tmp = TempSetup::new();
+
+        tmp.file.write_all(
+            b"POST /upload HTTP/1.1\nHost: example.com\nContent-Type: application/octet-stream\n\nabc\r\n\r\ndef",
+        )?;
+
+        let result = parse_request_file(&mut tmp.config);
+
+        assert!(result.is_ok());
+        assert_eq!(tmp.config.data, b"abc\r\n\r\ndef".to_vec());
+        assert_eq!(tmp.config.target_url, "https://example.com/upload");
+
+        tmp.cleanup();
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_raw_crlf_headers_with_lf_lf_in_body() -> io::Result<()> {
+        let mut tmp = TempSetup::new();
+
+        tmp.file
+            .write_all(b"POST /upload HTTP/1.1\r\nHost: example.com\r\n\r\nabc\n\ndef")?;
+
+        parse_request_file(&mut tmp.config).unwrap();
+        assert_eq!(tmp.config.data, b"abc\n\ndef".to_vec());
 
         tmp.cleanup();
         Ok(())
