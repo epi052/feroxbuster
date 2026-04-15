@@ -1038,6 +1038,15 @@
       "contributions": [
         "bug"
       ]
+    },
+    {
+      "login": "aldamd",
+      "name": "Daniel Aldam",
+      "avatar_url": "https://avatars.githubusercontent.com/u/178115486?v=4",
+      "profile": "https://github.com/aldamd",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
