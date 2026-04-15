@@ -373,6 +373,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Antonio-R1"><img src="https://avatars.githubusercontent.com/u/54741970?v=4?s=100" width="100px;" alt="Antonio"/><br /><sub><b>Antonio</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=Antonio-R1" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/issues?q=author%3AAntonio-R1" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/redacean"><img src="https://avatars.githubusercontent.com/u/125687454?v=4?s=100" width="100px;" alt="Redacean"/><br /><sub><b>Redacean</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Aredacean" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ghsdpolley"><img src="https://avatars.githubusercontent.com/u/19826831?v=4?s=100" width="100px;" alt="ghsdpolley"/><br /><sub><b>ghsdpolley</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Aghsdpolley" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/aldamd"><img src="https://avatars.githubusercontent.com/u/178115486?v=4?s=100" width="100px;" alt="Daniel Aldam"/><br /><sub><b>Daniel Aldam</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=aldamd" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
