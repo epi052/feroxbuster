@@ -185,6 +185,11 @@ pub struct Configuration {
     #[serde(default)]
     pub json: bool,
 
+    /// Render the discovered URLs as a tree at end-of-scan (suppresses
+    /// streaming output)
+    #[serde(default)]
+    pub tree: bool,
+
     /// Output file to write results to (default: stdout)
     #[serde(default)]
     pub output: String,
@@ -417,6 +422,7 @@ impl Default for Configuration {
             resumed: false,
             stdin: false,
             json: false,
+            tree: false,
             scan_dir_listings: false,
             verbosity: 0,
             scan_limit: 0,
@@ -1067,6 +1073,10 @@ impl Configuration {
             config.json = true;
         }
 
+        if came_from_cli!(args, "tree") {
+            config.tree = true;
+        }
+
         if came_from_cli!(args, "force_recursion") {
             config.force_recursion = true;
         }
@@ -1325,6 +1335,7 @@ impl Configuration {
             Vec::<String>::new()
         );
         update_if_not_default!(&mut conf.json, new.json, false);
+        update_if_not_default!(&mut conf.tree, new.tree, false);
         update_if_not_default!(&mut conf.client_cert, new.client_cert, "");
         update_if_not_default!(&mut conf.client_key, new.client_key, "");
         update_if_not_default!(&mut conf.verbosity, new.verbosity, 0);

@@ -64,6 +64,7 @@ complete -c feroxbuster -s v -l verbosity -d 'Increase verbosity level (use -vv 
 complete -c feroxbuster -l silent -d 'Only print URLs (or JSON w/ --json) + turn off logging (good for piping a list of urls to other commands)'
 complete -c feroxbuster -s q -l quiet -d 'Hide progress bars and banner (good for tmux windows w/ notifications)'
 complete -c feroxbuster -l json -d 'Emit JSON logs to --output and --debug-log instead of normal text'
+complete -c feroxbuster -l tree -d 'Render discovered URLs as a tree at end of scan (suppresses streaming output)'
 complete -c feroxbuster -l no-state -d 'Disable state output file (*.state)'
 complete -c feroxbuster -s U -l update -d 'Update feroxbuster to the latest version'
 complete -c feroxbuster -s h -l help -d 'Print help (see more with \'--help\')'

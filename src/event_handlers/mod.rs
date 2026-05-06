@@ -6,6 +6,7 @@ mod command;
 mod outputs;
 mod scans;
 mod inputs;
+mod tree;
 
 pub use self::command::Command;
 pub use self::container::{Handles, Tasks};

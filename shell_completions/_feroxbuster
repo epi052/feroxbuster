@@ -116,6 +116,7 @@ _feroxbuster() {
 '-q[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--quiet[Hide progress bars and banner (good for tmux windows w/ notifications)]' \
 '--json[Emit JSON logs to --output and --debug-log instead of normal text]' \
+'(--json)--tree[Render discovered URLs as a tree at end of scan (suppresses streaming output)]' \
 '--no-state[Disable state output file (*.state)]' \
 '-U[Update feroxbuster to the latest version]' \
 '--update[Update feroxbuster to the latest version]' \
