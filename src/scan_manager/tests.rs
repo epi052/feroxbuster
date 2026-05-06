@@ -482,7 +482,7 @@ fn feroxstates_feroxserialize_implementation() {
         r#""num_requests":0"#,
         r#""config""#,
         r#""type":"configuration""#,
-        r#""wordlist":"/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt""#,
+        r#""wordlist":["/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt"]"#,
         r#""config""#,
         r#""proxy":"""#,
         r#""replay_proxy":"""#,

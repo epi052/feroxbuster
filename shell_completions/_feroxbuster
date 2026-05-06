@@ -71,8 +71,8 @@ _feroxbuster() {
 '--rate-limit=[Limit number of requests per second (per directory) (default\: 0, i.e. no limit)]:RATE_LIMIT:_default' \
 '--response-size-limit=[Limit size of response body to read in bytes (default\: 4MB)]:BYTES:_default' \
 '--time-limit=[Limit total run time of all scans (ex\: --time-limit 10m)]:TIME_SPEC:_default' \
-'-w+[Path or URL of the wordlist]:FILE:_files' \
-'--wordlist=[Path or URL of the wordlist]:FILE:_files' \
+'*-w+[Path(s) or URL(s) of the wordlist(s); may be supplied multiple times (ex\: -w a.txt -w b.txt) or as a comma-separated list (ex\: -w a.txt,b.txt). Words from every source are merged and de-duplicated.]:FILE:_files' \
+'*--wordlist=[Path(s) or URL(s) of the wordlist(s); may be supplied multiple times (ex\: -w a.txt -w b.txt) or as a comma-separated list (ex\: -w a.txt,b.txt). Words from every source are merged and de-duplicated.]:FILE:_files' \
 '-B+[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
 '--collect-backups=[Automatically request likely backup extensions for "found" urls (default\: ~, .bak, .bak2, .old, .1)]' \
 '*-I+[File extension(s) to Ignore while collecting extensions (only used with --collect-extensions)]:FILE_EXTENSION:_default' \

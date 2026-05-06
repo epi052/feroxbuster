@@ -145,7 +145,7 @@ fn default_configuration() {
 /// parse the test config and see that the value parsed is correct
 fn config_reads_wordlist() {
     let config = setup_config_test();
-    assert_eq!(config.wordlist, "/some/path");
+    assert_eq!(config.wordlist, vec![String::from("/some/path")]);
 }
 
 #[test]

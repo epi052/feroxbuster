@@ -382,7 +382,12 @@ impl Banner {
         let threads = BannerEntry::new("🚀", "Threads", &config.threads.to_string());
         let limit_bars =
             BannerEntry::new("📊", "Limit Dir Scan Bars", &config.limit_bars.to_string());
-        let wordlist = BannerEntry::new("📖", "Wordlist", &config.wordlist);
+        let wordlist_display = if config.wordlist.len() == 1 {
+            config.wordlist[0].clone()
+        } else {
+            format!("[{}]", config.wordlist.join(", "))
+        };
+        let wordlist = BannerEntry::new("📖", "Wordlist", &wordlist_display);
         let timeout = BannerEntry::new("💥", "Timeout (secs)", &config.timeout.to_string());
         let user_agent = BannerEntry::new("🦡", "User-Agent", &config.user_agent);
         let random_agent = BannerEntry::new("🦡", "User-Agent", "Random");

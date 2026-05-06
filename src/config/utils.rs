@@ -91,8 +91,56 @@ pub(super) fn backup_extensions() -> Vec<String> {
 }
 
 /// default wordlist
-pub(super) fn wordlist() -> String {
-    String::from(DEFAULT_WORDLIST)
+pub(super) fn wordlist() -> Vec<String> {
+    vec![String::from(DEFAULT_WORDLIST)]
+}
+
+/// custom serde deserializer that accepts either a single string or a list of strings, producing
+/// a `Vec<String>`. Used for the `wordlist` field so that legacy state files / config files that
+/// store a single string still round-trip correctly.
+pub(super) fn deserialize_wordlist<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct StringOrVec;
+
+    impl<'de> Visitor<'de> for StringOrVec {
+        type Value = Vec<String>;
+
+        fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            f.write_str("a string or a list of strings")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(vec![v.to_owned()])
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(vec![v])
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+        where
+            A: de::SeqAccess<'de>,
+        {
+            let mut out = Vec::new();
+            while let Some(s) = seq.next_element::<String>()? {
+                out.push(s);
+            }
+            Ok(out)
+        }
+    }
+
+    deserializer.deserialize_any(StringOrVec)
 }
 
 /// default user-agent

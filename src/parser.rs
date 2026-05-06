@@ -573,9 +573,15 @@ pub fn initialize() -> Command {
                 .long("wordlist")
                 .value_hint(ValueHint::FilePath)
                 .value_name("FILE")
-                .help("Path or URL of the wordlist")
+                .num_args(1..)
+                .action(ArgAction::Append)
+                .use_value_delimiter(true)
                 .help_heading("Scan settings")
-                .num_args(1),
+                .help(
+                    "Path(s) or URL(s) of the wordlist(s); may be supplied multiple times \
+                     (ex: -w a.txt -w b.txt) or as a comma-separated list (ex: -w a.txt,b.txt). \
+                     Words from every source are merged and de-duplicated.",
+                ),
         ).arg(
             Arg::new("auto_tune")
                 .long("auto-tune")

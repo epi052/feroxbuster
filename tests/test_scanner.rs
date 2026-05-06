@@ -903,3 +903,93 @@ fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dy
 
     Ok(())
 }
+
+#[test]
+/// supply two wordlists with overlapping entries via repeated `-w`. Expect every unique word from
+/// either list to be requested exactly once (the duplicate `LICENSE` should be de-duplicated).
+fn scanner_multiple_wordlists_dedup_union() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir_a, file_a) =
+        setup_tmp_directory(&["LICENSE".to_string(), "stuff".to_string()], "wordlist_a")?;
+    let (tmp_dir_b, file_b) =
+        setup_tmp_directory(&["LICENSE".to_string(), "things".to_string()], "wordlist_b")?;
+
+    let mock_license = srv.mock(|when, then| {
+        when.method(GET).path("/LICENSE");
+        then.status(200).body("license body");
+    });
+    let mock_stuff = srv.mock(|when, then| {
+        when.method(GET).path("/stuff");
+        then.status(200).body("stuff body");
+    });
+    let mock_things = srv.mock(|when, then| {
+        when.method(GET).path("/things");
+        then.status(200).body("things body");
+    });
+
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file_a.as_os_str())
+        .arg("--wordlist")
+        .arg(file_b.as_os_str())
+        .arg("--no-recursion")
+        .arg("-vvvv")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::contains("/LICENSE")
+            .and(predicate::str::contains("/stuff"))
+            .and(predicate::str::contains("/things")),
+    );
+
+    // /LICENSE appears in both wordlists; the merged set must request it exactly once
+    assert_eq!(mock_license.hits(), 1);
+    assert_eq!(mock_stuff.hits(), 1);
+    assert_eq!(mock_things.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir_a);
+    teardown_tmp_directory(tmp_dir_b);
+    Ok(())
+}
+
+#[test]
+/// supply two wordlists via the comma-separated form: `-w a,b`. Same expectations as the
+/// repeated-flag form.
+fn scanner_multiple_wordlists_comma_separated() -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let (tmp_dir_a, file_a) = setup_tmp_directory(&["alpha".to_string()], "wordlist_a")?;
+    let (tmp_dir_b, file_b) = setup_tmp_directory(&["beta".to_string()], "wordlist_b")?;
+
+    let mock_alpha = srv.mock(|when, then| {
+        when.method(GET).path("/alpha");
+        then.status(200).body("a");
+    });
+    let mock_beta = srv.mock(|when, then| {
+        when.method(GET).path("/beta");
+        then.status(200).body("b");
+    });
+
+    let combined = format!("{},{}", file_a.display(), file_b.display());
+
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(combined)
+        .arg("--no-recursion")
+        .arg("-vvvv")
+        .unwrap();
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("/alpha").and(predicate::str::contains("/beta")));
+
+    assert_eq!(mock_alpha.hits(), 1);
+    assert_eq!(mock_beta.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir_a);
+    teardown_tmp_directory(tmp_dir_b);
+    Ok(())
+}

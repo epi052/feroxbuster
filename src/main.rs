@@ -48,29 +48,31 @@ lazy_static! {
     static ref PARALLEL_LIMITER: Semaphore = Semaphore::new(0);
 }
 
-/// Create a Vec of Strings from the given wordlist then stores it inside an Arc
-fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
-    log::trace!("enter: get_unique_words_from_wordlist({path})");
+/// Read a single wordlist file, appending any new (non-comment, non-empty) entries to `words`.
+/// Tracks the set of words already added in `seen` so the merged result across multiple source
+/// files contains every unique word exactly once.
+fn append_words_from_path(
+    path: &str,
+    words: &mut Vec<String>,
+    seen: &mut std::collections::HashSet<String>,
+) -> Result<()> {
     let mut trimmed_word = false;
 
     let file = File::open(path).with_context(|| format!("Could not open {path}"))?;
-
     let reader = BufReader::new(file);
-
-    // this empty string ensures that we call Requester::request with the base url, i.e.
-    // `http://localhost/` instead of going straight into `http://localhost/WORD.EXT`.
-    // for vanilla scans, it doesn't matter all that much, but it can be a significant difference
-    // when `-e` is used, depending on the content at the base url.
-    let mut words = vec![String::from("")];
 
     for line in reader.lines() {
         line.map(|result| {
             if !result.starts_with('#') && !result.is_empty() {
-                if result.starts_with('/') {
-                    words.push(result.trim_start_matches('/').to_string());
+                let word = if let Some(stripped) = result.strip_prefix('/') {
                     trimmed_word = true;
+                    stripped.to_string()
                 } else {
-                    words.push(result);
+                    result
+                };
+
+                if seen.insert(word.clone()) {
+                    words.push(word);
                 }
             }
         })
@@ -81,12 +83,7 @@ fn get_unique_words_from_wordlist(path: &str) -> Result<Arc<Vec<String>>> {
         log::warn!("Some words in the wordlist started with a leading forward-slash; those words were trimmed (i.e. /word -> word)");
     }
 
-    log::trace!(
-        "exit: get_unique_words_from_wordlist -> Arc<wordlist[{} words...]>",
-        words.len()
-    );
-
-    Ok(Arc::new(words))
+    Ok(())
 }
 
 /// Determine whether it's a single url scan or urls are coming from stdin, then scan as needed
@@ -243,68 +240,78 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         exit(0);
     }
 
-    let words = if config.wordlist.starts_with("http") {
-        // found a url scheme, attempt to download the wordlist
-        let response = config
-            .client
-            .get(&config.wordlist)
-            .send()
-            .await
-            .context(format!(
-                "Unable to download wordlist from remote url: {}",
-                config.wordlist
-            ))?;
+    let words = {
+        // accumulate words from every configured wordlist source (file path or http(s) url)
+        // into a single de-duplicated Vec. Sources are processed in the order the user
+        // supplied them, so the merged ordering is deterministic.
+        let mut words = vec![String::from("")];
+        let mut seen = std::collections::HashSet::new();
+        seen.insert(String::new());
 
-        if !response.status().is_success() {
-            // status code isn't a 200, bail
-            bail!(
-                "[{}] Unable to download wordlist from url: {}",
-                response.status().as_str(),
-                config.wordlist
-            );
-        }
+        let single_local_source =
+            config.wordlist.len() == 1 && !config.wordlist[0].starts_with("http");
 
-        // attempt to get the filename from the url's path
-        let Some(mut path_segments) = response.url().path_segments() else {
-            bail!("Unable to parse path from url: {}", response.url());
-        };
+        for source in &config.wordlist {
+            if source.starts_with("http") {
+                // found a url scheme, attempt to download the wordlist
+                let response = config.client.get(source).send().await.context(format!(
+                    "Unable to download wordlist from remote url: {source}"
+                ))?;
 
-        let Some(filename) = path_segments.next_back() else {
-            bail!(
-                "Unable to parse filename from url's path: {}",
-                response.url().path()
-            );
-        };
+                if !response.status().is_success() {
+                    // status code isn't a 200, bail
+                    bail!(
+                        "[{}] Unable to download wordlist from url: {}",
+                        response.status().as_str(),
+                        source
+                    );
+                }
 
-        let filename = filename.to_string();
+                // attempt to get the filename from the url's path
+                let Some(mut path_segments) = response.url().path_segments() else {
+                    bail!("Unable to parse path from url: {}", response.url());
+                };
 
-        // read the body and write it to disk, then use existing code to read the wordlist
-        let body = response.text().await?;
+                let Some(filename) = path_segments.next_back() else {
+                    bail!(
+                        "Unable to parse filename from url's path: {}",
+                        response.url().path()
+                    );
+                };
 
-        std::fs::write(&filename, body)?;
+                let filename = filename.to_string();
 
-        get_unique_words_from_wordlist(&filename)?
-    } else {
-        match get_unique_words_from_wordlist(&config.wordlist) {
-            Ok(w) => w,
-            Err(err) => {
-                let secondary = Path::new(SECONDARY_WORDLIST);
+                // read the body and write it to disk, then read it back as a wordlist
+                let body = response.text().await?;
+                std::fs::write(&filename, body)?;
 
-                if secondary.exists() {
-                    eprintln!("Found wordlist in secondary location");
-                    get_unique_words_from_wordlist(SECONDARY_WORDLIST)?
-                } else {
-                    return Err(err);
+                append_words_from_path(&filename, &mut words, &mut seen)?;
+            } else {
+                match append_words_from_path(source, &mut words, &mut seen) {
+                    Ok(()) => {}
+                    Err(err) => {
+                        // preserve the legacy secondary-wordlist fallback, but only when the
+                        // user is relying on a single local source (i.e. didn't supply an
+                        // explicit list); chained / mixed inputs surface the real error.
+                        if single_local_source && Path::new(SECONDARY_WORDLIST).exists() {
+                            eprintln!("Found wordlist in secondary location");
+                            append_words_from_path(SECONDARY_WORDLIST, &mut words, &mut seen)?;
+                        } else {
+                            return Err(err);
+                        }
+                    }
                 }
             }
         }
+
+        Arc::new(words)
     };
 
     if words.len() <= 1 {
         // the check is now <= 1 due to the initial empty string added in 2.6.0
         // 1 -> empty wordlist
         // 0 -> error
-        bail!("Did not find any words in {}", config.wordlist);
+        bail!("Did not find any words in {}", config.wordlist.join(", "));
     }
 
     // spawn all event handlers, expect back a JoinHandle and a *Handle to the specific event

@@ -1,8 +1,8 @@
 use super::utils::{
-    backup_extensions, depth, determine_requester_policy, extract_links, ignored_extensions,
-    methods, parse_request_file, report_and_exit, request_protocol, response_size_limit,
-    save_state, serialized_type, split_header, split_query, status_codes, threads, timeout,
-    user_agent, wordlist, OutputLevel, RequesterPolicy,
+    backup_extensions, depth, deserialize_wordlist, determine_requester_policy, extract_links,
+    ignored_extensions, methods, parse_request_file, report_and_exit, request_protocol,
+    response_size_limit, save_state, serialized_type, split_header, split_query, status_codes,
+    threads, timeout, user_agent, wordlist, OutputLevel, RequesterPolicy,
 };
 
 use crate::config::determine_output_level;
@@ -93,9 +93,10 @@ pub struct Configuration {
     /// Name of this type of struct, used for serialization, i.e. `{"type":"configuration"}`
     pub kind: String,
 
-    /// Path to the wordlist
-    #[serde(default = "wordlist")]
-    pub wordlist: String,
+    /// Path(s) or URL(s) of the wordlist(s); when multiple are supplied, the merged set of
+    /// (deduplicated) words is fuzzed against every target
+    #[serde(default = "wordlist", deserialize_with = "deserialize_wordlist")]
+    pub wordlist: Vec<String>,
 
     /// Path to the config file used
     #[serde(default)]
@@ -686,7 +687,9 @@ impl Configuration {
             "response_size_limit",
             usize
         );
-        update_config_if_present!(&mut config.wordlist, args, "wordlist", String);
+        if let Some(arg) = args.get_many::<String>("wordlist") {
+            config.wordlist = arg.map(|val| val.to_owned()).collect();
+        }
         update_config_if_present!(&mut config.output, args, "output", String);
         update_config_if_present!(&mut config.debug_log, args, "debug_log", String);
         update_config_if_present!(&mut config.resume_from, args, "resume_from", String);
