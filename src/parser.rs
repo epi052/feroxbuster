@@ -877,4 +877,58 @@ mod tests {
         let space_between_rejected = "1 4m";
         assert!(valid_time_spec(space_between_rejected).is_err());
     }
+
+    #[test]
+    /// --update alone should parse fine (baseline exclusivity behavior, unchanged)
+    fn update_alone_is_allowed() {
+        let result = initialize().try_get_matches_from(["feroxbuster", "--update"]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    /// --update combined with -k/--insecure should parse fine now; this is the crux of the
+    /// #1148 fix, so this is a real clap-conflict-table assertion, not just a smoke test
+    fn update_allows_insecure() {
+        let result = initialize().try_get_matches_from(["feroxbuster", "--update", "--insecure"]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    /// --update combined with --server-certs should also parse fine
+    fn update_allows_server_certs() {
+        let result = initialize().try_get_matches_from([
+            "feroxbuster",
+            "--update",
+            "--server-certs",
+            "some_cert.pem",
+        ]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    /// order shouldn't matter for the two allowed flags
+    fn update_allows_insecure_reversed_order() {
+        let result = initialize().try_get_matches_from(["feroxbuster", "--insecure", "--update"]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    /// --update should still conflict with --url, same as every other unrelated flag
+    fn update_still_conflicts_with_url() {
+        let result = initialize().try_get_matches_from([
+            "feroxbuster",
+            "--update",
+            "--url",
+            "http://localhost",
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    /// --update should still conflict with flags that have nothing to do with the client,
+    /// confirming the allowlist didn't accidentally widen beyond --insecure/--server-certs
+    fn update_still_conflicts_with_verbosity() {
+        let result = initialize().try_get_matches_from(["feroxbuster", "--update", "-v"]);
+        assert!(result.is_err());
+    }
 }

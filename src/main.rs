@@ -619,6 +619,37 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
     Ok(())
 }
 
+/// build a client for self_update to use in place of its own default, honoring --insecure and
+/// --server-certs the same way the scanning client does; returns `None` when neither flag is in
+/// play, so self_update keeps using its own default client
+/// (see https://github.com/epi052/feroxbuster/issues/1148)
+fn build_update_client(
+    insecure: bool,
+    server_certs: &[String],
+) -> anyhow::Result<Option<self_update::reqwest::blocking::Client>> {
+    if !insecure && server_certs.is_empty() {
+        return Ok(None);
+    }
+
+    let mut client_builder =
+        self_update::reqwest::blocking::Client::builder().danger_accept_invalid_certs(insecure);
+
+    for cert_path in server_certs {
+        let buf = std::fs::read(cert_path)
+            .with_context(|| format!("could not read server certificate {cert_path}"))?;
+
+        let cert = self_update::reqwest::Certificate::from_pem(&buf)
+            .or_else(|_| self_update::reqwest::Certificate::from_der(&buf))
+            .with_context(|| {
+                format!("{cert_path} does not contain a valid PEM or DER certificate")
+            })?;
+
+        client_builder = client_builder.add_root_certificate(cert);
+    }
+
+    Ok(Some(client_builder.build()?))
+}
+
 async fn update_app(
     insecure: bool,
     server_certs: Vec<String>,
@@ -637,29 +668,8 @@ async fn update_app(
                 .show_download_progress(true)
                 .current_version(cargo_crate_version!());
 
-            // --insecure/--server-certs configure the TLS trust used for scanning; self_update
-            // only ever talks to github's api/cdn to check for and download a release, so give
-            // it an equivalently configured client instead of silently ignoring the flags
-            // (see https://github.com/epi052/feroxbuster/issues/1148)
-            if insecure || !server_certs.is_empty() {
-                let mut client_builder = self_update::reqwest::blocking::Client::builder()
-                    .danger_accept_invalid_certs(insecure);
-
-                for cert_path in &server_certs {
-                    let buf = std::fs::read(cert_path).with_context(|| {
-                        format!("could not read server certificate {cert_path}")
-                    })?;
-
-                    let cert = self_update::reqwest::Certificate::from_pem(&buf)
-                        .or_else(|_| self_update::reqwest::Certificate::from_der(&buf))
-                        .with_context(|| {
-                            format!("{cert_path} does not contain a valid PEM or DER certificate")
-                        })?;
-
-                    client_builder = client_builder.add_root_certificate(cert);
-                }
-
-                builder.reqwest_client(client_builder.build()?);
+            if let Some(client) = build_update_client(insecure, &server_certs)? {
+                builder.reqwest_client(client);
             }
 
             Ok(builder.build()?.update()?)
@@ -728,4 +738,61 @@ fn main() -> Result<()> {
     log::trace!("exit: main");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    /// neither --insecure nor --server-certs given -> self_update keeps its own default client
+    fn build_update_client_returns_none_when_secure_and_no_certs() {
+        let client = build_update_client(false, &[]).unwrap();
+        assert!(client.is_none());
+    }
+
+    #[test]
+    /// --insecure alone is enough to force building an override client
+    fn build_update_client_returns_client_when_insecure() {
+        let client = build_update_client(true, &[]).unwrap();
+        assert!(client.is_some());
+    }
+
+    #[test]
+    /// a valid pem server cert, with --insecure left off, still forces an override client
+    fn build_update_client_returns_client_for_valid_pem_cert() {
+        let server_certs = vec!["tests/mutual-auth/certs/server/server.crt.1".to_string()];
+        let client = build_update_client(false, &server_certs).unwrap();
+        assert!(client.is_some());
+    }
+
+    #[test]
+    /// a valid der server cert is also accepted
+    fn build_update_client_returns_client_for_valid_der_cert() {
+        let server_certs = vec!["tests/mutual-auth/certs/server/server.der".to_string()];
+        let client = build_update_client(false, &server_certs).unwrap();
+        assert!(client.is_some());
+    }
+
+    #[test]
+    /// a path that doesn't exist should error out instead of silently continuing
+    fn build_update_client_errors_on_missing_cert_file() {
+        let server_certs = vec!["/definitely/doesnt/exist/0cd7fed0.pem".to_string()];
+        let result = build_update_client(false, &server_certs);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    /// self_update's client is rustls-backed, and rustls' `Certificate::from_pem`/`from_der`
+    /// only reject bytes that fail to parse as *some* DER structure - they don't check that the
+    /// structure is actually an X.509 certificate, so a well-formed-but-wrong DER blob (here, a
+    /// private key) is accepted at build time and would only fail later, during an actual TLS
+    /// handshake. This documents that boundary rather than asserting an eager rejection that
+    /// doesn't happen; feroxbuster's own scanning client (native-tls backed, see client.rs)
+    /// does reject this same file eagerly, so the two code paths differ here.
+    fn build_update_client_accepts_non_certificate_der_until_connection_time() {
+        let server_certs = vec!["tests/mutual-auth/certs/client/client.key".to_string()];
+        let result = build_update_client(false, &server_certs);
+        assert!(result.is_ok());
+    }
 }
