@@ -43,7 +43,7 @@ pub fn initialize(config: Arc<Configuration>) -> Result<()> {
             .create(true)
             .append(true)
             .open(&config.debug_log)
-            .with_context(|| fmt_err(&format!("Could not open {}", &config.debug_log)))?;
+            .with_context(|| fmt_err(&format!("Could not open {}", config.debug_log)))?;
 
         let mut writer = BufWriter::new(f);
 

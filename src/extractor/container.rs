@@ -185,7 +185,7 @@ impl<'a> Extractor<'a> {
         };
 
         let link_request_task = tokio::spawn(async move {
-            let producers = futures::stream::iter(links.into_iter())
+            let producers = futures::stream::iter(links)
                 .map(|link| {
                     // another clone to satisfy the async move block
                     let inner_clone = cloned_handles.clone();

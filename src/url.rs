@@ -287,7 +287,7 @@ impl FeroxUrl {
 impl fmt::Display for FeroxUrl {
     /// formatter for FeroxUrl
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", &self.target)
+        write!(f, "{}", self.target)
     }
 }
 

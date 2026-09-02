@@ -104,7 +104,7 @@ where
             Err(err) => reqwest::Certificate::from_der(&buf).with_context(|| {
                 format!(
                     "{:?} does not contain a valid PEM or DER certificate\n{}",
-                    &cert_path, err
+                    cert_path, err
                 )
             })?,
         };
