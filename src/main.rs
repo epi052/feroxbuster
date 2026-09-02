@@ -64,11 +64,14 @@ fn append_words_from_path(
     for line in reader.lines() {
         line.map(|result| {
             if !result.starts_with('#') && !result.is_empty() {
-                let word = if let Some(stripped) = result.strip_prefix('/') {
-                    trimmed_word = true;
-                    stripped.to_string()
-                } else {
-                    result
+                let word = {
+                    let stripped = result.trim_start_matches('/');
+                    if stripped.len() != result.len() {
+                        trimmed_word = true;
+                        stripped.to_string()
+                    } else {
+                        result
+                    }
                 };
 
                 if seen.insert(word.clone()) {
