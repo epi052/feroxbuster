@@ -713,7 +713,7 @@ pub fn initialize() -> Command {
     /////////////////////////////////////////////////////////////////////
     // group - miscellaneous
     /////////////////////////////////////////////////////////////////////
-    let mut app = app
+    let app = app
         .group(
             ArgGroup::new("output_files")
                 .args(["debug_log", "output", "silent"])
@@ -728,12 +728,24 @@ pub fn initialize() -> Command {
             Arg::new("update_app")
                 .short('U')
                 .long("update")
-                .exclusive(true)
                 .num_args(0)
                 .help_heading("Update settings")
-                .help("Update feroxbuster to the latest version"),
+                .help("Update feroxbuster to the latest version (--insecure and --server-certs are honored)"),
         )
         .after_long_help(EPILOGUE);
+
+    // --update is meant to run standalone, same as the old `exclusive(true)` behavior, but
+    // --insecure/--server-certs configure the client self_update uses to reach github, so those
+    // two need to be allowed alongside it (see https://github.com/epi052/feroxbuster/issues/1148).
+    // computing the conflict list instead of hand-maintaining it keeps every other arg exclusive
+    // with --update without needing to remember to add new args to a manual list
+    let update_compatible_args = ["update_app", "insecure", "server_certs", "help", "version"];
+    let update_conflicts: Vec<clap::Id> = app
+        .get_arguments()
+        .filter(|arg| !update_compatible_args.contains(&arg.get_id().as_str()))
+        .map(|arg| arg.get_id().clone())
+        .collect();
+    let mut app = app.mut_arg("update_app", |arg| arg.conflicts_with_all(update_conflicts));
 
     /////////////////////////////////////////////////////////////////////
     // end parser

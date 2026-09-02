@@ -65,6 +65,6 @@ complete -c feroxbuster -l silent -d 'Only print URLs (or JSON w/ --json) + turn
 complete -c feroxbuster -s q -l quiet -d 'Hide progress bars and banner (good for tmux windows w/ notifications)'
 complete -c feroxbuster -l json -d 'Emit JSON logs to --output and --debug-log instead of normal text'
 complete -c feroxbuster -l no-state -d 'Disable state output file (*.state)'
-complete -c feroxbuster -s U -l update -d 'Update feroxbuster to the latest version'
+complete -c feroxbuster -s U -l update -d 'Update feroxbuster to the latest version (--insecure and --server-certs are honored)'
 complete -c feroxbuster -s h -l help -d 'Print help (see more with \'--help\')'
 complete -c feroxbuster -s V -l version -d 'Print version'

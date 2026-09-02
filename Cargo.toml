@@ -56,15 +56,10 @@ ctrlc = "3.4"
 anyhow = "1.0"
 leaky-bucket = "1.1"
 gaoya = "0.2"
-# 0.37+ relies on the broken version of indicatif and forces
-# the broken version to be used regardless of the version
-# specified above 
-self_update = { version = "0.40", features = [
-    "archive-tar",
-    "compression-flate2",
-    "archive-zip",
-    "compression-zip-deflate",
-] }
+# 1.0+ supports injecting a pre-built reqwest client (reqwest_client) and trusting extra
+# root certs (add_root_certificate), which --update needs to honor --insecure/--server-certs
+# archive-tar/compression-tar-gz are on by default as of 1.0, only zip support needs opting in
+self_update = { version = "1.3", features = ["archive-zip", "compression-zip-deflate"] }
 
 [dev-dependencies]
 tempfile = "3.20"

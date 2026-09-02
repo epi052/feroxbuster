@@ -231,14 +231,15 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
     // check if update_app is true
     if config.update_app {
-        match update_app().await {
+        match update_app(config.insecure, config.server_certs.clone()).await {
             Err(e) => eprintln!("\n[ERROR] {e}"),
-            Ok(self_update::Status::UpToDate(version)) => {
+            Ok(self_update::VersionStatus::UpToDate(version)) => {
                 eprintln!("\nFeroxbuster {version} is up to date")
             }
-            Ok(self_update::Status::Updated(version)) => {
+            Ok(self_update::VersionStatus::Updated(version)) => {
                 eprintln!("\nFeroxbuster updated to {version} version")
             }
+            Ok(_) => {}
         }
         exit(0);
     }
@@ -618,20 +619,52 @@ async fn clean_up(handles: Arc<Handles>, tasks: Tasks) -> Result<()> {
     Ok(())
 }
 
-async fn update_app() -> Result<self_update::Status, Box<dyn ::std::error::Error>> {
+async fn update_app(
+    insecure: bool,
+    server_certs: Vec<String>,
+) -> Result<self_update::VersionStatus, Box<dyn ::std::error::Error>> {
     let target_os = format!("{ARCH}-{OS}");
-    let status = tokio::task::spawn_blocking(move || {
-        self_update::backends::github::Update::configure()
-            .repo_owner("epi052")
-            .repo_name("feroxbuster")
-            .bin_name("feroxbuster")
-            .target(target_os.as_str())
-            .show_download_progress(true)
-            .current_version(cargo_crate_version!())
-            .build()?
-            .update()
-    })
-    .await??;
+
+    let status =
+        tokio::task::spawn_blocking(move || -> anyhow::Result<self_update::VersionStatus> {
+            let mut builder = self_update::backends::github::Update::configure();
+
+            builder
+                .repo_owner("epi052")
+                .repo_name("feroxbuster")
+                .bin_name("feroxbuster")
+                .target(target_os.as_str())
+                .show_download_progress(true)
+                .current_version(cargo_crate_version!());
+
+            // --insecure/--server-certs configure the TLS trust used for scanning; self_update
+            // only ever talks to github's api/cdn to check for and download a release, so give
+            // it an equivalently configured client instead of silently ignoring the flags
+            // (see https://github.com/epi052/feroxbuster/issues/1148)
+            if insecure || !server_certs.is_empty() {
+                let mut client_builder = self_update::reqwest::blocking::Client::builder()
+                    .danger_accept_invalid_certs(insecure);
+
+                for cert_path in &server_certs {
+                    let buf = std::fs::read(cert_path).with_context(|| {
+                        format!("could not read server certificate {cert_path}")
+                    })?;
+
+                    let cert = self_update::reqwest::Certificate::from_pem(&buf)
+                        .or_else(|_| self_update::reqwest::Certificate::from_der(&buf))
+                        .with_context(|| {
+                            format!("{cert_path} does not contain a valid PEM or DER certificate")
+                        })?;
+
+                    client_builder = client_builder.add_root_certificate(cert);
+                }
+
+                builder.reqwest_client(client_builder.build()?);
+            }
+
+            Ok(builder.build()?.update()?)
+        })
+        .await??;
 
     Ok(status)
 }
