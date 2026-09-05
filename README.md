@@ -375,6 +375,9 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/ghsdpolley"><img src="https://avatars.githubusercontent.com/u/19826831?v=4?s=100" width="100px;" alt="ghsdpolley"/><br /><sub><b>ghsdpolley</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/issues?q=author%3Aghsdpolley" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/aldamd"><img src="https://avatars.githubusercontent.com/u/178115486?v=4?s=100" width="100px;" alt="Daniel Aldam"/><br /><sub><b>Daniel Aldam</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=aldamd" title="Code">💻</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://linktr.ee/chrisjr404"><img src="https://avatars.githubusercontent.com/u/11917633?v=4?s=100" width="100px;" alt="ChrisJr404"/><br /><sub><b>ChrisJr404</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=ChrisJr404" title="Code">💻</a> <a href="#ideas-ChrisJr404" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
   </tbody>
 </table>
 
