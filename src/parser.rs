@@ -682,6 +682,14 @@ pub fn initialize() -> Command {
                 .requires("output_files")
                 .help_heading("Output settings")
                 .help("Emit JSON logs to --output and --debug-log instead of normal text")
+        )
+        .arg(
+            Arg::new("tree")
+                .long("tree")
+                .num_args(0)
+                .conflicts_with("json")
+                .help_heading("Output settings")
+                .help("Render discovered URLs as a tree at end of scan (suppresses streaming output)")
         ).arg(
             Arg::new("output")
                 .short('o')

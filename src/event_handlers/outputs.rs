@@ -7,6 +7,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::{
     config::Configuration,
+    event_handlers::tree,
     filters::SimilarityFilter,
     progress::PROGRESS_PRINTER,
     response::FeroxResponse,
@@ -227,6 +228,31 @@ impl TermOutHandler {
                     self.handles = Some(handles);
                 }
                 Command::Exit => {
+                    if self.config.tree {
+                        // render the accumulated RESPONSES as a single tree
+                        // and emit to terminal + (optionally) the output file
+                        let lines = tree::render(&RESPONSES, self.config.output_level);
+                        for line in &lines {
+                            ferox_print(line, &PROGRESS_PRINTER);
+                        }
+                        if self.file_task.is_some() && !self.config.output.is_empty() {
+                            // write raw tree text to the configured --output file
+                            // (bypasses the FeroxSerialize path because the tree
+                            // is its own pre-rendered shape)
+                            if let Ok(mut file) = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open(&self.config.output)
+                            {
+                                use std::io::Write;
+                                for line in &lines {
+                                    let stripped = console::strip_ansi_codes(line);
+                                    let _ = writeln!(file, "{stripped}");
+                                }
+                            }
+                        }
+                    }
+
                     if self.tx_file.send(Command::Exit).is_ok() {
                         if let Some(task) = self.file_task.as_mut() {
                             task.await??; // wait for death
@@ -266,13 +292,17 @@ impl TermOutHandler {
             let should_process_response = contains_sentry && unknown_sentry;
 
             if should_process_response {
-                // print to stdout
-                ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
+                if !self.config.tree {
+                    // print to stdout. when --tree is used, defer all output
+                    // to the end-of-scan tree render handled at Command::Exit
+                    ferox_print(&resp.as_str(), &PROGRESS_PRINTER);
+                }
 
                 send_command!(tx_stats, AddToUsizeField(ResourcesDiscovered, 1));
 
-                if self.file_task.is_some() {
-                    // -o used, need to send the report to be written out to disk
+                if self.file_task.is_some() && !self.config.tree {
+                    // -o used, need to send the report to be written out to disk;
+                    // --tree mode writes the rendered tree to disk at exit instead
                     self.tx_file
                         .send(Command::Report(resp.clone()))
                         .with_context(|| {

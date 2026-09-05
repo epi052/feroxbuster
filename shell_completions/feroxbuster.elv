@@ -119,6 +119,7 @@ set edit:completion:arg-completer[feroxbuster] = {|@words|
             cand -q 'Hide progress bars and banner (good for tmux windows w/ notifications)'
             cand --quiet 'Hide progress bars and banner (good for tmux windows w/ notifications)'
             cand --json 'Emit JSON logs to --output and --debug-log instead of normal text'
+            cand --tree 'Render discovered URLs as a tree at end of scan (suppresses streaming output)'
             cand --no-state 'Disable state output file (*.state)'
             cand -U 'Update feroxbuster to the latest version (--insecure and --server-certs are honored)'
             cand --update 'Update feroxbuster to the latest version (--insecure and --server-certs are honored)'
