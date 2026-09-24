@@ -387,3 +387,17 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+# Feroxbuster (إصدار Termux)
+
+أداة **feroxbuster** للفحص واكتشاف الأدلة (Directory/File brute forcing) مكتوبة بلغة Rust.  
+هذا المشروع يحتوي على سكربت `install.sh` لتسهيل التثبيت في **Termux** بدون الحاجة لتشغيل أوامر كثيرة.
+
+---
+
+## 📦 التثبيت على Termux
+
+```bash
+git clone https://github.com/USERNAME/feroxbuster.git
+cd feroxbuster
+chmod +x install.sh
+./install.sh
