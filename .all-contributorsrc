@@ -1057,6 +1057,16 @@
         "code",
         "ideas"
       ]
+    },
+    {
+      "login": "mmadersbacher",
+      "name": "Mario Madersbacher",
+      "avatar_url": "https://avatars.githubusercontent.com/u/218396309?v=4",
+      "profile": "http://mmadersbacher.github.io",
+      "contributions": [
+        "code",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
