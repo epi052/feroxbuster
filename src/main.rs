@@ -2,6 +2,7 @@ use std::{
     env::{
         args,
         consts::{ARCH, OS},
+        var_os,
     },
     fs::{create_dir, remove_file, File},
     io::{stderr, BufRead, BufReader},
@@ -42,6 +43,12 @@ use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use lazy_static::lazy_static;
 use regex::Regex;
 use self_update::cargo_crate_version;
+
+/// Environment variable set on the children spawned by the --parallel branch
+///
+/// The branch can't tell a child apart by the absence of --parallel from the command line,
+/// because `parallel` can also come from a config file, which the children read as well.
+const PARALLEL_CHILD_ENV: &str = "FEROX_PARALLEL_CHILD";
 
 lazy_static! {
     /// Limits the number of parallel scans active at any given time when using --parallel
@@ -348,10 +355,9 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
         // the limit
         //
         // if --parallel is used, this branch won't execute in the main process, but will in the
-        // children. This is because --parallel is stripped from the children's command line
-        // arguments, so, when spawned, they won't have --parallel, the parallel value will be set
-        // to the default of 0, and will hit this branch. This makes it so that the time limit
-        // is enforced on each individual child process, instead of the main process
+        // children. This is because the children have `parallel` set to 0 in main, so they will
+        // hit this branch. This makes it so that the time limit is enforced on each individual
+        // child process, instead of the main process
         let time_handles = handles.clone();
         tokio::spawn(async move { scan_manager::start_max_time_thread(time_handles).await });
     }
@@ -402,19 +408,24 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             .filter(|s| !para_regex.is_match(s))
             .collect::<Vec<String>>();
 
-        // we need remove --parallel from command line so we don't hit this branch over and over
+        // every child is given a -u, which clap won't take alongside --parallel, so it has to go
         // but we must remove --parallel N manually; the filter above never sees --parallel and the
         // value passed to it at the same time, so can't filter them out in one pass
 
-        // unwrap is fine, as it has to be in the args for us to be in this code branch
-        let parallel_index = original.iter().position(|s| *s == "--parallel").unwrap();
+        // --parallel is absent from the command line when `parallel` came from a config file, and
+        // carries its value in the same argument when it was given as --parallel=N
+        if let Some(parallel_index) = original.iter().position(|s| *s == "--parallel") {
+            // remove --parallel
+            original.remove(parallel_index);
 
-        // remove --parallel
-        original.remove(parallel_index);
-
-        // remove N passed to --parallel (it's the same index again since everything shifts
-        // from removing --parallel)
-        original.remove(parallel_index);
+            // remove N passed to --parallel (it's the same index again since everything shifts
+            // from removing --parallel)
+            original.remove(parallel_index);
+        } else if let Some(parallel_index) =
+            original.iter().position(|s| s.starts_with("--parallel="))
+        {
+            original.remove(parallel_index);
+        }
 
         // to log unique files to a shared folder, we need to first check for the presence
         // of -o|--output.
@@ -479,6 +490,7 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             tokio::task::spawn(async move {
                 let mut output = Command::new(bin)
                     .args(&args)
+                    .env(PARALLEL_CHILD_ENV, "1")
                     .stdout(Stdio::piped())
                     .spawn()
                     .expect("failed to spawn a child process");
@@ -690,7 +702,20 @@ async fn update_app(
 }
 
 fn main() -> Result<()> {
-    let config = Arc::new(Configuration::new().with_context(|| "Could not create Configuration")?);
+    let mut config = Configuration::new().with_context(|| "Could not create Configuration")?;
+    if var_os(PARALLEL_CHILD_ENV).is_some() {
+        config.parallel = 0;
+        config.stdin = false;
+    } else if config.parallel > 0 {
+        // clap handles this when values come over cli, but not when set in the config file
+        if !config.stdin {
+            bail!("--parallel requires --stdin");
+        }
+        if !config.target_url.is_empty() {
+            bail!("--parallel cannot be used with --url");
+        }
+    }
+    let config = Arc::new(config);
 
     // setup logging based on the number of -v's used
     if matches!(

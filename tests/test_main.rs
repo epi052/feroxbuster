@@ -288,3 +288,152 @@ fn main_download_wordlist_from_url() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+/// set parallel in a config file instead of passing --parallel, expect the children to be spawned
+/// just the same instead of a panic on the missing command line argument
+fn main_parallel_from_config_file_spawns_children() -> Result<(), Box<dyn std::error::Error>> {
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+
+    let words = [String::from("LICENSE"), String::from("stuff")];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (output_dir, outfile) = setup_tmp_directory(&[], "output-file")?;
+    let (tgt_tmp_dir, targets) = setup_tmp_directory(&[t1.url("/"), t2.url("/")], "targets")?;
+
+    // parallel comes from the config file in the working directory, --parallel is never passed
+    let (cfg_tmp_dir, _cfg) =
+        setup_tmp_directory(&[String::from("parallel = 2")], "ferox-config.toml")?;
+
+    Command::new(cargo_bin!("feroxbuster"))
+        .current_dir(cfg_tmp_dir.path())
+        .env("RUST_LOG", "trace")
+        .arg("--stdin")
+        .arg("--quiet")
+        .arg("--debug-log")
+        .arg(outfile.as_os_str())
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .arg("--time-limit")
+        .arg("100m")
+        .stdin(std::fs::File::open(targets)?)
+        .assert()
+        .success();
+
+    let contents = read_to_string(outfile).unwrap();
+
+    assert!(contents.contains("parallel branch && wrapped main")); // exits parallel branch
+
+    let r1 = Regex::new(&format!("parallel exec:.*-u {}", t1.url("/"))).unwrap();
+    let r2 = Regex::new(&format!("parallel exec:.*-u {}", t2.url("/"))).unwrap();
+
+    assert!(r1.is_match(&contents)); // both were spawned
+    assert!(r2.is_match(&contents));
+
+    // the original process leaves the time limit to the children, so this line can only come
+    // from a child, and only if its `parallel` was set to 0
+    assert!(contents.contains("max time limit as string"));
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
+    teardown_tmp_directory(output_dir);
+    teardown_tmp_directory(cfg_tmp_dir);
+
+    Ok(())
+}
+
+#[test]
+/// pass --parallel=2 instead of --parallel 2, expect the argument to come off the children's
+/// command line all the same; clap turns a child away for using --parallel alongside its -u
+fn main_parallel_equals_form_is_stripped_from_children() -> Result<(), Box<dyn std::error::Error>> {
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+
+    let words = [String::from("LICENSE"), String::from("stuff")];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (output_dir, outfile) = setup_tmp_directory(&[], "output-file")?;
+    let (tgt_tmp_dir, targets) = setup_tmp_directory(&[t1.url("/"), t2.url("/")], "targets")?;
+
+    Command::new(cargo_bin!("feroxbuster"))
+        .env("RUST_LOG", "trace")
+        .arg("--stdin")
+        .arg("--parallel=2")
+        .arg("--quiet")
+        .arg("--debug-log")
+        .arg(outfile.as_os_str())
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .stdin(std::fs::File::open(targets)?)
+        .assert()
+        .success();
+
+    let contents = read_to_string(outfile).unwrap();
+
+    for target in [t1.url("/"), t2.url("/")] {
+        let spawned = Regex::new(&format!("parallel exec:.*-u {target}"))
+            .unwrap()
+            .find(&contents)
+            .map(|found| found.as_str().to_string())
+            .unwrap_or_else(|| panic!("no child spawned for {target}"));
+
+        assert!(!spawned.contains("--parallel"));
+    }
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
+    teardown_tmp_directory(output_dir);
+
+    Ok(())
+}
+
+#[test]
+/// clap enforces that --parallel needs --stdin, but only for the command line; expect the same
+/// check when the value came from a config file
+fn main_parallel_from_config_file_requires_stdin() -> Result<(), Box<dyn std::error::Error>> {
+    let words = [String::from("LICENSE")];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (cfg_tmp_dir, _cfg) =
+        setup_tmp_directory(&[String::from("parallel = 2")], "ferox-config.toml")?;
+
+    Command::new(cargo_bin!("feroxbuster"))
+        .current_dir(cfg_tmp_dir.path())
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("--parallel requires --stdin"));
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(cfg_tmp_dir);
+
+    Ok(())
+}
+
+#[test]
+/// same for the conflict with --url; stdin from a config file gets a url past clap, and the
+/// parallel branch has nowhere to send the targets
+fn main_parallel_from_config_file_conflicts_with_url() -> Result<(), Box<dyn std::error::Error>> {
+    let words = [String::from("LICENSE")];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let settings = String::from("parallel = 2\nstdin = true");
+    let (cfg_tmp_dir, _cfg) = setup_tmp_directory(&[settings], "ferox-config.toml")?;
+
+    Command::new(cargo_bin!("feroxbuster"))
+        .current_dir(cfg_tmp_dir.path())
+        .arg("--url")
+        .arg("http://localhost")
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "--parallel cannot be used with --url",
+        ));
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(cfg_tmp_dir);
+
+    Ok(())
+}
