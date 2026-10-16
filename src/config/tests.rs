@@ -48,6 +48,7 @@ fn setup_config_test() -> Configuration {
             dont_filter = true
             extract_links = false
             json = true
+            tree = true
             save_state = false
             depth = 1
             limit_bars = 3
@@ -105,6 +106,7 @@ fn default_configuration() {
     assert!(!config.no_recursion);
     assert!(!config.random_agent);
     assert!(!config.json);
+    assert!(!config.tree);
     assert!(config.save_state);
     assert!(!config.stdin);
     assert!(!config.add_slash);
@@ -251,6 +253,13 @@ fn config_reads_quiet() {
 fn config_reads_json() {
     let config = setup_config_test();
     assert!(config.json);
+}
+
+#[test]
+/// parse the test config and see that the value parsed is correct
+fn config_reads_tree() {
+    let config = setup_config_test();
+    assert!(config.tree);
 }
 
 #[test]
