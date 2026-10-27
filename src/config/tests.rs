@@ -414,12 +414,100 @@ fn config_reads_url_denylist() {
 fn config_reads_scope() {
     let config = setup_config_test();
     assert_eq!(
+        config.raw_scope,
+        vec!["http://example.com", "https://other.com"]
+    );
+}
+
+#[test]
+/// scope entries that don't have a scheme should use the effective protocol
+fn resolve_scope_uses_protocol_for_config_file_scope() {
+    let mut config = Configuration {
+        raw_scope: vec!["example.com".to_string(), "https://other.com".to_string()],
+        protocol: "http".to_string(),
+        ..Default::default()
+    };
+
+    Configuration::resolve_scope(&mut config);
+
+    assert_eq!(
         config.scope,
         vec![
             Url::parse("http://example.com").unwrap(),
             Url::parse("https://other.com").unwrap(),
         ]
     );
+}
+
+#[test]
+/// target urls (--url/--stdin) should always be added to the scope, without duplicates
+fn resolve_scope_adds_target_urls() {
+    let mut config = Configuration {
+        cached_stdin: vec![
+            "http://localhost/".to_string(),
+            "https://other.com/".to_string(),
+        ],
+        raw_scope: vec!["other.com".to_string(), "third.com".to_string()],
+        ..Default::default()
+    };
+
+    Configuration::resolve_scope(&mut config);
+
+    assert_eq!(
+        config.scope,
+        vec![
+            Url::parse("http://localhost").unwrap(),
+            Url::parse("https://other.com").unwrap(),
+            Url::parse("https://third.com").unwrap(),
+        ]
+    );
+}
+
+#[test]
+/// the scope saved in a state file should come back unchanged when resuming a scan
+fn resolve_scope_after_reading_scope_from_state_file() {
+    let config = Configuration {
+        scope: vec![
+            Url::parse("http://localhost").unwrap(),
+            Url::parse("https://other.com").unwrap(),
+        ],
+        ..Default::default()
+    };
+
+    let json = serde_json::to_string(&config).unwrap();
+    let mut resumed: Configuration = serde_json::from_str(&json).unwrap();
+    Configuration::resolve_scope(&mut resumed);
+
+    assert_eq!(resumed.scope, config.scope);
+}
+
+#[test]
+/// scope from a higher-priority source should replace scope from a lower-priority one
+fn merge_config_replaces_scope() {
+    let mut config = Configuration {
+        raw_scope: vec!["foo.com".to_string()],
+        ..Default::default()
+    };
+
+    // a second config file with a higher priority
+    let higher = Configuration {
+        raw_scope: vec!["bar.com".to_string()],
+        ..Default::default()
+    };
+    Configuration::merge_config(&mut config, higher);
+    assert_eq!(config.raw_scope, vec!["bar.com"]);
+
+    // a config file without scope leaves it alone
+    Configuration::merge_config(&mut config, Configuration::default());
+    assert_eq!(config.raw_scope, vec!["bar.com"]);
+
+    // --scope on the command line
+    let cli = Configuration {
+        raw_scope: vec!["baz.com".to_string()],
+        ..Default::default()
+    };
+    Configuration::merge_config(&mut config, cli);
+    assert_eq!(config.raw_scope, vec!["baz.com"]);
 }
 
 #[test]

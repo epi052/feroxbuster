@@ -77,6 +77,38 @@ macro_rules! update_config_with_num_type_if_present {
     };
 }
 
+/// internal helper to parse both scope urls and target urls
+fn parse_url_with_no_base_correction(
+    config: &Configuration,
+    url: &str,
+) -> Result<Url, url::ParseError> {
+    // Url::parse fails if the url is relative (ex: example.com) instead of absolute
+    // (ex: https://example.com). In the case of a relative url, we can prepend
+    // "https://" (or whatever the user provided to --protocol) and try again
+    match parse_url_with_raw_path(url.trim_end_matches('/')) {
+        Ok(absolute) => Ok(absolute),
+        Err(err) => {
+            log::debug!("Initial url parse failed: {err}");
+
+            // user provided a relative url, which we can massage into an absolute
+            // url by prepending the config.protocol (the actual protocol if the user
+            // specified one, otherwise it'll be the default "https")
+            let url_with_scheme = format!("{}://{}", config.protocol, url.trim_end_matches('/'));
+
+            match parse_url_with_raw_path(&url_with_scheme) {
+                Ok(url) => {
+                    // successfully parsed the relative url after prepending the
+                    // scheme, add it to the scope
+                    Ok(url)
+                }
+                Err(err) => {
+                    report_and_exit(&format!("Could not parse '{url}' as a url: {err}"));
+                }
+            }
+        }
+    }
+}
+
 /// Represents the final, global configuration of the program.
 ///
 /// This struct is the combination of the following:
@@ -316,9 +348,16 @@ pub struct Configuration {
     #[serde(with = "serde_regex", default)]
     pub regex_denylist: Vec<Regex>,
 
-    /// Allowed domains/URLs for redirects and link extraction
-    #[serde(default)]
+    /// Allowed domains/URLs for redirects and link extraction, built from `raw_scope` and the
+    /// target url(s) once all config sources are merged (see `resolve_scope`)
+    #[serde(default, skip_deserializing)]
     pub scope: Vec<Url>,
+
+    /// Scope entries as given (--scope, a config file or a state file), kept as strings until
+    /// all config sources are merged, so that entries without a scheme (ex: example.com) use
+    /// the effective protocol
+    #[serde(default, rename = "scope", skip_serializing)]
+    pub raw_scope: Vec<String>,
 
     /// Automatically discover extensions and add them to --extensions (unless they're in --dont-collect)
     #[serde(default)]
@@ -457,6 +496,7 @@ impl Default for Configuration {
             url_denylist: Vec::new(),
             regex_denylist: Vec::new(),
             scope: Vec::new(),
+            raw_scope: Vec::new(),
             cached_stdin: Vec::new(),
             filter_line_count: Vec::new(),
             filter_word_count: Vec::new(),
@@ -588,6 +628,7 @@ impl Configuration {
             // user meant to modify the previously cancelled/saved scan in some way that we
             // should take into account
             Self::merge_config(&mut previous_config, cli_config);
+            Self::resolve_scope(&mut previous_config);
 
             // the resumed flag isn't printed in the banner and really has no business being
             // serialized or included in much of the usual config logic; simply setting it to true
@@ -608,6 +649,7 @@ impl Configuration {
         // if we've gotten to this point in the code, --resume-from was not used, so we need to
         // merge the cli options into the config file options and return the result
         Self::merge_config(&mut config, cli_config);
+        Self::resolve_scope(&mut config);
 
         // if the user provided a raw request file as the target, we'll need to parse out
         // the provided info and update the config with those values. This call needs to
@@ -797,40 +839,6 @@ impl Configuration {
             }
         }
 
-        /// internal helper to parse both scope urls and target urls
-        fn parse_url_with_no_base_correction(
-            config: &Configuration,
-            url: &str,
-        ) -> Result<Url, url::ParseError> {
-            // Url::parse fails if the url is relative (ex: example.com) instead of absolute
-            // (ex: https://example.com). In the case of a relative url, we can prepend
-            // "https://" (or whatever the user provided to --protocol) and try again
-            match parse_url_with_raw_path(url.trim_end_matches('/')) {
-                Ok(absolute) => Ok(absolute),
-                Err(err) => {
-                    log::debug!("Initial url parse failed: {err}");
-
-                    // user provided a relative url, which we can massage into an absolute
-                    // url by prepending the config.protocol (which is parsed earlier in the outer
-                    // function, meaning we'll get the actual protocol if the user specified
-                    // one, otherwise it'll be the default "https")
-                    let url_with_scheme =
-                        format!("{}://{}", config.protocol, url.trim_end_matches('/'));
-
-                    match parse_url_with_raw_path(&url_with_scheme) {
-                        Ok(url) => {
-                            // successfully parsed the relative url after prepending the
-                            // scheme, add it to the scope
-                            Ok(url)
-                        }
-                        Err(err) => {
-                            report_and_exit(&format!("Could not parse '{url}' as a url: {err}"));
-                        }
-                    }
-                }
-            }
-        }
-
         if came_from_cli!(args, "stdin") {
             config.stdin = true;
 
@@ -849,17 +857,15 @@ impl Configuration {
                 .filter_map(|line| line.ok())
                 .collect::<Vec<String>>();
 
-            // if stdin is being used, we need to populate scope with the urls read from stdin
+            // the urls read from stdin are added to the scope later on, in resolve_scope
             for line in &cached_stdin {
                 if let Ok(url) = parse_url_with_no_base_correction(&config, line) {
                     config.cached_stdin.push(url.as_str().to_string());
-                    config.scope.push(url);
                 }
             }
         } else if let Some(url) = args.get_one::<String>("url") {
             if let Ok(parsed) = parse_url_with_no_base_correction(&config, url) {
                 config.target_url = parsed.as_str().to_string();
-                config.scope.push(parsed);
             } else {
                 config.target_url = url.into();
             }
@@ -910,13 +916,9 @@ impl Configuration {
         }
 
         if let Some(arg) = args.get_many::<String>("scope") {
-            // using a similar approach as above, we need to handle both absolute and relative URLs
-            // e.g. https://example.com or example.com
-            for scoped_url in arg {
-                if let Ok(url) = parse_url_with_no_base_correction(&config, scoped_url) {
-                    config.scope.push(url);
-                }
-            }
+            // both absolute and relative URLs are allowed, e.g. https://example.com or
+            // example.com; they're parsed later on, in resolve_scope
+            config.raw_scope = arg.map(|val| val.to_string()).collect();
         }
 
         if let Some(arg) = args.get_many::<String>("filter_regex") {
@@ -1311,8 +1313,32 @@ impl Configuration {
         Ok(())
     }
 
+    /// Build the effective scope, once all config sources are merged
+    ///
+    /// scope entries are parsed using the effective protocol, and the target url(s) are always
+    /// added to the scope, no matter which source the rest of the scope came from
+    pub(super) fn resolve_scope(config: &mut Self) {
+        let mut scope: Vec<Url> = config
+            .cached_stdin
+            .iter()
+            .chain(std::iter::once(&config.target_url))
+            .filter(|target| !target.is_empty())
+            .filter_map(|target| parse_url_with_raw_path(target).ok())
+            .collect();
+
+        for entry in &config.raw_scope {
+            if let Ok(url) = parse_url_with_no_base_correction(config, entry) {
+                if !scope.contains(&url) {
+                    scope.push(url);
+                }
+            }
+        }
+
+        config.scope = scope;
+    }
+
     /// Given two Configurations, overwrite `settings` with the fields found in `settings_to_merge`
-    fn merge_config(conf: &mut Self, new: Self) {
+    pub(super) fn merge_config(conf: &mut Self, new: Self) {
         // does not include the following Configuration fields, as they don't make sense here
         //  - kind
         //  - client
@@ -1351,7 +1377,9 @@ impl Configuration {
         update_if_not_default!(&mut conf.methods, new.methods, methods());
         update_if_not_default!(&mut conf.data, new.data, Vec::<u8>::new());
         update_if_not_default!(&mut conf.url_denylist, new.url_denylist, Vec::<Url>::new());
-        update_if_not_default!(&mut conf.scope, new.scope, Vec::<Url>::new());
+        // like other options, scope from a higher-priority source replaces scope from a
+        // lower-priority one; the target url(s) are added later on, in resolve_scope
+        update_if_not_default!(&mut conf.raw_scope, new.raw_scope, Vec::<String>::new());
         update_if_not_default!(&mut conf.update_app, new.update_app, false);
         if !new.regex_denylist.is_empty() {
             // cant use the update_if_not_default macro due to the following error
