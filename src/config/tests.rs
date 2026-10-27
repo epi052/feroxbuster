@@ -464,6 +464,23 @@ fn resolve_scope_adds_target_urls() {
 }
 
 #[test]
+/// scope entries should be deduplicated by host, the same way scope is checked
+fn resolve_scope_deduplicates_by_host() {
+    let mut config = Configuration {
+        cached_stdin: vec![
+            "http://foo.com/".to_string(),
+            "http://foo.com:8080/".to_string(),
+        ],
+        raw_scope: vec!["foo.com".to_string(), "https://foo.com/admin".to_string()],
+        ..Default::default()
+    };
+
+    Configuration::resolve_scope(&mut config);
+
+    assert_eq!(config.scope, vec![Url::parse("http://foo.com").unwrap()]);
+}
+
+#[test]
 /// the scope saved in a state file should come back unchanged when resuming a scan
 fn resolve_scope_after_reading_scope_from_state_file() {
     let config = Configuration {

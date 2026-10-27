@@ -144,3 +144,47 @@ fn config_scope_accepts_domains_without_scheme() -> Result<(), Box<dyn std::erro
 
     Ok(())
 }
+
+#[test]
+/// -u http://foo.com + --scope foo.com => foo.com, once
+fn scope_is_deduplicated_by_host() -> Result<(), Box<dyn std::error::Error>> {
+    run_with_scope_configs(
+        None,
+        None,
+        &["--url", "http://foo.com", "--scope", "foo.com"],
+    )?
+    .stderr(in_scope("foo.com").and(predicate::function(|out: &str| {
+        out.matches("In-Scope Url").count() == 1
+    })));
+
+    Ok(())
+}
+
+#[test]
+/// scan started with --stdin, resumed with --scope => original targets and new scope
+fn resumed_scope_keeps_saved_scope_and_adds_cli_scope() -> Result<(), Box<dyn std::error::Error>> {
+    let state_dir = tempfile::TempDir::new()?;
+    let state_file = state_dir.path().join("ferox.state");
+    std::fs::write(
+        &state_file,
+        r#"{"scans":[],"responses":[],"config":{"type":"configuration","stdin":true,"target_url":"","scope":["http://foo.com/","http://bar.com/"]}}"#,
+    )?;
+
+    run_with_scope_configs(
+        None,
+        None,
+        &[
+            "--resume-from",
+            state_file.to_str().unwrap(),
+            "--scope",
+            "baz.com",
+        ],
+    )?
+    .stderr(
+        in_scope("foo.com")
+            .and(in_scope("bar.com"))
+            .and(in_scope("baz.com")),
+    );
+
+    Ok(())
+}

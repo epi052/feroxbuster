@@ -615,7 +615,7 @@ impl Configuration {
 
         // read in the user provided options, this produces a separate instance of Configuration
         // in order to allow for potentially merging into a --resume-from Configuration
-        let cli_config = Self::parse_cli_args(&args);
+        let mut cli_config = Self::parse_cli_args(&args);
 
         // --resume-from used, need to first read the Configuration from disk, and then
         // merge the cli_config into the resumed config
@@ -624,10 +624,16 @@ impl Configuration {
             // load the config from disk by calling resume_scan
             let mut previous_config = resume_scan(filename);
 
+            // the scope saved in the state file is the effective scope of the original scan,
+            // which includes its target(s); --scope values given on resume are added to it
+            // instead of replacing it, otherwise targets read from --stdin would be lost
+            let new_scope = std::mem::take(&mut cli_config.raw_scope);
+
             // if any other arguments were passed on the command line, the theory is that the
             // user meant to modify the previously cancelled/saved scan in some way that we
             // should take into account
             Self::merge_config(&mut previous_config, cli_config);
+            previous_config.raw_scope.extend(new_scope);
             Self::resolve_scope(&mut previous_config);
 
             // the resumed flag isn't printed in the banner and really has no business being
@@ -1316,21 +1322,28 @@ impl Configuration {
     /// Build the effective scope, once all config sources are merged
     ///
     /// scope entries are parsed using the effective protocol, and the target url(s) are always
-    /// added to the scope, no matter which source the rest of the scope came from
+    /// added to the scope, no matter which source the rest of the scope came from; entries are
+    /// deduplicated by host
     pub(super) fn resolve_scope(config: &mut Self) {
-        let mut scope: Vec<Url> = config
+        let targets = config
             .cached_stdin
             .iter()
             .chain(std::iter::once(&config.target_url))
             .filter(|target| !target.is_empty())
-            .filter_map(|target| parse_url_with_raw_path(target).ok())
-            .collect();
+            .filter_map(|target| parse_url_with_raw_path(target).ok());
 
-        for entry in &config.raw_scope {
-            if let Ok(url) = parse_url_with_no_base_correction(config, entry) {
-                if !scope.contains(&url) {
-                    scope.push(url);
-                }
+        let entries = config
+            .raw_scope
+            .iter()
+            .filter_map(|entry| parse_url_with_no_base_correction(config, entry).ok());
+
+        let mut scope: Vec<Url> = Vec::new();
+
+        for url in targets.chain(entries) {
+            // only the host matters when checking scope (see UrlExt::is_in_scope), so
+            // entries are deduplicated by host, not by full url
+            if !scope.iter().any(|scoped| scoped.host() == url.host()) {
+                scope.push(url);
             }
         }
 
