@@ -217,6 +217,25 @@ cat targets | ./feroxbuster --stdin --silent -s 200 301 302 --redirects -x js | 
 ./feroxbuster -u http://127.1 --data-urlencoded @file.payload
 ```
 
+### Render discovered URLs as a tree
+
+```
+./feroxbuster -u http://127.1 --tree
+```
+
+`--tree` accumulates results in memory and prints a single tree at the end of
+the scan instead of streaming each URL as it is found.
+
+```
+200      GET        1l        1w        5c http://127.0.0.1
+301      GET        0l        0w        0c ├── admin
+200      GET        1l        1w        7c │   ├── backup.zip
+301      GET        0l        0w        0c │   ├── config
+200      GET        1l        1w        7c │   │   └── index.html
+200      GET        1l        2w       12c │   └── index.html
+200      GET        1l        1w        5c └── index.html
+```
+
 > [!TIP]
 > For realsies, there used to be over 1300 lines in this README, but it's all been moved to the [new documentation site](https://epi052.github.io/feroxbuster-docs/overview). Go check it out!
 >
