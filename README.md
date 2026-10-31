@@ -378,6 +378,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://linktr.ee/chrisjr404"><img src="https://avatars.githubusercontent.com/u/11917633?v=4?s=100" width="100px;" alt="ChrisJr404"/><br /><sub><b>ChrisJr404</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=ChrisJr404" title="Code">💻</a> <a href="#ideas-ChrisJr404" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://mmadersbacher.github.io"><img src="https://avatars.githubusercontent.com/u/218396309?v=4?s=100" width="100px;" alt="Mario Madersbacher"/><br /><sub><b>Mario Madersbacher</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=mmadersbacher" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/issues?q=author%3Ammadersbacher" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/dennyskaluzny/"><img src="https://avatars.githubusercontent.com/u/64793570?v=4?s=100" width="100px;" alt="Dennys Kaluzny Pereira"/><br /><sub><b>Dennys Kaluzny Pereira</b></sub></a><br /><a href="https://github.com/epi052/feroxbuster/commits?author=protonnegativo" title="Code">💻</a> <a href="https://github.com/epi052/feroxbuster/issues?q=author%3Aprotonnegativo" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>
