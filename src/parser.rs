@@ -690,6 +690,7 @@ pub fn initialize() -> Command {
                 .value_name("FILE")
                 .help_heading("Output settings")
                 .help("Output file to write results to (use w/ --json for JSON entries)")
+                .long_help("Append results to FILE, creating it if needed. Existing contents are preserved across runs; use a different path for a separate report. Use --json for JSON entries and keep the same format when reusing a file.")
                 .num_args(1),
         )
         .arg(
