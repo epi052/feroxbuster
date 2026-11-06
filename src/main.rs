@@ -41,7 +41,6 @@ use feroxbuster::{
 #[cfg(not(target_os = "windows"))]
 use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use lazy_static::lazy_static;
-use regex::Regex;
 use self_update::cargo_crate_version;
 
 /// Environment variable set on the children spawned by the --parallel branch
@@ -400,12 +399,11 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
         let invocation = args();
 
-        let para_regex = Regex::new("--stdin").unwrap();
-
-        // remove stdin since only the original process will process targets
-        // remove quiet and silent so we can force silent later to normalize output
+        // remove --stdin since only the original process will process targets.
+        // compare the whole argument so a value that merely contains the string
+        // (e.g. -H 'X-Foo: --stdin') is kept for the child (issue #1325)
         let mut original = invocation
-            .filter(|s| !para_regex.is_match(s))
+            .filter(|s| *s != "--stdin")
             .collect::<Vec<String>>();
 
         // every child is given a -u, which clap won't take alongside --parallel, so it has to go
