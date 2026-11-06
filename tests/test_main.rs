@@ -437,3 +437,69 @@ fn main_parallel_from_config_file_conflicts_with_url() -> Result<(), Box<dyn std
 
     Ok(())
 }
+
+#[test]
+/// #1325: the --parallel branch stripped --stdin from children with a regex
+/// is_match, so any argv element containing that substring was dropped. A header
+/// value of `--stdin` then left `-H` without its value, clap refused to start the
+/// child, and the parent ignored the child's exit code so the run still exited 0.
+/// Compare the whole argument so only the flag itself is removed.
+fn main_parallel_stdin_filter_keeps_args_with_stdin_substring(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+
+    let words = [
+        String::from("LICENSE"),
+        String::from("stuff"),
+        String::from("things"),
+    ];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (output_dir, outfile) = setup_tmp_directory(&[], "output-file")?;
+    let (tgt_tmp_dir, targets) = setup_tmp_directory(&[t1.url("/"), t2.url("/")], "targets")?;
+
+    Command::new(cargo_bin!("feroxbuster"))
+        .env("RUST_LOG", "trace")
+        .arg("--stdin")
+        .arg("--parallel")
+        .arg("2")
+        .arg("--quiet")
+        .arg("--no-state")
+        .arg("-H")
+        .arg("X-Foo: --stdin")
+        .arg("--debug-log")
+        .arg(outfile.as_os_str())
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .stdin(std::fs::File::open(targets)?)
+        .assert()
+        .success()
+        // with the bug, clap prints this from the child after -H loses its value
+        .stderr(predicate::str::contains("a value is required for '--headers'").not());
+
+    let contents = read_to_string(outfile).unwrap();
+    println!("contents: {contents}");
+
+    assert!(contents.contains("parallel branch && wrapped main"));
+
+    for target in [t1.url("/"), t2.url("/")] {
+        let spawned = Regex::new(&format!("parallel exec:.*-u {target}"))
+            .unwrap()
+            .find(&contents)
+            .map(|found| found.as_str().to_string())
+            .unwrap_or_else(|| panic!("no child spawned for {target}"));
+
+        // the header value must survive into the child's argv (proves the filter
+        // no longer drops arguments that merely contain the --stdin substring)
+        assert!(
+            spawned.contains("X-Foo: --stdin"),
+            "child argv lost the header value containing --stdin: {spawned}"
+        );
+    }
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
+    teardown_tmp_directory(output_dir);
+
+    Ok(())
+}
