@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use crate::{
     traits::FeroxSerialize,
-    utils::{fmt_err, open_file, open_file_with_newline, write_to},
+    utils::{fmt_err, open_file, write_to},
 };
 
 use super::{error::StatError, field::StatField};
@@ -544,11 +544,7 @@ impl Stats {
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
     pub fn save(&self, seconds: f64, location: &str) -> Result<()> {
-        let mut file = if self.json {
-            open_file_with_newline(location)?
-        } else {
-            open_file(location)?
-        };
+        let mut file = open_file(location)?;
 
         self.update_runtime(seconds);
 
