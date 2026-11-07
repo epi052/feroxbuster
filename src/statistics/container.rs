@@ -150,7 +150,9 @@ impl FeroxSerialize for Stats {
 
     /// Simple call to produce a JSON string using the given Stats object
     fn as_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self)?)
+        let mut json = serde_json::to_string(&self)?;
+        json.push('\n');
+        Ok(json)
     }
 }
 

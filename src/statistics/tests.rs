@@ -59,5 +59,6 @@ fn save_writes_stats_object_to_disk() {
 
     assert!(stats.as_json().unwrap().contains("statistics"));
     assert!(stats.as_json().unwrap().contains("11")); // requests made
+    assert!(stats.as_json().unwrap().ends_with('\n'));
     assert!(stats.as_str().is_empty());
 }
