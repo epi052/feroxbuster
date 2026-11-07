@@ -1077,6 +1077,16 @@
         "code",
         "bug"
       ]
+    },
+    {
+      "login": "rylena",
+      "name": "Rylen Anil",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47320423?v=4",
+      "profile": "http://rylenanil.com",
+      "contributions": [
+        "doc",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
