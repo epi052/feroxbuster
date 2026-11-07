@@ -14,7 +14,7 @@ use crate::{
     send_command, skip_fail,
     statistics::StatField::{ResourcesDiscovered, TotalExpected},
     traits::FeroxSerialize,
-    utils::{ferox_print, fmt_err, make_request, open_file, write_to},
+    utils::{ferox_print, fmt_err, make_request, open_file, open_file_with_newline, write_to},
     CommandReceiver, CommandSender, Joiner, UNIQUE_DISTANCE,
 };
 
@@ -96,7 +96,11 @@ impl FileOutHandler {
     async fn start(&mut self, tx_stats: CommandSender) -> Result<()> {
         log::trace!("enter: start_file_handler({tx_stats:?})");
 
-        let mut file = open_file(&self.config.output)?;
+        let mut file = if self.config.json {
+            open_file_with_newline(&self.config.output)?
+        } else {
+            open_file(&self.config.output)?
+        };
 
         log::info!("Writing scan results to {}", self.config.output);
 

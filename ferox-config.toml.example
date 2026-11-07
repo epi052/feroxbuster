@@ -29,8 +29,6 @@
 # output appends to an existing file, or creates it if needed. Reusing the same
 # path across runs preserves previous results; use a different path for a separate report.
 # Keep the same format (json = true or false) when reusing an output file.
-# Reusing a JSON output file concatenates scan records and may not produce valid NDJSON;
-# use separate files for independently parseable reports.
 # output = "/targets/ellingson_mineral_company/gibson.txt"
 # debug_log = "/var/log/find-the-derp.log"
 # user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"

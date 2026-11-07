@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use crate::{
     traits::FeroxSerialize,
-    utils::{fmt_err, open_file, write_to},
+    utils::{fmt_err, open_file, open_file_with_newline, write_to},
 };
 
 use super::{error::StatError, field::StatField};
@@ -150,7 +150,9 @@ impl FeroxSerialize for Stats {
 
     /// Simple call to produce a JSON string using the given Stats object
     fn as_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self)?)
+        let mut json = serde_json::to_string(&self)?;
+        json.push('\n');
+        Ok(json)
     }
 }
 
@@ -542,7 +544,11 @@ impl Stats {
 
     /// save an instance of `Stats` to disk after updating the total runtime for the scan
     pub fn save(&self, seconds: f64, location: &str) -> Result<()> {
-        let mut file = open_file(location)?;
+        let mut file = if self.json {
+            open_file_with_newline(location)?
+        } else {
+            open_file(location)?
+        };
 
         self.update_runtime(seconds);
 

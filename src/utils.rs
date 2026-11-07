@@ -8,7 +8,7 @@ use rlimit::{getrlimit, setrlimit, Resource};
 use std::{
     error::Error,
     fs,
-    io::{self, BufWriter, Write},
+    io::{self, BufWriter, Read, Seek, SeekFrom, Write},
     sync::Arc,
     time::Duration,
     time::{SystemTime, UNIX_EPOCH},
@@ -93,13 +93,36 @@ fn is_certificate_error(error: &reqwest::Error) -> bool {
 /// Given the path to a file, open the file in append mode (create it if it doesn't exist) and
 /// return a reference to the buffered file
 pub fn open_file(filename: &str) -> Result<BufWriter<fs::File>> {
+    open_file_impl(filename, false)
+}
+
+/// Open a file in append mode, ensuring existing contents end with a newline.
+pub(crate) fn open_file_with_newline(filename: &str) -> Result<BufWriter<fs::File>> {
+    open_file_impl(filename, true)
+}
+
+fn open_file_impl(filename: &str, ensure_newline: bool) -> Result<BufWriter<fs::File>> {
     log::trace!("enter: open_file({filename})");
 
-    let file = fs::OpenOptions::new() // std fs
-        .create(true)
-        .append(true)
+    let mut options = fs::OpenOptions::new();
+    options.create(true).append(true);
+    if ensure_newline {
+        options.read(true);
+    }
+
+    let mut file = options
         .open(filename)
         .with_context(|| fmt_err(&format!("Could not open {filename}")))?;
+
+    if ensure_newline && file.metadata()?.len() > 0 {
+        file.seek(SeekFrom::End(-1))?;
+        let mut last_byte = [0];
+        file.read_exact(&mut last_byte)?;
+
+        if last_byte[0] != b'\n' {
+            file.write_all(b"\n")?;
+        }
+    }
 
     let writer = BufWriter::new(file); // std io
 
@@ -808,6 +831,25 @@ mod tests {
     use super::*;
     use crate::config::Configuration;
     use crate::scan_manager::{FeroxScans, ScanOrder};
+
+    #[test]
+    fn open_file_separates_appended_json_records() {
+        let temp_file = tempfile::NamedTempFile::new().unwrap();
+        fs::write(temp_file.path(), b"{\"type\":\"statistics\"}").unwrap();
+
+        let mut file = open_file_with_newline(temp_file.path().to_str().unwrap()).unwrap();
+        file.write_all(b"{\"type\":\"configuration\"}\n").unwrap();
+        file.flush().unwrap();
+
+        let mut file = open_file_with_newline(temp_file.path().to_str().unwrap()).unwrap();
+        file.write_all(b"{\"type\":\"log\"}\n").unwrap();
+        file.flush().unwrap();
+
+        assert_eq!(
+            fs::read(temp_file.path()).unwrap(),
+            b"{\"type\":\"statistics\"}\n{\"type\":\"configuration\"}\n{\"type\":\"log\"}\n"
+        );
+    }
 
     #[test]
     /// parse_url_with_raw_path with javascript:// should not throw an unimplemented! error
