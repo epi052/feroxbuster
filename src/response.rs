@@ -404,7 +404,17 @@ impl FeroxResponse {
                     log::debug!("Location header: {loc:?}");
 
                     if let Ok(loc_str) = loc.to_str() {
-                        if let Ok(abs_url) = self.url().join(loc_str) {
+                        if let Ok(mut abs_url) = self.url().join(loc_str) {
+                            if abs_url.scheme() != self.url().scheme()
+                                && matches!(abs_url.scheme(), "http" | "https")
+                                && matches!(self.url().scheme(), "http" | "https")
+                            {
+                                // some misconfigured servers redirect /dir to /dir/ while also
+                                // switching between http and https; only the trailing slash
+                                // matters for directory detection, so ignore the scheme change
+                                let _ = abs_url.set_scheme(self.url().scheme());
+                            }
+
                             if format!("{}/", self.url()) == abs_url.as_str() {
                                 // if current response's Url + / == the absolute redirection
                                 // location, we've found a directory suitable for recursion
@@ -760,6 +770,35 @@ mod tests {
     use super::*;
     use crate::config::Configuration;
     use std::default::Default;
+
+    #[test]
+    /// a 301 to the same path with a trailing slash should be a directory, even if the
+    /// redirect also switches between http and https
+    fn is_directory_ignores_scheme_change_in_redirect() {
+        for (url, location, expected) in [
+            ("https://localhost/js", "http://localhost/js/", true),
+            ("http://localhost/js", "https://localhost/js/", true),
+            (
+                "https://localhost:8443/js",
+                "http://localhost:8443/js/",
+                true,
+            ),
+            ("https://localhost/js", "/js/", true),
+            ("https://localhost/js", "http://localhost/other/", false),
+            ("https://localhost/js", "http://otherhost/js/", false),
+            ("https://localhost/js", "ftp://localhost/js/", false),
+        ] {
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert("Location", location.parse().unwrap());
+            let response = FeroxResponse {
+                url: Url::parse(url).unwrap(),
+                status: StatusCode::MOVED_PERMANENTLY,
+                headers,
+                ..Default::default()
+            };
+            assert_eq!(response.is_directory(), expected, "{url} => {location}");
+        }
+    }
 
     #[test]
     /// call reached_max_depth with max depth of zero, which is infinite recursion, expect false

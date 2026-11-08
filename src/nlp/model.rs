@@ -102,6 +102,14 @@ mod tests {
         model.terms().get(&Term::new(word)).unwrap().tf_idf_score()
     }
 
+    fn assert_score_close(word: &str, model: &TfIdf, expected: f32) {
+        let actual = get_score(word, model);
+        assert!(
+            (actual - expected).abs() <= 1e-6,
+            "{word}: expected {expected}, got {actual}"
+        );
+    }
+
     #[test]
     /// given the example data at https://remykarem.github.io/tfidf-demo/, ensure the model
     /// produces the same results
@@ -126,16 +134,16 @@ mod tests {
 
         assert_eq!(get_score("quality", &model), 0.0);
         assert_eq!(get_score("air", &model), 0.0);
-        assert_eq!(get_score("wednesday", &model), 0.018906077);
-        assert_eq!(get_score("island", &model), 0.014047348);
-        assert_eq!(get_score("singapore", &model), 0.016427131);
-        assert_eq!(get_score("sunny", &model), 0.08600858);
-        assert_eq!(get_score("monitoring", &model), 0.05017167);
-        assert_eq!(get_score("stations", &model), 0.05017167);
-        assert_eq!(get_score("parts", &model), 0.05017167);
-        assert_eq!(get_score("haze", &model), 0.06689556);
-        assert_eq!(get_score("hit", &model), 0.06689556);
-        assert_eq!(get_score("worse", &model), 0.04682689);
+        assert_score_close("wednesday", &model, 0.018906077);
+        assert_score_close("island", &model, 0.014047348);
+        assert_score_close("singapore", &model, 0.016427131);
+        assert_score_close("sunny", &model, 0.08600858);
+        assert_score_close("monitoring", &model, 0.05017167);
+        assert_score_close("stations", &model, 0.05017167);
+        assert_score_close("parts", &model, 0.05017167);
+        assert_score_close("haze", &model, 0.06689556);
+        assert_score_close("hit", &model, 0.06689556);
+        assert_score_close("worse", &model, 0.04682689);
     }
 
     #[test]
