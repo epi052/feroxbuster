@@ -502,6 +502,8 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
 
                 if let Some(output_path) = child_output {
                     command.env(PARALLEL_OUTPUT_ENV, output_path);
+                } else {
+                    command.env_remove(PARALLEL_OUTPUT_ENV);
                 }
 
                 let mut output = command
