@@ -5,8 +5,79 @@ use httpmock::Method::GET;
 use httpmock::{MockServer, Regex};
 use predicates::prelude::*;
 use std::fs::{read_dir, read_to_string};
-use std::process::Command;
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus};
+use std::time::{Duration, Instant};
 use utils::{setup_tmp_directory, teardown_tmp_directory};
+
+/// Upper bound on how long a single feroxbuster invocation may run before the test
+/// kills it. Healthy runs of the tests below finish in a few seconds.
+const RUN_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// Spawn `cmd`, wait for it to finish, and fail the test if it is still running
+/// after [`RUN_TIMEOUT`].
+///
+/// The guard exists because the #1324 failure mode is a hang rather than a clean
+/// non-zero exit: the panic unwinds `main` while the tokio runtime still holds the
+/// terminal-input task blocked in `crossterm::event::poll`, so `Runtime::drop` never
+/// returns and the process sits there until an external kill (observed as exit 124
+/// under `timeout(1)` on a dev build; release builds abort with 134 because
+/// `[profile.release] panic = 'abort'`). A plain `.assert()` would block the test
+/// suite forever instead of reporting the regression.
+fn run_to_completion(cmd: &mut Command, shape: &str) -> ExitStatus {
+    let mut child = cmd
+        .spawn()
+        .unwrap_or_else(|e| panic!("could not spawn feroxbuster for {shape}: {e}"));
+
+    let deadline = Instant::now() + RUN_TIMEOUT;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return status,
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!(
+                    "feroxbuster ({shape}) was still running after {RUN_TIMEOUT:?}: \
+                     the run hung instead of completing"
+                );
+            }
+            Err(e) => panic!("could not wait for feroxbuster ({shape}): {e}"),
+        }
+    }
+}
+
+/// Assert that `dir` contains exactly one `<name>.logs` directory and return it
+/// together with the `ferox-*.log` files inside it — one per child that wrote its
+/// scan results there.
+fn child_log_dir(dir: &Path) -> Result<(PathBuf, Vec<PathBuf>), Box<dyn std::error::Error>> {
+    let mut log_dirs = Vec::new();
+    for entry in read_dir(dir)? {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() && entry.file_name().to_string_lossy().ends_with(".logs") {
+            log_dirs.push(entry.path());
+        }
+    }
+    assert_eq!(
+        log_dirs.len(),
+        1,
+        "expected exactly one .logs directory under {}",
+        dir.display()
+    );
+    let log_dir = log_dirs.pop().unwrap();
+
+    let mut logs = Vec::new();
+    for entry in read_dir(&log_dir)? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("ferox-") && name.ends_with(".log") {
+            logs.push(entry.path());
+        }
+    }
+    Ok((log_dir, logs))
+}
 
 #[test]
 /// send the function a file to which we dont have permission in order to execute error branch
@@ -433,6 +504,123 @@ fn main_parallel_from_config_file_conflicts_with_url() -> Result<(), Box<dyn std
         ));
 
     teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(cfg_tmp_dir);
+
+    Ok(())
+}
+
+#[test]
+/// #1324: the `--parallel` branch located the output value by searching argv for a
+/// standalone `-o`/`--output` element and `unwrap()`ed the result, so every other
+/// clap-accepted spelling of the flag aborted the run — `--output=FILE`, the glued
+/// `-oFILE`, the `-o=FILE` and bundled `-qo FILE` / `-qoFILE` variants. The value is
+/// parsed into `config.output` the same way regardless of spelling, so each child must
+/// still end up with its own `ferox-*.log` in the shared `.logs` directory.
+fn main_parallel_output_every_cli_shape_writes_child_logs() -> Result<(), Box<dyn std::error::Error>>
+{
+    for shape in ["--output=FILE", "-oFILE", "-o=FILE", "-qo FILE", "-qoFILE"] {
+        let t1 = MockServer::start();
+        let t2 = MockServer::start();
+
+        let words = [String::from("LICENSE"), String::from("stuff")];
+        let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+        let (tgt_tmp_dir, targets) = setup_tmp_directory(&[t1.url("/"), t2.url("/")], "targets")?;
+        let (run_tmp_dir, _) = setup_tmp_directory(&[], "output-file")?;
+
+        // every spelling below resolves to the same value once clap has parsed it;
+        // only the positional search for a standalone `-o` element ever differed
+        let outfile = run_tmp_dir.path().join("output-file");
+        let mut args: Vec<String> = match shape {
+            "--output=FILE" => vec![format!("--output={}", outfile.display())],
+            "-oFILE" => vec![format!("-o{}", outfile.display())],
+            "-o=FILE" => vec![format!("-o={}", outfile.display())],
+            "-qo FILE" => vec!["-qo".to_string(), outfile.display().to_string()],
+            "-qoFILE" => vec![format!("-qo{}", outfile.display())],
+            other => unreachable!("unhandled output shape {other}"),
+        };
+        // the bundled `-qo` spellings already carry --quiet
+        if !shape.starts_with("-qo") {
+            args.push("--quiet".to_string());
+        }
+
+        let mut cmd = Command::new(cargo_bin!("feroxbuster"));
+        cmd.arg("--stdin")
+            .arg("--parallel")
+            .arg("2")
+            .args(&args)
+            .arg("--wordlist")
+            .arg(wordlist.as_os_str())
+            .current_dir(run_tmp_dir.path())
+            .stdin(std::fs::File::open(&targets)?);
+
+        let status = run_to_completion(&mut cmd, shape);
+        assert!(
+            status.success(),
+            "feroxbuster failed for shape {shape}: {status}"
+        );
+
+        let (log_dir, logs) = child_log_dir(run_tmp_dir.path())?;
+        assert_eq!(
+            logs.len(),
+            2,
+            "shape {shape}: expected one ferox-*.log per target in {}, found {:?}",
+            log_dir.display(),
+            logs,
+        );
+
+        teardown_tmp_directory(word_tmp_dir);
+        teardown_tmp_directory(tgt_tmp_dir);
+        teardown_tmp_directory(run_tmp_dir);
+    }
+
+    Ok(())
+}
+
+#[test]
+/// #1324, config-file flavor: `output` sourced from a config file puts no `-o`
+/// element on the command line at all, so the argv search panicked on the first
+/// target before any child was spawned. The children read the same config file, so
+/// their per-target output path has to come from the parent's decision rather than
+/// from their own argv.
+fn main_parallel_config_file_output_writes_child_logs() -> Result<(), Box<dyn std::error::Error>> {
+    let t1 = MockServer::start();
+    let t2 = MockServer::start();
+
+    let words = [String::from("LICENSE"), String::from("stuff")];
+    let (word_tmp_dir, wordlist) = setup_tmp_directory(&words, "wordlist")?;
+    let (tgt_tmp_dir, targets) = setup_tmp_directory(&[t1.url("/"), t2.url("/")], "targets")?;
+    let (cfg_tmp_dir, _) = setup_tmp_directory(
+        &[String::from("output = \"cfg-output.txt\"")],
+        "ferox-config.toml",
+    )?;
+
+    let mut cmd = Command::new(cargo_bin!("feroxbuster"));
+    cmd.current_dir(cfg_tmp_dir.path())
+        .arg("--stdin")
+        .arg("--quiet")
+        .arg("--parallel")
+        .arg("2")
+        .arg("--wordlist")
+        .arg(wordlist.as_os_str())
+        .stdin(std::fs::File::open(targets)?);
+
+    let status = run_to_completion(&mut cmd, "config-file output");
+    assert!(
+        status.success(),
+        "feroxbuster failed with a config-file output: {status}"
+    );
+
+    let (log_dir, logs) = child_log_dir(cfg_tmp_dir.path())?;
+    assert_eq!(
+        logs.len(),
+        2,
+        "config-file output: expected one ferox-*.log per target in {}, found {:?}",
+        log_dir.display(),
+        logs,
+    );
+
+    teardown_tmp_directory(word_tmp_dir);
+    teardown_tmp_directory(tgt_tmp_dir);
     teardown_tmp_directory(cfg_tmp_dir);
 
     Ok(())
