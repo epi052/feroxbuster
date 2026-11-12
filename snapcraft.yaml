@@ -13,6 +13,7 @@ description: |
 
 base: core22
 grade: stable
+confinement: strict
 
 plugs:
   etc-feroxbuster:
