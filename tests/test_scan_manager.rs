@@ -90,9 +90,9 @@ fn resume_scan_works() {
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(tmp_dir2);
 
-    assert_eq!(already_scanned.hits(), 1);
-    assert_eq!(also_already_scanned.hits(), 0);
-    assert_eq!(not_scanned_yet.hits(), 1);
+    assert_eq!(already_scanned.calls(), 1);
+    assert_eq!(also_already_scanned.calls(), 0);
+    assert_eq!(not_scanned_yet.calls(), 1);
 }
 
 #[test]

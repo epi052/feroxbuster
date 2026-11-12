@@ -94,13 +94,13 @@ fn auto_bail_cancels_scan_with_403s() {
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(log_dir);
 
-    assert!(normal_reqs_mock.hits() + error_mock.hits() > 25); // must have at least 50 reqs fly
+    assert!(normal_reqs_mock.calls() + error_mock.calls() > 25); // must have at least 50 reqs fly
 
     // expect much less in the way of requests for this one, 90% is measured against requests made,
     // not requests expected, so 90% can be reached very quickly. for the same reason, the
     // num_enforced can be less than 50
-    assert!(normal_reqs_mock.hits() < 500);
-    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+    assert!(normal_reqs_mock.calls() < 500);
+    assert!(error_mock.calls() <= 180); // may or may not see all other error requests
 }
 
 #[test]
@@ -175,13 +175,13 @@ fn auto_bail_cancels_scan_with_429s() {
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(log_dir);
 
-    assert!(normal_reqs_mock.hits() + error_mock.hits() > 25); // must have at least 50 reqs fly
+    assert!(normal_reqs_mock.calls() + error_mock.calls() > 25); // must have at least 50 reqs fly
 
     // expect much less in the way of requests for this one, 90% is measured against requests made,
     // not requests expected, so 90% can be reached very quickly. for the same reason, the
     // num_enforced can be less than 50
-    assert!(normal_reqs_mock.hits() < 500);
-    assert!(error_mock.hits() <= 180); // may or may not see all other error requests
+    assert!(normal_reqs_mock.calls() < 500);
+    assert!(error_mock.calls() <= 180); // may or may not see all other error requests
 }
 
 #[test]
@@ -228,11 +228,11 @@ fn auto_tune_slows_scan_with_429s() {
 
     teardown_tmp_directory(tmp_dir);
 
-    let normal_hits = normal_reqs_mock.hits();
-    let error_hits = error_mock.hits();
+    let normal_hits = normal_reqs_mock.calls();
+    let error_hits = error_mock.calls();
 
-    println!("normal_reqs_mock.hits(): {}", normal_hits);
-    println!("error_mock.hits(): {}", error_hits);
+    println!("normal_reqs_mock.calls(): {}", normal_hits);
+    println!("error_mock.calls(): {}", error_hits);
 
     assert!(normal_hits + error_hits > 25); // must have at least 50 reqs fly
 
@@ -291,11 +291,11 @@ fn auto_tune_slows_scan_with_403s() {
 
     teardown_tmp_directory(tmp_dir);
 
-    let normal_hits = normal_reqs_mock.hits();
-    let error_hits = error_mock.hits();
+    let normal_hits = normal_reqs_mock.calls();
+    let error_hits = error_mock.calls();
 
-    println!("normal_reqs_mock.hits(): {}", normal_hits);
-    println!("error_mock.hits(): {}", error_hits);
+    println!("normal_reqs_mock.calls(): {}", normal_hits);
+    println!("error_mock.calls(): {}", error_hits);
 
     assert!(normal_hits + error_hits > 25); // must have at least 50 reqs fly
 
@@ -357,11 +357,11 @@ fn auto_tune_slows_scan_with_general_errors() {
 
     teardown_tmp_directory(tmp_dir);
 
-    let normal_hits = normal_reqs_mock.hits();
-    let error_hits = error_mock.hits();
+    let normal_hits = normal_reqs_mock.calls();
+    let error_hits = error_mock.calls();
 
-    println!("normal_reqs_mock.hits(): {}", normal_hits);
-    println!("error_mock.hits(): {}", error_hits);
+    println!("normal_reqs_mock.calls(): {}", normal_hits);
+    println!("error_mock.calls(): {}", error_hits);
     println!("elapsed: {}", start.elapsed().as_millis());
 
     // Normal requests timeout (3s delay with 2s timeout), triggering error policy

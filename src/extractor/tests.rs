@@ -295,7 +295,7 @@ async fn extractor_get_links_with_absolute_url_that_differs_from_target_domain()
     let links = extractor.extract_from_body().await?;
 
     assert!(links.is_empty());
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     Ok(())
 }
 
@@ -326,7 +326,7 @@ async fn request_robots_txt_without_proxy() -> Result<()> {
     assert!(matches!(resp.status(), &StatusCode::OK));
     println!("{resp}");
     assert_eq!(resp.content_length(), 14);
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     Ok(())
 }
 
@@ -358,7 +358,7 @@ async fn request_robots_txt_with_proxy() -> Result<()> {
 
     assert!(matches!(resp.status(), &StatusCode::OK));
     assert_eq!(resp.content_length(), 19);
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     Ok(())
 }
 
@@ -379,7 +379,7 @@ async fn request_link_happy_path() -> Result<()> {
     assert!(matches!(b_resp.status(), StatusCode::OK));
     assert_eq!(r_resp.content_length().unwrap(), 14);
     assert_eq!(b_resp.content_length().unwrap(), 14);
-    assert_eq!(mock.hits(), 2);
+    assert_eq!(mock.calls(), 2);
     Ok(())
 }
 
@@ -411,6 +411,6 @@ async fn request_link_bails_on_seen_url() -> Result<()> {
 
     assert!(r_resp.is_err());
     assert!(b_resp.is_err());
-    assert_eq!(mock.hits(), 0); // function exits before requests can happen
+    assert_eq!(mock.calls(), 0); // function exits before requests can happen
     Ok(())
 }

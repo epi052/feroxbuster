@@ -294,7 +294,7 @@ fn scenario_mixed_steady_state() {
     }
 
     let total =
-        normal_mock.hits() + error_mock.hits() + forbidden_mock.hits() + rate_limit_mock.hits();
+        normal_mock.calls() + error_mock.calls() + forbidden_mock.calls() + rate_limit_mock.calls();
 
     teardown_tmp_directory(tmp_dir);
     teardown_tmp_directory(log_dir);

@@ -2,8 +2,9 @@ mod utils;
 use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
-use httpmock::{MockServer, Regex};
+use httpmock::MockServer;
 use predicates::prelude::*;
+use regex::Regex;
 use std::fs::{read_dir, read_to_string};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
@@ -99,7 +100,7 @@ fn main_use_root_owned_file_as_wordlist() {
         .success()
         .stderr(predicate::str::contains("Could not open /etc/shadow"));
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
 }
 
 #[test]
@@ -123,7 +124,7 @@ fn main_use_empty_wordlist() -> Result<(), Box<dyn std::error::Error>> {
         .success()
         .stderr(predicate::str::contains("Did not find any words in"));
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
 
     teardown_tmp_directory(tmp_dir);
     Ok(())
@@ -353,9 +354,9 @@ fn main_download_wordlist_from_url() -> Result<(), Box<dyn std::error::Error>> {
 
     teardown_tmp_directory(tmp_dir);
 
-    assert_eq!(mock1.hits(), 1); // downloaded wordlist
-    assert_eq!(mock2.hits(), 1); // found stuff from wordlist
-    assert_eq!(mock3.hits(), 1); // found things from wordlist
+    assert_eq!(mock1.calls(), 1); // downloaded wordlist
+    assert_eq!(mock2.calls(), 1); // found stuff from wordlist
+    assert_eq!(mock3.calls(), 1); // found things from wordlist
 
     Ok(())
 }

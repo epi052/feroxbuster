@@ -33,7 +33,7 @@ fn deny_list_works_during_with_a_normal_scan() {
         .success()
         .stdout(predicate::str::contains(srv.url("/LICENSE")).not());
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
 }
 
 #[test]
@@ -70,8 +70,8 @@ fn deny_list_works_during_extraction() {
             .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg").not()),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 0);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 0);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -129,10 +129,10 @@ fn deny_list_works_during_recursion() {
             .not(),
     );
 
-    assert_eq!(js_mock.hits(), 2);
-    assert_eq!(js_prod_mock.hits(), 2);
-    assert_eq!(js_dev_mock.hits(), 0);
-    assert_eq!(js_dev_file_mock.hits(), 0);
+    assert_eq!(js_mock.calls(), 2);
+    assert_eq!(js_prod_mock.calls(), 2);
+    assert_eq!(js_dev_mock.calls(), 0);
+    assert_eq!(js_dev_file_mock.calls(), 0);
 
     teardown_tmp_directory(tmp_dir);
 }
@@ -199,11 +199,11 @@ fn deny_list_works_during_recursion_with_inverted_parents() {
             .not(),
     );
 
-    assert_eq!(js_mock.hits(), 2);
-    assert_eq!(js_prod_mock.hits(), 2);
-    assert_eq!(js_dev_mock.hits(), 2);
-    assert_eq!(js_dev_file_mock.hits(), 1);
-    assert_eq!(api_mock.hits(), 0);
+    assert_eq!(js_mock.calls(), 2);
+    assert_eq!(js_prod_mock.calls(), 2);
+    assert_eq!(js_dev_mock.calls(), 2);
+    assert_eq!(js_dev_file_mock.calls(), 1);
+    assert_eq!(api_mock.calls(), 0);
 
     teardown_tmp_directory(tmp_dir);
 }
@@ -238,7 +238,7 @@ fn deny_list_prevents_regex_that_denies_base_url() {
         .success()
         .stderr(predicate::str::contains(err_msg));
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
 }
 
 #[test]
@@ -273,5 +273,5 @@ fn deny_list_prevents_url_that_denies_base_url() {
         .success()
         .stderr(predicate::str::contains(err_msg));
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
 }

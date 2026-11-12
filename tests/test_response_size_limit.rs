@@ -37,7 +37,7 @@ fn response_size_limit_small_response_not_truncated() {
             .and(predicate::str::contains("truncated to size limit").not()), // should not be truncated
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -71,7 +71,7 @@ fn response_size_limit_large_response_truncated() {
             .and(predicate::str::contains("truncated to size limit")), // should be truncated
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -151,9 +151,9 @@ fn response_size_limit_mixed_response_sizes() {
         .lines()
         .any(|line| line.contains("/large") && line.contains("truncated to size limit")));
 
-    assert_eq!(mock_small.hits(), 1);
-    assert_eq!(mock_medium.hits(), 1);
-    assert_eq!(mock_large.hits(), 1);
+    assert_eq!(mock_small.calls(), 1);
+    assert_eq!(mock_medium.calls(), 1);
+    assert_eq!(mock_large.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -186,7 +186,7 @@ fn response_size_limit_default_4mb() {
             .and(predicate::str::contains("truncated to size limit").not()), // 1MB < 4MB default
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -219,7 +219,7 @@ fn response_size_limit_very_small_limit() {
             .and(predicate::str::contains("truncated to size limit")), // Should be truncated
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -254,7 +254,7 @@ fn response_size_limit_with_redirects() {
             .and(predicate::str::contains("1024c")), // Should show 1024c (truncated size)
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -294,7 +294,7 @@ fn response_size_limit_with_error_responses() {
             .and(predicate::str::contains("truncated to size limit")), // Should be truncated
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -334,7 +334,7 @@ fn response_size_limit_json_output_includes_truncated_field() {
     assert!(json_content.contains("\"truncated\":true"));
     assert!(json_content.contains("/jsontest"));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -393,7 +393,7 @@ fn response_size_limit_exact_limit() {
             .and(predicate::str::contains("truncated to size limit").not()), // Should not be truncated (exact match)
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -431,6 +431,6 @@ fn response_size_limit_from_config_file() {
             .and(predicate::str::contains("truncated to size limit")), // Should be truncated due to config
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }

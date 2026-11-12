@@ -2,8 +2,9 @@ mod utils;
 use assert_cmd::cargo_bin;
 use assert_cmd::prelude::*;
 use httpmock::Method::GET;
-use httpmock::{MockServer, Regex};
+use httpmock::MockServer;
 use predicates::prelude::*;
+use regex::Regex;
 use std::process::Command;
 use utils::{setup_tmp_directory, teardown_tmp_directory};
 
@@ -82,7 +83,7 @@ fn test_one_good_and_one_bad_target_scan_succeeds() -> Result<(), Box<dyn std::e
                 .and(predicate::str::contains("200"))
                 .and(predicate::str::contains("14")),
         );
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
 
     teardown_tmp_directory(tmp_dir);
     Ok(())
@@ -144,8 +145,8 @@ fn test_two_good_targets_scan_succeeds() -> Result<(), Box<dyn std::error::Error
                 .and(predicate::str::contains("19c")),
         );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock2.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock2.calls(), 1);
 
     teardown_tmp_directory(tmp_dir);
     Ok(())
@@ -182,7 +183,7 @@ fn test_static_wildcard_request_found() -> Result<(), Box<dyn std::error::Error>
             .and(predicate::str::contains("1l")),
     );
 
-    assert_eq!(mock.hits(), 6);
+    assert_eq!(mock.calls(), 6);
 
     Ok(())
 }
@@ -209,7 +210,7 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
 
     teardown_tmp_directory(tmp_dir);
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
     Ok(())
 }
 
@@ -257,8 +258,8 @@ fn heuristics_static_wildcard_request_with_dont_filter() -> Result<(), Box<dyn s
 //             )),
 //     );
 
-//     assert_eq!(mock.hits(), 1);
-//     assert_eq!(mock2.hits(), 1);
+//     assert_eq!(mock.calls(), 1);
+//     assert_eq!(mock2.calls(), 1);
 // }
 
 #[test]
@@ -298,8 +299,8 @@ fn heuristics_wildcard_test_with_two_static_wildcards_with_silent_enabled(
         .success()
         .stdout(predicate::str::contains(srv.url("/")));
 
-    assert_eq!(mock.hits(), 6);
-    assert_eq!(mock2.hits(), 1);
+    assert_eq!(mock.calls(), 6);
+    assert_eq!(mock2.calls(), 1);
     Ok(())
 }
 
@@ -413,8 +414,8 @@ fn heuristics_wildcard_test_that_auto_filtering_403s_still_allows_for_recursion_
 //             )),
 //     );
 
-//     assert_eq!(mock.hits(), 1);
-//     assert_eq!(mock2.hits(), 1);
+//     assert_eq!(mock.calls(), 1);
+//     assert_eq!(mock2.calls(), 1);
 // }
 
 // #[test]
@@ -475,8 +476,8 @@ fn heuristics_wildcard_test_that_auto_filtering_403s_still_allows_for_recursion_
 //             .and(predicate::str::contains("WLD")),
 //     );
 
-//     assert_eq!(mock.hits(), 1);
-//     assert_eq!(mock2.hits(), 1);
+//     assert_eq!(mock.calls(), 1);
+//     assert_eq!(mock2.calls(), 1);
 //     Ok(())
 // }
 
