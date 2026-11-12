@@ -11,7 +11,8 @@ description: |
   This attack is also known as Predictable Resource Location, File Enumeration, Directory Enumeration, and Resource Enumeration.
 
 
-base: core18
+base: core22
+grade: stable
 
 plugs:
   etc-feroxbuster:
@@ -25,7 +26,7 @@ plugs:
 
 architectures:
   - build-on: amd64
-  - build-on: i386
+  - build-on: arm64
 
 parts:
   feroxbuster:
