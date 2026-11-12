@@ -1096,7 +1096,7 @@ dependencies = [
  "assert_cmd",
  "clap",
  "clap_complete",
- "console 0.15.11",
+ "console 0.16.6",
  "crossterm",
  "ctrlc",
  "dirs",
