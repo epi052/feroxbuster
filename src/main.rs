@@ -43,11 +43,21 @@ use feroxbuster::{utils::set_open_file_limit, DEFAULT_OPEN_FILE_LIMIT};
 use lazy_static::lazy_static;
 use self_update::cargo_crate_version;
 
-/// Environment variable set on the children spawned by the --parallel branch
+/// Environment variable set on the children spawned by the `--parallel` branch
 ///
 /// The branch can't tell a child apart by the absence of --parallel from the command line,
 /// because `parallel` can also come from a config file, which the children read as well.
 const PARALLEL_CHILD_ENV: &str = "FEROX_PARALLEL_CHILD";
+
+/// Environment variable used by the `--parallel` branch to give a child its own output path
+///
+/// The path is derived from the parent's parsed `config.output` (one `ferox-*.log` file per
+/// target inside the shared `.logs` directory) and applied by the child right after its own
+/// configuration load. It exists because the value can't be recovered reliably from argv:
+/// clap accepts `--output=FILE`, `-oFILE`, and a config-file `output`, none of which is a
+/// standalone `-o`/`--output` element, and the positional search that used to rewrite that
+/// element `unwrap()`ed a `None` and aborted the run (issue #1324).
+const PARALLEL_OUTPUT_ENV: &str = "FEROX_PARALLEL_OUTPUT";
 
 lazy_static! {
     /// Limits the number of parallel scans active at any given time when using --parallel
@@ -453,27 +463,26 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             // add the current target to the provided command
             let mut cloned = original.clone();
 
-            if !out_dir.is_empty() {
+            // when -o|--output is in play, give this child its own file inside the
+            // shared .logs directory. the path travels by environment (see
+            // PARALLEL_OUTPUT_ENV) rather than by rewriting the child's argv: clap
+            // accepts --output=FILE, -oFILE and a config-file `output`, none of which
+            // is a standalone -o/--output element the old positional search could
+            // find, and its unwrap aborted the run (issue #1324)
+            let child_output = if out_dir.is_empty() {
+                None
+            } else {
                 // output directory value is not empty, need to join output directory with
                 // unique scan filename
-
-                // unwrap is ok, we already know -o was used
-                let out_idx = original
-                    .iter()
-                    .position(|s| *s == "--output" || *s == "-o")
-                    .unwrap();
-
                 let filename = slugify_filename(&target, "ferox", "log");
 
-                let full_path = Path::new(&out_dir)
-                    .join(filename)
-                    .to_string_lossy()
-                    .to_string();
-
-                // a +1 to the index is fine here, as clap has already validated that
-                // -o|--output has a value associated with it
-                cloned[out_idx + 1] = full_path;
-            }
+                Some(
+                    Path::new(&out_dir)
+                        .join(filename)
+                        .to_string_lossy()
+                        .to_string(),
+                )
+            };
 
             cloned.push("-u".to_string());
             cloned.push(target);
@@ -486,9 +495,16 @@ async fn wrapped_main(config: Arc<Configuration>) -> Result<()> {
             log::debug!("parallel exec: {} {}", bin, args.join(" "));
 
             tokio::task::spawn(async move {
-                let mut output = Command::new(bin)
-                    .args(&args)
-                    .env(PARALLEL_CHILD_ENV, "1")
+                let mut command = Command::new(bin);
+                command.args(&args).env(PARALLEL_CHILD_ENV, "1");
+
+                if let Some(output_path) = child_output {
+                    command.env(PARALLEL_OUTPUT_ENV, output_path);
+                } else {
+                    command.env_remove(PARALLEL_OUTPUT_ENV);
+                }
+
+                let mut output = command
                     .stdout(Stdio::piped())
                     .spawn()
                     .expect("failed to spawn a child process");
@@ -704,6 +720,13 @@ fn main() -> Result<()> {
     if var_os(PARALLEL_CHILD_ENV).is_some() {
         config.parallel = 0;
         config.stdin = false;
+        // the --parallel parent hands each child its own output file by environment
+        // rather than by rewriting the child's argv (see PARALLEL_OUTPUT_ENV); apply
+        // it while the configuration is still mutable, before the logger or any
+        // output/statistics handler opens the file
+        if let Some(output_path) = var_os(PARALLEL_OUTPUT_ENV) {
+            config.output = output_path.to_string_lossy().into_owned();
+        }
     } else if config.parallel > 0 {
         // clap handles this when values come over cli, but not when set in the config file
         if !config.stdin {

@@ -1077,6 +1077,26 @@
         "code",
         "bug"
       ]
+    },
+    {
+      "login": "rylena",
+      "name": "Rylen Anil",
+      "avatar_url": "https://avatars.githubusercontent.com/u/47320423?v=4",
+      "profile": "http://rylenanil.com",
+      "contributions": [
+        "doc",
+        "bug"
+      ]
+    },
+    {
+      "login": "thelastbackspace",
+      "name": "thelastbackspace",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23155651?v=4",
+      "profile": "https://github.com/thelastbackspace",
+      "contributions": [
+        "code",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
