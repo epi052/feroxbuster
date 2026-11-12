@@ -571,12 +571,17 @@ fn main_parallel_stdin_filter_keeps_args_with_stdin_substring(
     teardown_tmp_directory(word_tmp_dir);
     teardown_tmp_directory(tgt_tmp_dir);
     teardown_tmp_directory(output_dir);
+
+    Ok(())
+}
+
 /// #1324: the `--parallel` branch located the output value by searching argv for a
 /// standalone `-o`/`--output` element and `unwrap()`ed the result, so every other
 /// clap-accepted spelling of the flag aborted the run — `--output=FILE`, the glued
 /// `-oFILE`, the `-o=FILE` and bundled `-qo FILE` / `-qoFILE` variants. The value is
 /// parsed into `config.output` the same way regardless of spelling, so each child must
 /// still end up with its own `ferox-*.log` in the shared `.logs` directory.
+#[test]
 fn main_parallel_output_every_cli_shape_writes_child_logs() -> Result<(), Box<dyn std::error::Error>>
 {
     for shape in ["--output=FILE", "-oFILE", "-o=FILE", "-qo FILE", "-qoFILE"] {
