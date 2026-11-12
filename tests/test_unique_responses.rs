@@ -43,8 +43,8 @@ fn word_and_status_makes_a_response_unique_and_isnt_seen() -> Result<(), Box<dyn
             .and(predicate::str::contains("/Other").not()),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -83,8 +83,8 @@ fn bytes_and_status_makes_a_redirect_response_unique_and_isnt_seen(
         .success()
         .stdout(predicate::str::contains("/LICENSE").and(predicate::str::contains("/Other").not()));
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }

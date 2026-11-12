@@ -185,7 +185,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(mock.hits(), 1);
+        assert_eq!(mock.calls(), 1);
 
         assert_eq!(
             filter,

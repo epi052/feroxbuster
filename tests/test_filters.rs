@@ -47,8 +47,8 @@ fn filters_status_code_should_filter_response() {
             .and(predicate::str::contains("34c")),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -92,8 +92,8 @@ fn filters_lines_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -137,8 +137,8 @@ fn filters_words_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -182,8 +182,8 @@ fn filters_size_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -238,9 +238,9 @@ fn filters_similar_should_filter_response() {
             .not(),
     );
 
-    assert_eq!(canary.hits(), 1);
-    assert_eq!(similar.hits(), 1);
-    assert_eq!(not_similar.hits(), 1);
+    assert_eq!(canary.calls(), 1);
+    assert_eq!(similar.calls(), 1);
+    assert_eq!(not_similar.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -281,8 +281,8 @@ fn collect_backups_should_be_filtered() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -329,7 +329,7 @@ fn filters_regex_should_filter_response_based_on_headers() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }

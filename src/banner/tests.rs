@@ -82,7 +82,7 @@ async fn banner_needs_update_returns_up_to_date() {
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::UpToDate));
 }
 
@@ -105,7 +105,7 @@ async fn banner_needs_update_returns_out_of_date() {
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::OutOfDate));
 }
 
@@ -127,7 +127,7 @@ async fn banner_needs_update_returns_unknown_on_timeout() {
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));
 }
 
@@ -147,7 +147,7 @@ async fn banner_needs_update_returns_unknown_on_bad_json_response() {
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));
 }
 
@@ -169,6 +169,6 @@ async fn banner_needs_update_returns_unknown_on_json_without_correct_tag() {
 
     let _ = banner.check_for_updates(&srv.url("/latest"), handles).await;
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     assert!(matches!(banner.update_status, UpdateStatus::Unknown));
 }

@@ -34,7 +34,7 @@ fn scanner_single_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .and(predicate::str::contains("14")),
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -90,10 +90,10 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.hits(), 2);
-    assert_eq!(js_prod_mock.hits(), 2);
-    assert_eq!(js_dev_mock.hits(), 2);
-    assert_eq!(js_dev_file_mock.hits(), 1);
+    assert_eq!(js_mock.calls(), 2);
+    assert_eq!(js_prod_mock.calls(), 2);
+    assert_eq!(js_dev_mock.calls(), 2);
+    assert_eq!(js_dev_file_mock.calls(), 1);
 
     teardown_tmp_directory(tmp_dir);
 
@@ -153,10 +153,10 @@ fn scanner_recursive_request_scan_using_only_success_responses(
             .and(predicate::str::is_match("200.*js/dev/file.js").unwrap()),
     );
 
-    assert_eq!(js_mock.hits(), 3);
-    assert_eq!(js_prod_mock.hits(), 3);
-    assert_eq!(js_dev_mock.hits(), 3);
-    assert_eq!(js_dev_file_mock.hits(), 1);
+    assert_eq!(js_mock.calls(), 3);
+    assert_eq!(js_prod_mock.calls(), 3);
+    assert_eq!(js_dev_mock.calls(), 3);
+    assert_eq!(js_dev_file_mock.calls(), 1);
 
     teardown_tmp_directory(tmp_dir);
 
@@ -192,7 +192,7 @@ fn scanner_single_request_scan_with_file_output() -> Result<(), Box<dyn std::err
     assert!(contents.contains("200"));
     assert!(contents.contains("14"));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -227,7 +227,7 @@ fn scanner_single_request_scan_with_file_output_and_tack_q(
     let url = srv.url("/LICENSE");
     assert!(contents.contains(&url));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -260,7 +260,7 @@ fn scanner_single_request_scan_with_invalid_file_output() -> Result<(), Box<dyn 
     let contents = std::fs::read_to_string(outfile);
     assert!(contents.is_err());
 
-    assert_eq!(mock.hits(), 0);
+    assert_eq!(mock.calls(), 0);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -293,7 +293,7 @@ fn scanner_single_request_quiet_scan() -> Result<(), Box<dyn std::error::Error>>
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -328,7 +328,7 @@ fn scanner_single_request_returns_301_without_location_header(
             .and(predicate::str::contains("14")),
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -371,8 +371,8 @@ fn scanner_single_request_replayed_to_proxy() -> Result<(), Box<dyn std::error::
         )
         .stderr(predicate::str::contains("Replay Proxy Codes"));
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -414,8 +414,8 @@ fn scanner_single_request_scan_with_filtered_result() -> Result<(), Box<dyn std:
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(filtered_mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(filtered_mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -453,7 +453,7 @@ fn scanner_single_request_scan_with_debug_logging() {
     assert!(contents.contains("feroxbuster All scans complete!"));
     assert!(contents.contains("feroxbuster::event_handlers::inputs exit: start_enter_handler"));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -497,7 +497,7 @@ fn scanner_single_request_scan_with_debug_logging_as_json() {
     assert!(contents.contains("exit: start_enter_handler"));
     assert!(contents.contains("All scans complete!"));
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -538,8 +538,8 @@ fn scanner_single_request_scan_with_regex_filtered_result() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(filtered_mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(filtered_mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -588,9 +588,9 @@ fn scanner_recursion_works_with_403_directories() {
             .and(predicate::str::contains("/ignored/LICENSE")),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(found_anyway.hits(), 1);
-    assert_eq!(forbidden_dir.hits(), 3);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(found_anyway.calls(), 1);
+    assert_eq!(forbidden_dir.calls(), 3);
 
     teardown_tmp_directory(tmp_dir);
 }
@@ -665,7 +665,7 @@ fn add_discovered_extension_updates_bars_and_stats() {
         .assert()
         .success();
 
-    mock.assert_hits(1);
+    mock.assert_calls(1);
     let contents = std::fs::read_to_string(file_path).unwrap();
     println!("{contents}");
     assert!(contents.contains("discovered new extension: php"));
@@ -740,11 +740,11 @@ fn collect_backups_makes_appropriate_requests() {
     );
 
     for valid_mock in valid_mocks {
-        assert_eq!(valid_mock.hits(), 1);
+        assert_eq!(valid_mock.calls(), 1);
     }
 
     for invalid_mock in invalid_mocks {
-        assert_eq!(invalid_mock.hits(), 0);
+        assert_eq!(invalid_mock.calls(), 0);
     }
 
     teardown_tmp_directory(tmp_dir);
@@ -836,7 +836,7 @@ fn collect_words_makes_appropriate_requests() {
     sleep(Duration::new(2, 0));
 
     for valid_mock in valid_mocks {
-        assert_eq!(valid_mock.hits(), 1);
+        assert_eq!(valid_mock.calls(), 1);
     }
 
     teardown_tmp_directory(tmp_dir);
@@ -894,10 +894,10 @@ fn scanner_forced_recursion_ignores_normal_redirect_logic() -> Result<(), Box<dy
     assert!(contents.contains("301"));
     assert!(contents.contains("14"));
 
-    assert_eq!(mock1.hits(), 2);
-    assert_eq!(mock2.hits(), 1);
-    assert_eq!(mock3.hits(), 0);
-    assert_eq!(mock4.hits(), 0);
+    assert_eq!(mock1.calls(), 2);
+    assert_eq!(mock2.calls(), 1);
+    assert_eq!(mock3.calls(), 0);
+    assert_eq!(mock4.calls(), 0);
 
     teardown_tmp_directory(tmp_dir);
 
@@ -945,9 +945,9 @@ fn scanner_multiple_wordlists_dedup_union() -> Result<(), Box<dyn std::error::Er
     );
 
     // /LICENSE appears in both wordlists; the merged set must request it exactly once
-    assert_eq!(mock_license.hits(), 1);
-    assert_eq!(mock_stuff.hits(), 1);
-    assert_eq!(mock_things.hits(), 1);
+    assert_eq!(mock_license.calls(), 1);
+    assert_eq!(mock_stuff.calls(), 1);
+    assert_eq!(mock_things.calls(), 1);
 
     teardown_tmp_directory(tmp_dir_a);
     teardown_tmp_directory(tmp_dir_b);
@@ -986,8 +986,8 @@ fn scanner_multiple_wordlists_comma_separated() -> Result<(), Box<dyn std::error
         .success()
         .stdout(predicate::str::contains("/alpha").and(predicate::str::contains("/beta")));
 
-    assert_eq!(mock_alpha.hits(), 1);
-    assert_eq!(mock_beta.hits(), 1);
+    assert_eq!(mock_alpha.calls(), 1);
+    assert_eq!(mock_beta.calls(), 1);
 
     teardown_tmp_directory(tmp_dir_a);
     teardown_tmp_directory(tmp_dir_b);

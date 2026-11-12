@@ -42,8 +42,8 @@ fn extractor_finds_absolute_url() -> Result<(), Box<dyn std::error::Error>> {
             )),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -78,7 +78,7 @@ fn extractor_finds_absolute_url_to_different_domain() -> Result<(), Box<dyn std:
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
+    assert_eq!(mock.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -117,8 +117,8 @@ fn extractor_finds_relative_url() -> Result<(), Box<dyn std::error::Error>> {
             )),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -165,9 +165,9 @@ fn extractor_finds_same_relative_url_twice() {
             .and(predicate::str::contains("/homepage/assets/img/icons/handshake.svg").count(1)),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
-    assert!(mock_three.hits() <= 2);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
+    assert!(mock_three.calls() <= 2);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -210,8 +210,8 @@ fn extractor_finds_filtered_content() -> Result<(), Box<dyn std::error::Error>> 
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -282,12 +282,12 @@ fn extractor_finds_robots_txt_links_and_displays_files_or_scans_directories() {
             .and(predicate::str::contains("200").count(4)),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_dir.hits(), 3);
-    assert_eq!(mock_two.hits(), 1);
-    assert_eq!(mock_file.hits(), 1);
-    assert_eq!(mock_disallowed.hits(), 1);
-    assert_eq!(mock_scanned_file.hits(), 1);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_dir.calls(), 3);
+    assert_eq!(mock_two.calls(), 1);
+    assert_eq!(mock_file.calls(), 1);
+    assert_eq!(mock_disallowed.calls(), 1);
+    assert_eq!(mock_scanned_file.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -355,12 +355,12 @@ fn extractor_finds_robots_txt_links_and_displays_files_non_recursive() {
             .and(predicate::str::contains("200").count(2)),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_dir.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
-    assert_eq!(mock_file.hits(), 1);
-    assert_eq!(mock_disallowed.hits(), 1);
-    assert_eq!(mock_scanned_file.hits(), 0);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_dir.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
+    assert_eq!(mock_file.calls(), 1);
+    assert_eq!(mock_disallowed.calls(), 1);
+    assert_eq!(mock_scanned_file.calls(), 0);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -462,13 +462,13 @@ fn extractor_finds_directory_listing_links_and_displays_files() {
             .and(predicate::str::contains("200").count(3)),
     );
 
-    assert_eq!(mock_root.hits(), 2);
-    assert_eq!(mock_root_file.hits(), 1);
-    assert_eq!(mock_dir_disallowed.hits(), 1);
-    assert_eq!(mock_dir_redir.hits(), 1);
-    assert_eq!(mock_dir.hits(), 2);
-    assert_eq!(mock_dir_file.hits(), 1);
-    assert_eq!(mock_dir_file_ext.hits(), 1);
+    assert_eq!(mock_root.calls(), 2);
+    assert_eq!(mock_root_file.calls(), 1);
+    assert_eq!(mock_dir_disallowed.calls(), 1);
+    assert_eq!(mock_dir_redir.calls(), 1);
+    assert_eq!(mock_dir.calls(), 2);
+    assert_eq!(mock_dir_file.calls(), 1);
+    assert_eq!(mock_dir_file_ext.calls(), 1);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -572,13 +572,13 @@ fn extractor_finds_directory_listing_links_and_displays_files_non_recursive() {
             .and(predicate::str::contains("200").count(1)),
     );
 
-    assert_eq!(mock_root.hits(), 2);
-    assert_eq!(mock_root_file.hits(), 1);
-    assert_eq!(mock_dir_disallowed.hits(), 1);
-    assert_eq!(mock_dir_redir.hits(), 1);
-    assert_eq!(mock_dir.hits(), 1);
-    assert_eq!(mock_dir_file.hits(), 0);
-    assert_eq!(mock_dir_file_ext.hits(), 0);
+    assert_eq!(mock_root.calls(), 2);
+    assert_eq!(mock_root_file.calls(), 1);
+    assert_eq!(mock_dir_disallowed.calls(), 1);
+    assert_eq!(mock_dir_redir.calls(), 1);
+    assert_eq!(mock_dir.calls(), 1);
+    assert_eq!(mock_dir_file.calls(), 0);
+    assert_eq!(mock_dir_file_ext.calls(), 0);
     teardown_tmp_directory(tmp_dir);
 }
 
@@ -625,9 +625,9 @@ fn extractor_recurses_into_403_directories() -> Result<(), Box<dyn std::error::E
             )),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_two.hits(), 1);
-    assert_eq!(forbidden_dir.hits(), 3);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_two.calls(), 1);
+    assert_eq!(forbidden_dir.calls(), 3);
     teardown_tmp_directory(tmp_dir);
     Ok(())
 }
@@ -692,11 +692,11 @@ fn robots_text_extraction_doesnt_run_with_dont_extract_links() {
             .not(),
     );
 
-    assert_eq!(mock.hits(), 1);
-    assert_eq!(mock_dir.hits(), 0);
-    assert_eq!(mock_two.hits(), 0);
-    assert_eq!(mock_file.hits(), 0);
-    assert_eq!(mock_disallowed.hits(), 0);
-    assert_eq!(mock_scanned_file.hits(), 0);
+    assert_eq!(mock.calls(), 1);
+    assert_eq!(mock_dir.calls(), 0);
+    assert_eq!(mock_two.calls(), 0);
+    assert_eq!(mock_file.calls(), 0);
+    assert_eq!(mock_disallowed.calls(), 0);
+    assert_eq!(mock_scanned_file.calls(), 0);
     teardown_tmp_directory(tmp_dir);
 }
