@@ -46,7 +46,7 @@ serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 uuid = { version = "1.29", features = ["v4"] }
 indicatif = { version = "0.17.11" }
-console = "0.15"
+console = "0.16"
 openssl = { version = "0.10", features = ["vendored"] }
 dirs = "5.0"
 regex = "1.13"
