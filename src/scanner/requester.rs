@@ -1468,13 +1468,11 @@ mod tests {
 
         // All heap values should be clamped to 100
         let heap = policy_data.heap.read().unwrap();
-        for i in 0..heap.inner.len() {
-            if heap.inner[i] > 0 {
+        for (i, value) in heap.inner.iter().enumerate() {
+            if *value > 0 {
                 assert!(
-                    heap.inner[i] <= 100,
-                    "Heap value at index {} is {}, expected <= 100",
-                    i,
-                    heap.inner[i]
+                    *value <= 100,
+                    "Heap value at index {i} is {value}, expected <= 100"
                 );
             }
         }

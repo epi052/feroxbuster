@@ -101,6 +101,103 @@ fn scanner_recursive_request_scan() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+/// --query parameters are added to every request; a 301 from /js?stuff=things to
+/// /js/?stuff=things is still a directory, and the recursive scan of it keeps sending the query
+fn scanner_recursive_request_scan_with_query_parameters() -> Result<(), Box<dyn std::error::Error>>
+{
+    let srv = MockServer::start();
+    let urls = ["js".to_string(), "file.js".to_string()];
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
+
+    let js_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js").query_param("stuff", "things");
+        then.status(301).header("Location", "/js/?stuff=things");
+    });
+
+    let js_file_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path("/js/file.js")
+            .query_param("stuff", "things");
+        then.status(200)
+            .body("this is a test and is more bytes than other ones");
+    });
+
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--query")
+        .arg("stuff=things")
+        .arg("-vvvv")
+        .arg("-t")
+        .arg("1")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::is_match("301.*js")
+            .unwrap()
+            .and(predicate::str::is_match("200.*js/file.js").unwrap()),
+    );
+
+    assert!(js_mock.hits() >= 1);
+    assert_eq!(js_file_mock.hits(), 1);
+
+    teardown_tmp_directory(tmp_dir);
+
+    Ok(())
+}
+
+#[test]
+/// with --add-slash and --query, a 200 for /js/?stuff=things is a directory, and the recursive
+/// scan of it keeps sending the query
+fn scanner_recursive_request_scan_with_query_parameters_and_add_slash(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let srv = MockServer::start();
+    let urls = ["js".to_string(), "dev".to_string()];
+    let (tmp_dir, file) = setup_tmp_directory(&urls, "wordlist")?;
+
+    let js_mock = srv.mock(|when, then| {
+        when.method(GET).path("/js/").query_param("stuff", "things");
+        then.status(200).body("js directory");
+    });
+
+    let js_dev_mock = srv.mock(|when, then| {
+        when.method(GET)
+            .path("/js/dev/")
+            .query_param("stuff", "things");
+        then.status(200)
+            .body("this is a test and is more bytes than other ones");
+    });
+
+    let cmd = Command::new(cargo_bin!("feroxbuster"))
+        .arg("--url")
+        .arg(srv.url("/"))
+        .arg("--wordlist")
+        .arg(file.as_os_str())
+        .arg("--query")
+        .arg("stuff=things")
+        .arg("--add-slash")
+        .arg("-vvvv")
+        .arg("-t")
+        .arg("1")
+        .unwrap();
+
+    cmd.assert().success().stdout(
+        predicate::str::is_match("200.*js/")
+            .unwrap()
+            .and(predicate::str::is_match("200.*js/dev/").unwrap()),
+    );
+
+    assert!(js_mock.hits() >= 1);
+    assert!(js_dev_mock.hits() >= 1);
+
+    teardown_tmp_directory(tmp_dir);
+
+    Ok(())
+}
+
+#[test]
 /// send a valid request, follow 200s into new directories, expect 200 responses
 fn scanner_recursive_request_scan_using_only_success_responses(
 ) -> Result<(), Box<dyn std::error::Error>> {
