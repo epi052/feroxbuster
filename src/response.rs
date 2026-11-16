@@ -415,7 +415,16 @@ impl FeroxResponse {
                                 let _ = abs_url.set_scheme(self.url().scheme());
                             }
 
-                            if format!("{}/", self.url()) == abs_url.as_str() {
+                            // --query adds its parameters to every request, and servers keep
+                            // (or drop) them when redirecting /dir to /dir/; only the path
+                            // matters for directory detection, so compare without query/fragment
+                            let mut request_url = self.url().clone();
+                            for url in [&mut request_url, &mut abs_url] {
+                                url.set_query(None);
+                                url.set_fragment(None);
+                            }
+
+                            if format!("{request_url}/") == abs_url.as_str() {
                                 // if current response's Url + / == the absolute redirection
                                 // location, we've found a directory suitable for recursion
                                 log::debug!(
@@ -435,9 +444,10 @@ impl FeroxResponse {
                 }
             }
         } else if self.status().is_success() || matches!(self.status(), &StatusCode::FORBIDDEN) {
-            // status code is 2xx or 403, need to check if it ends in /
+            // status code is 2xx or 403, need to check if the path ends in /
+            // (the path, not the whole url, so that --query parameters don't hide it)
 
-            if self.url().as_str().ends_with('/') {
+            if self.url().path().ends_with('/') {
                 log::debug!("{} is directory suitable for recursion", self.url());
                 log::trace!("exit: is_directory -> true");
                 return true;
@@ -797,6 +807,70 @@ mod tests {
                 ..Default::default()
             };
             assert_eq!(response.is_directory(), expected, "{url} => {location}");
+        }
+    }
+
+    #[test]
+    /// --query parameters (and fragments) must not hide a directory: a 3xx to the same path plus
+    /// a trailing slash is a directory whether or not the redirect keeps the query, and a 2xx/403
+    /// is a directory when its path ends in a slash
+    fn is_directory_ignores_query_and_fragment() {
+        for (url, location, expected) in [
+            (
+                "http://localhost/js?stuff=things",
+                "/js/?stuff=things",
+                true,
+            ),
+            ("http://localhost/js?stuff=things", "/js/", true),
+            (
+                "http://localhost/js?stuff=things",
+                "http://localhost/js/?stuff=things#top",
+                true,
+            ),
+            (
+                "http://localhost/js?stuff=things",
+                "/other/?stuff=things",
+                false,
+            ),
+            (
+                "http://localhost/js?stuff=things",
+                "/js?stuff=things/",
+                false,
+            ),
+            (
+                "http://localhost/js?stuff=things",
+                "/js/file?stuff=things",
+                false,
+            ),
+        ] {
+            let mut headers = reqwest::header::HeaderMap::new();
+            headers.insert("Location", location.parse().unwrap());
+            let response = FeroxResponse {
+                url: Url::parse(url).unwrap(),
+                status: StatusCode::MOVED_PERMANENTLY,
+                headers,
+                ..Default::default()
+            };
+            assert_eq!(response.is_directory(), expected, "{url} => {location}");
+        }
+
+        for (url, status, expected) in [
+            ("http://localhost/js/?stuff=things", StatusCode::OK, true),
+            (
+                "http://localhost/js/?stuff=things",
+                StatusCode::FORBIDDEN,
+                true,
+            ),
+            ("http://localhost/js/#top", StatusCode::OK, true),
+            ("http://localhost/js?next=/", StatusCode::OK, false),
+            ("http://localhost/js#/", StatusCode::OK, false),
+        ] {
+            let response = FeroxResponse {
+                url: Url::parse(url).unwrap(),
+                status,
+                ..Default::default()
+            };
+            assert_eq!(response.is_directory(), expected, "{url} ({status})");
         }
     }
 

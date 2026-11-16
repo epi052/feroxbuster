@@ -479,10 +479,16 @@ impl ScanHandler {
             }
         }
 
-        let targets = vec![response.url().to_string()];
+        // --query parameters are added again to every url the new scan formats, and a query
+        // left on the base url would break joining each word onto it
+        let mut target = response.url().clone();
+        target.set_query(None);
+        target.set_fragment(None);
+
+        let targets = vec![target.to_string()];
         self.ordered_scan_url(targets, ScanOrder::Latest).await?;
 
-        log::info!("Added new directory to recursive scan: {}", response.url());
+        log::info!("Added new directory to recursive scan: {target}");
 
         log::trace!("exit: try_recursion");
         Ok(())
